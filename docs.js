@@ -322,8 +322,10 @@ export function filaDoc(l, { p = null, puede = false, enArchivos = false, alTarj
     const pista = nh.original === nh.titulo ? ruta : `${nh.original}\n${ruta}`;
     if (nh.emisor) caja.appendChild(el('span', 'emisor', nh.emisor));
     const t = el('div', 't');
-    const href = hrefSeguro(l.Url);   // v0.13.1: solo http(s) llega al href, venga de donde venga la Url
-    if (href) { const a = el('a', '', nh.titulo); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = pista; t.appendChild(a); } else { const s = el('span', '', nh.titulo); s.title = pista; t.appendChild(s); }
+    const href = hrefSeguro(l.Url, { tipo: l.Tipo, host: CONFIG.sharepointHost });   // v0.13.1 + S-15: solo http(s), y una liga de la casa solo a SharePoint
+    const fuera = l.Tipo !== 'enlace' && l.Url && !href;   // S-15: alguien editó la Url desde SharePoint hacia otro sitio
+    const pistaH = l.Tipo === 'enlace' && href ? `${pista}\n(abre ${new URL(href).hostname})` : fuera ? `${pista}\nLa dirección no es de SharePoint de MINSA: no se abre.` : pista;
+    if (href) { const a = el('a', '', nh.titulo); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = pistaH; t.appendChild(a); } else { const s = el('span', '', nh.titulo); s.title = pistaH; t.appendChild(s); }
     caja.appendChild(t);
     if (nh.rev) caja.appendChild(el('span', 'mn-chip rev', nh.rev));
     tdN.appendChild(caja); tr.appendChild(tdN);
@@ -334,7 +336,7 @@ export function filaDoc(l, { p = null, puede = false, enArchivos = false, alTarj
     const ta = tipoArchivo(l.Ruta || l.Title, l.Tipo);
     const tdT = el('td', 'c-tipo'); const bt = el('span', 'mn-chip tipo is-' + ta.clave, ta.sigla); bt.dataset.tipo = ta.clave; bt.title = ta.etiqueta; tdT.appendChild(bt); tr.appendChild(tdT);
     // Estado de la liga (archivado / en el buzon / enlace); el 404 del buzon lo reemplaza pintarDocs.
-    const tdE = el('td', 'c-estado'); const est = el('span', 'estado'); est.appendChild(l.Tipo === 'buzon' ? chip('en el buzón', 'info') : l.Tipo === 'enlace' ? chip('enlace') : chip('archivado', 'ok')); tdE.appendChild(est); tr.appendChild(tdE);
+    const tdE = el('td', 'c-estado'); const est = el('span', 'estado'); est.appendChild(fuera ? chip('dirección externa', 'danger') : l.Tipo === 'buzon' ? chip('en el buzón', 'info') : l.Tipo === 'enlace' ? chip('enlace') : chip('archivado', 'ok')); tdE.appendChild(est); tr.appendChild(tdE);
     // Tarjeta: select (F1) si puede; boton que la abre en #archivos; texto en lectura. v0.45.0: con `sinTarjeta` la celda
     // no existe (la carpeta ya la nombra) y «Abrir tarjeta» va al menu «⋯».
     const tt = l.TareaId ? porId(estado.tareas, l.TareaId) : null;

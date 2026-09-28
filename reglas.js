@@ -393,11 +393,18 @@ export function reordenar(tareasColumna, id, delta) {
  * cuenta con permiso de escritura en el sitio puede editar desde SharePoint: aqui se vuelve a exigir http(s)
  * para que un `javascript:` o `data:` pegado a mano no llegue nunca al DOM (la CSP lo bloquearia; esto lo
  * bloquea antes y sin depender de ella).
+ * S-15 (27-sep): con `tipo` distinto de «enlace» (archivado, buzon) y `host`, la liga se pinta como documento de la
+ * casa, asi que ademas se exige https y ese host exacto: una Url editada desde SharePoint hacia otro sitio da null.
  */
-export function hrefSeguro(url) {
+export function hrefSeguro(url, { tipo = null, host = null } = {}) {
     const s = String(url || '').trim();
     if (!/^https?:\/\//i.test(s)) return null;
-    try { const u = new URL(s); return ['http:', 'https:'].includes(u.protocol) ? u.href : null; } catch (_) { return null; }
+    try {
+        const u = new URL(s);
+        if (!['http:', 'https:'].includes(u.protocol)) return null;
+        if (tipo && tipo !== 'enlace' && host && (u.protocol !== 'https:' || u.hostname.toLowerCase() !== String(host).toLowerCase())) return null;
+        return u.href;
+    } catch (_) { return null; }
 }
 
 /** ISO del instante «hace `dias` dias» (v0.13.1: el piso de la ventana de PROY_Actividad). `dias` <= 0 = sin piso (null). */

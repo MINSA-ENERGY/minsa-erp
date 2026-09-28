@@ -208,7 +208,10 @@ export function pintarFiltroTareas(proyecto) {
     if (conteo['']) lsd.appendChild(el('span', 'n mn-mono', String(conteo['']))); caja.appendChild(lsd);
     if (f.quien.length || f.sinDueno) caja.appendChild(boton('Quitar el filtro de persona', 'limp', () => { f.quien = []; f.sinDueno = false; repintar(); }, { filtro: 'quitarQuien' }));
     menu.appendChild(caja); c.appendChild(menu);
-    // ---- los fijos
+    // ---- los fijos. R-01 (27-sep, Jira «Only My Issues»): «mías» primero, de un toque; es el mismo filtro que marcar solo mi casilla en «Quién».
+    const yo = String(estado.cuenta && estado.cuenta.username || '').toLowerCase();
+    const soloYo = f.quien.length === 1 && f.quien[0] === yo && !f.sinDueno;
+    if (yo) chipBtn('mías', soloYo, () => { f.quien = soloYo ? [] : [yo]; f.sinDueno = false; }, { filtro: 'mias' });
     for (const [k, texto] of CHIPS_FILTRO) chipBtn(texto, !!f[k], () => { f[k] = !f[k]; }, { filtro: k });
     const activo = !!(f.quien.length || f.alta || f.vencidas || f.sinDueno || f.texto);
     if (activo) chipBtn('× limpiar', false, () => limpiarFiltroTareas(), { filtro: 'limpiar' });   // C-13 (v0.95.0)
@@ -328,7 +331,10 @@ const COLUMNAS_LISTA = [['prioridad', 'P'], ['tarea', 'Tarea'], ['asignado', 'As
 export function pintarLista(proyecto) {
     const cont = $('tab-lista'); cont.textContent = '';
     const o = estado.ordenLista;
-    const ts = ordenarLista(tareasVisibles(proyecto), o.col, o.dir, c => nombreDe(c, estado.roles), columnasDe(proyecto));
+    const todas = ordenarLista(tareasVisibles(proyecto), o.col, o.dir, c => nombreDe(c, estado.roles), columnasDe(proyecto));
+    // R-02 (27-sep, Linear «Show completed»): la Lista pinta las abiertas y cierra con «ver las N hechas», el mismo gesto que Hecho del tablero.
+    const nHechas = todas.filter(t => t.Columna === HECHO).length;
+    const ts = estado.listaHechas ? todas : todas.filter(t => t.Columna !== HECHO);
     const tabla = el('table'); const thead = el('thead'); const tr = el('tr');
     // F10: clic en el encabezado ordena; segundo clic invierte. La flecha va en el activo (aria-sort).
     for (const [clave, texto] of COLUMNAS_LISTA) {
@@ -360,7 +366,13 @@ export function pintarLista(proyecto) {
         r.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abrirTarjeta(t.id); } });
         tbody.appendChild(r);
     }
-    if (!ts.length) { const r = el('tr'); const td = el('td', 'vacio', tareasDe(proyecto, estado.tareas).length ? 'Nada con ese filtro.' : 'Sin tareas todavía.'); td.colSpan = COLUMNAS_LISTA.length; r.appendChild(td); tbody.appendChild(r); }
+    if (!todas.length) { const r = el('tr'); const td = el('td', 'vacio', tareasDe(proyecto, estado.tareas).length ? 'Nada con ese filtro.' : 'Sin tareas todavía.'); td.colSpan = COLUMNAS_LISTA.length; r.appendChild(td); tbody.appendChild(r); }
+    else if (!ts.length) { const r = el('tr'); const td = el('td', 'vacio', 'Nada abierto.'); td.colSpan = COLUMNAS_LISTA.length; r.appendChild(td); tbody.appendChild(r); }
+    if (nHechas && !estado.listaHechas) {
+        const r = el('tr', 'mas-hechas'); const td = el('td'); td.colSpan = COLUMNAS_LISTA.length;
+        td.appendChild(boton(`ver las ${nHechas} hecha${nHechas === 1 ? '' : 's'}`, 'mn-btn is-ghost is-sm mas', () => { estado.listaHechas = true; conAbierto(pintarLista)(); }, { mas: 'hechas-lista' }));
+        r.appendChild(td); tbody.appendChild(r);
+    }
     tabla.appendChild(tbody); cont.appendChild(tabla);
 }
 
@@ -732,9 +744,10 @@ function pintarDocsDeTarjeta(t, p) {
         const fila = el('div', 'tdoc');
         fila.appendChild(iconoArchivo(l.Ruta || l.Title, l.Tipo, 'sm'));   // v0.8.0
         const cuerpo = el('div', 't');
-        const a = el('a', '', l.Title); const href = hrefSeguro(l.Url); if (href) { a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; }   // v0.13.1: solo http(s)
+        const a = el('a', '', l.Title); const href = hrefSeguro(l.Url, { tipo: l.Tipo, host: CONFIG.sharepointHost }); if (href) { a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; if (l.Tipo === 'enlace') a.title = `abre ${new URL(href).hostname}`; }   // v0.13.1 + S-15
         cuerpo.appendChild(a);
-        cuerpo.appendChild(chip(l.Tipo === 'buzon' ? 'en el buzón' : l.Tipo === 'enlace' ? 'enlace' : 'archivado', l.Tipo === 'buzon' ? 'info' : l.Tipo === 'enlace' ? null : 'ok'));
+        const fuera = l.Tipo !== 'enlace' && l.Url && !href;   // S-15: Url editada desde SharePoint hacia otro sitio
+        cuerpo.appendChild(fuera ? chip('dirección externa', 'danger') : chip(l.Tipo === 'buzon' ? 'en el buzón' : l.Tipo === 'enlace' ? 'enlace' : 'archivado', l.Tipo === 'buzon' ? 'info' : l.Tipo === 'enlace' ? null : 'ok'));
         fila.appendChild(cuerpo);
         if (puede || (l.Tipo === 'enlace' && puedeEnlazarEn(p))) {
             const q = boton('', 'mn-btn is-ghost is-sm is-icono quitar', async () => { const lv = porId(estado.ligas, lId); if (!lv) { avisar('Esa liga ya no está.', 'ojo'); return; } if (await quitarLiga(lv)) repintarDocsDeTarjeta(tId); }, { quitar: String(l.id) });
@@ -970,7 +983,9 @@ export function abrirNuevaTarea() {
     $('ntAsignado').value = personas().includes(estado.cuenta.username.toLowerCase()) ? estado.cuenta.username.toLowerCase() : '';
     const cols = columnasDe(p);   // v0.11.0: las cubetas de este proyecto; nace en la primera
     opciones($('ntColumna'), cols, c => c.clave, c => c.nombre, null);
-    $('ntColumna').value = cols[0].clave;
+    // R-03 (27-sep, Linear): en celular (las pestañas de cubeta a la vista) nace en la cubeta que se está mirando; en escritorio, en la primera.
+    const enVista = estado.tab === 'tablero' && $('colTabs').offsetParent !== null && cols.some(c => c.clave === estado.colMovil);
+    $('ntColumna').value = enVista ? estado.colMovil : cols[0].clave;
     $('ntTitulo').value = ''; ponerPrioridad('ntPrioridad', 'normal'); $('ntVence').value = ''; $('ntDesc').value = '';
     selectorTonos($('ntColor'), '', null, 'Color de la tarjeta');   // v0.12.0
     atajosFecha('ntVence', 'ntAtajos', p.Vence);   // C2 + D1

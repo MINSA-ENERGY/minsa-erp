@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.124.0';
+export const VERSION = '0.125.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -38,6 +38,7 @@ export const estado = {
     filtroMisAlLlegar: null,   // U-03 (v0.90.0): el filtro con que Inicio manda a Mis tareas; irA lo consume en esa visita
     // v0.4.0: «ver las N anteriores» de Hecho (U6), filtro de Documentos (U10), firma de la ultima carga (T3)
     hechoTodas: false,
+    listaHechas: false,   // R-02 (27-sep): la Lista ensena las hechas (su propia bandera; la del tablero es hechoTodas)
     filtroDocs: null,
     ordenDocs: { col: 'del', dir: -1 },
     abiertasDocs: new Set(),                   // v0.52.0: ids de carpeta ABIERTAS en el arbol de Docs (0 = «Del proyecto», id de tarjeta, -1 = «sin documentos»): nace todo plegado (Carlos, 15-sep); se reinicia por proyecto. v0.33.0 guardaba las plegadas y -1 iba al reves         // v0.19.0: por la fecha del DOCUMENTO (la unica de las dos que se ve en el panel de Docs a 1366); v0.18.0: orden de la tabla de Docs del proyecto (se reinicia al cambiar de proyecto, como ordenLista)
@@ -235,7 +236,7 @@ export function confirmar({ titulo, texto, ok = 'Confirmar', motivo = false, eti
             cerrar(true);
         };
         $('dlgCancelar').onclick = () => cerrar(false);
-        d.onclose = () => cerrar(false);
+        d.onclose = () => { if (!d.open) cerrar(false); };   // 27-sep: el «close» de la confirmacion ANTERIOR llega en otra tarea; si ya se abrio esta, no es suyo
         $('dlgMotivo').oninput = () => $('dlgError').classList.add('oculto');
         // B8: tambien la confirmacion se cierra con Atras (popstate → close → onclose → cerrar(false)).
         history.pushState({ dlg: 'dlg' }, '', location.href); d.dataset.enHistorial = '1';

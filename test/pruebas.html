@@ -69,7 +69,7 @@
     function json(status, cuerpo) { return new Response(cuerpo === undefined ? null : JSON.stringify(cuerpo), { status, headers: { 'Content-Type': 'application/json' } }); }
     function error(status, mensaje) { return json(status, { error: { code: 'falso', message: mensaje } }); }
     // El webUrl que Graph da por un archivo de Office: Doc.aspx?sourcedoc={GUID}&file=<nombre>&action=default&mobileredirect=true(&DefaultItemOpen=1).
-    const webUrlDe = a => a.office ? `https://tenant.example.invalid/sites/Ambiental-CALYTEK/_layouts/15/Doc.aspx?sourcedoc=%7B${(a.guid || '00000000-0000-0000-0000-000000000000').toUpperCase()}%7D&file=${a.nombre}&action=default&mobileredirect=true&DefaultItemOpen=1` : 'https://tenant.example.invalid/' + a.ruta;
+    const webUrlDe = a => a.office ? `https://minsaenergy.sharepoint.com/sites/Ambiental-CALYTEK/_layouts/15/Doc.aspx?sourcedoc=%7B${(a.guid || '00000000-0000-0000-0000-000000000000').toUpperCase()}%7D&file=${a.nombre}&action=default&mobileredirect=true&DefaultItemOpen=1` : 'https://minsaenergy.sharepoint.com/' + a.ruta;
     function validarChoices(l, campos) {
         const esq = DB.esquema.listas.find(x => x.nombre === l.nombre);
         for (const c of esq.columnas) {
@@ -739,6 +739,13 @@ try {
             R.ok('F3: un clic fuera cierra el menu', !document.querySelector('#filtroChips .menu-quien').open);
             document.querySelector('#filtroChips [data-filtro="limpiar"]').click(); await dormir(30);
             R.ok('F3: × limpiar vacia el array de personas y sin dueño', mod.estado.filtroTareas.quien.length === 0 && !mod.estado.filtroTareas.sinDueno && document.querySelectorAll('#tableroCols .tarjeta').length === N);
+            // R-01 (27-sep, Jira): el chip «mías» va primero entre los fijos y es un toque para dejar solo lo mío; el segundo lo quita.
+            const chM = () => document.querySelector('#filtroChips [data-filtro="mias"]');
+            R.ok('R-01: el chip «mías» existe y va antes de «solo alta»', !!chM() && chM().nextElementSibling === document.querySelector('#filtroChips [data-filtro="alta"]'));
+            chM().click(); await dormir(30);
+            R.ok('R-01: «mías» deja solo mis tarjetas, se marca y el aviso me nombra', document.querySelectorAll('#tableroCols .tarjeta').length === mias && chM().classList.contains('is-on') && mod.estado.filtroTareas.quien.join() === yo && $('filtroAviso').textContent.startsWith('Filtrado: '));
+            chM().click(); await dormir(30);
+            R.ok('R-01: el segundo toque lo quita', !chM().classList.contains('is-on') && mod.estado.filtroTareas.quien.length === 0 && document.querySelectorAll('#tableroCols .tarjeta').length === N);
         }
         document.querySelector('#filtroChips [data-filtro="alta"]').click(); await dormir(30);
         R.ok('filtro «solo alta» quita la normal, marca el chip y ofrece limpiar', document.querySelectorAll('#tableroCols .tarjeta').length === N - 1 && document.querySelector('#filtroChips [data-filtro="alta"]').classList.contains('is-on') && !!document.querySelector('#filtroChips [data-filtro="limpiar"]'));
@@ -784,7 +791,19 @@ try {
           R.ok('v0.20.0: en Compacto la tarjeta mide al menos 36 px (objetivo táctil)', [...document.querySelectorAll('#tableroCols .tarjeta')].every(x => x.getBoundingClientRect().height >= 36 || x.offsetParent === null));
           tab('lista'); await dormir(30);
           R.ok('v0.20.0: el conmutador solo se ve en el tablero', $('densidad').classList.contains('oculto'));
+          // R-02 (27-sep, Linear): la Lista esconde las hechas y ofrece «ver las N hechas» al pie; el clic las agrega.
+          { const mod = await import('../comun.js'); mod.estado.listaHechas = false; tab('tablero'); await dormir(20); tab('lista'); await dormir(30);
+            const nH = mod.estado.tareas.filter(x => Number(x.ProyectoId) === proyectoId && x.Columna === 'hecho').length;
+            R.ok('R-02: la Lista no trae la hecha y cierra con «ver las N hechas»', !document.querySelector(`#tab-lista tr[data-t="${sem[3]}"]`) && !!document.querySelector('#tab-lista [data-mas="hechas-lista"]') && document.querySelector('#tab-lista [data-mas="hechas-lista"]').textContent === `ver las ${nH} hecha${nH === 1 ? '' : 's'}`, (document.querySelector('#tab-lista [data-mas="hechas-lista"]') || {}).textContent);
+            document.querySelector('#tab-lista [data-mas="hechas-lista"]').click(); await dormir(30);
+            R.ok('R-02: el clic agrega las hechas y el renglón se va', !!document.querySelector(`#tab-lista tr[data-t="${sem[3]}"]`) && !document.querySelector('#tab-lista [data-mas="hechas-lista"]')); }
           tab('tablero'); await dormir(30);
+          // R-03 (27-sep, Linear): con las pestañas de cubeta a la vista (celular) la tarjeta nueva nace en la cubeta que se mira; en escritorio, en la primera.
+          { const mod = await import('../comun.js'); mod.estado.colMovil = 'en-curso'; tab('lista'); await dormir(20); tab('tablero'); await dormir(30);
+            const movil = $('colTabs').offsetParent !== null;
+            clic('btnNuevaTarea'); await esperar(() => $('dlgNuevaTarea').open, 'diálogo de tarea (R-03)');
+            R.ok(`R-03: la tarjeta nueva nace en ${movil ? 'la cubeta a la vista' : 'la primera cubeta (escritorio)'}`, $('ntColumna').value === (movil ? 'en-curso' : 'por-hacer'), $('ntColumna').value);
+            clic('ntCancelar'); await esperar(() => !$('dlgNuevaTarea').open, 'cancelar (R-03)'); mod.estado.colMovil = null; mod.estado.listaHechas = false; await dormir(20); }
           document.querySelector('#densidad [data-densidad="comodo"]').click(); await dormir(30);
           R.ok('v0.20.0: Cómodo de vuelta: sin clase, sin title y localStorage lo recuerda', !$('tableroCols').classList.contains('is-compacto') && localStorage.getItem('densidad') === 'comodo' && tj(0).title === '');
           for (const id of sem) filas('tareas').splice(filas('tareas').findIndex(x => x.id === id), 1);   // se retiran: lo de abajo cuenta tarjetas con números fijos
@@ -1064,7 +1083,7 @@ try {
             tab('docs'); await esperar(() => visible('tab-docs'), 'docs'); R.ok('U-01: en Docs el aviso no aparece', $('filtroAviso').classList.contains('oculto'));
             tab('lista'); await esperar(() => visible('tab-lista'), 'lista'); R.ok('U-01: en la Lista sí', !$('filtroAviso').classList.contains('oculto'));
             $('filtroAviso').querySelector('[data-filtro="limpiarAviso"]').click(); await dormir(30);
-            R.ok('U-01: «× limpiar» del aviso quita todos los filtros, vacía el buscador y esconde el aviso', $('filtroAviso').classList.contains('oculto') && $('filtroTexto').value === '' && $('btnFiltros').textContent === 'Filtrar' && document.querySelectorAll('#tab-lista tbody tr[data-t]').length === M.estado.tareas.filter(x => Number(x.ProyectoId) === proyectoId).length);
+            R.ok('U-01: «× limpiar» del aviso quita todos los filtros, vacía el buscador y esconde el aviso', $('filtroAviso').classList.contains('oculto') && $('filtroTexto').value === '' && $('btnFiltros').textContent === 'Filtrar' && document.querySelectorAll('#tab-lista tbody tr[data-t]').length === M.estado.tareas.filter(x => Number(x.ProyectoId) === proyectoId && (M.estado.listaHechas || x.Columna !== 'hecho')).length);   // R-02: sin las hechas
             tab('tablero'); await dormir(30);
             // U-02: al pintar, la pestaña activa se lleva a la vista (scrollIntoView) — se prueba que no quede fuera del rectángulo de .tabs.
             tab('resumen'); await dormir(30);
@@ -1336,6 +1355,9 @@ try {
         const siguiente = tr => tr.nextElementSibling;
         R.ok('v0.17.0 (5 columnas desde v0.55.0: sin «Tarjeta», el select va en el menú «⋯»): tabla y un renglon de grupo por tarjeta — «Del proyecto» es .is-proyecto, la de la tarjeta trae data-tarjeta, cada una seguida de su único doc y con conteo 1', document.querySelectorAll('#docsLista .dtabla thead th').length === 5 && !document.querySelector('#docsLista td.c-tarjeta') && !!document.querySelector('#docsLista .fila-menu .menu-mover [data-tarjeta-de]') && pests.length === 2 && pests[0].classList.contains('is-proyecto') && !!pests[1].dataset.tarjeta && [...pests].every(s => siguiente(s) && siguiente(s).classList.contains('doc') && /^1( doc)?$/.test(s.querySelector('.cab .n').textContent) && !!s.querySelector('.cab svg')));
         R.ok('v0.17.0 → v0.29.0: cada renglon trae el chip del tipo (PDF / Enlace), NINGUNA celda de quién/fecha, y el menú «⋯» con la nota «Ligado por … · fecha» (sin avatar desde v0.61.0), Abrir y Quitar', [...document.querySelectorAll('#docsLista tr.doc')].every(tr => !!tr.querySelector('.c-tipo .mn-chip.tipo[data-tipo]') && !tr.querySelector('.c-quien') && !tr.querySelector('.c-fecha') && /^Ligado por .+\d{2}\/\d{2}\/\d{4}$/.test(tr.querySelector('.fila-menu .menu-nota').textContent) && !!tr.querySelector('.fila-menu .menu-nota .fecha') && !tr.querySelector('.fila-menu .menu-nota .av') && !!tr.querySelector('.fila-menu a.mn-btn') && !!tr.querySelector('.fila-menu [data-quitar]')));
+        // S-15 (27-sep): una liga «archivado» cuya Url alguien editó desde SharePoint hacia otro sitio no abre y lo dice.
+        { const { filaDoc } = await import('../docs.js'); const mala = filaDoc({ id: -1, Title: 'OFICIO.pdf', Tipo: 'archivado', Unidad: 'CALYTEK', Ruta: 'a/OFICIO.pdf', Url: 'https://evil.example/login', LigadoPor: YO }); const chipE = mala.querySelector('.estado .mn-chip');
+          R.ok('S-15: una liga archivada con Url fuera de SharePoint de la casa no lleva href y su chip dice «dirección externa»', !mala.querySelector('.c-nombre a') && !!chipE && chipE.textContent === 'dirección externa' && chipE.classList.contains('is-danger'), chipE && chipE.textContent); }
         // v0.33.0 (Carlos, 14-sep; artifact HMVvZx2L, opcion E): Docs es un ARBOL DE EXPEDIENTE sobre la misma tabla (.is-arbol):
         // raiz = el proyecto; cada tarjeta un nodo-boton (caret + carpeta con tono + cubeta + conteo) que se pliega; y al final el
         // nodo «N tarjetas abiertas sin documentos», plegado, con «Ligar aqui» por tarjeta al abrirlo.
@@ -2383,8 +2405,12 @@ try {
                 await esperar(() => filas('tareas').some(t => Number(t.fields.ProyectoId) === pb.id), 'tarjeta creada');
                 clic('btnEliminarProyecto'); await esperar(() => $('dlg').open, 'confirmación');
                 R.ok('v0.13.0: eliminar pide confirmación, la nombra y cuenta las tarjetas', $('dlgTitulo').textContent === 'Eliminar el proyecto' && $('dlgOk').textContent === 'Eliminar' && $('dlgTexto').textContent.includes('1 tarjeta'), $('dlgTexto').textContent);
+                // C-17 (27-sep): otra persona crea una tarjeta y una liga que la app aun no releyo; tambien deben irse
+                filas('tareas').push({ id: DB.siguienteId++, fields: { Title: 'AJENA SIN RELEER', ProyectoId: pb.id, Columna: 'por-hacer' }, etag: 1 });
+                filas('ligas').push({ id: DB.siguienteId++, fields: { Title: 'liga ajena', ProyectoId: pb.id, Tipo: 'enlace', Url: 'https://example.invalid/' }, etag: 1 });
                 clic('dlgOk'); await esperar(() => !filas('proyectos').some(x => x.id === pb.id), 'proyecto borrado');
                 R.ok('v0.13.0: el proyecto borrado se fue con sus tarjetas, quedó «borrar-proyecto» y la app vuelve a Proyectos', !filas('tareas').some(t => Number(t.fields.ProyectoId) === pb.id) && actividad('borrar-proyecto').length === 1 && visible('p-proyectos') && !$('listaProyectos').textContent.includes('BORRABLE'));
+                R.ok('C-17: la tarjeta y la liga creadas por otra persona sin releer tampoco quedan huérfanas', !filas('ligas').some(l => Number(l.fields.ProyectoId) === pb.id) && !filas('tareas').some(t => t.fields.Title === 'AJENA SIN RELEER'));
             } else {
                 $('btnEliminarProyecto').classList.remove('oculto'); clic('btnEliminarProyecto'); await dormir(80);
                 R.ok(`${ROL}: eliminar proyecto se niega aunque se fuerce`, filas('proyectos').length >= 1 && !!avisoCon('Solo gerencia elimina'));
@@ -2447,6 +2473,10 @@ try {
               pcaFalso.PublicClientApplication.prototype.getAllAccounts = cuentasOrig; pcaFalso.PublicClientApplication.prototype.loginRedirect = loginOrig;
               sessionStorage.removeItem('proy.destino'); history.replaceState(null, '', '#inicio'); $('btnEntrar').disabled = true;
           } }
+        // 27-sep: dos confirmaciones seguidas — el «close» de la primera llega en otra tarea y no debe cerrar la segunda (carrera real, 2 de 9 corridas).
+        { const { confirmar: conf } = await import('../comun.js'); const p1 = conf({ titulo: 'PRIMERA' }); await esperar(() => $('dlg').open, 'primera'); clic('dlgOk'); const p2 = conf({ titulo: 'SEGUNDA' }); await dormir(60);
+          R.ok('confirmar: el «close» atrasado de la confirmación anterior no cierra la nueva', $('dlg').open && $('dlgTitulo').textContent === 'SEGUNDA' && (await p1).ok === true);
+          clic('dlgCancelar'); R.ok('confirmar: la segunda sigue respondiendo a su propio Cancelar', (await p2).ok === false && !$('dlg').open); await dormir(60); }
         // (c) Salir: confirma y llama logoutRedirect con la cuenta viva. (El fallback sessionStorage.clear()+reload no se prueba:
         //     location.reload no se puede interceptar sin tirar la página.)
         { const logoutOrig = pcaFalso.PublicClientApplication.prototype.logoutRedirect; let salida = null;

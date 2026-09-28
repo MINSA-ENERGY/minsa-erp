@@ -360,7 +360,7 @@ function fijarProyectoAbierto(p) {
     if (estado.proyectoAbiertoId !== p.id) {
         limpiarFiltroTareas();   // C-13 (v0.95.0)
         estado.colMovil = null; estado.ordenLista = { col: 'vence', dir: 1 };   // v0.11.0: null = la primera cubeta del proyecto
-        estado.hechoTodas = false; estado.filtroDocs = null; estado.buscaDocs = '';   // v0.17.0: el buscador de Docs tampoco viaja entre proyectos
+        estado.hechoTodas = false; estado.listaHechas = false; estado.filtroDocs = null; estado.buscaDocs = '';   // v0.17.0: el buscador de Docs tampoco viaja entre proyectos
         estado.ordenDocs = { col: 'del', dir: -1 };   // v0.18.0: ni su orden (una columna oculta en este panel no puede quedar mandando); v0.19.0: la del documento, que si se ve
         estado.abiertasDocs = new Set();   // v0.52.0: ni que carpetas del arbol abriste (nace todo plegado)
     }
@@ -1234,6 +1234,11 @@ async function eliminarProyecto() {
     if (!ok) return;
     const titulo = p.Title;
     try {
+        // C-17 (27-sep): lo que se borra se lee EN VIVO tras confirmar, no de la copia de hace hasta 120 s: una tarjeta o
+        // liga que otra persona creo en ese lapso quedaria huerfana para siempre (mismo criterio que guardarCubetas).
+        const filtro = `fields/ProyectoId eq ${Number(p.id)}`;
+        const [tareasVivo, ligasVivo] = await Promise.all([estado.cliente.renglones(estado.siteId, L.tareas, filtro), estado.cliente.renglones(estado.siteId, L.ligas, filtro)]);
+        tareas.splice(0, tareas.length, ...tareasVivo); ligas.splice(0, ligas.length, ...ligasVivo);
         for (const t of tareas) { await estado.cliente.borrarRenglon(estado.siteId, L.tareas, t.id, m => avisar(m, 'ojo')); estado.tareas = estado.tareas.filter(x => x.id !== t.id); }
         for (const l of ligas) { await estado.cliente.borrarRenglon(estado.siteId, L.ligas, l.id, m => avisar(m, 'ojo')); estado.ligas = estado.ligas.filter(x => x.id !== l.id); }
         await estado.cliente.borrarRenglon(estado.siteId, L.proyectos, p.id, m => avisar(m, 'ojo'));
