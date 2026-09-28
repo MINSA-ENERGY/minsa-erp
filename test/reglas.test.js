@@ -385,6 +385,13 @@ ok('S-12 (v0.96.0): marcaFiable topa la marca en ahora + 5 min: un Cuando del fu
   const s = saludDe(p);
   ok('saludDe: devuelve nombre, clase, nota y sello', s && s.nombre === 'En riesgo' && s.clase === 'warn' && s.nota === 'falta firma' && s.por === 'jefa@example.invalid' && s.el === p.SaludEl);
   ok('saludDe: sin declarar o con un valor ajeno a SALUD = null', saludDe({}) === null && saludDe({ Salud: 'verde' }) === null && saludDe(null) === null);
+  // R-01 (v0.130.0): la linea de Reportes
+  const { lineaSalud, SALUD_VIEJA_DIAS } = await import('../reglas.js');
+  const hoy = new Date('2026-09-28T12:00:00Z');
+  const a = lineaSalud(p, hoy), b = lineaSalud({ ...p, SaludEl: '2026-09-28T08:00:00Z' }, hoy), c = lineaSalud({ ...p, SaludEl: '2026-09-14T12:00:00Z' }, hoy), v = lineaSalud({ ...p, SaludEl: '2026-09-13T11:00:00Z' }, hoy);
+  ok('lineaSalud: «hace N d» contado en dias enteros; el mismo dia dice «hoy»', a.hace === 'hace 1 d' && a.nombre === 'En riesgo' && a.nota === 'falta firma' && b.hace === 'hoy' && !a.vieja && !b.vieja, `${a.hace} | ${b.hace}`);
+  ok('lineaSalud: vieja solo al PASAR de 14 dias (14 no, 15 si)', SALUD_VIEJA_DIAS === 14 && c.hace === 'hace 14 d' && !c.vieja && v.hace === 'hace 15 d' && v.vieja, `${c.hace}/${c.vieja} ${v.hace}/${v.vieja}`);
+  ok('lineaSalud: sin declarar = null; sin SaludEl o con fecha rota, sin sello y nunca vieja', lineaSalud({}, hoy) === null && lineaSalud({ Salud: 'atrasado' }, hoy).hace === '' && !lineaSalud({ Salud: 'atrasado', SaludEl: 'ayer' }, hoy).vieja);
 }
 
 console.log(`reglas: ok (${n} comprobaciones)`);

@@ -6,7 +6,7 @@
 // graficos son SVG por DOM o cajas con ancho en %.
 
 import { CONFIG } from './config.js';
-import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos } from './reglas.js';
+import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud } from './reglas.js';
 import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo } from './comun.js';
 import { pintarChat } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
 import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';   // v0.17.0: la misma tabla que Docs del proyecto; v0.18.0: y el mismo orden; v0.36.0: y el mismo arbol
@@ -720,17 +720,32 @@ function filaBarra(eti, tramos, cifra, titulo, abre) {
     w.appendChild(b); w.appendChild(el('b', 'mn-mono', cifra)); fila.appendChild(w);
     return fila;
 }
+/**
+ * R-01 (v0.130.0): el estado DECLARADO del frente (R-05) bajo su vence, como Active Projects de las Initiatives de Linear:
+ * «En riesgo · nota · hace N d» con el color de estado de la casa; pasados SALUD_VIEJA_DIAS todo en gris tenue; sin declarar, «sin estado».
+ */
+function saludRep(p, hoy) {
+    const s = lineaSalud(p, hoy), sl = el('span', 'sl');
+    if (!s) { sl.classList.add('sin'); sl.textContent = 'sin estado'; return sl; }
+    if (s.vieja) sl.classList.add('vieja');
+    sl.appendChild(el('b', 'is-' + s.clase, s.nombre));
+    const resto = [s.nota, s.hace].filter(Boolean).join(' · '); if (resto) sl.appendChild(document.createTextNode(' · ' + resto));
+    sl.title = `${s.nombre}${s.nota ? ': ' + s.nota : ''}${s.hace ? ' (' + s.hace + ')' : ''}`;
+    return sl;
+}
 /** Avance: anillo global + una fila por proyecto (barra segmentada; clic → el frente). */
 function pintarAvance(a, orden) {
     const segs = segmentosGlobales(a);   // C-04 (18-sep): una vez por pintada, no dos
     const g = $('repGlobal'); g.textContent = ''; g.appendChild(anillo(segs, a.total, 132)); g.appendChild(leyenda(segs));
     const pp = $('repProyectos'); pp.textContent = '';
     const cubetas = new Map();
+    const conSalud = !!(estado.columnasProyectos && estado.columnasProyectos.has('Salud')), hoy = new Date();   // R-01: sin la columna (tenant sin provisionar) el renglon queda como antes
     for (const p of orden) {
         const ap = avance(tareasDe(p, estado.tareas), columnasDe(p)); const d = diasPara(p.Vence);
         const fila = el('button', 'rep-fila'); fila.type = 'button'; fila.dataset.repP = String(p.id); fila.title = p.Title; fila.addEventListener('click', () => irFrenteId(Number(fila.dataset.repP)));   // C-01 (18-sep): por id al clic, no el objeto capturado
-        fila.appendChild(etiRep(p.Title, p.Vence ? fraseVence(d, 'corta', fechaCorta(p.Vence)) : 'sin fin de frente', iconoEquipo(equipoDe(p), 'sm'), p.Vence && d < 0 ? 'is-danger' : ''));   // C-04 (v0.79.0): ahora tambien dice «vence hoy»
-        fila.appendChild(barraSeg(ap)); pp.appendChild(fila);
+        const eti = etiRep(p.Title, p.Vence ? fraseVence(d, 'corta', fechaCorta(p.Vence)) : 'sin fin de frente', iconoEquipo(equipoDe(p), 'sm'), p.Vence && d < 0 ? 'is-danger' : '');   // C-04 (v0.79.0): ahora tambien dice «vence hoy»
+        if (conSalud) eti.querySelector('.tx').appendChild(saludRep(p, hoy));
+        fila.appendChild(eti); fila.appendChild(barraSeg(ap)); pp.appendChild(fila);
         // U-10 (v0.129.0): la leyenda suma las cubetas de todos los frentes por nombre y color; antes el nombre solo vivia en el title (en celular no hay)
         for (const [col, n, cls, tono] of segmentosDe(ap)) { const k = `${cls}|${tono}|${col.nombre}`; const s = cubetas.get(k); if (s) s[1] += n; else cubetas.set(k, [col, n, cls, tono]); }
     }

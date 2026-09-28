@@ -2670,6 +2670,23 @@ try {
             await recargarYEsperar(); await resumen('resumen lectura declarado');
             R.ok('R-05 (lectura): ve lo declarado por otro, en rojo, con el sello y sin «Actualizar»', $('pSaludLinea').textContent === 'Atrasado · Se cayó la cita' && !!$('pSaludLinea').querySelector('b.is-danger') && $('pSaludSello').textContent.includes('26') && $('btnSalud').hidden, $('pSaludSello').textContent);
         }
+        // R-01 (v0.130.0): el estado declarado sale bajo el vence en «Avance por proyecto» de Reportes; viejo = gris; sin declarar = «sin estado»; sin la columna, nada.
+        {
+            const slDe = id => document.querySelector(`#repProyectos [data-rep-p="${id}"] .eti .sl`);
+            const otro = filas('proyectos').find(x => x.fields.Estado === 'activo' && x.id !== p.id && !x.fields.Salud);
+            const reportes = async que => { irHash('#reportes'); await esperar(() => visible('p-reportes') && slDe(p.id), que); };
+            const hace3 = new Date(Date.now() - 3 * 864e5).toISOString(), hace20 = new Date(Date.now() - 20 * 864e5).toISOString();
+            p.fields.Salud = 'en-riesgo'; p.fields.SaludNota = 'Falta la firma del representante legal'; p.fields.SaludPor = 'jefa@example.invalid'; p.fields.SaludEl = hace3;
+            await recargarYEsperar(); await reportes('reportes con salud');
+            { const sl = slDe(p.id);
+              R.ok(`R-01 (${ROL}): en Reportes el frente dice «En riesgo · nota · hace 3 d» en ámbar, bajo su vence, con todo en title`, sl.textContent === 'En riesgo · Falta la firma del representante legal · hace 3 d' && !!sl.querySelector('b.is-warn') && !sl.classList.contains('vieja') && sl.previousElementSibling.classList.contains('m') && sl.title.includes('Falta la firma'), sl.textContent);
+              R.ok(`R-01 (${ROL}): un frente sin declarar dice «sin estado» en gris`, !otro || (slDe(otro.id) && slDe(otro.id).textContent === 'sin estado' && slDe(otro.id).classList.contains('sin')), otro ? slDe(otro.id)?.textContent : 'sin otro frente'); }
+            p.fields.Salud = 'en-tiempo'; p.fields.SaludEl = hace20; await recargarYEsperar(); await reportes('reportes salud vieja');
+            R.ok(`R-01 (${ROL}): pasados 14 días el estado queda en gris tenue («vieja») y dice «hace 20 d»`, slDe(p.id).classList.contains('vieja') && /hace 20 d$/.test(slDe(p.id).textContent) && !!slDe(p.id).querySelector('b.is-ok'), slDe(p.id).textContent);
+            DB.sinSalud = true; await nuevaSesion(); irHash('#reportes'); await esperar(() => visible('p-reportes') && document.querySelector(`#repProyectos [data-rep-p="${p.id}"]`), 'reportes sin Salud');
+            R.ok(`R-01 (${ROL}): sin la columna Salud en el tenant, Avance por proyecto queda como antes (ninguna línea de estado)`, !document.querySelector('#repProyectos .eti .sl'));
+            DB.sinSalud = false; await nuevaSesion();
+        }
         p.fields.Responsable = respAntes; for (const k of ['Salud', 'SaludNota', 'SaludPor', 'SaludEl']) delete p.fields[k];
         await recargarYEsperar(); pestana('inicio'); await dormir(30);
     }

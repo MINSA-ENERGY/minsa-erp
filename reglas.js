@@ -145,6 +145,15 @@ export function saludDe(p) {
     const s = p && SALUD.find(x => x.clave === p.Salud);
     return s ? { ...s, nota: String(p.SaludNota || ''), por: p.SaludPor || '', el: p.SaludEl || '' } : null;
 }
+/** R-01 (v0.130.0): pasados estos dias, el estado declarado se pinta en gris tenue en Reportes (como el health caducado de Linear). */
+export const SALUD_VIEJA_DIAS = 14;
+/** La linea de estado de un frente en «Avance por proyecto»: null si nadie lo declaro; si no, saludDe + `hace` («hoy» / «hace N d») y `vieja` (> SALUD_VIEJA_DIAS). */
+export function lineaSalud(p, hoy = new Date()) {
+    const s = saludDe(p); if (!s) return null;
+    const t = s.el ? Date.parse(s.el) : NaN;
+    const d = Number.isNaN(t) ? null : Math.max(0, Math.floor((hoy.getTime() - t) / 864e5));
+    return { ...s, hace: d === null ? '' : d === 0 ? 'hoy' : `hace ${d} d`, vieja: d !== null && d > SALUD_VIEJA_DIAS };
+}
 
 /**
  * Dias entre hoy y una fecha ISO (negativo si ya paso). null si no hay fecha o no es fecha.

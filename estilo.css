@@ -1428,6 +1428,10 @@ body.sin-scroll { overflow: hidden; }
 .rep-fila .eti .t { font-weight: 600; color: var(--text-strong); font-size: .85rem; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .rep-fila .eti .m { font-size: .72rem; color: var(--text-faint); font-family: var(--font-data); }
 .rep-fila .eti .m.is-danger { color: var(--status-danger-fg); font-weight: 600; }   /* U-11 (v0.129.0): frente vencido, como el chip de las tarjetas vencidas */
+/* R-01 (v0.130.0): estado declarado del frente bajo el vence; un renglon con puntos suspensivos (completo en title); viejo = gris tenue */
+.rep-fila .eti .sl { font-size: .72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rep-fila .eti .sl b { font-weight: 600; } .rep-fila .eti .sl b.is-ok { color: var(--status-ok-fg); } .rep-fila .eti .sl b.is-warn { color: var(--status-warn-fg); } .rep-fila .eti .sl b.is-danger { color: var(--status-danger-fg); }
+.rep-fila .eti .sl.sin, .rep-fila .eti .sl.vieja, .rep-fila .eti .sl.vieja b { color: var(--text-faint); }
 .rep-leyenda .leyenda { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); font-size: .75rem; } .rep-leyenda .leyenda b { margin-left: 0; }
 .rep-leyenda:not(:empty) { margin-top: var(--sp-3); padding-top: var(--sp-2); border-top: 1px solid var(--border-hairline); }   /* U-10 (v0.129.0) */
 @media screen and (max-width: 720px) { .rep-rejilla > .rep-global { order: -2; } .rep-rejilla > .rep-vencidas { order: -1; } }   /* U-08 (v0.129.0): en celular lo accionable (Vencidas) sube tras el anillo; screen para no reordenar la impresion */
