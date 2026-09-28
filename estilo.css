@@ -1451,6 +1451,14 @@ body.sin-scroll { overflow: hidden; }
 .rep-cols .col-s b { font-family: var(--font-data); font-size: .72rem; font-weight: 500; color: var(--text-strong); }
 .rep-cols .col-s i { width: 70%; align-self: end; background: var(--status-ok-solid); border-radius: 4px 4px 0 0; min-height: 2px; }
 .rep-cols .col-s i.cero { background: var(--border-hairline); }
+/* R-03 (v0.132.0): la barra de hechas y, pegada, una delgada gris con las nuevas de esa semana (Created vs Resolved de Jira) */
+.rep-cols .col-s:has(.barras) { grid-template-rows: 1fr auto; }
+.rep-cols .col-s .barras { display: flex; align-items: flex-end; justify-content: center; gap: 2px; width: 70%; height: 100%; align-self: end; box-sizing: border-box; padding-top: 1.1rem; }
+.rep-cols .col-s .barras .h { position: relative; flex: 1 1 0; height: 100%; display: flex; align-items: flex-end; }
+.rep-cols .col-s .barras .h i { width: 100%; }
+.rep-cols .col-s .barras .h b { position: absolute; left: 0; right: 0; text-align: center; line-height: 1; }
+.rep-cols .col-s .barras i.nueva { flex: 0 0 30%; background: var(--text-faint); border-radius: 3px 3px 0 0; }
+.rep-cols .col-s .barras i.nueva.cero { visibility: hidden; }
 .rep-cols .col-s small { font-family: var(--font-data); font-size: .72rem; line-height: 1.15; height: 2.3em; display: flex; align-items: flex-end; justify-content: center; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; max-width: 100%; }   /* U-05 (18-sep): .6rem/faint era ilegible y con nowrap+ellipsis «27 jul» salia «27 j…» hasta a 1366; ahora parte en dos lineas (dia / mes) y TODAS reservan las dos, para que las barras compartan la base */
 /* ---- avance del proyecto: el anillo junto a la barra en la lateral */
 .avance-anillo { display: flex; justify-content: center; margin-bottom: var(--sp-2); }

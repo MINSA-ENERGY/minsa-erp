@@ -2359,6 +2359,10 @@ try {
               R.ok('C-02 (reportes, v0.89.0): «Actividad por persona» pinta un renglón por quien hizo algo en 30 días, con su cifra', document.querySelectorAll('#repActividad .rep-fila').length >= 1 && [...document.querySelectorAll('#repActividad .rep-fila .rep-barra > b')].every(b => Number(b.textContent) >= 1), `${document.querySelectorAll('#repActividad .rep-fila').length} renglón(es)`);
               const sumaSem = [...document.querySelectorAll('#repSemanas .col-s b')].reduce((n, b) => n + Number(b.textContent || 0), 0);
               R.ok('C-02 (reportes, v0.89.0): el subtítulo de «Hechas por semana» suma las 8 columnas', sumaSem >= 1 && $('repSemanasSub').textContent.startsWith(`${sumaSem} tarjeta${sumaSem === 1 ? ' hecha' : 's hechas'} en 8 semanas`), $('repSemanasSub').textContent);
+              { const cols = [...document.querySelectorAll('#repSemanas .col-s')], nuevasDe = c => Number((c.title.match(/(\d+) nuevas?$/) || [])[1]);
+                const sumaN = cols.reduce((n, c) => n + nuevasDe(c), 0), dif = sumaN - sumaSem, sub = $('repSemanasSub').textContent;
+                const rumbo = dif > 0 ? `el pendiente creció en ${dif}` : dif < 0 ? `el pendiente bajó en ${-dif}` : 'el pendiente se mantuvo';
+                R.ok('R-03 (v0.132.0): cada semana trae su barra gris de nuevas (alta si hubo, oculta si no) y el subtítulo dice cuántas entraron y hacia dónde va el pendiente', cols.length === 8 && cols.every(c => { const i = c.querySelector('.barras i.nueva'); return !!i && (nuevasDe(c) ? parseFloat(i.style.height) > 0 : i.classList.contains('cero')); }) && sumaN >= 1 && sub.includes(` ${sumaN} nueva${sumaN === 1 ? '' : 's'}: ${rumbo}.`), sub); }
               let impresoR = false; const printR = window.print; window.print = () => { impresoR = true; }; clic('btnImprimirReportes'); window.print = printR;
               R.ok('C-02 (reportes, v0.89.0): «Imprimir» de Reportes llama a window.print', impresoR);
               const f1 = document.querySelector('#repProyectos [data-rep-p]'); const ic = f1.querySelector('.eti .eqi').getBoundingClientRect(), tt = f1.querySelector('.eti .t').getBoundingClientRect();

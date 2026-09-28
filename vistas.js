@@ -693,14 +693,18 @@ function etiRep(titulo, meta, icono, claseMeta = '') {
     return eti;
 }
 /** Columnas verticales (hechas por semana): cajas con alto en %, valor encima, rotulo del lunes abajo. */
+// R-03 (v0.132.0): junto a la barra de hechas (`n`), una delgada gris con las nuevas (`nuevas`); las dos contra el mismo maximo
 function columnas(cont, series, textoDe) {
-    const max = Math.max(1, ...series.map(s => s.n));
-    const g = el('div', 'rep-cols'); g.setAttribute('role', 'img'); g.setAttribute('aria-label', series.map(s => `${textoDe(s)}: ${s.n}`).join(' · '));
+    const max = Math.max(1, ...series.map(s => Math.max(s.n, s.nuevas)));
+    const dice = s => `${textoDe(s)}: ${s.n} hecha${s.n === 1 ? '' : 's'} · ${s.nuevas} nueva${s.nuevas === 1 ? '' : 's'}`;
+    const g = el('div', 'rep-cols'); g.setAttribute('role', 'img'); g.setAttribute('aria-label', series.map(dice).join(' · '));
     for (const s of series) {
-        const c = el('div', 'col-s'); c.title = `${textoDe(s)}: ${s.n}`;
-        c.appendChild(el('b', '', s.n ? String(s.n) : ''));
-        const barra = el('i'); barra.style.height = (s.n * 100 / max) + '%'; if (!s.n) barra.classList.add('cero'); c.appendChild(barra);
-        c.appendChild(el('small', '', textoDe(s))); g.appendChild(c);
+        const c = el('div', 'col-s'); c.title = dice(s);
+        const par = el('span', 'barras'), h = el('span', 'h'), pct = s.n * 100 / max;   // la cifra de hechas va pegada a SU barra: arriba de la columna se leia como de la gris (revisor v0.132.0)
+        const cifra = el('b', '', s.n ? String(s.n) : ''); cifra.style.bottom = `calc(${pct}% + 2px)`; h.appendChild(cifra);
+        const barra = el('i'); barra.style.height = pct + '%'; if (!s.n) barra.classList.add('cero'); h.appendChild(barra); par.appendChild(h);
+        const nueva = el('i', 'nueva'); nueva.style.height = (s.nuevas * 100 / max) + '%'; if (!s.nuevas) nueva.classList.add('cero'); par.appendChild(nueva);
+        c.appendChild(par); c.appendChild(el('small', '', textoDe(s))); g.appendChild(c);
     }
     cont.appendChild(g);
 }
@@ -792,11 +796,14 @@ export function pintarCargaPersona() {
         }
     }
 }
-/** Hechas por semana: 8 columnas y el subtitulo con el total y el promedio. */
+/** Hechas por semana: 8 columnas y el subtitulo con el total y el promedio; R-03 (v0.132.0): mas las nuevas y hacia donde va el pendiente. */
 function pintarSemanas(todas) {
     const hs = $('repSemanas'); hs.textContent = '';
     const semanas = hechasPorSemana(todas, 8); columnas(hs, semanas, s => `${+s.desde.slice(8, 10)} ${MESES_CORTOS[+s.desde.slice(5, 7) - 1]}`);
-    const totalSem = semanas.reduce((n, s) => n + s.n, 0); $('repSemanasSub').textContent = totalSem ? `${totalSem} tarjeta${totalSem === 1 ? ' hecha' : 's hechas'} en 8 semanas · ${(totalSem / 8).toFixed(1)} por semana.` : 'Ninguna tarjeta con fecha de hecho en las últimas 8 semanas.';
+    const totalSem = semanas.reduce((n, s) => n + s.n, 0), nuevas = semanas.reduce((n, s) => n + s.nuevas, 0), dif = nuevas - totalSem;
+    const hechas = totalSem ? `${totalSem} tarjeta${totalSem === 1 ? ' hecha' : 's hechas'} en 8 semanas · ${(totalSem / 8).toFixed(1)} por semana.` : 'Ninguna tarjeta con fecha de hecho en las últimas 8 semanas.';
+    const rumbo = !nuevas && !totalSem ? '' : ` ${nuevas} nueva${nuevas === 1 ? '' : 's'}: ${dif > 0 ? `el pendiente creció en ${dif}` : dif < 0 ? `el pendiente bajó en ${-dif}` : 'el pendiente se mantuvo'}.`;
+    $('repSemanasSub').textContent = hechas + rumbo;
 }
 /** Actividad por persona (30 dias), del registro de actividad de los frentes visibles. */
 function pintarActividad(idsHist) {

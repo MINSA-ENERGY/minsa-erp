@@ -769,14 +769,18 @@ export function agendaPorDia(tareas, proyectos) {
     return m;
 }
 
-/** Tarjetas HECHAS por semana (lunes) en las ultimas `n` semanas, la mas vieja primero; sin HechoEl no cuentan. */
+/**
+ * Tarjetas HECHAS por semana (lunes) en las ultimas `n` semanas, la mas vieja primero; sin HechoEl no cuentan.
+ * R-03 (v0.132.0): `nuevas` = las CREADAS esa semana (por `_creado`, hechas o no), como el Created vs Resolved de Jira.
+ */
 export function hechasPorSemana(tareas, n = 8, hoy = new Date()) {
     const fin = lunesDe(diaDe(hoy));
-    const semanas = Array.from({ length: n }, (_, i) => ({ desde: sumarDias(fin, -7 * (n - 1 - i)), n: 0 }));
+    const semanas = Array.from({ length: n }, (_, i) => ({ desde: sumarDias(fin, -7 * (n - 1 - i)), n: 0, nuevas: 0 }));
+    const de = d => d && semanas.find(x => x.desde === lunesDe(d));
     for (const t of tareas || []) {
+        const c = de(diaDe(t._creado)); if (c) c.nuevas++;
         if (t.Columna !== 'hecho') continue;
-        const d = diaDe(t.HechoEl); if (!d) continue;
-        const s = semanas.find(x => x.desde === lunesDe(d)); if (s) s.n++;
+        const s = de(diaDe(t.HechoEl)); if (s) s.n++;
     }
     return semanas;
 }
