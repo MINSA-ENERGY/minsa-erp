@@ -365,7 +365,7 @@ export function filaDoc(l, { p = null, puede = false, enArchivos = false, alTarj
     if (sinTarjeta && tt && alTarjeta) acciones.push(boton('Abrir tarjeta', 'mn-btn is-ghost is-sm', () => alTarjeta(tt.id), { abrirTarjeta: String(tt.id) }));   // v0.45.0; v0.54.1: sin .tarjeta-liga, que le ponia la pildora encima del mn-btn; C-02 (17-sep): el id, y quien recibe resuelve al clic
     if (enArchivos && p) acciones.push(boton('Documentos del proyecto', 'mn-btn is-ghost is-sm', () => { const q = porId(estado.proyectos, p.id); if (q) irAHash(`#p/${q.Clave}/docs`); }, { irDocs: String(p.id) }));   // C-02: resuelve el proyecto por id al clic
     if (mover) acciones.push(mover);   // v0.55.0: antes de Quitar, que es lo destructivo
-    if (puede) acciones.push(boton('Quitar', 'mn-btn is-ghost is-sm is-peligro', () => quitarLiga(porId(estado.ligas, l.id) || l), { quitar: String(l.id) }));
+    if (puede) acciones.push(boton('Quitar', 'mn-btn is-ghost is-sm is-peligro', () => { const lv = porId(estado.ligas, l.id); if (!lv) { avisar('Esa liga ya no está.', 'ojo'); alCambiar(); return; } quitarLiga(lv); }, { quitar: String(l.id) }));
     if (acciones.length) {
         const d = el('details', 'fila-menu'); const s = el('summary', 'mn-btn is-ghost is-sm is-icono', '⋯'); s.setAttribute('aria-label', 'Acciones del documento'); s.title = 'Acciones'; d.appendChild(s);
         const m = el('div', 'menu'); for (const a of acciones) m.appendChild(a); d.appendChild(m); tdA.appendChild(d);
@@ -407,7 +407,8 @@ export async function quitarLiga(l, reemplazadaPor = null) {
 
 /** Cambia la tarjeta de una liga; vacio = del proyecto entero. */
 async function reasignarLiga(liga, tareaId, sel = null) {
-    const l = porId(estado.ligas, liga.id) || liga;   // resolver por id AL CLIC: un refresco reemplaza los objetos de estado
+    const l = porId(estado.ligas, liga.id);   // resolver por id AL CLIC: un refresco reemplaza los objetos de estado
+    if (!l) { avisar('Esa liga ya no está.', 'ojo'); alCambiar(); return; }   // C-31: sin respaldo al objeto viejo — otra persona la quitó (antes: 404 crudo)
     if (!PUEDE.ligar(estado.rol)) { avisar('Tu rol es de lectura: no puedes cambiar ligas.', 'error'); return; }
     const nuevo = tareaId ? Number(tareaId) : null;
     const actual = l.TareaId ? Number(l.TareaId) : null;

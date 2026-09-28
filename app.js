@@ -987,10 +987,11 @@ function pintarCabeceraProyecto(p, ts, a) {
     const resumen = a.columnas.slice(1, -1).map(c => `${a.porColumna[c.clave]} ${c.nombre.toLowerCase()}`);
     if (dias !== null && p.Estado === 'activo' && !reloj) resumen.push(`vence en ${dias} d`);
     $('pResumen').textContent = resumen.join(' · ');
+    { const s = haySalud() && saludDe(p); if (s) $('pResumen').prepend(el('b', 'salud-cab is-' + s.clase, s.nombre), resumen.length ? ' · ' : ''); }   // U-36: el estado declarado del frente, arriba (antes solo en Resumen)
     $('pResumen').classList.remove('is-danger');
     // B1: la descripcion va a una linea en celular; el clic la abre.
     $('pDesc').title = p.Descripcion || '';
-    $('pDesc').classList.remove('abierta');
+    if ($('pDesc').dataset.proy !== String(p.id)) { $('pDesc').classList.remove('abierta'); $('pDesc').dataset.proy = String(p.id); }   // C-30: se pliega al cambiar de frente, no en cada repintado
 }
 function pintarPestanas(p) {
     // v0.102.0: la pestaña Capital solo existe para gerencia con PROY_Capital creada; si no, una liga #…/capital cae al tablero.
@@ -1001,7 +1002,8 @@ function pintarPestanas(p) {
     $('btnNuevaTarea').disabled = estado.tab === 'capital' ? !verCap : (!PUEDE.tarea(estado.rol) || p.Estado !== 'activo');
     $('btnNuevaTarea').textContent = estado.tab === 'capital' ? 'Nueva partida' : 'Nueva tarea';   // v0.103.0
     for (const b of document.querySelectorAll('.tab')) { const on = b.dataset.tab === estado.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; if ($('tab-' + b.dataset.tab)) b.setAttribute('aria-controls', 'tab-' + b.dataset.tab); }   // U-35 (v0.123.0): tabindex rotativo y el panel que controla
-    { const on = document.querySelector('.tabs .tab.is-on'); if (on && on.scrollIntoView) on.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }   // U-02 (17-sep): a 390 la fila rueda y «Resumen» quedaba fuera aun activa
+    { const on = document.querySelector('.tabs .tab.is-on'), fila = on && on.closest('.tabs');   // U-02 (17-sep): a 390 la fila rueda y «Resumen» quedaba fuera aun activa
+      if (fila) { const r = on.getBoundingClientRect(), f = fila.getBoundingClientRect(); if (r.left < f.left) fila.scrollLeft -= f.left - r.left; else if (r.right > f.right) fila.scrollLeft += r.right - f.right; } }   // C-27: solo la fila rueda; scrollIntoView subia la pagina en cada repintar
     for (const t of ['tablero', 'lista', 'roadmap', 'docs', 'chat', 'capital']) $('tab-' + t).classList.toggle('oculto', estado.tab !== t);
     if (estado.tab !== 'chat') salirDelChat();   // v0.9.0: cambiar de pestana dentro del proyecto tambien es salir
     document.body.classList.toggle('is-chat', estado.tab === 'chat');   // v0.15.0: pintarProyecto no pasa por repintar() al cambiar de pestana
@@ -1083,6 +1085,13 @@ function pintarLateralProyecto(p, ts, a) {
 // estado.proyectos; el objeto capturado quedaba huerfano y el guardado se aplicaba sobre una copia que nadie pinta.
 let proyectoEnEdicionId = null, enEdicion = null;
 const proyectoVivo = id => porId(estado.proyectos, id);
+/** C-32: la escritura condicional de un proyecto — el vivo por id (C-06), PATCH con su If-Match y el cambio al renglon vivo tras el await (C-19).
+ *  false = alguien lo elimino; un 412 u otro error sube al llamador, que decide su aviso. */
+async function escribirProyecto(id, campos) {
+    const antes = proyectoVivo(id); if (!antes) return false;
+    const res = await estado.cliente.actualizarRenglon(estado.siteId, L.proyectos, id, campos, m => avisar(m, 'ojo'), antes._etag);
+    aplicarVivo(estado.proyectos, id, campos, res && res._etag, antes); return true;
+}
 const ROTULO_CAMPO = { Title: 'nombre', Equipo: 'equipo', Vence: 'fin del frente', Responsable: 'responsable', Descripcion: 'descripción', Carpeta: 'carpeta' };
 /** C-07 / C-08 (24-sep): los campos de `nuevo` (o de `claves`) cuyo valor difiere del de `base`; vacio y null cuentan igual, fechas por dia. */
 function camposCambiados(base, nuevo, claves = Object.keys(nuevo)) {
@@ -1225,9 +1234,7 @@ async function guardarSalud(ev) {
     const campos = { Salud: salud.clave, SaludNota: nota || null, SaludPor: estado.cuenta.username, SaludEl: new Date().toISOString() };
     $('slGuardar').disabled = true;
     try {
-        const antes = proyectoVivo(p.id); if (!antes) { cerrarDialogo('dlgSalud'); avisar('Este proyecto ya no existe: alguien lo eliminó.', 'error'); return; }
-        const res = await estado.cliente.actualizarRenglon(estado.siteId, L.proyectos, p.id, campos, m => avisar(m, 'ojo'), antes._etag);
-        aplicar(proyectoVivo(p.id) || antes, campos, res && res._etag);
+        if (!await escribirProyecto(p.id, campos)) { cerrarDialogo('dlgSalud'); avisar('Este proyecto ya no existe: alguien lo eliminó.', 'error'); return; }
     } catch (e) {
         // Igual que Editar proyecto (C-08): el dialogo se queda con lo escrito y la relectura trae el candado nuevo.
         if (esConflicto(e)) { await pedirRelectura(); avisar('Alguien cambió este proyecto hace un momento: se releyó. Lo que escribiste sigue aquí; revisa y vuelve a guardar.', 'ojo'); return; }
@@ -1248,10 +1255,7 @@ async function cerrarProyecto() {
     if (!ok) return;
     const campos = { Estado: 'cerrado', CerradoPor: estado.cuenta.username, CerradoEl: new Date().toISOString() };
     try {
-        // C-06 (24-sep): el objeto se re-resuelve por id despues de cada await (confirmar y el PATCH); una relectura en medio lo reemplaza
-        const antes = proyectoVivo(p.id); if (!antes) { avisar('Este proyecto ya no existe: alguien lo eliminó.', 'error'); return; }
-        const res = await estado.cliente.actualizarRenglon(estado.siteId, L.proyectos, p.id, campos, m => avisar(m, 'ojo'), antes._etag);
-        aplicar(proyectoVivo(p.id) || antes, campos, res && res._etag);
+        if (!await escribirProyecto(p.id, campos)) { avisar('Este proyecto ya no existe: alguien lo eliminó.', 'error'); return; }
         avisar(`Proyecto «${p.Title}» cerrado.`, 'ok'); repintar();
         await registrarActividad('cerrar-proyecto', `cerró el proyecto «${p.Title.slice(0, 80)}»${faltan ? ` con ${faltan} tarjeta${faltan === 1 ? ' abierta' : 's abiertas'}` : ''}`, p.id, null); repintar();
     } catch (e) {
@@ -1269,9 +1273,7 @@ async function reabrirProyecto() {
     if (!ok) return;
     const campos = { Estado: 'activo', CerradoPor: null, CerradoEl: null };
     try {
-        const antes = proyectoVivo(p.id); if (!antes) { avisar('Este proyecto ya no existe: alguien lo eliminó.', 'error'); return; }   // C-06 (24-sep)
-        const res = await estado.cliente.actualizarRenglon(estado.siteId, L.proyectos, p.id, campos, m => avisar(m, 'ojo'), antes._etag);
-        aplicar(proyectoVivo(p.id) || antes, campos, res && res._etag);
+        if (!await escribirProyecto(p.id, campos)) { avisar('Este proyecto ya no existe: alguien lo eliminó.', 'error'); return; }
         avisar(`Proyecto «${p.Title}» reabierto.`, 'ok'); repintar();
         await registrarActividad('reabrir-proyecto', `reabrió el proyecto «${p.Title.slice(0, 80)}»`, p.id, null); repintar();
     } catch (e) {
@@ -1414,7 +1416,7 @@ for (const b of document.querySelectorAll('.tab')) b.addEventListener('click', (
 for (const b of document.querySelectorAll('.tabs .tab')) b.addEventListener('keydown', ev => {
     const d = ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : 0; if (!d) return;
     ev.preventDefault(); const ts = [...document.querySelectorAll('.tabs .tab')].filter(x => !x.classList.contains('oculto'));
-    const n = ts[(ts.indexOf(b) + d + ts.length) % ts.length]; n.click(); n.focus();
+    const n = ts[(ts.indexOf(b) + d + ts.length) % ts.length]; n.focus();   // C-28: activacion manual (Enter/Espacio); abrir cada pestaña cruzada dejaba historial y consultaba el buzon
 });
 // B1: filtros plegados en celular; el boton los abre y dice cuantos hay puestos.
 $('btnFiltros').addEventListener('click', () => { estado.filtrosAbiertos = !estado.filtrosAbiertos; const p = proyectoAbierto(); if (p) pintarFiltrosProyecto(p); });   // C-12 (v0.115.0)

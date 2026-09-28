@@ -831,6 +831,18 @@ try {
             clic('btnNuevaTarea'); await esperar(() => $('dlgNuevaTarea').open, 'diálogo de tarea (R-03)');
             R.ok(`R-03: la tarjeta nueva nace en ${movil ? 'la cubeta a la vista' : 'la primera cubeta (escritorio)'}`, $('ntColumna').value === (movil ? 'en-curso' : 'por-hacer'), $('ntColumna').value);
             clic('ntCancelar'); await esperar(() => !$('dlgNuevaTarea').open, 'cancelar (R-03)'); mod.estado.colMovil = null; mod.estado.listaHechas = false; await dormir(20); }
+          // C-29 (v0.134.0): tres ramas que nacieron sin prueba — Hecho a la vista (C-33), la Lista sin abiertas (R-02) y las flechas del tablist (U-35 + C-28).
+          { const mod = await import('../comun.js'); mod.estado.colMovil = 'hecho'; tab('lista'); await dormir(20); tab('tablero'); await dormir(30);
+            clic('btnNuevaTarea'); await esperar(() => $('dlgNuevaTarea').open, 'diálogo de tarea (C-33)');
+            R.ok('C-33: con Hecho a la vista la tarjeta nueva nace en la primera cubeta, no cerrada', $('ntColumna').value === 'por-hacer', $('ntColumna').value);
+            clic('ntCancelar'); await esperar(() => !$('dlgNuevaTarea').open, 'cancelar (C-33)'); mod.estado.colMovil = null; await dormir(20);
+            const mias = mod.estado.tareas.filter(x => Number(x.ProyectoId) === proyectoId), cols = mias.map(x => x.Columna);
+            mias.forEach(x => { x.Columna = 'hecho'; }); mod.estado.listaHechas = false; tab('tablero'); await dormir(20); tab('lista'); await dormir(30);
+            R.ok('C-29 (R-02): con todo hecho la Lista dice «Nada abierto.» y ofrece «ver las N hechas»', [...document.querySelectorAll('#tab-lista td.vacio')].some(x => x.textContent === 'Nada abierto.') && !!document.querySelector('#tab-lista [data-mas="hechas-lista"]'));
+            mias.forEach((x, i) => { x.Columna = cols[i]; }); tab('tablero'); await dormir(30);
+            const vis = () => [...document.querySelectorAll('.tabs .tab')].filter(x => !x.classList.contains('oculto')), ult = vis().at(-1), antes = mod.estado.tab, hashAntes = location.hash;
+            ult.focus(); ult.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); await dormir(20);
+            R.ok('C-29 (U-35/C-28): la flecha desde la última visible pasa el foco a la primera, salta las ocultas y NO abre la pestaña (activación manual)', document.activeElement === vis()[0] && vis().every(x => !x.classList.contains('oculto')) && mod.estado.tab === antes && location.hash === hashAntes, `${document.activeElement && document.activeElement.dataset.tab} · ${mod.estado.tab}`); }
           document.querySelector('#densidad [data-densidad="comodo"]').click(); await dormir(30);
           R.ok('v0.20.0: Cómodo de vuelta: sin clase, sin title y localStorage lo recuerda', !$('tableroCols').classList.contains('is-compacto') && localStorage.getItem('densidad') === 'comodo' && tj(0).title === '');
           for (const id of sem) filas('tareas').splice(filas('tareas').findIndex(x => x.id === id), 1);   // se retiran: lo de abajo cuenta tarjetas con números fijos
@@ -1571,6 +1583,7 @@ try {
               await esperar(() => mEv.proyectoAbierto() && mEv.proyectoAbierto().Descripcion === pv.fields.Descripcion, 'relectura tras el 412 al cerrar');
               R.ok('C-09 (v0.97.0): 412 al Cerrar: el PATCH llevó If-Match, sigue activo con el cambio ajeno, sin «cerró» en la bitácora, y la memoria trae el candado nuevo', DB.ifMatch === ifm + 1 && pv.fields.Estado === 'activo' && pv.fields.Descripcion === 'Cambiada por alguien más antes de cerrar' && actividad('cerrar-proyecto').length === nC && mEv.proyectoAbierto()._etag === `"${pv.etag}"`, `ifMatch +${DB.ifMatch - ifm} · ${pv.fields.Estado} · ${mEv.proyectoAbierto()._etag} vs "${pv.etag}"`); }
             clic('btnCerrarProyecto'); await confirmar(); await esperar(() => filas('proyectos')[0].fields.Estado === 'cerrado', 'cerrado');
+            await esperar(() => $('pEstado').textContent === 'Cerrado' && actividad('cerrar-proyecto').length === 1, 'cabecera repintada y «cerró» anotado');   // C-26: la DB falsa cambia al recibir el PATCH; la app repinta despues del GET del eTag
             const pc = filas('proyectos')[0];
             R.ok('proyecto cerrado con sello', pc.fields.CerradoPor === YO && !!pc.fields.CerradoEl && actividad('cerrar-proyecto').length === 1);
             R.ok('cerrado: sin Nueva tarea y sale de activos', $('btnNuevaTarea').disabled && $('pEstado').textContent === 'Cerrado');   // v0.12.0: el chip «Cerrado» donde iba el %

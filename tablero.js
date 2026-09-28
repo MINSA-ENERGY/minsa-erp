@@ -1005,7 +1005,7 @@ export function abrirNuevaTarea() {
     const cols = columnasDe(p);   // v0.11.0: las cubetas de este proyecto; nace en la primera
     opciones($('ntColumna'), cols, c => c.clave, c => c.nombre, null);
     // R-03 (27-sep, Linear): en celular (las pestañas de cubeta a la vista) nace en la cubeta que se está mirando; en escritorio, en la primera.
-    const enVista = estado.tab === 'tablero' && $('colTabs').offsetParent !== null && cols.some(c => c.clave === estado.colMovil);
+    const enVista = estado.tab === 'tablero' && $('colTabs').offsetParent !== null && estado.colMovil !== HECHO && cols.some(c => c.clave === estado.colMovil);   // C-33: con Hecho a la vista nace en la primera, no cerrada y sellada
     $('ntColumna').value = enVista ? estado.colMovil : cols[0].clave;
     $('ntTitulo').value = ''; ponerPrioridad('ntPrioridad', 'normal'); $('ntVence').value = ''; $('ntDesc').value = '';
     selectorTonos($('ntColor'), '', null, 'Color de la tarjeta');   // v0.12.0

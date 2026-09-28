@@ -2211,3 +2211,17 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 #dlgTarea:focus { outline: none; }
 /* U-33: «1 de 5» en su renglon y las dos flechas juntas debajo — nunca la «↓» sola (el wrap de la celda se queda: con nowrap se salia sobre VENCE) */
 #dlgTarea .t-cel .orden > span { flex-basis: 100%; }
+/* ==== v0.134.0 (28-sep, /mejorar-app proyectos proyecto, tanda 1 automatica) ==== */
+/* U-36: el estado declarado del frente, primera parte de la linea-resumen de la cabecera */
+.resumen-linea .salud-cab.is-ok { color: var(--status-ok-fg); } .resumen-linea .salud-cab.is-warn { color: var(--status-warn-fg); } .resumen-linea .salud-cab.is-danger { color: var(--status-danger-fg); }
+/* U-38: el pliegue del historial de la tarjeta, objetivo de 36 px, gris legible y con marcador */
+.nota-hist summary { min-height: 36px; color: var(--text-muted); gap: var(--sp-1); list-style: none; }
+.nota-hist summary::-webkit-details-marker { display: none; }
+.nota-hist summary::before { content: '\25B8'; display: inline-block; transition: transform .15s; }
+.nota-hist[open] > summary::before { transform: rotate(90deg); }
+@media (max-width: 720px) {
+  /* U-42: el summary de la leyenda del tablero, 36 px de alto */
+  .leyenda-det > summary { min-height: 36px; padding-block: 10px; }
+  /* U-41: en la ficha a 390, «1 de 5» y las dos flechas en un solo renglon */
+  #dlgTarea .t-cel .orden { flex-wrap: nowrap; }
+}
