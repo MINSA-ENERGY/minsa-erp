@@ -7,7 +7,7 @@
 // «→ siguiente» de la cara de la tarjeta se quito, y «Origen en la KB» ya no se ensena ni se pide.
 
 import { CONFIG } from './config.js';
-import { sellarAsignadoPor, PUEDE, ordenar, tareasDe, diasQuieta, rotuloQuieta, camposDeMovimiento, nombreDe, diasPara, estadoVence, semaforo, vencidasEn, filtrarTareas, ordenarLista, reordenar, sinAcentos, columnasDe, normalizarColumnas, nombreColumnaEn, claseDeColumna, HECHO, MAX_COLUMNAS, MAX_NOMBRE_COLUMNA, COLORES, colorValido, hrefSeguro, delegadas, misAbiertas, porVence, claseVence } from './reglas.js';
+import { sellarAsignadoPor, PUEDE, ordenar, tareasDe, diasQuieta, rotuloQuieta, camposDeMovimiento, nombreDe, nombreCorto, diasPara, estadoVence, semaforo, vencidasEn, filtrarTareas, ordenarLista, reordenar, sinAcentos, columnasDe, normalizarColumnas, nombreColumnaEn, claseDeColumna, HECHO, MAX_COLUMNAS, MAX_NOMBRE_COLUMNA, COLORES, colorValido, hrefSeguro, delegadas, misAbiertas, porVence, claseVence } from './reglas.js';
 import { $, L, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, el, boton, chip, chipVence, avisar, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaHora, aIsoDia, diaInput, fechaInput, atajosFecha, opciones, limpiar, porId, proyectoAbierto, registrarActividad, hashDe, fijarHash, irAHash, ligaDeTarjeta, notasDe, aplicarVivo, agregarSinDuplicar, fusionarActividad, pedirRelectura, equipoDe, iconoEquipo, iconoArchivo, textoConMenciones, insignia, TRAZOS, iconoSvg, puedeBorrarComentario, borrarComentario, columnasDeTarea, notasPorTarea, ligasPorTarea, buzonPorTarea, mesDia, personasActivas, contadorTexto, mayusculasEnVivo } from './comun.js';
 import { abrirPartida } from './capital.js';   // v0.103.0: «Nueva partida» desde la pestaña Capital del proyecto
 import { abrirLigar, abrirSubir, abrirEnlace, quitarLiga, puedeLigarEn, puedeEnlazarEn } from './docs.js';
@@ -121,7 +121,7 @@ export function tarjeta(t, conProyecto = false) {
     tt.appendChild(document.createTextNode(t.Title));
     b.appendChild(tt);
     const f = el('span', 'f');
-    const quien = t.Asignado ? nombreDe(t.Asignado, estado.roles).split(' ')[0] : 'sin asignar';
+    const quien = t.Asignado ? nombreCorto(t.Asignado, estado.roles) : 'sin asignar';
     f.appendChild(el('span', 'nom', quien)); enTitle.push(quien);
     if (conProyecto) { const p = porId(estado.proyectos, t.ProyectoId); if (p) f.appendChild(chip(p.Clave)); }
     if (conProyecto) f.appendChild(chipColumna(t));
@@ -180,8 +180,7 @@ export function pintarFiltroTareas(proyecto) {
     // ---- el menu «Quién»
     const menu = el('details', 'menu-quien'); menu.open = abierto; menu.dataset.menu = 'quien';
     const sum = el('summary'); sum.className = 'mn-btn is-sm' + (f.quien.length || f.sinDueno ? ' is-on' : '');
-    const pilas = quienes.map(q => nombreDe(q, estado.roles).split(' ')[0]);
-    const etiqueta = q => { const i = quienes.indexOf(q); return i >= 0 && pilas.filter(x => x === pilas[i]).length > 1 ? nombreDe(q, estado.roles) : nombreDe(q, estado.roles).split(' ')[0]; };   // dos «Ana»: nombre completo
+    const etiqueta = q => nombreCorto(q, estado.roles, quienes);   // dos «Ana» en el menu: nombre completo (C-09, v0.133.0: la regla vive en reglas.js)
     // Una sola persona (sin «sin dueño») → su nombre; cualquier otra combinacion → «Quién» + cuantas marcas.
     const marcas = f.quien.length + (f.sinDueno ? 1 : 0);
     sum.appendChild(el('span', 'nom', marcas === 1 && f.quien.length === 1 ? etiqueta(f.quien[0]) : 'Quién'));
@@ -231,7 +230,7 @@ export function pintarBotonFiltros() {
     // U-01 (17-sep): con filtro puesto, el propio tablero/lista lo dice — a 390 «Filtrar · N» vive al final de la fila de pestañas, fuera de la vista.
     const av = $('filtroAviso'); av.textContent = '';
     const partes = [];
-    if (f.quien && f.quien.length) partes.push(f.quien.map(q => nombreDe(q, estado.roles).split(' ')[0]).join(', '));
+    if (f.quien && f.quien.length) partes.push(f.quien.map(q => nombreCorto(q, estado.roles)).join(', '));
     if (f.sinDueno) partes.push('sin dueño'); if (f.alta) partes.push('solo alta'); if (f.vencidas) partes.push('solo vencidas');
     if (f.texto) partes.push(`«${f.texto}»`);
     const mostrar = n > 0 && ['tablero', 'lista'].includes(estado.tab);
@@ -460,7 +459,7 @@ function renglonDenso(t, conQuien, sem) {
     const tt = el('span', 't');
     tt.appendChild(el('span', 'tit', t.Title));
     tt.appendChild(marcaPrioridad(t.Prioridad));   // v0.60.0: a la derecha del titulo
-    if (conQuien) { const q = el('span', 'quien'); q.appendChild(document.createTextNode(t.Asignado ? nombreDe(t.Asignado, estado.roles).split(' ')[0] : 'sin asignar')); tt.appendChild(q); }
+    if (conQuien) { const q = el('span', 'quien'); q.appendChild(document.createTextNode(t.Asignado ? nombreCorto(t.Asignado, estado.roles) : 'sin asignar')); tt.appendChild(q); }
     const nNotas = notasPorTarea().get(t.id) || 0, nDocs = ligasPorTarea().get(t.id) || 0;
     if (nNotas) tt.appendChild(insignia(TRAZOS.burbuja, nNotas, `${nNotas} nota${nNotas === 1 ? '' : 's'}`, 'is-notas'));
     if (nDocs) tt.appendChild(insignia(TRAZOS.clip, nDocs, `${nDocs} documento${nDocs === 1 ? '' : 's'}`, 'is-docs'));

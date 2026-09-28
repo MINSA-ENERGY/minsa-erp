@@ -14,7 +14,7 @@
 
 import { CONFIG } from './config.js';
 import { crearCliente, esConflicto } from './graph.js';
-import { rolDe, PUEDE, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, misAbiertas as misAbiertasDe } from './reglas.js';
+import { rolDe, PUEDE, nombreCorto, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, misAbiertas as misAbiertasDe } from './reglas.js';
 import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, chipVence, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas } from './comun.js';
 import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambiarTareas, abrirTarjeta, tarjetaAbiertaId, repintarFicha, pintarFiltroTareas, pintarBotonFiltros, abrirNuevaTarea } from './tablero.js';
 import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
@@ -512,7 +512,7 @@ function itemMini(quien, texto, sub, derecha, claseDerecha, abre) {
     if (abre) { it.type = 'button'; it.dataset.abre = abre; it.title = 'Abrir la tarjeta'; }
     const c = el('div');
     const nombre = nombreDe(quien, estado.roles), esNombre = texto === nombre;
-    const cab = el('div', 'cab'); cab.appendChild(el('span', 'q', esNombre ? nombre : nombre.split(' ')[0]));
+    const cab = el('div', 'cab'); cab.appendChild(el('span', 'q', esNombre ? nombre : nombreCorto(quien, estado.roles)));
     cab.appendChild(el('span', 'd' + (claseDerecha ? ' is-' + claseDerecha : ''), derecha || '')); c.appendChild(cab);
     if (!esNombre) c.appendChild(fraseMarcada(texto));
     if (sub) { const w = el('div', 'w', sub); w.title = sub; c.appendChild(w); }
@@ -654,7 +654,7 @@ function pintarInicio() {
     const ahora = new Date();
     const yo = nombreDe(estado.cuenta.username, estado.roles);
     const vivos = activos(), nAct = vivos.length;   // C-07 (mejorar-app, 16-sep): activos() se filtraba cuatro veces por pintado
-    $('inicioSaludo').textContent = `${saludoDe(ahora)}, ${yo.split(' ')[0]}`;
+    $('inicioSaludo').textContent = `${saludoDe(ahora)}, ${yo.split(' ')[0]}`;   // C-09 (v0.133.0): el saludo NO pasa por nombreCorto, a proposito: a uno mismo no hay a quien confundir
     // U-08: el rol va en su propio span; en celular la barra de arriba ya lo dice junto al logo y .rol-sub se oculta (estilo.css)
     const sub = $('inicioSub'); sub.textContent = `${fechaLarga(ahora)} · ${nAct} frente${nAct === 1 ? '' : 's'} activo${nAct === 1 ? '' : 's'}`; sub.appendChild(el('span', 'rol-sub', ` · ${estado.rol}`));
     const abiertas = abiertasInicio(vivos);   // C-11 (v0.95.0): la misma cuenta que el conmutador y «Sin dueño» repiten al clic
@@ -747,7 +747,7 @@ function extraCola(t, ahora = new Date()) {
  *  a 390 px el «…» se come el nombre repetido y no el dato que distingue. `datos` extra (p. ej. sinDueno) se suman al data-t. */
 const renglonTarea = (t, cls, datos) => renglonCola(cls, t.Title, [...extraCola(t), tituloFrenteDe(t)].filter(Boolean).join(' · '), kFecha(t.Vence), llaveTarea(t), { t: String(t.id), ...datos });
 /** El renglon de un evento de la bitacora (nuevo para ti / te mencionaron): quien (nombre de pila) y el frente en el subtitulo. */
-const renglonEvento = (a, titulo, datos, pid = a.ProyectoId) => { const p = porId(estado.proyectos, pid); return renglonCola('info', titulo, `${nombreDe(a.Quien, estado.roles).split(' ')[0]}${p ? ' · ' + p.Title : ''}`, kHora(a.Cuando), llaveEvento(a, pid), datos); };
+const renglonEvento = (a, titulo, datos, pid = a.ProyectoId) => { const p = porId(estado.proyectos, pid); return renglonCola('info', titulo, `${nombreCorto(a.Quien, estado.roles)}${p ? ' · ' + p.Title : ''}`, kHora(a.Cuando), llaveEvento(a, pid), datos); };
 /** Los grupos por fecha se recortan a TOPE_COLA renglones con un «+N más» que lleva a donde estan todas (Mis tareas, Reportes o Calendario). */
 const TOPE_COLA = 6, TOPE_NUEVOS = 8;
 function masCola(lista, n, texto, ir) { const b = el('button', 'hoy-mas'); b.type = 'button'; b.textContent = `+${n} más · ${texto} →`; b.addEventListener('click', ir); lista.appendChild(b); return b; }

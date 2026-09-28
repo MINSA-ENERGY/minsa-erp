@@ -6,7 +6,7 @@
 // graficos son SVG por DOM o cajas con ancho en %.
 
 import { CONFIG } from './config.js';
-import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona } from './reglas.js';
+import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona } from './reglas.js';
 import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo } from './comun.js';
 import { pintarChat } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
 import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';   // v0.17.0: la misma tabla que Docs del proyecto; v0.18.0: y el mismo orden; v0.36.0: y el mismo arbol
@@ -515,7 +515,7 @@ export function pintarMensajes() {
         if (ultimo) { const d = el('span', 'd', fechaBandeja(ultimo.Cuando)); d.title = fechaHora(ultimo.Cuando); cab.appendChild(d); }   // U-04: relativa; la completa en el title
         c.appendChild(cab);
         const m = el('span', 'm');
-        if (ultimo) { m.appendChild(el('b', '', (String(ultimo.Quien || '').toLowerCase() === yo ? 'Tú' : nombreDe(ultimo.Quien, estado.roles).split(' ')[0]) + (ultimo.TareaId ? ' (nota): ' : ': '))); m.appendChild(textoConMenciones(ultimo.Title, undefined, false)); }
+        if (ultimo) { m.appendChild(el('b', '', (String(ultimo.Quien || '').toLowerCase() === yo ? 'Tú' : nombreCorto(ultimo.Quien, estado.roles)) + (ultimo.TareaId ? ' (nota): ' : ': '))); m.appendChild(textoConMenciones(ultimo.Title, undefined, false)); }
         else m.textContent = p.Estado === 'activo' ? 'Sin conversación todavía.' : 'Cerrado · sin conversación.';
         c.appendChild(m); b.appendChild(c);
         const lado = el('span', 'lado');

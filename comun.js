@@ -3,9 +3,9 @@
 // la bitacora PROY_Actividad.
 
 import { CONFIG } from './config.js';
-import { PUEDE, nombreDe, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
+import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.132.0';
+export const VERSION = '0.133.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -519,7 +519,7 @@ export function columnasDeTarea(t) { return columnasDe(porId(estado.proyectos, t
 
 /** Frase de un renglon de actividad para las listas de «actividad reciente»: «Lorena movió …»; una nota va entre comillas. */
 export function fraseActividad(a) {
-    const quien = nombreDe(a.Quien, estado.roles).split(' ')[0];
+    const quien = nombreCorto(a.Quien, estado.roles);
     return a.Accion === 'comentar' ? `${quien} ${verboComentario(a)}: «${a.Title}»` : `${quien} ${a.Title}`;
 }
 /** v0.8.0: la nota de una tarjeta se «anota»; el comentario del chat del proyecto (sin tarjeta) se «comenta». */

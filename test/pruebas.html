@@ -694,6 +694,9 @@ try {
         irHash('#p/no-existe'); await esperar(() => visible('p-inicio') && avisoCon('No hay un proyecto'), 'clave desconocida');
         R.ok('clave desconocida: aviso y a Inicio, hash corregido', location.hash === '#inicio', location.hash);
         R.ok('Inicio: la nota sale como «anotó: …» en la actividad', $('inicioActividad').textContent.includes('anotó: «Esperando'));
+        { const M9 = await import('../comun.js'), a9 = { Quien: YO, Accion: 'editar', Title: 'editó algo' }, antes9 = M9.fraseActividad(a9);   // C-09 (v0.133.0): sin navegar, para no correr el contador de pushState (obs. 614)
+          M9.estado.roles.push({ Title: 'persona.otra@example.invalid', Nombre: 'Persona Otra' }); const con9 = M9.fraseActividad(a9); M9.estado.roles.pop();
+          R.ok('C-09 (v0.133.0): con otra «Persona» en el roster la actividad dice el nombre completo; sin ella, el de pila', antes9 === 'Persona editó algo' && con9 === 'Persona de Prueba editó algo' && M9.fraseActividad(a9) === antes9, `${antes9} | ${con9}`); }
         { const nAct = document.querySelectorAll('#inicioActividad .it').length, tope = matchMedia('(max-width: 720px)').matches ? 3 : 8; R.ok('Inicio: actividad reciente con verbos, SIN movimientos (v0.11.0), tope de 8 renglones (3 en celular, B3; 8 desde v0.14.0) y «ver toda» si hay más (2026-09-12)', !$('inicioActividad').textContent.includes('movió') && $('inicioActividad').textContent.includes('anotó') && nAct <= tope && (nAct < tope ? $('btnActividadInicio').hidden : true), `${nAct} renglones`); }
         R.ok('el aviso es un toast con role=status y ×', $('avisos').getAttribute('role') === 'status' && !!$('avisos').querySelector('.mensaje .cerrar'));
         $('avisos').querySelector('.mensaje .cerrar').click();

@@ -481,6 +481,16 @@ export function nombreDe(correo, roles) {
     if (r && r.Nombre) return r.Nombre;
     return c.split('@')[0].replace(/\d+/g, '').split(/[._-]+/).filter(Boolean).map(p => p[0].toUpperCase() + p.slice(1)).join(' ') || c;
 }
+/**
+ * C-09 (v0.133.0): el nombre de PILA, salvo que otra persona de `entre` (correos; por omision todo PROY_Roles) comparta
+ * ese primer nombre: entonces el completo, para que dos «Ana» no salgan iguales. Antes vivia solo en tablero.js (menu Quién).
+ */
+export function nombreCorto(correo, roles, entre) {
+    const c = String(correo || '').trim().toLowerCase(), completo = nombreDe(c, roles), pila = completo.split(' ')[0];
+    if (!c) return completo;
+    const otros = entre || (roles || []).map(r => r.Title);
+    return otros.some(q => { const o = String(q || '').trim().toLowerCase(); return o && o !== c && nombreDe(o, roles).split(' ')[0] === pila; }) ? completo : pila;
+}
 
 // ---------------------------------------------------------------- ligas: el tope de 255 de SharePoint
 

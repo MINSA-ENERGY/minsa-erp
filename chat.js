@@ -8,7 +8,7 @@
 // la parte local del correo, sin acentos). Se pintan como chip, la propia lleva `is-yo`, e Inicio
 // junta «Te mencionaron». El selector aparece al teclear @ (tambien en la nota de la tarjeta).
 
-import { PUEDE, mencionEnCurso, aliasDe, aliasParaMencion, nombreDe, sinAcentos, diaDe } from './reglas.js';
+import { PUEDE, mencionEnCurso, aliasDe, aliasParaMencion, nombreDe, nombreCorto, sinAcentos, diaDe } from './reglas.js';
 import { $, L, estado, el, boton, tonoDe, avisar, porId, proyectoAbierto, fechaHora, textoConMenciones, comentariosDe, iconoSvg, TRAZOS, puedeBorrarComentario, borrarComentario, chatVistoHasta, marcarChatVisto, comentariosNuevos, vistosDeComentario, miVistoDe, puedeMarcarVisto, alternarVisto, personasActivas, contadorTexto, fusionarActividad, rotuloDia } from './comun.js';
 
 let alCambiar = () => {};
@@ -96,7 +96,7 @@ function mensajeDelHilo(c, anterior, p, yo) {
             const b = boton(mio ? '✓ visto' : '¿visto?', 'visto-btn' + (mio ? ' is-on' : ''), () => alClic(c.id, p.id, alternarVisto), { visto: String(c.id) });   // U-07 (17-sep): el no pulsado lleva palabra (en tactil no hay title)
             b.title = mio ? 'Quitar tu visto' : 'Marcar como visto'; b.setAttribute('aria-pressed', mio ? 'true' : 'false'); fila.appendChild(b);
         }
-        if (otros.length) { const q = el('span', 'q', '✓ ' + otros.map(a => nombreDe(a.Quien, estado.roles).split(' ')[0]).join(', ')); q.title = otros.map(a => `${nombreDe(a.Quien, estado.roles)} · ${fechaHora(a.Cuando)}`).join(' · '); fila.appendChild(q); }
+        if (otros.length) { const q = el('span', 'q', '✓ ' + otros.map(a => nombreCorto(a.Quien, estado.roles)).join(', ')); q.title = otros.map(a => `${nombreDe(a.Quien, estado.roles)} · ${fechaHora(a.Cuando)}`).join(' · '); fila.appendChild(q); }
         cuerpo.appendChild(fila);
     }
     m.appendChild(cuerpo);
