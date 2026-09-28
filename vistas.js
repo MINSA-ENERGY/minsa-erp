@@ -6,8 +6,8 @@
 // graficos son SVG por DOM o cajas con ancho en %.
 
 import { CONFIG } from './config.js';
-import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud } from './reglas.js';
-import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo } from './comun.js';
+import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona } from './reglas.js';
+import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo } from './comun.js';
 import { pintarChat } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
 import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';   // v0.17.0: la misma tabla que Docs del proyecto; v0.18.0: y el mismo orden; v0.36.0: y el mismo arbol
 
@@ -761,10 +761,36 @@ function pintarCarga(todas, hist) {
     for (const c of carga) {
         const tramos = [['abiertas', (c.abiertas - c.vencidas) * 100 / maxC]]; if (c.vencidas) tramos.push(['vencidas', c.vencidas * 100 / maxC, String(c.vencidas)]);
         const sinDueno = !c.quien && c.abiertas > 0;   // U-12 (v0.129.0): la fila «Sin dueño» lleva al tablero filtrado sin dueño (irASinDueno)
-        const fila = filaBarra(etiRep(c.quien ? nombreDe(c.quien, estado.roles) : 'Sin dueño', `${hechasDe.get(c.quien) || 0} hechas`), tramos, String(c.abiertas), sinDueno ? 'Ver las tarjetas sin dueño' : `${c.abiertas} abiertas, ${c.vencidas} vencidas`, sinDueno ? 'sd' : '');
+        const abre = sinDueno ? 'sd' : c.quien && c.abiertas > 0 ? `pe:${c.quien}` : '';   // R-02 (v0.131.0): la de una persona abre sus abiertas (abrirCargaPersona)
+        const fila = filaBarra(etiRep(c.quien ? nombreDe(c.quien, estado.roles) : 'Sin dueño', `${hechasDe.get(c.quien) || 0} hechas`), tramos, String(c.abiertas), sinDueno ? 'Ver las tarjetas sin dueño' : `${c.abiertas} abiertas, ${c.vencidas} vencidas${abre ? ': ver cuáles' : ''}`, abre);
         fila.dataset.repQ = c.quien || 'sin-dueno'; cp.appendChild(fila);
     }
     if (!carga.length) cp.appendChild(el('p', 'vacio', 'Sin tarjetas.'));
+}
+/**
+ * R-02 (v0.131.0): tocar a una persona en Carga abre un dialogo de lectura con sus abiertas agrupadas por frente, vencidas
+ * primero, como el clic en una barra de Linear Insights. Cada renglon abre su tarjeta por la llave `t:<id>` del delegado de app.js.
+ * Se recalcula de los frentes visibles (mismo filtro de equipo que Reportes) al abrir y en cada repintado.
+ */
+let personaCarga = null;
+export function abrirCargaPersona(quien) { personaCarga = String(quien || '').toLowerCase(); pintarCargaPersona(); abrirDialogo('dlgPersona'); }
+export function pintarCargaPersona() {
+    if (personaCarga === null) return;
+    const ps = visibles(), ids = new Set(ps.map(p => p.id));
+    const grupos = abiertasDePersona(estado.tareas.filter(t => ids.has(Number(t.ProyectoId))), personaCarga, ordenarProyectos(ps), CONFIG.vencePronto);
+    const n = grupos.reduce((s, g) => s + g.tareas.length, 0), nv = grupos.reduce((s, g) => s + g.vencidas, 0);
+    $('peTitulo').textContent = personaCarga ? nombreDe(personaCarga, estado.roles) : 'Sin dueño';
+    $('peSub').textContent = n ? `${n} abierta${n === 1 ? '' : 's'}${nv ? `, ${nv} vencida${nv === 1 ? '' : 's'}` : ''}${estado.filtroEquipo ? ` en ${nombreEquipoFiltrado()}` : ''}.` : 'Ya no tiene tarjetas abiertas.';
+    const l = $('peLista'); l.textContent = '';
+    for (const g of grupos) {
+        l.appendChild(el('div', 'rep-grupo', `${g.p.Title} · ${g.tareas.length}`));
+        for (const t of g.tareas) {
+            const b = el('button', 'it clic'); b.type = 'button'; b.dataset.abre = `t:${t.id}`; b.title = 'Abrir la tarjeta';
+            const cab = el('div', 'cab'); cab.appendChild(el('span', 'q', t.Title));
+            const cls = estadoVence(t, CONFIG.vencePronto); cab.appendChild(el('span', 'd' + (cls ? ' is-' + cls : ''), t.Vence ? fraseVence(diasPara(t.Vence), 'chip') : 'sin fecha'));
+            b.appendChild(cab); l.appendChild(b);
+        }
+    }
 }
 /** Hechas por semana: 8 columnas y el subtitulo con el total y el promedio. */
 function pintarSemanas(todas) {
@@ -815,4 +841,7 @@ export function pintarReportes() {
     pintarAvance(a, orden); pintarCarga(todas, hist); pintarSemanas(hist); pintarActividad(idsHist); pintarTarde(orden, venc);
     if (foco) { const attr = { repP: 'data-rep-p', repV: 'data-rep-v', abre: 'data-abre' }[foco[0]]; const b = $('p-reportes').querySelector(`[${attr}="${CSS.escape(foco[1])}"]`); if (b) b.focus(); }
 }
-export function engancharReportes() { $('btnImprimirReportes').addEventListener('click', () => window.print()); }
+export function engancharReportes() {
+    $('btnImprimirReportes').addEventListener('click', () => window.print());
+    $('peCerrar').addEventListener('click', () => cerrarDialogo('dlgPersona'));   // R-02 (v0.131.0)
+}

@@ -2404,10 +2404,30 @@ try {
               // U-12 (v0.129.0): «Sin dueño» de Carga por persona es botón y lleva al tablero filtrado sin dueño
               { const tSD = { id: DB.siguienteId++, fields: { Title: 'Sin dueño para Reportes', ProyectoId: filas('proyectos').find(p => p.fields.Clave === CLAVE).id, Columna: 'por-hacer', Desde: new Date().toISOString() } }; filas('tareas').push(tSD);
                 await recargarYEsperar(); irHash('#reportes'); await esperar(() => document.querySelector('#repPersonas button[data-abre="sd"]'), 'fila sin dueño');
-                const b = document.querySelector('#repPersonas button[data-abre="sd"]'); const nBot = document.querySelectorAll('#repPersonas button.rep-fila').length;
+                const b = document.querySelector('#repPersonas button[data-abre="sd"]'); const nBot = document.querySelectorAll('#repPersonas button.rep-fila:not([data-abre^="pe:"])').length;   // R-02 (v0.131.0): las personas tambien son boton; aqui se cuentan los demas
                 b.click(); await esperar(() => visible('p-proyecto') && ESTADO.filtroTareas.sinDueno, 'tablero sin dueño');
-                R.ok('U-12 (v0.129.0): la fila «Sin dueño» es el único botón de la carga y abre el tablero con el filtro Sin dueño', nBot === 1 && visible('p-proyecto') && ESTADO.filtroTareas.sinDueno === true && ESTADO.tab === 'tablero', `botones=${nBot} hash=${location.hash}`);
+                R.ok('U-12 (v0.129.0): la fila «Sin dueño» es el único botón de la carga que no es de una persona y abre el tablero con el filtro Sin dueño', nBot === 1 && visible('p-proyecto') && ESTADO.filtroTareas.sinDueno === true && ESTADO.tab === 'tablero', `botones=${nBot} hash=${location.hash}`);
                 ESTADO.filtroTareas.sinDueno = false; filas('tareas').splice(filas('tareas').indexOf(tSD), 1); irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes tras sin dueño'); }
+              // R-02 (v0.131.0): tocar a una persona en Carga abre sus abiertas por frente, vencidas primero; cada renglon abre su tarjeta
+              { const yo = YO.toLowerCase(); const fila = document.querySelector(`#repPersonas button[data-abre="pe:${yo}"]`);
+                R.ok('R-02 (v0.131.0): la fila de una persona con abiertas es botón con la llave pe:<correo>', !!fila, [...document.querySelectorAll('#repPersonas [data-abre]')].map(x => x.dataset.abre).join());
+                if (fila) {
+                  const cifra = Number(fila.querySelector('.rep-barra > b').textContent);
+                  fila.click(); await esperar(() => $('dlgPersona').open, 'dialogo de la persona');
+                  const its = [...$('peLista').querySelectorAll('button.it')], grupos = [...$('peLista').querySelectorAll('.rep-grupo')];
+                  R.ok('R-02 (v0.131.0): el diálogo lleva el nombre completo, una fila por abierta (= la cifra de Carga) y dice cuántas vencidas', $('peTitulo').textContent === 'Persona de Prueba' && its.length === cifra && /vencida/.test($('peSub').textContent) && grupos.length >= 1, `${$('peTitulo').textContent} · ${its.length}/${cifra} · ${$('peSub').textContent}`);
+                  { const venc = x => !!x.querySelector('.d.is-danger'); const bloques = []; for (const n of $('peLista').children) { if (n.classList.contains('rep-grupo')) bloques.push([]); else bloques[bloques.length - 1].push(n); }
+                    const trasPrimero = (xs, pred) => { const i = xs.findIndex(x => !pred(x)); return i === -1 || !xs.slice(i).some(pred); };   // ninguna que cumple despues de la primera que no
+                    const ordenOk = bloques.every(bl => trasPrimero(bl, venc)) && trasPrimero(bloques, bl => bl.some(venc));
+                    R.ok('R-02 (v0.131.0): los frentes con vencidas van primero, dentro de cada uno las vencidas encabezan en rojo, y la vencida sembrada está', venc(its[0]) && ordenOk && its.some(x => x.dataset.abre === `t:${tVenc.id}` && venc(x)), its.map(x => x.dataset.abre + (venc(x) ? '!' : '')).join()); }
+                  its.find(x => x.dataset.abre === `t:${tVenc.id}`).click(); await esperar(() => !$('dlgPersona').open && $('dlgTarea').open, 'tarjeta desde la persona');
+                  R.ok('R-02 (v0.131.0): tocar una fila cierra el diálogo y abre esa tarjeta', !$('dlgPersona').open && $('dlgTarea').open && location.hash.endsWith('/t/' + tVenc.id), location.hash);
+                  clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrar tarjeta'); irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes tras la tarjeta');
+                  document.querySelector(`#repPersonas button[data-abre="pe:${yo}"]`).click(); await esperar(() => $('dlgPersona').open, 'dialogo 2');
+                  clic('peCerrar'); await esperar(() => !$('dlgPersona').open, 'cerrar persona');
+                  R.ok('R-02 (v0.131.0): «Cerrar» cierra el diálogo y deja Reportes', !$('dlgPersona').open && visible('p-reportes'));
+                }
+              }
               filas('tareas').splice(filas('tareas').indexOf(tVenc), 1); filas('proyectos').splice(filas('proyectos').indexOf(pVacio), 1); await recargarYEsperar(); irHash('#reportes'); await esperar(() => visible('p-reportes') && !document.querySelector(`#repVencidas [data-rep-v="${tVenc.id}"]`) && !document.querySelector(`#repProyectos [data-rep-p="${pVacio.id}"]`), 'vencida y frente sembrados retirados');
             }
             document.querySelector('#railEquipos [data-equipo="PITEPEC"]').click(); await dormir(30);

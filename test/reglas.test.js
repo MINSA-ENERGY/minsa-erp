@@ -391,6 +391,14 @@ ok('S-12 (v0.96.0): marcaFiable topa la marca en ahora + 5 min: un Cuando del fu
   const a = lineaSalud(p, hoy), b = lineaSalud({ ...p, SaludEl: '2026-09-28T08:00:00Z' }, hoy), c = lineaSalud({ ...p, SaludEl: '2026-09-14T12:00:00Z' }, hoy), v = lineaSalud({ ...p, SaludEl: '2026-09-13T11:00:00Z' }, hoy);
   ok('lineaSalud: «hace N d» contado en dias enteros; el mismo dia dice «hoy»', a.hace === 'hace 1 d' && a.nombre === 'En riesgo' && a.nota === 'falta firma' && b.hace === 'hoy' && !a.vieja && !b.vieja, `${a.hace} | ${b.hace}`);
   ok('lineaSalud: vieja solo al PASAR de 14 dias (14 no, 15 si)', SALUD_VIEJA_DIAS === 14 && c.hace === 'hace 14 d' && !c.vieja && v.hace === 'hace 15 d' && v.vieja, `${c.hace}/${c.vieja} ${v.hace}/${v.vieja}`);
+  // R-02 (v0.131.0): las abiertas de una persona por frente
+  { const { abiertasDePersona } = await import('../reglas.js');
+    const orden = [{ id: 1 }, { id: 2 }, { id: 3 }];
+    const T = (id, pid, asig, col, vence) => ({ id, ProyectoId: String(pid), Asignado: asig, Columna: col, Vence: vence });
+    const ts = [T(10, 1, 'Ana@x', 'por-hacer', '2026-10-20'), T(11, 1, 'ana@x', 'hecho', '2026-09-01'), T(20, 2, 'ana@x', 'en-curso', '2026-10-01'), T(21, 2, 'ana@x', 'por-hacer', '2026-09-20'), T(22, 2, 'ana@x', 'por-hacer', null), T(30, 3, 'otro@x', 'por-hacer', '2026-09-01'), T(40, 9, 'ana@x', 'por-hacer', null), T(50, 3, '', 'por-hacer', null)];
+    const g = abiertasDePersona(ts, 'ANA@x', orden, 7, hoy);
+    ok('abiertasDePersona: sin hechas, sin ajenas, sin frentes fuera de orden; el frente con vencidas sube; dentro, vencidas primero y luego por vence', g.map(x => x.p.id).join() === '2,1' && g[0].tareas.map(t => t.id).join() === '21,20,22' && g[0].vencidas === 1 && g[1].tareas.map(t => t.id).join() === '10' && g[1].vencidas === 0, JSON.stringify(g.map(x => [x.p.id, x.tareas.map(t => t.id)])));
+    ok('abiertasDePersona: quien vacio = sin dueño; nadie = []', abiertasDePersona(ts, '', orden, 7, hoy).map(x => x.tareas.map(t => t.id).join()).join() === '50' && abiertasDePersona(ts, 'nadie@x', orden, 7, hoy).length === 0); }
   ok('lineaSalud: sin declarar = null; sin SaludEl o con fecha rota, sin sello y nunca vieja', lineaSalud({}, hoy) === null && lineaSalud({ Salud: 'atrasado' }, hoy).hace === '' && !lineaSalud({ Salud: 'atrasado', SaludEl: 'ayer' }, hoy).vieja);
 }
 

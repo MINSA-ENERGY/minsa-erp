@@ -20,7 +20,7 @@ import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambia
 import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
 import { pintarChat, engancharChat, alCambiarChat, fijarAbrirTarjeta, salirDelChat } from './chat.js';
 import { pintarCapital, pintarCapitalProyecto, pintarCapitalTab, puedeVerCapital, engancharCapital, alCambiarCapital, fijarIrAProyecto } from './capital.js';
-import { pintarRoadmap, pintarRoadmapProyecto, roadmapFull, engancharRoadmap, olvidarLugarRoadmap, pintarCalendario, engancharCalendario, enfocarCal, pintarMensajes, engancharMensajes, devolverChat, mensajesNuevos, proyectoDeMensajes, pintarArchivos, engancharArchivos, pintarReportes, engancharReportes, anillo } from './vistas.js';
+import { pintarRoadmap, pintarRoadmapProyecto, roadmapFull, engancharRoadmap, olvidarLugarRoadmap, pintarCalendario, engancharCalendario, enfocarCal, pintarMensajes, engancharMensajes, devolverChat, mensajesNuevos, proyectoDeMensajes, pintarArchivos, engancharArchivos, pintarReportes, engancharReportes, anillo, abrirCargaPersona, pintarCargaPersona } from './vistas.js';
 
 // NO llamar `msal` a esta variable: taparia el global del bundle UMD.
 const pca = new msal.PublicClientApplication({
@@ -272,7 +272,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 // v0.15.0: la marca de lectura compartida se manda agrupada (1.5 s); al ocultarse la pagina se empuja lo que quede.
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') guardarVisto(); });
 window.addEventListener('pagehide', () => { guardarVisto(); });
-const DLG_LECTURA = ['dlgEquipo', 'dlgActividad'];
+const DLG_LECTURA = ['dlgEquipo', 'dlgActividad', 'dlgPersona'];   // R-02 (v0.131.0): + las abiertas de una persona (Reportes)
 fijarAlCerrar(id => { if (DLG_LECTURA.includes(id) && rancio() && !editando()) recargar(); });
 for (const id of DLG_LECTURA) $(id).addEventListener('close', () => { if (rancio() && !editando()) recargar(); });   // Esc no pasa por cerrarDialogo
 fijarReleer(recargar);   // un 412 (alguien cambio el renglon) se resuelve releyendo: la verdad esta en SharePoint
@@ -390,6 +390,7 @@ function repintar() {
     else if (estado.pestana === 'archivos') pintarArchivos();
     else if (estado.pestana === 'reportes') pintarReportes();
     else if (estado.pestana === 'capital') pintarCapital();   // v0.100.0
+    if ($('dlgPersona').open) pintarCargaPersona();   // R-02 (v0.131.0): el refresco sigue con las abiertas de la persona abiertas
     if ($('dlgActividad').open) pintarActividad();   // C-12 (v0.94.0): el refresco sigue con «Toda la actividad» abierta (E4); acCtx conserva filtro y pagina
 }
 alCambiarTareas(repintar);
@@ -538,11 +539,13 @@ const llaveEvento = (a, pid) => hashEvento(a, pid) ? `a:${a.id}${pid ? ':' + pid
 document.addEventListener('click', ev => {
     const b = ev.target.closest('[data-abre]'); if (!b) return;
     const [tipo, id, pid] = b.dataset.abre.split(':');
+    if (tipo === 'pe') { abrirCargaPersona(b.dataset.abre.slice(3)); return; }   // R-02 (v0.131.0): una persona de Carga por persona (Reportes); el correo entero, sin partirlo por ':'
     if (tipo === 'sd') { irASinDueno(); return; }   // U-12 (v0.129.0): «Sin dueño» de Carga por persona (Reportes)
     if (tipo === 'q') { const p = proyectoAbierto(); if (!p) return; limpiarFiltroTareas(id ? { quien: [id] } : { sinDueno: true }); estado.tab = 'tablero'; pintarPestanasAbierto(); fijarHash(hashDe()); return; }   // U-27 (v0.123.0): Quiénes del Resumen
     const h = tipo === 't' ? hashTarea(id) : hashEvento(porId(estado.actividad, id), pid);
     if (!h) { avisar('Eso ya no está: se borró o se movió desde que se pintó la pantalla.', 'ojo'); return; }
     if ($('dlgActividad').open) cerrarDialogo('dlgActividad');   // desde Toda la actividad (antes lo hacia abridorDe)
+    if ($('dlgPersona').open) cerrarDialogo('dlgPersona');   // R-02 (v0.131.0): desde las abiertas de una persona
     irAHash(h);
 });
 /** C-07: un solo formateador de hora de Mexico para la cola (antes uno nuevo por renglon). */

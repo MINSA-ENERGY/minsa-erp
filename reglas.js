@@ -791,6 +791,25 @@ export function cargaPorPersona(tareas, pronto = 7, hoy = new Date()) {
     }
     return [...m.values()].sort((a, b) => (a.quien === '') - (b.quien === '') || b.abiertas - a.abiertas || a.quien.localeCompare(b.quien));
 }
+/**
+ * R-02 (v0.131.0): las ABIERTAS de una persona ('' = sin dueño) agrupadas por frente, como el clic en una barra de Linear Insights.
+ * Solo frentes de `orden` y en ese orden, salvo que los que traen vencidas suben arriba; dentro de cada uno, vencidas primero y luego porVence.
+ */
+export function abiertasDePersona(tareas, quien, orden, pronto = 7, hoy = new Date()) {
+    const q = String(quien || '').toLowerCase(), porP = new Map();
+    for (const t of tareas || []) {
+        if (t.Columna === 'hecho' || String(t.Asignado || '').toLowerCase() !== q) continue;
+        const k = Number(t.ProyectoId); if (!porP.has(k)) porP.set(k, []); porP.get(k).push(t);
+    }
+    const vencida = t => estadoVence(t, pronto, hoy) === 'danger';
+    const grupos = [];
+    for (const p of orden || []) {
+        const ts = porP.get(p.id); if (!ts) continue;
+        ts.sort((a, b) => vencida(b) - vencida(a) || porVence(a, b));
+        grupos.push({ p, tareas: ts, vencidas: ts.filter(vencida).length });
+    }
+    return grupos.sort((a, b) => (b.vencidas > 0) - (a.vencidas > 0));   // sort estable: el resto conserva el orden de los frentes
+}
 /** Renglones de actividad por persona en los ultimos `dias`, de mas a menos. */
 export function actividadPorPersona(actividad, dias = 30, hoy = new Date()) {
     const desde = new Date(hoy.getTime() - dias * 86400000).toISOString();
