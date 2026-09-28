@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.136.0';
+export const VERSION = '0.137.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -140,6 +140,19 @@ export const proyectoPorClave = clave => estado.proyectos.find(x => String(x.Cla
  * pantalla (#avisos lleva role=status), el ok/info se va solo a los 4 s y el error se queda hasta
  * cerrarlo. Dentro de un dialogo abierto se pinta en su .dlg-avisos, como antes.
  */
+/**
+ * C-16 (v0.137.0): un repintado que recrea los botones de una pantalla deja el foco del teclado en el body. conservarFoco anota el
+ * data-* (el primero de `claves`, en camelCase de dataset) y la primera clase que no es de estado del elemento con foco dentro de `raiz`, corre `pintar`
+ * y devuelve el foco al nodo nuevo equivalente. Nacio en Reportes (C-07, v0.129.0) y lo usan tambien los dos roadmaps.
+ */
+export function conservarFoco(raiz, claves, pintar) {
+    const act = document.activeElement; const k = act && act !== raiz && raiz.contains(act) ? claves.find(c => act.dataset && act.dataset[c] !== undefined) : null;
+    const cls = k && [...act.classList].find(c => !c.startsWith('is-'));   // la de estado (is-on, is-danger) puede cambiar con el repintado
+    const sel = k ? `${cls ? '.' + CSS.escape(cls) : ''}[data-${k.replace(/[A-Z]/g, m => '-' + m.toLowerCase())}="${CSS.escape(act.dataset[k])}"]` : null;
+    const r = pintar();
+    if (sel) { const b = raiz.querySelector(sel); if (b && document.activeElement !== b) b.focus(); }
+    return r;
+}
 let temporizadorAviso = 0;
 /** `opts.accion` + `opts.alClic` ponen un boton en el toast («Deshacer», U7); `opts.ms` cambia cuanto dura. */
 export function avisar(texto, clase = '', opts = {}) {

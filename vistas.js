@@ -7,7 +7,7 @@
 
 import { CONFIG } from './config.js';
 import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona, HECHO } from './reglas.js';
-import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo } from './comun.js';
+import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo, conservarFoco } from './comun.js';
 import { pintarChat } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
 import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';   // v0.17.0: la misma tabla que Docs del proyecto; v0.18.0: y el mismo orden; v0.36.0: y el mismo arbol
 
@@ -221,7 +221,10 @@ function popHito(a, f, rombo = null, repinta = false) {
  * tarjetas como barras (Desde/creacion -> Vence; las hechas hasta HechoEl), el fin del frente como
  * hito y la raya de hoy. Sin fecha = sin barra, con su texto. Es la foto de referencia (Carlos, 12-sep).
  */
-export function pintarRoadmapProyecto(p) {
+// C-16 (v0.137.0): «ver hechas» y el refresco rehacian la pestana con el boton o la barra con foco dentro; el foco caia al body
+const CLAVES_FOCO_P = ['verHechas', 'roadmap', 't', 'sinFecha'];
+export function pintarRoadmapProyecto(p) { conservarFoco($('tab-roadmap'), CLAVES_FOCO_P, () => pintarRoadmapProyectoCuerpo(p)); }
+function pintarRoadmapProyectoCuerpo(p) {
     const cont = $('tab-roadmap'); const previo = lugarPrevio('p' + p.id, cont.querySelector('.gantt-caja'), cont); cont.textContent = '';   // C-07 (v0.120.0): la caja se rehace; su scroll se lee antes
     const ts = tareasDe(p, estado.tareas);
     const lapsos = ts.map(lapsoTarea); const lp = lapsoProyecto(p, ts); const lapsoDe = new Map(ts.map((t, i) => [t.id, lapsos[i]]));   // C-06 (v0.78.0): un lapso por tarjeta, no uno por comparacion del sort; C-12 (v0.120.0): lapsoProyecto recibe las ya filtradas
@@ -314,7 +317,10 @@ function claseFrente(p, venc) {
  * barra va de la creacion del proyecto al fin del frente con su avance adentro; abajo los hitos que
  * vienen (fines de frente a 60 dias). v0.46.0 (Carlos, 15-sep): la fila de KPI (total · en proceso · hechas · vencidas) SALIO.
  */
-export function pintarRoadmap() {
+// C-16 (v0.137.0): la escala, el refresco de 120 s y el resize rehacian los botones de escala, las barras y los rombos con el foco dentro
+const CLAVES_FOCO = ['escala', 'roadmapBarra', 'roadmapP', 'hito'];
+export function pintarRoadmap() { conservarFoco($('p-roadmap'), CLAVES_FOCO, pintarRoadmapCuerpo); }
+function pintarRoadmapCuerpo() {
     // El filtro por equipo del rail aplica PAREJO: filas e hitos (el revisor vio cifras globales con «2 frentes de CALYTEK» arriba).
     const ps = ordenarProyectos(visibles());   // C-03: la regla del rail vive en reglas.js
     const n = ps.length, frentes = n === 1 ? '1 frente' : `${n} frentes`;   // U-08 (v0.78.0): plural real, y lo que es la barra lo dice la leyenda, no dos veces
@@ -868,11 +874,9 @@ export function pintarReportes() {
     const nP = ps.length, nT = todas.length;
     $('reportesSub').textContent = `${nP} frente${nP === 1 ? ' activo' : 's activos'}${estado.filtroEquipo ? ` de ${nombreEquipoFiltrado()}` : ''} · ${nT} tarjeta${nT === 1 ? '' : 's'} · leído de las listas el ${fechaHora(new Date(estado.cargadoEl || Date.now()).toISOString())}.`;
     // v0.46.0 (Carlos, 15-sep): los 5 KPI de arriba (proyectos activos · abiertas · hechas · vencidas · sin dueño) SALIERON.
-    // C-07 (v0.129.0): el refresco de 120 s recrea las filas; se anota la fila con foco y se le devuelve al terminar (antes caia al body).
-    const act = document.activeElement, foco = act && $('p-reportes').contains(act) ? ['repP', 'repV', 'abre'].map(k => [k, act.dataset && act.dataset[k]]).find(([, v]) => v) : null;
+    // C-07 (v0.129.0): el refresco de 120 s recrea las filas; se anota la fila con foco y se le devuelve al terminar (antes caia al body). Desde C-16 lo hace conservarFoco (comun.js), abajo.
     const orden = ordenarProyectos(ps);   // C-03 (18-sep): cinco bloques, cada uno su funcion; el calculo comun se queda aqui
-    pintarAvance(a, orden); pintarCarga(todas, hist); pintarSemanas(hist); pintarActividad(idsHist); pintarTarde(orden, venc);
-    if (foco) { const attr = { repP: 'data-rep-p', repV: 'data-rep-v', abre: 'data-abre' }[foco[0]]; const b = $('p-reportes').querySelector(`[${attr}="${CSS.escape(foco[1])}"]`); if (b) b.focus(); }
+    conservarFoco($('p-reportes'), ['repP', 'repV', 'abre'], () => { pintarAvance(a, orden); pintarCarga(todas, hist); pintarSemanas(hist); pintarActividad(idsHist); pintarTarde(orden, venc); });   // C-16 (v0.137.0): la logica de C-07 vive en comun.js
 }
 export function engancharReportes() {
     $('btnImprimirReportes').addEventListener('click', () => window.print());
