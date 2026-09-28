@@ -6,7 +6,7 @@
 // graficos son SVG por DOM o cajas con ancho en %.
 
 import { CONFIG } from './config.js';
-import { tareasDe, avance, avanceGlobal, estadoVence, claseVence, fraseVence, diasPara, nombreDe, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, hitosDe, acomodarHitos, sinAcentos } from './reglas.js';
+import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, hitosDe, acomodarHitos, sinAcentos } from './reglas.js';
 import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo } from './comun.js';
 import { pintarChat } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
 import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';   // v0.17.0: la misma tabla que Docs del proyecto; v0.18.0: y el mismo orden; v0.36.0: y el mismo arbol
@@ -195,23 +195,42 @@ export function pintarRoadmapProyecto(p) {
     }
     // v0.11.0: un carril por cubeta del proyecto (mas las huerfanas), en el orden del tablero.
     const carriles = [...cols]; for (const t of ts) if (!carriles.some(c => c.clave === t.Columna)) carriles.push({ clave: t.Columna, nombre: t.Columna, huerfana: true });
+    // R-02 (v0.121.0): las hechas van apagadas por omision (la linea de tiempo se lee para ver lo que falta, como «Hide done items» de Jira);
+    // su carril queda en su renglon de titulo con el conteo. R-04 (v0.121.0): las tarjetas sin fecha salen del eje a «Sin fecha · N», abajo.
+    const verHechas = !!estado.roadmapHechas; const sinFecha = [];
     for (const { clave: col, nombre, huerfana } of carriles) {
         const de = ts.filter(t => t.Columna === col);
         if (!de.length) continue;
+        const oculta = col === 'hecho' && !verHechas; const conFecha = de.filter(t => lapsoDe.get(t.id).fin);
+        if (!oculta) sinFecha.push(...de.filter(t => !lapsoDe.get(t.id).fin));
+        if (!oculta && !conFecha.length) continue;   // un carril de puras tarjetas sin fecha no gasta renglon: sus tarjetas estan abajo
         // U-22 (v0.120.0): el color de la cubeta es un filete bajo el nombre (--cub, como el tablero desde v0.64.0), ya no un punto
         const cab = el('span', 'g-grupo'); cab.dataset.cls = huerfana ? 'huerfana' : claseDeColumna(col, cols); cab.appendChild(el('b', '', nombre)); cab.appendChild(el('span', 'n', String(de.length)));
+        if (oculta) cab.appendChild(el('span', 'g-oculta', 'ocultas'));
         filas.push({ grupo: true, etiqueta: cab });
-        for (const t of de.sort((a, b) => String(lapsoDe.get(a.id).fin || '9').localeCompare(String(lapsoDe.get(b.id).fin || '9')) || a.id - b.id)) {
+        if (oculta) continue;
+        for (const t of conFecha.sort((a, b) => String(lapsoDe.get(a.id).fin || '9').localeCompare(String(lapsoDe.get(b.id).fin || '9')) || a.id - b.id)) {
             const l = lapsoDe.get(t.id); const d = t.Vence ? diasPara(t.Vence) : null;
             const texto = l.fin ? (t.Columna === 'hecho' ? `hecha ${fechaEje(t.HechoEl || t.Vence)}` : fraseVence(d, 'corta', fechaEje(t.Vence))) : '';   // C-04 (v0.79.0); U-12 (v0.120.0): sin año si es el de hoy
-            filas.push({ etiqueta: etiquetaTarea(t), lapso: l, clase: claseBarraTarea(t), texto, titulo: `${t.Title} · ${texto}`, abrir: () => irTarjetaId(t.id, 'roadmap'), dataset: { roadmap: String(t.id) }, sinFecha: 'sin fecha de vencimiento' });
+            filas.push({ etiqueta: etiquetaTarea(t), lapso: l, clase: claseBarraTarea(t), texto, titulo: `${t.Title} · ${texto}`, abrir: () => irTarjetaId(t.id, 'roadmap'), dataset: { roadmap: String(t.id) } });
         }
     }
     if (!ts.length) { cont.appendChild(el('p', 'vacio', 'Sin tarjetas todavía: el roadmap se dibuja con las fechas de vencimiento.')); return; }
     const res = el('p', 'g-resumen', `${rango.dias} días en el eje · ${lapsos.filter(l => l.fin).length} de ${ts.length} tarjetas con fecha · barra = entrada a la columna (o creación) → vencimiento; hecha → cuando se hizo.`);   // U-08 (v0.78.0): un renglon
-    cont.appendChild(res);
+    const nHechas = ts.filter(t => t.Columna === 'hecho').length;
+    const herr = el('div', 'g-herr'); herr.appendChild(res);
+    if (nHechas) {   // R-02: el interruptor, suelto sobre el gantt; se resuelve el proyecto por id al clic (regla v0.4.0)
+        const b = boton(verHechas ? 'ocultar hechas' : `ver hechas (${nHechas})`, 'mn-btn is-ghost is-sm', () => { estado.roadmapHechas = !verHechas; const q = porId(estado.proyectos, p.id); if (q) pintarRoadmapProyecto(q); }, { verHechas: '1' });
+        b.setAttribute('aria-pressed', String(verHechas)); herr.appendChild(b);
+    }
+    cont.appendChild(herr);
     const caja = el('div', 'gantt-caja'); cont.appendChild(caja);
     gantt(caja, filas, rango, { rotulo: 'Tarjeta', previo });
+    if (sinFecha.length) {   // R-04: como el «No date» de Asana — una lista de texto con liga a la ficha, no un renglon vacio de gantt por tarjeta
+        const sf = el('div', 'g-sinfecha-lista'); sf.id = 'roadmapSinFecha'; sf.appendChild(el('b', '', `Sin fecha · ${sinFecha.length}`));
+        for (const t of sinFecha) { const b = el('button', 'g-sf-it', t.Title); b.type = 'button'; b.title = t.Title; b.dataset.sinFecha = String(t.id); b.addEventListener('click', () => irTarjetaId(b.dataset.sinFecha, 'roadmap')); sf.appendChild(b); }
+        cont.appendChild(sf);
+    }
     // U-13 (v0.120.0): la leyenda de los colores de barra (claseBarraTarea), como la del global
     const ley = el('div', 'g-leyenda'); ley.id = 'roadmapLeyendaP';
     for (const [cls, texto] of [['idle', 'por hacer'], ['brand', 'en curso'], ['info', 'en revisión'], ['ok', 'hecha'], ['danger', 'vencida']]) { const s = el('span'); s.appendChild(el('i', 'g-barra-mini is-' + cls)); s.appendChild(el('span', '', texto)); ley.appendChild(s); }
@@ -235,10 +254,19 @@ function etiquetaFrente(p, a) {
     eti.addEventListener('click', () => irFrenteId(p.id, 'roadmap'));
     return eti;
 }
-/** Lo que dice la barra de un frente: su avance (la fecha la dice su raya). U-16 (v0.120.0): sin tarjetas no hay avance que decir. */
-function textoBarraFrente(p, a) {
+/** Lo que dice la barra de un frente: su avance (la fecha la dice su raya). U-16 (v0.120.0): sin tarjetas no hay avance que decir. R-03 (v0.121.0): y cuantas ya se le vencieron. */
+function textoBarraFrente(p, a, venc = 0) {
     if (!a.total) return 'sin tarjetas';
-    return p.Vence ? `${a.pct}%` : `${a.pct}% · sin fin de frente`;
+    const v = venc ? ` · ${venc} ${venc === 1 ? 'vencida' : 'vencidas'}` : '';
+    return p.Vence ? `${a.pct}%${v}` : `${a.pct}% · sin fin de frente${v}`;
+}
+/**
+ * R-03 (v0.121.0): la salud de un frente, como la «health» del Timeline de Linear, derivada sin columna nueva: la clase de su fin
+ * (rojo si ya paso, ambar si esta a CONFIG.vencePronto dias) y, si trae al menos una tarjeta vencida, ambar aunque su fin este lejos.
+ */
+function claseFrente(p, venc) {
+    const c = p.Vence ? claseVence(diasPara(p.Vence), CONFIG.vencePronto, 'brand') : 'idle';
+    return venc && (c === 'brand' || c === 'idle') ? 'warn' : c;
 }
 
 /**
@@ -277,10 +305,10 @@ export function pintarRoadmap() {
             const fin = p.Vence && lapsos[i].fin ? { left: (diasEntre(rango.desde, lapsos[i].fin) + 1) * 100 / rango.dias, texto: diaMes(p.Vence), titulo: `Fin del frente: ${fechaCorta(p.Vence)}` } : null;
             const hitos = acomodarHitos(hitosPs[i], rango, umbral, fin ? fin.left : 100);
             for (const h of hitos) h.titulo = h.hitos.length > 1 ? `${h.hitos.length} tarjetas del ${fechaCorta(h.dia)} al ${fechaCorta(h.hasta)}: ${h.hitos.map(x => x.tarea.Title).join(' · ')} — ${tactil() ? 'toca para verlas' : 'abre el roadmap del frente'}` : tituloHito(h.hitos[0]);
-            const nHitos = hitos.reduce((n, h) => n + h.hitos.length, 0);
+            const nHitos = hitos.reduce((n, h) => n + h.hitos.length, 0); const venc = vencidasEn(ts);
             return {
-                etiqueta: eti, lapso: lapsos[i], clase: !p.Vence ? 'idle' : claseVence(d, CONFIG.vencePronto, 'brand'), pct: a.pct, texto: textoBarraFrente(p, a),
-                titulo: `${p.Title} · ${textoFin} · ${a.pct}% · ${nHitos} hito(s)`, abrir: () => irFrenteId(p.id, 'roadmap'), dataset: { roadmapBarra: String(p.id) }, sinFecha: 'sin fechas', fin, hitos,
+                etiqueta: eti, lapso: lapsos[i], clase: claseFrente(p, venc), pct: a.pct, texto: textoBarraFrente(p, a, venc),
+                titulo: `${p.Title} · ${textoFin} · ${a.pct}% · ${nHitos} hito(s)${venc ? ` · ${venc} vencida(s)` : ''}`, abrir: () => irFrenteId(p.id, 'roadmap'), dataset: { roadmapBarra: String(p.id) }, sinFecha: 'sin fechas', fin, hitos,
                 abrirHito: h => h.hitos.length > 1 ? irFrenteId(p.id, 'roadmap') : irTarjetaId(h.hitos[0].tarea.id)
             };
         });
@@ -288,6 +316,7 @@ export function pintarRoadmap() {
         // leyenda: las cuatro clases del rombo y que es cada cosa (la N de «pronto» sale de CONFIG, como en el tablero)
         const item = (cls, texto) => { const s = el('span'); s.appendChild(el('i', 'g-rombo-mini' + (cls ? ' is-' + cls : ''))); s.appendChild(el('span', '', texto)); return s; };
         ley.appendChild(item('', 'hito pendiente')); ley.appendChild(item('pronto', `vence hoy o en ${CONFIG.vencePronto} días`)); ley.appendChild(item('vencida', 'vencido')); ley.appendChild(item('hecha', 'hecho'));
+        for (const [cls, texto] of [['brand', 'frente a tiempo'], ['warn', 'en riesgo: fin cercano o tarjetas vencidas'], ['danger', 'fin del frente vencido']]) { const s = el('span'); s.appendChild(el('i', 'g-barra-mini is-' + cls)); s.appendChild(el('span', '', texto)); ley.appendChild(s); }   // R-03 (v0.121.0)
         ley.appendChild(el('span', 'fin', 'rombo = tarjeta con fecha · barra = creación → fin del frente · relleno = avance · raya = fin del frente'));
     }
     // hitos: fines de frente en los proximos 60 dias (y los ya vencidos), como «Upcoming milestones» de la foto

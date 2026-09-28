@@ -2145,3 +2145,17 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 .g-grupo { --cub: var(--border-default); }
 .g-grupo[data-cls="c"] { --cub: var(--brand-primary); } .g-grupo[data-cls="r"] { --cub: var(--status-info-solid); } .g-grupo[data-cls="h"] { --cub: var(--status-ok-solid); } .g-grupo[data-cls="huerfana"] { --cub: var(--status-warn-fg); }
 .g-grupo[data-cls] b { padding-bottom: 1px; border-bottom: 2px solid var(--cub); }
+
+/* ==== v0.121.0 (27-sep, /mejorar-app proyectos roadmap, referentes R-02 · R-03 · R-04 con OK de Carlos) ==== */
+/* R-02: el resumen y el interruptor «ver hechas» en un renglon sobre el gantt; el carril Hecho apagado dice «ocultas» */
+.g-herr { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3); }
+.g-herr .g-resumen { flex: 1 1 240px; }
+.g-oculta { font-family: var(--font-data); font-size: .66rem; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--text-faint); font-style: italic; }
+/* R-03: la barra ambar del frente en riesgo, en la leyenda del global */
+.g-barra-mini.is-warn { background: var(--status-warn-bg); border: 1px solid var(--status-warn-fg); }
+/* R-04: «Sin fecha · N» bajo el gantt del proyecto — texto con liga a la ficha, no un renglon vacio de gantt */
+.g-sinfecha-lista { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); font-size: .8rem; }
+.g-sinfecha-lista > b { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; font-weight: 600; color: var(--text-muted); margin-right: var(--sp-1); }
+.g-sf-it { min-height: 36px; max-width: 100%; padding: 2px var(--sp-2); border: 1px dashed var(--border-default); border-radius: var(--r-sm); background: none; font: inherit; color: var(--text-body); text-align: left; cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.g-sf-it:hover { background: var(--surface-hover); }
+.g-sf-it:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
