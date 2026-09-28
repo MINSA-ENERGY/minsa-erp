@@ -8,7 +8,7 @@
 
 import { CONFIG } from './config.js';
 import { sellarAsignadoPor, PUEDE, ordenar, tareasDe, diasQuieta, rotuloQuieta, camposDeMovimiento, nombreDe, diasPara, estadoVence, semaforo, vencidasEn, filtrarTareas, ordenarLista, reordenar, sinAcentos, columnasDe, normalizarColumnas, nombreColumnaEn, claseDeColumna, HECHO, MAX_COLUMNAS, MAX_NOMBRE_COLUMNA, COLORES, colorValido, hrefSeguro, delegadas, misAbiertas, porVence, claseVence } from './reglas.js';
-import { $, L, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, el, boton, chip, chipVence, avisar, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaHora, aIsoDia, diaInput, fechaInput, atajosFecha, opciones, limpiar, porId, proyectoAbierto, registrarActividad, hashDe, fijarHash, irAHash, ligaDeTarjeta, notasDe, aplicar, pedirRelectura, equipoDe, iconoEquipo, iconoArchivo, textoConMenciones, insignia, TRAZOS, iconoSvg, puedeBorrarComentario, borrarComentario, columnasDeTarea, notasPorTarea, ligasPorTarea, buzonPorTarea, mesDia, personasActivas, contadorTexto, mayusculasEnVivo } from './comun.js';
+import { $, L, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, el, boton, chip, chipVence, avisar, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaHora, aIsoDia, diaInput, fechaInput, atajosFecha, opciones, limpiar, porId, proyectoAbierto, registrarActividad, hashDe, fijarHash, irAHash, ligaDeTarjeta, notasDe, aplicarVivo, agregarSinDuplicar, fusionarActividad, pedirRelectura, equipoDe, iconoEquipo, iconoArchivo, textoConMenciones, insignia, TRAZOS, iconoSvg, puedeBorrarComentario, borrarComentario, columnasDeTarea, notasPorTarea, ligasPorTarea, buzonPorTarea, mesDia, personasActivas, contadorTexto, mayusculasEnVivo } from './comun.js';
 import { abrirPartida } from './capital.js';   // v0.103.0: «Nueva partida» desde la pestaña Capital del proyecto
 import { abrirLigar, abrirSubir, abrirEnlace, quitarLiga, puedeLigarEn, puedeEnlazarEn } from './docs.js';
 import { esConflicto } from './graph.js';
@@ -773,13 +773,34 @@ function pintarDocsDeTarjeta(t, p) {
     }
 }
 
+const ACCIONES_HISTORIAL = ['crear-tarea', 'editar-tarea', 'mover-tarea'];   // R-04: lo que la ficha ensena plegado entre las notas
+/** R-04: un tramo de cambios seguidos, plegado: «3 cambios» y al abrir quien · cuando · que, en la mono de la cabecera de nota. */
+function bloqueHistorial(grupo) {
+    const d = el('details', 'nota-hist'); d.dataset.historial = String(grupo.length);
+    d.appendChild(el('summary', '', `${grupo.length} cambio${grupo.length === 1 ? '' : 's'}`));
+    const ul = el('ul');
+    for (const a of grupo) {
+        const li = el('li'); li.appendChild(el('span', 'w mn-mono', `${nombreDe(a.Quien, estado.roles)} · ${fechaHora(a.Cuando)}`));
+        li.appendChild(el('span', 't', a.Title || '')); ul.appendChild(li);
+    }
+    d.appendChild(ul); return d;
+}
 /** Notas de la tarjeta (F5): renglones de PROY_Actividad con Accion=comentar, en orden, y el campo para anotar. */
 function pintarNotas(t, p) {
     const tId = t.id;   // C-20 (v0.124.0): los handlers guardan ids
     const c = $('tNotasLista'); c.textContent = '';
     const notas = notasDe(t.id);
     $('tNotasN').textContent = notas.length ? String(notas.length) : '';   // v0.24.0: «Notas · 2»
-    for (const n of notas) {
+    // R-04 (27-sep, Linear «collapsed issue history»): los cambios de la tarjeta que ya estan en PROY_Actividad (creo, movio,
+    // edito, asigno) se intercalan con las notas por fecha; los seguidos entre dos notas se pliegan en un renglon gris «N cambios».
+    const cambios = estado.actividad.filter(a => ACCIONES_HISTORIAL.includes(a.Accion) && Number(a.TareaId) === Number(t.id));
+    const linea = [...notas.map(n => ({ n, cuando: n.Cuando })), ...cambios.map(a => ({ a, cuando: a.Cuando }))]
+        .sort((x, y) => String(x.cuando || '').localeCompare(String(y.cuando || '')));
+    let grupo = [];
+    const soltar = () => { if (grupo.length) c.appendChild(bloqueHistorial(grupo)); grupo = []; };
+    for (const { n, a } of linea) {
+        if (a) { grupo.push(a); continue; }
+        soltar();
         const nId = n.id;
         const it = el('div', 'nota');
         const cuerpo = el('div');
@@ -794,6 +815,7 @@ function pintarNotas(t, p) {
         }
         c.appendChild(it);
     }
+    soltar();
     if (!notas.length) c.appendChild(el('span', 'vacio', 'Sin notas todavía.'));
     const puede = PUEDE.tarea(estado.rol) && !!p && p.Estado === 'activo';
     $('formNota').classList.toggle('oculto', !puede);
@@ -817,7 +839,7 @@ async function anotar(ev) {
         // A diferencia del resto de la bitacora, aqui la escritura ES la accion: si falla, se ve.
         const r = { Title: texto, Accion: 'comentar', Quien: estado.cuenta.username, Cuando: new Date().toISOString(), ProyectoId: Number(t.ProyectoId), TareaId: t.id };
         const n = await estado.cliente.crearRenglon(estado.siteId, L.actividad, r, m => avisar(m, 'ojo'));
-        estado.actividad.unshift(n);
+        fusionarActividad([n]);   // C-19: un refresco a medio POST ya lo pudo traer
         $('tNota').value = ''; contarNota();   // C-04: la nota se vacia tras GUARDARLA
         pintarNotas(t, porId(estado.proyectos, t.ProyectoId));
         avisar('Nota guardada.', 'ok');
@@ -855,7 +877,7 @@ async function ejecutarMovimiento(t, columna) {
     const campos = camposDeMovimiento(columna, estado.cuenta.username, new Date(), cols);
     const res = await estado.cliente.actualizarRenglon(estado.siteId, L.tareas, t.id, campos, m => avisar(m, 'ojo'), t._etag);
     const deNombre = nombreColumnaEn(antes, cols);
-    aplicar(t, campos, res && res._etag);
+    aplicarVivo(estado.tareas, t.id, campos, res && res._etag, t);   // C-19
     alCambiar();
     // Se sigue escribiendo en la bitacora (metrica del piloto); desde v0.11.0 no se pinta en Actividad.
     await registrarActividad('mover-tarea', `movió «${t.Title.slice(0, 80)}» de ${deNombre} a ${nombreColumnaEn(columna, cols)}`, t.ProyectoId, t.id);
@@ -895,7 +917,7 @@ async function reordenarTarea(id, delta) {
         for (const c of cambios) {
             const x = porId(estado.tareas, c.id);
             const res = await estado.cliente.actualizarRenglon(estado.siteId, L.tareas, x.id, { Orden: c.Orden }, m => avisar(m, 'ojo'), x._etag);
-            aplicar(x, { Orden: c.Orden }, res && res._etag);
+            aplicarVivo(estado.tareas, x.id, { Orden: c.Orden }, res && res._etag, x);   // C-19
         }
         alCambiar();
         repintarFicha();   // C-04: re-pinta sin vaciar la nota a medio escribir
@@ -936,9 +958,9 @@ async function guardarEdicion(ev) {
     $('btnGuardarTarea').disabled = true;
     try {
         const res = await estado.cliente.actualizarRenglon(estado.siteId, L.tareas, t.id, campos, m => avisar(m, 'ojo'), t._etag);
-        aplicar(t, campos, res && res._etag);
+        const tv = aplicarVivo(estado.tareas, t.id, campos, res && res._etag, t);   // C-19: la ficha se repinta con el renglon vivo
         cerrarPop();
-        pintarFicha(t);
+        pintarFicha(tv);
         { const b = document.querySelector(`#dlgTarea [data-edita="${campo}"]`); if (b) b.focus(); }   // pintarFicha destruyo el lapiz viejo: el foco al nuevo (revisor)
         avisar('Tarjeta actualizada.', 'ok');
         alCambiar();
@@ -961,7 +983,7 @@ async function borrarTarea() {
         // Las ligas de la tarjeta se quedan en el proyecto, ya sin tarjeta (best-effort: si falla, el
         // Docs las muestra como «tarjeta #N» y nada mas).
         for (const l of estado.ligas) if (Number(l.TareaId) === t.id) {
-            try { const res = await estado.cliente.actualizarRenglon(estado.siteId, L.ligas, l.id, { TareaId: null }, undefined, l._etag); aplicar(l, { TareaId: null }, res && res._etag); } catch (_) { /* se queda colgada */ }
+            try { const res = await estado.cliente.actualizarRenglon(estado.siteId, L.ligas, l.id, { TareaId: null }, undefined, l._etag); aplicarVivo(estado.ligas, l.id, { TareaId: null }, res && res._etag, l); } catch (_) { /* se queda colgada */ }
         }
         cerrarDialogo('dlgTarea');
         avisar('Tarjeta borrada.', 'ok');
@@ -1021,7 +1043,7 @@ async function guardarNuevaTarea(ev, seguirCapturando = false) {
     $('ntGuardar').disabled = true; $('ntGuardarYOtra').disabled = true;
     try {
         const n = await estado.cliente.crearRenglon(estado.siteId, L.tareas, campos, m => avisar(m, 'ojo'));
-        estado.tareas.push(n);
+        agregarSinDuplicar(estado.tareas, n);   // C-19
         if (seguirCapturando) {
             // Se limpia lo que cambia de una tarjeta a otra; lo demas se queda puesto a proposito.
             $('ntTitulo').value = ''; $('ntDesc').value = '';
@@ -1108,7 +1130,7 @@ async function guardarCubetas(ev) {
             if (perdidas.length) { avisar(`Hay ${perdidas.length} tarjeta${perdidas.length === 1 ? '' : 's'} en una cubeta que quieres quitar (alguien ${perdidas.length === 1 ? 'la' : 'las'} movió hace un momento): se releyó, muéve${perdidas.length === 1 ? 'la' : 'las'} primero.`, 'error'); await pedirRelectura(); pintarCubetas(); return; }
         }
         const res = await estado.cliente.actualizarRenglon(estado.siteId, L.proyectos, p.id, campos, m => avisar(m, 'ojo'), p._etag);
-        aplicar(p, campos, res && res._etag);
+        aplicarVivo(estado.proyectos, p.id, campos, res && res._etag, p);   // C-19
         cerrarDialogo('dlgCubetas');
         estado.colMovil = null;
         avisar(`Cubetas guardadas: ${nuevas.map(c => c.nombre).join(' · ')}.`, 'ok');

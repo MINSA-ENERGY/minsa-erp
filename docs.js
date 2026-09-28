@@ -17,7 +17,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, tareasDe, slug, fechaMexico, nombreDe, validarUrl, urlParaLiga, urlCortaDeGuid, resumenLargos, textosLargos, TEXTO_MAX, hrefSeguro, filtrarLigas, tipoArchivo, ordenarLigas, direccionInicial, nombreDeLiga, columnasDe, nombreColumnaEn, claseDeColumna, colorValido, HECHO, TIPOS_LIGA } from './reglas.js';
 import { construirManifiesto, validarManifiesto, bytesDelManifiesto, nombreCarpetaLote, NOMBRE_MANIFIESTO, rutaRecibo, validarRecibo } from './lote.js';
-import { $, L, VERSION, estado, el, boton, chip, iconoArchivo, iconoSvg, avisar, abrirDialogo, cerrarDialogo, confirmar, opciones, limpiar, porId, proyectoAbierto, registrarActividad, equipoDe, fechaCorta, fechaHora, aplicar, pedirRelectura, irAHash, chipVence, conRetardo } from './comun.js';
+import { $, L, VERSION, estado, el, boton, chip, iconoArchivo, iconoSvg, avisar, abrirDialogo, cerrarDialogo, confirmar, opciones, limpiar, porId, proyectoAbierto, registrarActividad, equipoDe, fechaCorta, fechaHora, aplicarVivo, agregarSinDuplicar, pedirRelectura, irAHash, chipVence, conRetardo } from './comun.js';
 import { esConflicto } from './graph.js';
 
 let alCambiar = () => {};
@@ -421,7 +421,7 @@ async function reasignarLiga(liga, tareaId, sel = null) {
     if (!ok) { if (sel) sel.value = actual ? String(actual) : ''; return; }
     try {
         const res = await estado.cliente.actualizarRenglon(estado.siteId, L.ligas, l.id, { TareaId: nuevo }, m => avisar(m, 'ojo'), l._etag);
-        aplicar(l, { TareaId: nuevo }, res && res._etag);
+        aplicarVivo(estado.ligas, l.id, { TareaId: nuevo }, res && res._etag, l);   // C-19
         avisar(t ? `«${l.Title}» ahora es de la tarjeta «${t.Title}».` : `«${l.Title}» ahora es del proyecto entero.`, 'ok');
         alCambiar();
         await registrarActividad('ligar', t ? `pasó la liga «${l.Title.slice(0, 60)}» a «${t.Title.slice(0, 60)}»` : `dejó la liga «${l.Title.slice(0, 60)}» para el proyecto entero`, l.ProyectoId, nuevo);
@@ -542,8 +542,7 @@ async function crearLigaArchivado(p, bib, item, tareaId) {
         try { n = await estado.cliente.crearRenglon(estado.siteId, L.ligas, campos, m => avisar(m, 'ojo')); }
         catch (e2) { throw (e2 && e2.status === 400) ? new Error(`${e2.message} · largos: ${resumenLargos(campos)} (ya reintentado con la Url corta)`) : e2; }
     }
-    estado.ligas.push(n);
-    return n;
+    return agregarSinDuplicar(estado.ligas, n);   // C-19
 }
 
 // ---------------------------------------------------------------- el recibo de la skill (v0.108.0)
@@ -626,7 +625,7 @@ async function guardarEnlace(ev) {
     $('enGuardar').disabled = true;
     try {
         const n = await estado.cliente.crearRenglon(estado.siteId, L.ligas, campos, m => avisar(m, 'ojo'));
-        estado.ligas.push(n);
+        agregarSinDuplicar(estado.ligas, n);   // C-19
         const alTerminar = ctx.alTerminar; ctx.alTerminar = null;
         cerrarDialogo('dlgEnlace');
         avisar(`Enlace «${titulo}» guardado.`, 'ok');
@@ -700,7 +699,7 @@ async function subirAlBuzon(ev) {
         const largos = textosLargos(campos);
         if (largos.length) throw new Error(`${largos.join(', ')} pasa(n) de los ${TEXTO_MAX} caracteres que admite la lista`);
         const n = await estado.cliente.crearRenglon(estado.siteId, L.ligas, campos, m => prog(m));
-        estado.ligas.push(n); estado.buzonExiste[ruta] = true;
+        agregarSinDuplicar(estado.ligas, n); estado.buzonExiste[ruta] = true;   // C-19
         const alTerminar = ctx.alTerminar; ctx.alTerminar = null;
         cerrarDialogo('dlgSubir');
         avisar(`Lote «${concepto}» en el buzón de ${bib.nombre} (${archivos.length} archivo(s)).`, 'ok');

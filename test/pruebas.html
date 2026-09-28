@@ -586,6 +586,18 @@ try {
         editar('descripcion'); poner('ftDesc', 'Descripción por popover'); $('ftDesc').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }));
         await esperar(() => t.fields.Descripcion === 'Descripción por popover', 'descripción guardada');
         R.ok('v0.53.0: Ctrl+Enter guarda la descripción; la ficha la muestra con el lápiz al final', $('tDesc').textContent.startsWith('Descripción por popover') && !!$('tDescEditar') && $('tDescEditar').classList.contains('is-lapiz') && !$('tDescEditar').textContent);
+        // C-19 (27-sep): una relectura que aterriza durante el PATCH sustituye los objetos; el cambio y el _etag nuevo van al VIVO,
+        // así que la edición siguiente no da un 412 falso (se simula envolviendo actualizarRenglon, como C-01 de capital).
+        { const cli = ESTADO.cliente, orig = cli.actualizarRenglon; let una = true;
+          cli.actualizarRenglon = async function (...a) { const r = await orig.apply(this, a); if (una && /tareas/i.test(String(a[1]))) { una = false; ESTADO.tareas = ESTADO.tareas.map(x => ({ ...x })); } return r; };
+          try {
+              editar('descripcion'); poner('ftDesc', 'C-19 VIVO'); $('ftDesc').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }));
+              await esperar(() => t.fields.Descripcion === 'C-19 VIVO', 'descripción C-19');
+          } finally { cli.actualizarRenglon = orig; }
+          R.ok('C-19: tras una relectura a medio PATCH, el renglón VIVO trae el cambio', ESTADO.tareas.find(x => x.id === t.id).Descripcion === 'C-19 VIVO');
+          editar('descripcion'); poner('ftDesc', 'Descripción por popover'); $('ftDesc').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }));
+          await esperar(() => t.fields.Descripcion === 'Descripción por popover', 'descripción de vuelta');
+          R.ok('C-19: la edición siguiente pasa sin 412 falso (el _etag nuevo quedó en el vivo)', !avisoCon('Alguien cambió') && $('tDesc').textContent.startsWith('Descripción por popover')); }
         editar('descripcion');
         R.ok('v0.53.0: reabrir la descripción deja el caret al FINAL sin seleccionar el texto (un tecleo no lo borra)', document.activeElement === $('ftDesc') && $('ftDesc').selectionStart === $('ftDesc').value.length && $('ftDesc').selectionEnd === $('ftDesc').selectionStart, `${$('ftDesc').selectionStart}-${$('ftDesc').selectionEnd}/${$('ftDesc').value.length}`);
         clic('tPopCancelar');
@@ -597,7 +609,14 @@ try {
         R.ok('v0.70.1: vaciar la fecha y Guardar deja Vence = null y el renglón dice «Poner fecha»', $('tChips').querySelector('[data-chip="vence"]').textContent === 'Poner fecha');
         editar('vence'); $('ftAtajos').querySelector('button[data-fecha]').click(); const fechaAtajo = $('ftVence').value.split('/').reverse().join('-'); clic('btnGuardarTarea');
         await esperar(() => String(t.fields.Vence || '').startsWith(fechaAtajo), 'fecha por atajo');
-        R.ok('v0.53.0: un atajo de fecha + Guardar escribe Vence', String(t.fields.Vence).startsWith(fechaAtajo) && !popAbierto() && actividad('editar-tarea').length === 6);
+        R.ok('v0.53.0: un atajo de fecha + Guardar escribe Vence', String(t.fields.Vence).startsWith(fechaAtajo) && !popAbierto() && actividad('editar-tarea').length === 8);   // +2 de la prueba C-19
+        // R-04 (27-sep, Linear): la ficha intercala los cambios de la tarjeta (crear/editar/mover) con las notas, plegados en «N cambios».
+        { const M4 = await import('../comun.js'); const hist = () => [...$('tNotasLista').querySelectorAll('details.nota-hist')];
+          const esperados = M4.estado.actividad.filter(a => ['crear-tarea', 'editar-tarea', 'mover-tarea'].includes(a.Accion) && Number(a.TareaId) === t.id).length;
+          const pintados = () => hist().reduce((s, d) => s + Number(d.dataset.historial), 0);
+          await esperar(() => pintados() >= esperados - 1 && hist().length, 'historial en la ficha');   // el último cambio entra en el siguiente repintado
+          const d0 = hist()[0]; d0.open = true; await dormir(20);
+          R.ok('R-04: la ficha trae el historial plegado («N cambios») con quién · fecha en mono y la frase de la bitácora', /^\d+ cambios?$/.test(d0.querySelector('summary').textContent) && !!d0.querySelector('li .w.mn-mono') && d0.querySelector('li .t').textContent.length > 0 && pintados() <= esperados, `${pintados()} de ${esperados}`); d0.open = false; }
         // v0.53.1: dos ediciones SEGUIDAS sin cerrar la ficha: las dos van con If-Match (el PATCH relee el eTag), y el 412 sigue vivo en la segunda.
         { const ifm = DB.ifMatch, rel = DB.releidos || 0, prioOrig = t.fields.Prioridad || 'normal';
           editar('prioridad'); $('ftPrioridadSeg').querySelector('[data-prio="baja"]').click(); clic('btnGuardarTarea'); await esperar(() => t.fields.Prioridad === 'baja', '1.ª edición seguida');   // la fixture es «alta»: se devuelve al final (los filtros de abajo la esperan)
@@ -2107,6 +2126,7 @@ try {
                 // (el ajeno de arriba lleva Cuando = ahora + 1 s, asi que en el hilo queda DEBAJO del mio: se busca el mio, no el ultimo)
                 R.ok('v0.42.0: enviar desde el hilo de Mensajes crea el comentario en el frente elegido y se pinta como mío', Number(nuevo.ProyectoId) === proyectoId && nuevo.Accion === 'comentar' && [...document.querySelectorAll('#chatHilo .msg.is-mio')].some(m => m.textContent.includes('respuesta desde la bandeja')));
             }
+            if (pushes >= 80) { pushes = 0; await dormir(10500); }   // 27-sep: la pausa anti-throttle va ANTES de la navegacion: dentro de esperar() caia entre la accion y la asercion y el aviso (4 s) ya habia expirado (medido: pushes 89 -> 90)
             irHash('#mensajes/d/colega'); await esperar(() => visible('p-mensajes') && !visible('mensajesHilo'), 'liga vieja /d/'); await dormir(20);
             R.ok('v0.43.0: una liga vieja #mensajes/d/<alias> cae a la bandeja de Mensajes (sin hilo, sin ficha) y avisa que lo directo va por Teams', visible('p-mensajes') && !visible('mensajesHilo') && !(await import('../comun.js')).estado.mensajesSel && /Teams/.test($('avisos').textContent));
             poner('mensajesBusca', 'zzz-nada'); await dormir(20);   // no casa con ningún frente: título, clave, último mensaje y quién lo escribió
@@ -2401,8 +2421,13 @@ try {
                   R.ok('v0.29.0: #btnCabecera contrae la cabecera (descripción y resumen ocultos), declara aria-expanded y lo recuerda', $('proyectoCab').classList.contains('contraida') === !antes && $('btnCabecera').getAttribute('aria-expanded') === (antes ? 'true' : 'false') && (antes ? guardado === null : guardado === 'contraida') && (antes || getComputedStyle($('pDesc')).display === 'none'));
                   clic('btnCabecera'); await dormir(30); R.ok('v0.29.0: el segundo clic la regresa', $('proyectoCab').classList.contains('contraida') === antes); }
                 clic('btnNuevaTarea'); await esperar(() => $('dlgNuevaTarea').open, 'diálogo de tarea');
-                poner('ntTitulo', 'TARJETA QUE SE VA CON EL PROYECTO'); clic('ntGuardar');
-                await esperar(() => filas('tareas').some(t => Number(t.fields.ProyectoId) === pb.id), 'tarjeta creada');
+                // C-19 (27-sep): la relectura trae la tarjeta mientras el POST sigue en vuelo; no debe quedar doble (el «1 tarjeta» de abajo lo prueba)
+                { const cli = ESTADO.cliente, orig = cli.crearRenglon;
+                  cli.crearRenglon = async function (...a) { const n = await orig.apply(this, a); if (/tareas/i.test(String(a[1]))) ESTADO.tareas = [...ESTADO.tareas, { ...n }]; return n; };
+                  try { poner('ntTitulo', 'TARJETA QUE SE VA CON EL PROYECTO'); clic('ntGuardar');
+                        await esperar(() => filas('tareas').some(t => Number(t.fields.ProyectoId) === pb.id) && !$('dlgNuevaTarea').open, 'tarjeta creada'); }
+                  finally { cli.crearRenglon = orig; }
+                  R.ok('C-19: una relectura a medio POST no duplica la tarjeta', ESTADO.tareas.filter(x => Number(x.ProyectoId) === pb.id).length === 1); }
                 clic('btnEliminarProyecto'); await esperar(() => $('dlg').open, 'confirmación');
                 R.ok('v0.13.0: eliminar pide confirmación, la nombra y cuenta las tarjetas', $('dlgTitulo').textContent === 'Eliminar el proyecto' && $('dlgOk').textContent === 'Eliminar' && $('dlgTexto').textContent.includes('1 tarjeta'), $('dlgTexto').textContent);
                 // C-17 (27-sep): otra persona crea una tarjeta y una liga que la app aun no releyo; tambien deben irse

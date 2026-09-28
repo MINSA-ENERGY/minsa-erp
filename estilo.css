@@ -964,6 +964,12 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 .nota { display: grid; grid-template-columns: 1fr; gap: var(--sp-2); align-items: start; }
 .nota .w { color: var(--text-muted); font-size: .72rem; }
 .nota p { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* R-04 (27-sep): historial de la tarjeta plegado entre las notas; gris y en la mono de la cabecera de nota */
+.nota-hist { color: var(--text-muted); font-size: .72rem; }
+.nota-hist summary { cursor: pointer; color: var(--text-faint); width: max-content; min-height: 24px; display: flex; align-items: center; }
+.nota-hist ul { list-style: none; margin: var(--sp-1) 0 0; padding: 0 0 0 var(--sp-3); border-left: 1px solid var(--border-hairline); display: grid; gap: var(--sp-1); }
+.nota-hist li { display: grid; gap: 1px; }
+.nota-hist li .t { color: var(--text-muted); overflow-wrap: anywhere; }
 .nota-forma { display: grid; grid-template-columns: 1fr auto auto; gap: var(--sp-2); align-items: end; margin-bottom: var(--sp-3); }
 .nota-forma textarea { font: inherit; font-size: .85rem; padding: var(--sp-2); border: 1px solid var(--border-default); border-radius: var(--r-sm); background: var(--surface-card); color: var(--text-body); resize: vertical; min-width: 0; }
 /* C4 (v0.6.0): contador «180/250» desde los 200 caracteres; en rojo al tope. */

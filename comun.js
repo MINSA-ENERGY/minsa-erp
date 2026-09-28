@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.125.0';
+export const VERSION = '0.126.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -159,6 +159,19 @@ export function aplicar(renglon, campos, etag) {
     const { _etag, ...resto } = campos || {}; Object.assign(renglon, resto);
     const e = etag || _etag; if (e) renglon._etag = String(e); else delete renglon._etag;
     return renglon;
+}
+/** C-19 (27-sep): tras el await de un PATCH, el cambio va al renglon VIVO de la coleccion (una relectura a medio PATCH
+ *  pudo sustituir el objeto: aplicarlo a la copia vieja dejaba el _etag viejo y la siguiente edicion daba un 412 falso).
+ *  `coleccion` se pasa ya evaluada tras el await (estado.tareas, no una variable de antes). Devuelve el renglon tocado. */
+export function aplicarVivo(coleccion, id, campos, etag, respaldo = null) {
+    const r = porId(coleccion, id) || respaldo;
+    return r ? aplicar(r, campos, etag) : null;
+}
+/** C-19 (27-sep): tras el await de un POST, el renglon nuevo entra solo si la relectura no lo trajo ya (si no, sale doble). */
+export function agregarSinDuplicar(coleccion, renglon) {
+    const ya = porId(coleccion, renglon.id);
+    if (ya) return ya;
+    coleccion.push(renglon); return renglon;
 }
 // Releer las listas (la pone app.js): es lo que hace un modulo al recibir 412 — la verdad esta en SharePoint.
 let releer = async () => {};
@@ -440,7 +453,7 @@ export async function registrarActividad(accion, frase, proyectoId, tareaId) {
     };
     try {
         const n = await estado.cliente.crearRenglon(estado.siteId, L.actividad, limpiar(r));
-        estado.actividad.unshift(n);
+        fusionarActividad([n]);   // C-19: un refresco a medio POST ya lo pudo traer
     } catch (e) { console.warn('no se pudo registrar la actividad:', e && e.message ? e.message : e); }
 }
 
@@ -734,7 +747,7 @@ export async function guardarVisto() {
         try { const f = await estado.cliente.renglones(estado.siteId, L.roles, `fields/Title eq '${String(r.Title || '').replace(/'/g, "''")}'`); if (f && f.length) fresco = f.find(x => x.id === r.id) || f[0]; } catch (_) { /* sin red o 400: se funde con la copia local */ }
         const celda = JSON.stringify(fundirVisto(fresco.Visto, cambio));
         if (celda === String(fresco.Visto || '')) { r.Visto = fresco.Visto; return false; }
-        try { const res = await estado.cliente.actualizarRenglon(estado.siteId, L.roles, r.id, { Visto: celda }, undefined, fresco._etag); aplicar(r, { Visto: celda }, res && res._etag); return true; }
+        try { const res = await estado.cliente.actualizarRenglon(estado.siteId, L.roles, r.id, { Visto: celda }, undefined, fresco._etag); aplicarVivo(estado.roles, r.id, { Visto: celda }, res && res._etag, r); return true; }
         catch (e) {
             if (e && e.status === 412 && intento === 0) continue;
             if (e && (e.status === 400 || e.status === 403)) vistoApagado = true;

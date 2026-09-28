@@ -6,7 +6,7 @@
 
 import { esConflicto } from './graph.js';
 import { PUEDE, CAPITAL_CATEGORIAS, CAPITAL_TIPOS, formatoMXN, leerMonto, validarPartida, resumenCapital, capitalPorProyecto, totalCapital, capitalPorMes, ordenarPartidas, ordenarProyectos, activosDe, diaDe, partidaVencida } from './reglas.js';
-import { $, L, estado, el, avisar, abrirDialogo, cerrarDialogo, confirmar, fijarGuarda, opciones, porId, aplicar, pedirRelectura, fechaCorta, aIsoDia, diaInput, fechaInput, limpiar, equipoDe, iconoEquipo, iconoSvg, fijarHash, hashDe, mayusculasEnVivo } from './comun.js';
+import { $, L, estado, el, avisar, abrirDialogo, cerrarDialogo, confirmar, fijarGuarda, opciones, porId, aplicarVivo, agregarSinDuplicar, pedirRelectura, fechaCorta, aIsoDia, diaInput, fechaInput, limpiar, equipoDe, iconoEquipo, iconoSvg, fijarHash, hashDe, mayusculasEnVivo } from './comun.js';
 
 let repintar = () => {};
 export function alCambiarCapital(fn) { repintar = fn; }
@@ -357,12 +357,12 @@ async function guardar(ev) {
             const campos = {}; for (const k in c) if (!igual(k, x[k], c[k])) campos[k] = c[k];
             if (!Object.keys(campos).length) { cerrarDialogo('dlgPartida'); avisar('Sin cambios que guardar.', 'ojo'); return; }
             const res = await estado.cliente.actualizarRenglon(estado.siteId, L.capital, x.id, campos, m => avisar(m, 'ojo'), x._etag);
-            aplicar(porId(estado.capital, x.id) || x, campos, res && res._etag);   // tras el await se re-resuelve: una relectura pudo cambiar el objeto
+            aplicarVivo(estado.capital, x.id, campos, res && res._etag, x);   // tras el await se re-resuelve: una relectura pudo cambiar el objeto (C-19: comun.js)
             hecho = `Partida «${c.Title}» actualizada.`;
         } else {
             const nuevo = await estado.cliente.crearRenglon(estado.siteId, L.capital, limpiar({ ...c, Categoria: c.Categoria || undefined, Fecha: c.Fecha || undefined, Notas: c.Notas || undefined }), m => avisar(m, 'ojo'));
             // C-01 (26-sep): si el refresco de 120 s entro durante el POST, la relectura ya trae el renglon: no duplicar
-            if (!porId(estado.capital, nuevo.id)) estado.capital.push(nuevo);
+            agregarSinDuplicar(estado.capital, nuevo);
             hecho = `Partida «${c.Title}» agregada: ${formatoMXN(c.Monto)}.`;
         }
     } catch (e) {
