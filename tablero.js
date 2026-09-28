@@ -161,6 +161,8 @@ const CHIPS_FILTRO = [['alta', 'solo alta'], ['vencidas', 'solo vencidas']];   /
  * «solo vencidas» y «× limpiar»; el texto vive en #filtroTexto. Como se repinta entero con cada cambio,
  * el menu conserva su estado abierto/cerrado entre repintados.
  */
+/** C-20 (v0.124.0): los handlers del tablero, la lista y el filtro resuelven el proyecto abierto AL CLIC (regla v0.4.0), no el de la pintada. */
+const conAbierto = fn => () => { const p = proyectoAbierto(); if (p) fn(p); };
 export function pintarFiltroTareas(proyecto) {
     const f = estado.filtroTareas; const c = $('filtroChips');
     const abierto = !!c.querySelector('.menu-quien[open]'); c.textContent = '';
@@ -170,7 +172,7 @@ export function pintarFiltroTareas(proyecto) {
     // las huerfanas ABIERTAS, que es lo que filtra esa casilla (reglas.js: huerfana).
     const conteo = {}; for (const t of ts) { const q = String(t.Asignado || '').toLowerCase(); if (q || t.Columna !== 'hecho') conteo[q] = (conteo[q] || 0) + 1; }
     const quienes = Object.keys(conteo).filter(Boolean).sort();
-    const repintar = () => { pintarFiltroTareas(proyecto); pintarSoloTareas(); };
+    const repintar = () => { conAbierto(pintarFiltroTareas)(); pintarSoloTareas(); };
     const chipBtn = (texto, on, alClic, datos) => {
         const b = boton(texto, on ? 'is-on' : '', () => { alClic(); repintar(); }, datos);
         b.setAttribute('aria-pressed', on ? 'true' : 'false'); c.appendChild(b);
@@ -284,7 +286,7 @@ export function pintarTablero(proyecto) {
     if (!columnas.some(c => c.clave === estado.colMovil)) estado.colMovil = primeraCubetaConTarjetas(columnas, ts);
     for (const c of columnas) {
         const enCubeta = ts.filter(t => t.Columna === c.clave);
-        const b = boton('', estado.colMovil === c.clave ? 'is-on' : '', () => { estado.colMovil = c.clave; pintarTablero(proyecto); }, { colTab: c.clave });
+        const b = boton('', estado.colMovil === c.clave ? 'is-on' : '', () => { estado.colMovil = c.clave; conAbierto(pintarTablero)(); }, { colTab: c.clave });
         b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', estado.colMovil === c.clave ? 'true' : 'false');
         b.appendChild(el('span', '', c.nombre)); b.appendChild(el('span', 'n' + (vencidasEn(enCubeta) ? ' is-hot' : ''), String(enCubeta.length)));   // v0.20.0: rojo si trae vencidas
         tabs.appendChild(b);
@@ -315,7 +317,7 @@ export function pintarTablero(proyecto) {
             if (!estado.hechoTodas && cs.length > HECHO_VISIBLES) { ocultas = cs.length - HECHO_VISIBLES; cs = cs.slice(0, HECHO_VISIBLES); }
         }
         for (const t of cs) col.appendChild(tarjeta(t));
-        if (ocultas) col.appendChild(boton(`ver las ${ocultas} anteriores`, 'mn-btn is-ghost is-sm mas', () => { estado.hechoTodas = true; pintarTablero(proyecto); }, { mas: 'hecho' }));
+        if (ocultas) col.appendChild(boton(`ver las ${ocultas} anteriores`, 'mn-btn is-ghost is-sm mas', () => { estado.hechoTodas = true; conAbierto(pintarTablero)(); }, { mas: 'hecho' }));
         cont.appendChild(col);
     }
 }
@@ -335,7 +337,7 @@ export function pintarLista(proyecto) {
         th.dataset.sort = clave;
         const bo = el('button', 'th-orden', texto); bo.type = 'button'; th.appendChild(bo);   // U-30 (v0.123.0): el encabezado que ordena se alcanza con Tab; su clic llega al th
         if (o.col === clave) th.setAttribute('aria-sort', o.dir === 1 ? 'ascending' : 'descending');
-        th.addEventListener('click', () => { estado.ordenLista = o.col === clave ? { col: clave, dir: -o.dir } : { col: clave, dir: 1 }; pintarLista(proyecto); });
+        th.addEventListener('click', () => { estado.ordenLista = o.col === clave ? { col: clave, dir: -o.dir } : { col: clave, dir: 1 }; conAbierto(pintarLista)(); });
         tr.appendChild(th);
     }
     thead.appendChild(tr); tabla.appendChild(thead);
@@ -714,12 +716,16 @@ export function cerrarPop() {
 export function popCampo() { return popAbierto; }
 
 /** Documentos de la tarjeta (F3): las ligas con «Quitar», y «Ligar archivo» / «Subir al buzón» con esta tarjeta ya puesta. */
+/** C-20 (v0.124.0): repinta los documentos de la tarjeta `id` contra el estado vivo (tras un await, el `t` de la pintada ya es viejo). */
+function repintarDocsDeTarjeta(id) { const t = porId(estado.tareas, id); if (t) pintarDocsDeTarjeta(t, porId(estado.proyectos, t.ProyectoId)); }
 function pintarDocsDeTarjeta(t, p) {
+    const tId = t.id;   // C-20: los handlers guardan ids
     const c = $('tDocs'); c.textContent = '';
     const ligas = estado.ligas.filter(l => Number(l.TareaId) === t.id);
     $('tDocsN').textContent = ligas.length ? String(ligas.length) : '';   // v0.24.0: «Documentos · 2»
     const puede = puedeLigarEn(p);
     for (const l of ligas) {
+        const lId = l.id;
         // v0.69.0 (Carlos, 16-sep; artifact 2BTfe3Yo, A2): cada documento es una TARJETA (icono · nombre con el estado debajo · ✕).
         // El estado sigue siendo chip() (.mn-chip, lo que la E2E y Docs conocen); la piel lo pinta como texto plano sin pastilla
         // (estilo.css v0.68.0 + v0.69.0). «Quitar» es una tachita con el texto en aria-label/title.
@@ -731,7 +737,7 @@ function pintarDocsDeTarjeta(t, p) {
         cuerpo.appendChild(chip(l.Tipo === 'buzon' ? 'en el buzón' : l.Tipo === 'enlace' ? 'enlace' : 'archivado', l.Tipo === 'buzon' ? 'info' : l.Tipo === 'enlace' ? null : 'ok'));
         fila.appendChild(cuerpo);
         if (puede || (l.Tipo === 'enlace' && puedeEnlazarEn(p))) {
-            const q = boton('', 'mn-btn is-ghost is-sm is-icono quitar', async () => { if (await quitarLiga(l)) pintarDocsDeTarjeta(t, p); }, { quitar: String(l.id) });
+            const q = boton('', 'mn-btn is-ghost is-sm is-icono quitar', async () => { const lv = porId(estado.ligas, lId); if (!lv) { avisar('Esa liga ya no está.', 'ojo'); return; } if (await quitarLiga(lv)) repintarDocsDeTarjeta(tId); }, { quitar: String(l.id) });
             q.title = 'Quitar este documento de la tarjeta'; q.setAttribute('aria-label', 'Quitar'); q.appendChild(iconoSvg(TRAZOS.cerrar));
             fila.appendChild(q);
         }
@@ -743,23 +749,25 @@ function pintarDocsDeTarjeta(t, p) {
     if (puede) {
         const acciones = el('div', 'tdoc-acciones');
         const volver = () => abrirTarjeta(t.id);
-        acciones.appendChild(accion('Ligar', 'Ligar un archivo de la biblioteca', TRAZOS.liga, () => { cerrarDialogo('dlgTarea'); abrirLigar({ proyecto: p, tareaId: t.id, alTerminar: volver }); }, { ligar: String(t.id) }));
-        acciones.appendChild(accion('Subir', 'Subir al buzón de la unidad', TRAZOS.subir, () => { cerrarDialogo('dlgTarea'); abrirSubir({ proyecto: p, tareaId: t.id, alTerminar: volver }); }, { subir: String(t.id) }));
+        acciones.appendChild(accion('Ligar', 'Ligar un archivo de la biblioteca', TRAZOS.liga, () => { cerrarDialogo('dlgTarea'); abrirLigar({ proyectoId: p.id, tareaId: t.id, alTerminar: volver }); }, { ligar: String(t.id) }));
+        acciones.appendChild(accion('Subir', 'Subir al buzón de la unidad', TRAZOS.subir, () => { cerrarDialogo('dlgTarea'); abrirSubir({ proyectoId: p.id, tareaId: t.id, alTerminar: volver }); }, { subir: String(t.id) }));
         c.appendChild(acciones);
     }
     // F4: un enlace no necesita biblioteca; se ofrece aunque el equipo no tenga una en el piloto.
     if (puedeEnlazarEn(p)) {
         const acc = c.querySelector('.tdoc-acciones') || c.appendChild(el('div', 'tdoc-acciones'));
-        acc.appendChild(accion('Enlace', 'Pegar un enlace', TRAZOS.globo, () => { cerrarDialogo('dlgTarea'); abrirEnlace({ proyecto: p, tareaId: t.id, alTerminar: () => abrirTarjeta(t.id) }); }, { enlace: String(t.id) }));
+        acc.appendChild(accion('Enlace', 'Pegar un enlace', TRAZOS.globo, () => { cerrarDialogo('dlgTarea'); abrirEnlace({ proyectoId: p.id, tareaId: t.id, alTerminar: () => abrirTarjeta(tId) }); }, { enlace: String(t.id) }));
     }
 }
 
 /** Notas de la tarjeta (F5): renglones de PROY_Actividad con Accion=comentar, en orden, y el campo para anotar. */
 function pintarNotas(t, p) {
+    const tId = t.id;   // C-20 (v0.124.0): los handlers guardan ids
     const c = $('tNotasLista'); c.textContent = '';
     const notas = notasDe(t.id);
     $('tNotasN').textContent = notas.length ? String(notas.length) : '';   // v0.24.0: «Notas · 2»
     for (const n of notas) {
+        const nId = n.id;
         const it = el('div', 'nota');
         const cuerpo = el('div');
         const cab = el('div', 'w'); cab.appendChild(el('span', '', nombreDe(n.Quien, estado.roles))); cab.appendChild(el('span', 'mn-mono', ' · ' + fechaHora(n.Cuando)));
@@ -767,7 +775,7 @@ function pintarNotas(t, p) {
         it.appendChild(cuerpo);
         // v0.9.0: borrar la nota (propia, o cualquiera si gerencia) — el mismo renglon que ve el chat.
         if (puedeBorrarComentario(n, p)) {
-            const b = boton('', 'borrar-msg', async () => { if (await borrarComentario(n, p)) { pintarNotas(t, p); alCambiar(); } }, { borrar: String(n.id) });
+            const b = boton('', 'borrar-msg', async () => { const nv = porId(estado.actividad, nId); const tv = porId(estado.tareas, tId); const pv = tv && porId(estado.proyectos, tv.ProyectoId); if (!nv || !tv) { avisar('Esa nota ya no está.', 'ojo'); return; } if (await borrarComentario(nv, pv)) { pintarNotas(tv, pv); alCambiar(); } }, { borrar: String(n.id) });
             b.title = 'Borrar esta nota'; b.setAttribute('aria-label', b.title); b.appendChild(iconoSvg(TRAZOS.basura));
             it.classList.add('has-borrar'); it.appendChild(b);
         }

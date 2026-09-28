@@ -49,7 +49,12 @@ export function puedeEnlazarEn(p) { return PUEDE.ligar(estado.rol) && !!p && p.E
 // Con que proyecto / tarjeta se abrio el dialogo de ligar o subir (desde Docs o desde la tarjeta).
 // `reemplaza` es la liga vieja que se quita al ligar el resultado (F2); `alTerminar` vuelve a la
 // tarjeta si se abrio desde ahi.
-let ctx = { proyecto: null, tareaId: null, reemplaza: null, alTerminar: null };
+// C-20 (v0.124.0): el contexto guarda IDS (proyecto y liga a reemplazar), no objetos — el dialogo vive lo que tarde la busqueda o la
+// subida, y un refresco de 120 s en medio reemplaza estado.proyectos / estado.ligas (regla v0.4.0). Se resuelven al usarse.
+let ctx = { proyectoId: null, tareaId: null, reemplazaId: null, alTerminar: null };
+const proyectoCtx = () => porId(estado.proyectos, ctx.proyectoId);
+/** C-20 (v0.124.0): los handlers de la pestaña resuelven el proyecto abierto AL CLIC, no el `p` de la pintada. */
+const pintarDocsAbierto = () => { const q = proyectoAbierto(); if (q) pintarDocs(q); };
 /** v0.70.0 (Carlos, 16-sep): Cancelar, Esc o Atras en Ligar / Subir / Enlace VUELVEN a la tarjeta desde la que se abrio, no a la
  *  pantalla. Consume `alTerminar` (idempotente: el boton lo llama y el evento `close` lo repite sin efecto); el camino que si ligo
  *  lo vacia antes de cerrar, porque ya lo llama el mismo. */
@@ -73,7 +78,7 @@ export async function pintarDocs(p) {
     const tipos = [...new Set(todas.map(l => l.Tipo))];
     if (tipos.length > 1) for (const [k, texto] of TIPOS_LIGA) {   // C-05: la misma tupla que #archivos
         if (k && !tipos.includes(k)) continue;
-        const b = boton(texto, estado.filtroDocs === k ? 'is-on' : '', () => { estado.filtroDocs = k; pintarDocs(p); }, { docs: k || 'todos' }); b.setAttribute('aria-pressed', estado.filtroDocs === k ? 'true' : 'false'); fl.appendChild(b);
+        const b = boton(texto, estado.filtroDocs === k ? 'is-on' : '', () => { estado.filtroDocs = k; pintarDocsAbierto(); }, { docs: k || 'todos' }); b.setAttribute('aria-pressed', estado.filtroDocs === k ? 'true' : 'false'); fl.appendChild(b);
     } else estado.filtroDocs = null;
     // v0.17.0: buscador propio de la pestaña (nombre, ruta o dirección, sin acentos) y el conteo «N de M».
     if ($('docsBusca').value !== (estado.buscaDocs || '')) $('docsBusca').value = estado.buscaDocs || '';
@@ -90,13 +95,13 @@ export async function pintarDocs(p) {
     // linea de conexion, y al final un nodo con las tarjetas ABIERTAS que aun no tienen expediente («Ligar aqui»).
     // v0.55.0 (Carlos, 15-sep): la columna «Tarjeta» SALE tambien de Docs, como en #archivos (v0.45.0) — la carpeta ya la
     // nombra— y el select que MUEVE la liga (F1) vive ahora en el menu «⋯» de cada documento (renglon «Mover a»).
-    const tabla = tablaDocs({ orden: estado.ordenDocs, alOrdenar: o => { estado.ordenDocs = o; pintarDocs(p); }, sinTarjeta: true }); const tb = tabla.querySelector('tbody');
+    const tabla = tablaDocs({ orden: estado.ordenDocs, alOrdenar: o => { estado.ordenDocs = o; pintarDocsAbierto(); }, sinTarjeta: true }); const tb = tabla.querySelector('tbody');
     tabla.classList.add('is-arbol');
     const columnas = columnasDe(p);
     tb.appendChild(filaRaiz(p.Title, ligas.length, todas.length, { sinTarjeta: true }));
     // v0.52.0 (Carlos, 15-sep): el arbol NACE TODO PLEGADO —el Set guarda lo abierto, no lo plegado, incluido el nodo de vacias—.
     const plegada = k => !estado.abiertasDocs.has(k);
-    const alPlegar = k => { if (estado.abiertasDocs.has(k)) estado.abiertasDocs.delete(k); else estado.abiertasDocs.add(k); pintarDocs(p); };
+    const alPlegar = k => { if (estado.abiertasDocs.has(k)) estado.abiertasDocs.delete(k); else estado.abiertasDocs.add(k); pintarDocsAbierto(); };
     const { llaves } = filasDeExpediente(tb, p, ligas, { plegada, alPlegar, sinTarjeta: true, doc: l => ({ p, puede: puedeDe(l) }) });
     // Las tarjetas abiertas (no hechas) sin ningun documento: UN nodo, plegado por default, para que un frente de 30
     // tarjetas no llene el arbol de carpetas vacias y aun asi se vea cuantas van sin expediente. Solo sin filtro ni busqueda.
@@ -104,7 +109,7 @@ export async function pintarDocs(p) {
     if (!estado.filtroDocs && !estado.buscaDocs) {
         const conDocs = new Set(todas.map(l => Number(l.TareaId)).filter(Boolean));
         const vacias = tareasDe(p, estado.tareas).filter(t => t.Columna !== HECHO && !conDocs.has(t.id)).sort((a, b) => String(a.Title).localeCompare(String(b.Title)));
-        if (vacias.length) { hayVacias = true; const ab = estado.abiertasDocs.has(-1); tb.appendChild(filaVacias(vacias.length, ab, () => alPlegar(-1))); if (ab) for (const t of vacias) tb.appendChild(filaVacia(t, columnas, puede ? () => abrirLigar({ proyecto: p, tareaId: t.id }) : null)); }
+        if (vacias.length) { hayVacias = true; const ab = estado.abiertasDocs.has(-1); tb.appendChild(filaVacias(vacias.length, ab, () => alPlegar(-1))); if (ab) for (const t of vacias) tb.appendChild(filaVacia(t, columnas, puede ? () => abrirLigar({ proyectoId: p.id, tareaId: t.id }) : null)); }
     }
     // v0.34.0: «Abrir todo» / «Plegar todo». Las llaves del arbol: 0 = Del proyecto, id de cada tarjeta con expediente, y
     // -1 = el nodo de vacias (desde v0.52.0 con la misma regla: presente = ABIERTO). Cada boton se apaga cuando ya no tiene nada que hacer.
@@ -112,8 +117,8 @@ export async function pintarDocs(p) {
     const todoAbierto = llaves.every(k => !plegada(k)) && (!hayVacias || estado.abiertasDocs.has(-1));
     $('docsTodo').hidden = false;
     $('docsAbrirTodo').disabled = todoAbierto; $('docsPlegarTodo').disabled = todoPlegado;
-    $('docsAbrirTodo').onclick = () => { estado.abiertasDocs = new Set(hayVacias ? [...llaves, -1] : llaves); pintarDocs(p); };
-    $('docsPlegarTodo').onclick = () => { estado.abiertasDocs = new Set(); pintarDocs(p); };
+    $('docsAbrirTodo').onclick = () => { estado.abiertasDocs = new Set(hayVacias ? [...llaves, -1] : llaves); pintarDocsAbierto(); };
+    $('docsPlegarTodo').onclick = () => { estado.abiertasDocs = new Set(); pintarDocsAbierto(); };
     cont.appendChild(tabla);
     if (bib) await marcarBuzonEnVivo(p, ligas, cont, gen, bib, puede);
 }
@@ -141,7 +146,7 @@ async function marcarBuzonEnVivo(p, ligas, cont, gen, bib, puede) {
             if (n && existe === false) {
                 n.textContent = ''; n.appendChild(chip('ya lo acomodó la skill', 'ok'));
                 // F2: buscar el archivado y reemplazar la liga en una sola operacion.
-                if (puede) n.appendChild(boton('Buscar el archivado', 'mn-btn is-sm', () => abrirLigar({ proyecto: p, tareaId: l.TareaId, texto: l.Title, reemplaza: l }), { buscar: String(l.id) }));
+                if (puede) n.appendChild(boton('Buscar el archivado', 'mn-btn is-sm', () => abrirLigar({ proyectoId: p.id, tareaId: l.TareaId, texto: l.Title, reemplazaId: l.id }), { buscar: String(l.id) }));
                 else n.appendChild(el('span', 'p', 'busca y reemplaza la liga'));
             }
         }
@@ -437,13 +442,14 @@ function opcionesTarjetas(sel, p) {
  * { texto, reemplaza }.
  */
 export function abrirLigar(opts = {}) {
-    const p = opts.proyecto || proyectoAbierto(); const bib = p && bibliotecaDe(p);
+    const p = opts.proyectoId != null ? porId(estado.proyectos, opts.proyectoId) : proyectoAbierto(); const bib = p && bibliotecaDe(p);   // C-20 (v0.124.0): por id
     if (!p || !bib) return;
     if (!PUEDE.ligar(estado.rol)) { avisar('Tu rol es de lectura: no puedes ligar documentos.', 'error'); return; }
-    ctx = { proyecto: p, tareaId: opts.tareaId ? Number(opts.tareaId) : null, reemplaza: opts.reemplaza || null, alTerminar: opts.alTerminar || null };
+    const vieja = opts.reemplazaId != null ? porId(estado.ligas, opts.reemplazaId) : null;
+    ctx = { proyectoId: p.id, tareaId: opts.tareaId ? Number(opts.tareaId) : null, reemplazaId: vieja ? vieja.id : null, alTerminar: opts.alTerminar || null };
     $('lgBiblioteca').textContent = `Busca en ${bib.nombre} (solo lectura; el buzón no aparece).`;
-    $('lgNota').textContent = ctx.reemplaza ? `Al ligar el resultado se quita la liga vieja «${ctx.reemplaza.Title}».` : '';
-    $('lgNota').classList.toggle('oculto', !ctx.reemplaza);
+    $('lgNota').textContent = vieja ? `Al ligar el resultado se quita la liga vieja «${vieja.Title}».` : '';
+    $('lgNota').classList.toggle('oculto', !vieja);
     $('lgTexto').value = opts.texto || ''; $('lgResultados').textContent = '';
     opcionesTarjetas($('lgTarea'), p);
     $('lgTarea').value = ctx.tareaId ? String(ctx.tareaId) : '';
@@ -452,7 +458,7 @@ export function abrirLigar(opts = {}) {
 }
 
 async function buscarDocumento() {
-    const p = ctx.proyecto; const bib = bibliotecaDe(p);
+    const p = proyectoCtx(); if (!p) { avisar('Ese proyecto ya no existe.', 'ojo'); return; } const bib = bibliotecaDe(p);
     const texto = $('lgTexto').value.trim();
     const cont = $('lgResultados'); cont.textContent = '';
     if (texto.length < 2) { avisar('Escribe al menos dos letras.', 'ojo'); return; }
@@ -481,7 +487,7 @@ async function buscarDocumento() {
 }
 
 async function ligarDocumento(x) {
-    const p = ctx.proyecto; const bib = bibliotecaDe(p);
+    const p = proyectoCtx(); if (!p) { avisar('Ese proyecto ya no existe.', 'ojo'); return; } const bib = bibliotecaDe(p);
     if (!PUEDE.ligar(estado.rol)) { avisar('Tu rol es de lectura: no puedes ligar documentos.', 'error'); return; }
     if (estado.ligas.some(l => Number(l.ProyectoId) === p.id && l.DriveItemId === x.id)) { avisar('Ese archivo ya está ligado a este proyecto.', 'ojo'); return; }
     const tareaId = $('lgTarea').value ? Number($('lgTarea').value) : undefined;
@@ -498,7 +504,7 @@ async function ligarDocumento(x) {
         // Con la carpeta real ya se sabe si es del buzon, que la busqueda solo excluye cuando Graph manda la ruta.
         if (item.ruta === CONFIG.buzon || String(item.ruta || '').startsWith(CONFIG.buzon + '/')) { avisar(`«${item.nombre}» está en el buzón ${CONFIG.buzon}: todavía no está archivado. Cuando la skill lo acomode vuelve a ligarlo; si es tuyo, súbelo como lote desde «Subir al buzón».`, 'ojo'); return; }
         await crearLigaArchivado(p, bib, item, tareaId);
-        const vieja = ctx.reemplaza; const alTerminar = ctx.alTerminar; ctx.alTerminar = null;   // v0.70.0: que el `close` no vuelva por su cuenta
+        const vieja = ctx.reemplazaId != null ? porId(estado.ligas, ctx.reemplazaId) : null; const alTerminar = ctx.alTerminar; ctx.alTerminar = null;   // C-20: si alguien ya la quito, no hay que quitarla   // v0.70.0: que el `close` no vuelva por su cuenta
         cerrarDialogo('dlgLigar');
         avisar(vieja ? `«${item.nombre}» ligado en lugar de «${vieja.Title}».` : `«${item.nombre}» ligado.`, 'ok');
         alCambiar();
@@ -592,9 +598,9 @@ async function aplicarReciboUnaVez(p, bib, s, l) {
 
 /** Abre «Pegar un enlace». Sin argumentos es el boton de Docs; desde la tarjeta llega { proyecto, tareaId, alTerminar }. */
 export function abrirEnlace(opts = {}) {
-    const p = opts.proyecto || proyectoAbierto(); if (!p) return;
+    const p = opts.proyectoId != null ? porId(estado.proyectos, opts.proyectoId) : proyectoAbierto(); if (!p) return;   // C-20 (v0.124.0): por id
     if (!puedeEnlazarEn(p)) { avisar(PUEDE.ligar(estado.rol) ? 'El proyecto está cerrado.' : 'Tu rol es de lectura: no puedes pegar enlaces.', 'error'); return; }
-    ctx = { proyecto: p, tareaId: opts.tareaId ? Number(opts.tareaId) : null, reemplaza: null, alTerminar: opts.alTerminar || null };
+    ctx = { proyectoId: p.id, tareaId: opts.tareaId ? Number(opts.tareaId) : null, reemplazaId: null, alTerminar: opts.alTerminar || null };
     $('enTitulo').value = ''; $('enUrl').value = '';
     opcionesTarjetas($('enTarea'), p);
     $('enTarea').value = ctx.tareaId ? String(ctx.tareaId) : '';
@@ -604,7 +610,7 @@ export function abrirEnlace(opts = {}) {
 
 async function guardarEnlace(ev) {
     ev.preventDefault();
-    const p = ctx.proyecto; if (!p) return;
+    const p = proyectoCtx(); if (!p) { avisar('Ese proyecto ya no existe.', 'ojo'); return; }
     if (!puedeEnlazarEn(p)) { avisar('Tu rol es de lectura: no puedes pegar enlaces.', 'error'); return; }
     const titulo = $('enTitulo').value.trim();
     if (!titulo) { avisar('Di qué es el enlace.', 'error'); $('enTitulo').focus(); return; }
@@ -634,10 +640,10 @@ async function guardarEnlace(ev) {
 
 /** Abre «Subir al buzon». Sin argumentos es el boton de Docs; desde la tarjeta (F3) llega { proyecto, tareaId, alTerminar }. */
 export function abrirSubir(opts = {}) {
-    const p = opts.proyecto || proyectoAbierto(); const bib = p && bibliotecaDe(p);
+    const p = opts.proyectoId != null ? porId(estado.proyectos, opts.proyectoId) : proyectoAbierto(); const bib = p && bibliotecaDe(p);   // C-20 (v0.124.0): por id
     if (!p || !bib) return;
     if (!PUEDE.ligar(estado.rol)) { avisar('Tu rol es de lectura: no puedes subir documentos.', 'error'); return; }
-    ctx = { proyecto: p, tareaId: opts.tareaId ? Number(opts.tareaId) : null, reemplaza: null, alTerminar: opts.alTerminar || null };
+    ctx = { proyectoId: p.id, tareaId: opts.tareaId ? Number(opts.tareaId) : null, reemplazaId: null, alTerminar: opts.alTerminar || null };
     $('sbBiblioteca').textContent = `Va a ${bib.nombre}/${CONFIG.buzon}/.`;
     $('sbConcepto').value = ''; $('sbArchivos').value = ''; $('sbProgreso').textContent = '';
     opcionesTarjetas($('sbTarea'), p);
@@ -652,7 +658,7 @@ export function abrirSubir(opts = {}) {
  */
 async function subirAlBuzon(ev) {
     ev.preventDefault();
-    const p = ctx.proyecto; const bib = bibliotecaDe(p);
+    const p = proyectoCtx(); if (!p) { avisar('Ese proyecto ya no existe.', 'ojo'); return; } const bib = bibliotecaDe(p);
     if (!PUEDE.ligar(estado.rol)) { avisar('Tu rol es de lectura: no puedes subir documentos.', 'error'); return; }
     const concepto = $('sbConcepto').value.trim();
     const archivos = [...$('sbArchivos').files];
