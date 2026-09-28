@@ -20,7 +20,7 @@ import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambia
 import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
 import { pintarChat, engancharChat, alCambiarChat, fijarAbrirTarjeta, salirDelChat } from './chat.js';
 import { pintarCapital, pintarCapitalProyecto, pintarCapitalTab, puedeVerCapital, engancharCapital, alCambiarCapital, fijarIrAProyecto } from './capital.js';
-import { pintarRoadmap, pintarRoadmapProyecto, roadmapFull, engancharRoadmap, pintarCalendario, engancharCalendario, enfocarCal, pintarMensajes, engancharMensajes, devolverChat, mensajesNuevos, proyectoDeMensajes, pintarArchivos, engancharArchivos, pintarReportes, engancharReportes, anillo } from './vistas.js';
+import { pintarRoadmap, pintarRoadmapProyecto, roadmapFull, engancharRoadmap, olvidarLugarRoadmap, pintarCalendario, engancharCalendario, enfocarCal, pintarMensajes, engancharMensajes, devolverChat, mensajesNuevos, proyectoDeMensajes, pintarArchivos, engancharArchivos, pintarReportes, engancharReportes, anillo } from './vistas.js';
 
 // NO llamar `msal` a esta variable: taparia el global del bundle UMD.
 const pca = new msal.PublicClientApplication({
@@ -306,6 +306,7 @@ function irA(p) {
         b.classList.toggle('is-on', on); b.setAttribute('aria-selected', on ? 'true' : 'false');
     }
     limpiarAvisos();
+    olvidarLugarRoadmap();   // C-07 (v0.120.0): al ENTRAR a una pantalla el gantt arranca en la raya de hoy; el refresco (repintar) conserva el lugar
     repintar();
     fijarHash(hashDe(tarjetaAbiertaId()));
     window.scrollTo({ top: 0 });
@@ -1335,7 +1336,7 @@ $('btnSalirMovil').addEventListener('click', salir);
 $('btnActualizar').addEventListener('click', recargar);
 $('btnActualizarMovil').addEventListener('click', () => { $('menuMovil').open = false; recargar(); });
 for (const b of document.querySelectorAll('#pestanas button')) b.addEventListener('click', () => irA(b.dataset.p));
-for (const b of document.querySelectorAll('.tab')) b.addEventListener('click', () => { estado.tab = b.dataset.tab; pintarPestanasAbierto(); fijarHash(hashDe()); });   // C-12 (v0.115.0): solo lo que cambia con la pestaña
+for (const b of document.querySelectorAll('.tab')) b.addEventListener('click', () => { estado.tab = b.dataset.tab; olvidarLugarRoadmap(); pintarPestanasAbierto(); fijarHash(hashDe()); });   // C-12 (v0.115.0): solo lo que cambia con la pestaña
 // B1: filtros plegados en celular; el boton los abre y dice cuantos hay puestos.
 $('btnFiltros').addEventListener('click', () => { estado.filtrosAbiertos = !estado.filtrosAbiertos; const p = proyectoAbierto(); if (p) pintarFiltrosProyecto(p); });   // C-12 (v0.115.0)
 $('pDesc').addEventListener('click', () => $('pDesc').classList.toggle('abierta'));

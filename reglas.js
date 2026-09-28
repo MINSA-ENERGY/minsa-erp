@@ -672,10 +672,10 @@ export function lapsoTarea(t) {
     return { inicio: inicio || fin, fin };
 }
 /** Lapso de un proyecto: desde su creacion (o la tarjeta mas vieja) hasta su fin de frente (o la tarjeta que vence al ultimo). */
-export function lapsoProyecto(p, tareas) {
-    const ts = tareasDe(p, tareas);
-    const inicios = ts.map(t => lapsoTarea(t).inicio).filter(Boolean).sort();
-    const fines = ts.map(t => lapsoTarea(t).fin).filter(Boolean).sort();
+export function lapsoProyecto(p, ts) {   // C-12 (v0.120.0): `ts` son las tarjetas DEL proyecto, ya filtradas (quien llama ya las tiene); un lapsoTarea por tarjeta
+    const ls = ts.map(lapsoTarea);
+    const inicios = ls.map(l => l.inicio).filter(Boolean).sort();
+    const fines = ls.map(l => l.fin).filter(Boolean).sort();
     const inicio = diaDe(p._creado) || inicios[0] || null;
     const fin = diaDe(p.Vence) || (fines.length ? fines[fines.length - 1] : null);
     return { inicio: inicio && fin && inicio > fin ? fin : inicio || fin, fin };
@@ -688,6 +688,10 @@ export function rangoRoadmap(lapsos, hoy, minDias = 56) {
     const h = diaDe(hoy);
     let a = h, b = h;
     for (const l of lapsos) { if (l.inicio && l.inicio < a) a = l.inicio; if (l.fin && l.fin > b) b = l.fin; if (l.fin && l.fin < a) a = l.fin; if (l.inicio && l.inicio > b) b = l.inicio; }
+    // C-08 (v0.120.0): tope de 2 años atras y 3 adelante de hoy — una fecha tecleada mal (2226) estiraba el eje a siglos y
+    // congelaba la pantalla (un nodo por semana). barraEn y acomodarHitos ya recortan lo que cae fuera.
+    const piso = sumarDias(h, -730), techo = sumarDias(h, 1095);
+    if (a < piso) a = piso; if (b > techo) b = techo;
     if (diasEntre(a, b) < minDias) b = sumarDias(a, minDias);
     a = lunesDe(a); b = sumarDias(lunesDe(b), 6);
     return { desde: a, hasta: b, dias: diasEntre(a, b) + 1 };

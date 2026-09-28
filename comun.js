@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.119.0';
+export const VERSION = '0.120.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -289,6 +289,8 @@ export function fechaCorta(iso) {
     const d = /T/.test(s) ? (diaDe(s) || s) : s;
     return `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 }
+/** C-14 (v0.120.0): «dd/mm» de una fecha (fechaCorta sin el año). */
+export const diaMes = iso => fechaCorta(iso).slice(0, 5);
 export function fechaHora(iso) {
     if (!iso) return '—';
     const d = new Date(iso);
@@ -329,6 +331,7 @@ export function aIsoDia(texto) {
     if (m) { d = +m[1]; mo = +m[2]; y = m[3].length === 2 ? 2000 + +m[3] : +m[3]; }
     else if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/))) { y = +m[1]; mo = +m[2]; d = +m[3]; }
     else throw new Error(`Fecha «${s}» no válida: elígela en el calendario (o escríbela como aaaa-mm-dd)`);
+    if (y < 2000 || y > 2100) throw new Error(`Fecha «${s}» fuera de rango (año ${y}): elígela en el calendario`);   // C-08 (v0.120.0): un 2226 tecleado estiraba el roadmap a siglos
     const f = new Date(Date.UTC(y, mo - 1, d, 18));
     if (f.getUTCFullYear() !== y || f.getUTCMonth() !== mo - 1 || f.getUTCDate() !== d) throw new Error(`Fecha «${s}» no existe: elígela en el calendario`);
     return f.toISOString();

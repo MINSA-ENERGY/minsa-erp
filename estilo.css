@@ -1204,10 +1204,10 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 /* v0.13.0 (Carlos, 12-sep): el contador del rail deja la pildora por un cuadrado redondeado de 20 px con borde fino del mismo tono; solo cambia la forma, los colores siguen de minsa-ui. */
 .mn-rail .mn-rail-hot { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 5px; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent); font-size: .72rem; line-height: 1; }
 /* ---- gantt: etiqueta fija a la izquierda + pista en %; la cabecera trae meses y el dia del lunes de cada semana. */
-.gantt-caja { overflow-x: auto; min-width: 0; }
+.gantt-caja { overflow-x: auto; min-width: 0; --eti: 230px; --gantt-min: 640px; }   /* C-09 (v0.120.0): la columna del nombre y el ancho minimo viven en la CAJA; vistas.js los lee con getComputedStyle */
 /* La tarjeta que contiene el gantt no puede tomar el ancho minimo de su contenido (a 390 desbordaba 176 px, medido). */
 #p-roadmap .mn-card { min-width: 0; }
-.gantt { --eti: 230px; display: grid; gap: 0; min-width: 640px; font-size: .8rem; }
+.gantt { display: grid; gap: 0; min-width: var(--gantt-min); font-size: .8rem; }
 .g-fila { display: grid; grid-template-columns: var(--eti) minmax(0, 1fr); align-items: stretch; border-top: 1px solid var(--border-hairline); }
 .g-cab { display: grid; grid-template-columns: var(--eti) minmax(0, 1fr); align-items: stretch; position: sticky; top: 0; background: var(--surface-card); z-index: 6; }   /* U-02 (v0.78.0): por encima de las etiquetas pegadas (z 5) */
 /* U-02 (v0.78.0): la columna del nombre se queda pegada a la izquierda al desplazar la pista (a 390 el gantt mide 520 en una tarjeta de 342). */
@@ -1232,7 +1232,7 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 .g-tarea .t, .g-proy .t { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .g-proy .cuerpo { display: grid; min-width: 0; } .g-proy .m { display: flex; min-width: 0; font-size: .72rem; color: var(--text-faint); font-family: var(--font-data); white-space: nowrap; }   /* v0.40.0: un renglon, como el titulo */
 .g-proy .m .k { min-width: 0; overflow: hidden; text-overflow: ellipsis; } .g-proy .m .f { flex: none; }   /* U-09 (v0.78.0): si no cabe, cede el conteo; la fecha del fin siempre se lee */
-.g-pista { position: relative; min-height: 36px; background: var(--bandas, none); }   /* v0.22.0: los meses alternan fondo (gradiente calculado del rango en gantt()) */
+.g-pista { position: relative; min-height: 36px; background: var(--bandas, none), repeating-linear-gradient(90deg, var(--border-hairline) 0 1px, transparent 1px calc(700% / var(--dias))); }   /* C-10 (v0.120.0): las rayas de semana son este fondo (una cada 7 dias desde el lunes del eje), no un nodo por semana y fila */   /* v0.22.0: los meses alternan fondo (gradiente calculado del rango en gantt()) */
 .g-sem { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border-hairline); }
 .g-hoy { position: absolute; top: 0; bottom: 0; border-left: 2px solid var(--status-danger-solid); z-index: 1; }
 /* v0.22.0 (iteracion 4): la raya de hoy lleva etiqueta en la cabecera (sobre la fila de semanas, fija al hacer scroll); cerca del borde derecho se lee hacia la izquierda */
@@ -1464,7 +1464,7 @@ body.sin-scroll { overflow: hidden; }
   /* U-03 (v0.86.0): a 390 el titulo se cortaba a ~25 caracteres y el proyecto a «LAU ASEA-03-001 (Lic…» (nowrap + elipsis en dos columnas). Titulo hasta 2 lineas; el proyecto como segundo renglon tenue completo. */
   .cal-ag .cal-it .t { white-space: normal; overflow-wrap: anywhere; flex: 1 1 60%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .cal-ag .cal-it .m { flex: 1 1 100%; max-width: none; margin-left: 0; padding-left: 0; white-space: normal; }
-  .gantt { --eti: 150px; min-width: 520px; }
+  .gantt-caja { --eti: 150px; --gantt-min: 520px; } .g-proy .m .solo-ancho { display: none; }   /* C-09 (v0.120.0): el corte de 720 px vive solo aqui; bajo el, la etiqueta del frente va sin «hechas» */
   /* U-06 (v0.79.0): la cabecera de meses/semanas no se pegaba al bajar: .gantt-caja (overflow-x: auto) ya era el scrollport y solo se movia a lo ancho. En celular la caja toma tambien el scroll vertical (tope: la ventana menos cabecera y barra), y el sticky top: 0 de .g-cab ya tiene contra que pegarse. Mas corta que eso, no hay scroll interno y nada cambia. Revertir = borrar este renglon. */
   .gantt-caja { max-height: calc(100dvh - 200px); overflow: auto; }
   #roadmapLinea.is-full .gantt-caja { max-height: none; }   /* U-06 (revisor): en pantalla completa la caja ya es la ventana; el tope la dejaba 200 px corta */
@@ -2119,3 +2119,29 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 .cgrupo-mas:hover { color: var(--text-strong); text-decoration: underline; }
 .cgrupo-mas:focus-visible { outline: 2px solid var(--brand-primary, currentColor); outline-offset: 1px; }
 @media (max-width: 720px) { .cgrupo-mas { display: block; min-height: 32px; margin: 0; padding: 0; text-align: left; } }   /* bajo el nombre, alineado con el numero */
+
+/* ==== v0.120.0 (27-sep, /mejorar-app proyectos roadmap, tanda 1 automatica) ==== */
+/* U-11: el nombre bajo el rombo abre lo mismo que el rombo (el rombo ya tenia su ::after de 36 px) */
+.g-rombo-txt.is-clic { pointer-events: auto; cursor: pointer; } .g-rombo-txt.is-clic:hover { color: var(--text-strong); }
+/* U-13: la leyenda del roadmap del proyecto — una barra chica por color (las mismas reglas que .g-barra) y el rombo del fin */
+#tab-roadmap .g-leyenda { margin-top: 0; }
+.g-barra-mini { display: inline-block; width: 18px; height: 10px; box-sizing: border-box; border-radius: 3px; background: var(--status-idle-bg); }
+.g-barra-mini.is-idle { background: var(--surface-card); border: 1px solid var(--border-strong, var(--text-faint)); }
+.g-barra-mini.is-brand { background: color-mix(in srgb, var(--brand-primary) 22%, var(--surface-card)); border: 1px solid var(--brand-primary); }
+.g-barra-mini.is-info { background: var(--status-info-bg); border: 1px solid var(--status-info-fg); }
+.g-barra-mini.is-ok { background: var(--status-ok-bg); border: 1px solid var(--status-ok-fg); }
+.g-barra-mini.is-danger { background: var(--status-danger-bg); border: 1px solid var(--status-danger-fg); }
+.g-rombo-mini.is-fin { background: var(--brand-primary); border-color: var(--brand-primary); }
+/* U-14: la barra «por hacer» es blanca con filete fuerte: el gris sobre la banda gris del mes no se veia */
+.g-barra.is-idle { background: var(--surface-card); border-color: var(--border-strong, var(--text-faint)); }
+/* U-17: la raya roja de hoy ya no parte los textos de la pista — van encima, con fondo de la superficie */
+.g-txt.g-fuera, .g-sinfecha, .g-rombo-txt.is-grupo { z-index: 2; background: var(--surface-card); border-radius: 3px; }
+/* U-18: el nombre del mes se queda pegado al borde de la columna fija al desplazar el eje, dentro de su banda */
+.g-meses span { overflow: visible; }
+.g-meses span b { position: sticky; left: calc(var(--eti) + 4px); display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: top; font-weight: inherit; }
+/* U-21: en celular el flotante «Nueva tarea» no tapa el final del roadmap del proyecto (como el tablero, B5) */
+@media (max-width: 720px) { #tab-roadmap .gantt-caja { padding-bottom: calc(var(--control-h) + var(--sp-3)); } }
+/* U-22: el encabezado de grupo lleva el color de su cubeta como filete bajo el nombre (--cub por posicion, como .col h3 desde v0.64.0) */
+.g-grupo { --cub: var(--border-default); }
+.g-grupo[data-cls="c"] { --cub: var(--brand-primary); } .g-grupo[data-cls="r"] { --cub: var(--status-info-solid); } .g-grupo[data-cls="h"] { --cub: var(--status-ok-solid); } .g-grupo[data-cls="huerfana"] { --cub: var(--status-warn-fg); }
+.g-grupo[data-cls] b { padding-bottom: 1px; border-bottom: 2px solid var(--cub); }
