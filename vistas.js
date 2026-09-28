@@ -24,8 +24,8 @@ const nombreMes = mes => `${MESES[+mes.slice(5, 7) - 1]} ${mes.slice(0, 4)}`;
 // `tab`: desde la pestana Roadmap del proyecto se conserva la pestana (sin ella el router vuelve al tablero).
 const irTarjeta = (t, tab = '') => { const p = porId(estado.proyectos, t.ProyectoId); if (p) irAHash(`#p/${p.Clave}${tab ? '/' + tab : ''}/t/${t.id}`); };
 // C-05 (v0.78.0): los handlers del roadmap resuelven por id al clic (regla v0.4.0) — el objeto capturado en el closure queda viejo tras un repintado.
-const irTarjetaId = (id, tab = '') => { const t = porId(estado.tareas, id); if (t) irTarjeta(t, tab); };
-const irFrenteId = (id, tab = '') => { const p = porId(estado.proyectos, id); if (p) irAHash(`#p/${p.Clave}${tab ? '/' + tab : ''}`); };
+const irTarjetaId = (id, tab = '') => { const t = porId(estado.tareas, id); if (t) irTarjeta(t, tab); else avisar('Esa tarjeta ya no está: se borró desde que se pintó la pantalla.', 'ojo'); };   // C-18: antes, callado
+const irFrenteId = (id, tab = '') => { const p = porId(estado.proyectos, id); if (p) irAHash(`#p/${p.Clave}${tab ? '/' + tab : ''}`); else avisar('Ese frente ya no está: se borró desde que se pintó la pantalla.', 'ojo'); };
 const svgEl = (tag, attrs = {}) => { const e = document.createElementNS(SVG_NS, tag); for (const k in attrs) e.setAttribute(k, String(attrs[k])); return e; };
 // C-14 (v0.120.0): el mes corto y el dia de un «aaaa-mm-dd» salen de un solo sitio (antes cinco rebanadas a mano).
 const mesCorto = dia => MESES_CORTOS[+dia.slice(5, 7) - 1];
@@ -76,13 +76,14 @@ function lugarPrevio(clave, caja, medida = caja) {   // `medida`: lo que sobrevi
 /** El texto de una barra va AFUERA, a su derecha (o a la izquierda si toca el borde): la barra corta (b.width < 14) y, desde U-12, la que no le cabe. */
 function textoFuera(barra, b, f, pista, conHitos) {
     barra.classList.add('is-corta');
-    const t = el('span', 'g-txt g-fuera', f.texto || '');
+    const t = el('span', 'g-txt g-fuera' + (f.clase === 'danger' ? ' is-danger' : ''), f.texto || '');   // U-27: el «venció hace 2 d» de afuera se lee en rojo, como su barra
     if (b.left + b.width > 80) { t.classList.add('is-izq'); t.style.right = (100 - b.left) + '%'; } else t.style.left = (b.left + b.width) + '%';
     if (f.abrir) { t.classList.add('is-clic'); t.addEventListener('click', f.abrir); }   // U-03 (v0.78.0): el texto de al lado tambien abre (la barra de 12 px no es objetivo tactil)
     if (!conHitos) pista.appendChild(t);   // v0.22.0: con rombos el texto de afuera chocaria con ellos; la etiqueta y el title ya lo dicen
 }
 function gantt(cont, filas, rango, opts = {}) {
     cont.textContent = ''; if (!opts.previo) cerrarPopHito();   // C-07 (v0.120.0): un repintado de la misma pantalla deja abierta la hoja del rombo
+    const pv = opts.previo && document.getElementById('gPop'); const popAbierto = pv ? pv.dataset.hito : null; let popNuevo = null;   // C-18: y la repinta con los datos nuevos (o la cierra si su grupo ya no existe)
     const conHitos = filas.some(f => f.hitos || f.fin); const medir = [];
     const g = el('div', 'gantt' + (conHitos ? ' is-hitos' : '')); g.style.setProperty('--dias', String(rango.dias));
     if (opts.anchoGantt) g.style.minWidth = opts.anchoGantt + 'px';   // R-01 (v0.122.0): la escala fija el ancho (manda sobre el --gantt-min del CSS)
@@ -91,7 +92,8 @@ function gantt(cont, filas, rango, opts = {}) {
     const eje = el('div', 'g-eje');
     const meses = el('div', 'g-meses'); const bandas = [];
     for (const [i, m] of mesesDelRango(rango).entries()) {
-        const s = el('span'); s.appendChild(el('b', '', m.width >= 18 ? nombreMes(m.mes) : `${mesCorto(m.mes + '-01')} ${m.mes.slice(2, 4)}`)); s.style.left = m.left + '%'; s.style.width = m.width + '%'; s.title = nombreMes(m.mes); meses.appendChild(s);   // U-18 (v0.120.0): el nombre va en un <b> pegajoso (estilo.css) que no se esconde bajo la columna fija
+        const largo = nombreMes(m.mes), cabeLargo = opts.anchoPista ? m.width * opts.anchoPista / 100 >= largo.length * 9 + 12 : m.width >= 18;   // U-28: con la pista medida decide el ancho en px (a 390 en Meses salia «SEPT…»), no el % del rango
+        const s = el('span'); s.appendChild(el('b', '', cabeLargo ? largo : `${mesCorto(m.mes + '-01')} ${m.mes.slice(2, 4)}`)); s.style.left = m.left + '%'; s.style.width = m.width + '%'; s.title = nombreMes(m.mes); meses.appendChild(s);   // U-18 (v0.120.0): el nombre va en un <b> pegajoso (estilo.css) que no se esconde bajo la columna fija
         bandas.push(`${i % 2 ? 'color-mix(in srgb, var(--text-body) 6%, transparent)' : 'transparent'} ${m.left}% ${m.left + m.width}%`);   // tinte del texto, no surface-sunken: en oscuro no se veia y las filas de grupo ya lo traian
     }
     g.style.setProperty('--bandas', `linear-gradient(90deg, ${bandas.join(', ')})`);
@@ -119,9 +121,10 @@ function gantt(cont, filas, rango, opts = {}) {
                 if (f.dataset) for (const k in f.dataset) barra.dataset[k] = f.dataset[k];
                 pista.appendChild(barra);
                 // Una barra de pocos dias no tiene donde escribir: el texto va afuera, a su derecha (o a la izquierda si toca el borde).
+                let tx = null;
                 if (b.width < 14 && !f.hito) textoFuera(barra, b, f, pista, conHitos);
-                else barra.appendChild(el('span', 'g-txt', f.texto || ''));
-                if (!f.hito) medir.push([barra, b, f, pista]);
+                else { tx = el('span', 'g-txt', f.texto || ''); barra.appendChild(tx); }
+                if (!f.hito && tx) medir.push([barra, b, f, pista, tx]);   // C-17: el span se guarda; ya no se busca con querySelector al medir
             } else if (!f.hitos || !f.hitos.length) pista.appendChild(el('span', 'g-sinfecha', f.sinFecha || 'sin fecha'));   // v0.22.0: un frente sin fin pero con hitos pinta solo sus rombos
             // v0.22.0: la raya del fin de frente (se ve aunque la barra vaya en 0 %) y los rombos de las tarjetas con fecha
             if (f.fin) { const r = el('i', 'g-fin'); r.style.left = f.fin.left + '%'; r.title = f.fin.titulo || ''; r.appendChild(el('b', '', f.fin.texto || '')); pista.appendChild(r); }
@@ -129,13 +132,14 @@ function gantt(cont, filas, rango, opts = {}) {
                 const grupo = a.hitos.length > 1;
                 const r = el('button', 'g-rombo' + (a.clase ? ' is-' + a.clase : '') + (grupo ? ' is-grupo' : '')); r.type = 'button'; r.style.left = a.left + '%';
                 r.title = a.titulo || ''; r.setAttribute('aria-label', a.titulo || ''); r.dataset.hito = a.hitos.map(h => h.tarea.id).join(',');
-                if (f.abrirHito) r.addEventListener('click', e => { e.stopPropagation(); if (tactil()) popHito(a, f); else f.abrirHito(a); });   // U-04 (v0.79.0): en tactil el title no existe: el toque abre la hoja con lo que decia
+                if (f.abrirHito) r.addEventListener('click', e => { e.stopPropagation(); if (tactil()) popHito(a, f, r); else f.abrirHito(a); });
+                if (popAbierto === r.dataset.hito) popNuevo = [a, f, r];   // C-18   // U-04 (v0.79.0): en tactil el title no existe: el toque abre la hoja con lo que decia
                 pista.appendChild(r);
                 // el titulo cabe si hay espacio hasta el siguiente rombo o la raya del fin; un grupo siempre dice «+N»
                 // U-19 (v0.120.0): con el ancho de la pista conocido, un titulo que no alcanzaria ~6 letras (46 px) no se pinta: «A…» no dice nada y el title/la hoja ya lo traen
                 const libre = opts.anchoPista ? a.espacio * opts.anchoPista / 100 - (a.topado ? 44 : 8) : Infinity;
                 if (grupo || (a.espacio >= (opts.umbralTxt ?? 6) && libre >= 46)) {
-                    const t = el('span', 'g-rombo-txt' + (grupo ? ' is-grupo' : ''), grupo ? `+${a.hitos.length}` : a.hitos[0].tarea.Title); t.style.left = a.left + '%'; if (!grupo) t.style.maxWidth = `calc(${a.espacio}% - ${a.topado ? 44 : 8}px)`;   // topado: la fecha del fin (dd/mm, ~36 px) vive a la izquierda de su raya
+                    const t = el('span', 'g-rombo-txt' + (grupo ? ' is-grupo' : '') + (grupo && a.topado ? ' is-izq' : ''), grupo ? `+${a.hitos.length}` : a.hitos[0].tarea.Title); t.style.left = a.left + '%'; if (!grupo) t.style.maxWidth = `calc(${a.espacio}% - ${a.topado ? 44 : 8}px)`;   // topado: la fecha del fin (dd/mm, ~36 px) vive a la izquierda de su raya; U-24: un grupo topado lleva su «+N» a la izquierda (se leia «+231/10»)
                     if (f.abrirHito) { t.classList.add('is-clic'); t.addEventListener('click', e => { e.stopPropagation(); r.click(); }); }   // U-11 (v0.120.0): el nombre bajo el rombo abre lo mismo que el rombo
                     pista.appendChild(t);
                 }
@@ -144,9 +148,11 @@ function gantt(cont, filas, rango, opts = {}) {
         fila.appendChild(pista); g.appendChild(fila);
     }
     cont.appendChild(g);
+    if (popAbierto !== null) { if (popNuevo) popHito(...popNuevo, true); else cerrarPopHito(); }   // C-18
     // U-12 (v0.120.0): con el gantt ya en pantalla, una barra cuyo texto no cabe adentro («vence 0…») lo saca a su lado, como la barra corta.
     // Oculta mide 0 y no se toca. Con rombos (global) el texto de afuera chocaria con ellos: ahi se queda adentro.
-    if (!conHitos) for (const [barra, b, f, pista] of medir) { const t = barra.querySelector('.g-txt'); if (t && barra.clientWidth && t.scrollWidth > barra.clientWidth - 12) { t.remove(); textoFuera(barra, b, f, pista, conHitos); } }
+    // C-17: dos pasadas — primero se LEE todo (clientWidth/scrollWidth), luego se mueve; intercalarlas forzaba un reflow por barra
+    if (!conHitos) { const fuera = medir.filter(([barra, , , , t]) => barra.clientWidth && t.scrollWidth > barra.clientWidth - 12); for (const [barra, b, f, pista, t] of fuera) { t.remove(); textoFuera(barra, b, f, pista, conHitos); } }
     if (opts.previo) { cont.scrollLeft = opts.previo.left; cont.scrollTop = opts.previo.top; return; }   // C-07 (v0.120.0)
     // U-01 (v0.78.0): si la pista desborda la caja (celular), el scroll arranca con la raya de hoy a un tercio de la pista VISIBLE
     // (lo que queda a la derecha de la etiqueta pegada, U-02), no en el pasado. Medido a 390: con el 35 % de la caja entera la raya caia debajo de la etiqueta.
@@ -154,6 +160,8 @@ function gantt(cont, filas, rango, opts = {}) {
 }
 
 /** Fila-etiqueta de una tarjeta en el roadmap del proyecto: titulo (abre la tarjeta). */
+/** C-20: una muestra de la leyenda del roadmap (el icono de color y su texto); `tipo` = 'g-barra-mini' | 'g-rombo-mini'. */
+function muestraLeyenda(tipo, cls, texto) { const s = el('span'); s.appendChild(el('i', tipo + (cls ? ' is-' + cls : ''))); s.appendChild(el('span', '', texto)); return s; }
 function etiquetaTarea(t) {
     const b = el('button', 'g-tarea'); b.type = 'button'; b.dataset.t = String(t.id); b.title = t.Title;
     b.appendChild(el('span', 't', t.Title));
@@ -176,11 +184,18 @@ function tituloHito(h) { const p = partesHito(h); return `${h.tarea.Title} · ${
  * directo. `estado.tactil` lo fuerza la E2E (headless no cambia de viewport).
  */
 const tactil = () => estado.tactil ?? matchMedia('(hover: none)').matches;
-function cerrarPopHito() { const p = document.getElementById('gPop'); if (p) p.remove(); document.removeEventListener('pointerdown', fueraDelPop, true); }
+function cerrarPopHito(devolver = false) {
+    const p = document.getElementById('gPop'); if (p) p.remove(); document.removeEventListener('pointerdown', fueraDelPop, true);
+    if (devolver && p && romboDelPop && romboDelPop.isConnected) romboDelPop.focus();   // U-30: Esc o «Cerrar» devuelven el foco al rombo que la abrio
+    romboDelPop = null;
+}
 function fueraDelPop(e) { const p = document.getElementById('gPop'); if (!p || !p.contains(e.target)) cerrarPopHito(); }   // C-15 (v0.120.0): sin hoja, el listener se quita solo
-function popHito(a, f) {
-    cerrarPopHito();
-    const pop = el('div', 'g-pop'); pop.id = 'gPop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', a.hitos.length > 1 ? `${a.hitos.length} tarjetas` : a.hitos[0].tarea.Title);
+let romboDelPop = null;   // U-30: a donde vuelve el foco al cerrar la hoja
+function popHito(a, f, rombo = null, repinta = false) {
+    const viejo = document.getElementById('gPop'); const foco = viejo && viejo.contains(document.activeElement) ? document.activeElement : null;
+    const clave = foco && (foco.dataset.popT ? `[data-pop-t="${foco.dataset.popT}"]` : foco.dataset.popFrente ? '[data-pop-frente]' : '[data-pop-cerrar]');
+    cerrarPopHito(); romboDelPop = rombo;
+    const pop = el('div', 'g-pop'); pop.id = 'gPop'; pop.dataset.hito = a.hitos.map(h => h.tarea.id).join(','); pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', a.hitos.length > 1 ? `${a.hitos.length} tarjetas` : a.hitos[0].tarea.Title);
     if (a.hitos.length > 1) pop.appendChild(el('p', 'g-pop-cab', `${a.hitos.length} tarjetas del ${fechaCorta(a.dia)} al ${fechaCorta(a.hasta)}`));
     for (const h of a.hitos) {
         const b = el('button', 'g-pop-it'); b.type = 'button'; b.dataset.popT = String(h.tarea.id);
@@ -191,10 +206,14 @@ function popHito(a, f) {
     }
     const pie = el('div', 'g-pop-pie');
     if (a.hitos.length > 1) pie.appendChild(boton('Ver el roadmap del frente', 'mn-btn is-primary', () => { cerrarPopHito(); f.abrirHito(a); }, { popFrente: '1' }));
-    pie.appendChild(boton('Cerrar', 'mn-btn', cerrarPopHito, { popCerrar: '1' }));
+    pie.appendChild(boton('Cerrar', 'mn-btn', () => cerrarPopHito(true), { popCerrar: '1' }));
     pop.appendChild(pie);
+    pop.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); cerrarPopHito(true); } });   // U-30: Esc cierra la hoja (y no sale ademas de pantalla completa)
     document.body.appendChild(pop);
     document.addEventListener('pointerdown', fueraDelPop, true);   // C-15 (v0.120.0): en el acto — la hoja abre en el `click`, que llega DESPUES del pointerdown que la pidio; el setTimeout 0 sobraba
+    // U-30: al abrir, el foco va a su primer renglon; C-18: al repintarla tras un refresco, vuelve a donde estaba (si estaba adentro)
+    const enfocar = repinta ? (clave && pop.querySelector(clave)) : pop.querySelector('button');
+    if (enfocar) enfocar.focus();
 }
 
 /**
@@ -211,6 +230,7 @@ export function pintarRoadmapProyecto(p) {
     // U-15 (v0.120.0): el fin del frente va ARRIBA del primer grupo; al final quedaba debajo de todas las hechas (y en celular, fuera de la caja)
     if (p.Vence && lp.fin) {
         const eti = el('span', 'g-grupo'); eti.appendChild(iconoEquipo(equipoDe(p), 'sm')); eti.appendChild(el('b', '', 'Fin del frente'));
+        eti.appendChild(el('span', 'g-fin-dia' + (diasPara(p.Vence) < 0 ? ' is-danger' : ''), diaMes(p.Vence)));   // U-26: la fecha va en la etiqueta pegada; en celular el rombo queda fuera de la vista
         filas.push({ etiqueta: eti, lapso: { inicio: lp.fin, fin: lp.fin }, clase: diasPara(p.Vence) < 0 ? 'danger' : 'hito', hito: true, texto: fechaEje(p.Vence), titulo: `Fin del frente: ${fechaCorta(p.Vence)}` });
     }
     // v0.11.0: un carril por cubeta del proyecto (mas las huerfanas), en el orden del tablero.
@@ -253,8 +273,8 @@ export function pintarRoadmapProyecto(p) {
     }
     // U-13 (v0.120.0): la leyenda de los colores de barra (claseBarraTarea), como la del global
     const ley = el('div', 'g-leyenda'); ley.id = 'roadmapLeyendaP';
-    for (const [cls, texto] of [['idle', 'por hacer'], ['brand', 'en curso'], ['info', 'en revisión'], ['ok', 'hecha'], ['danger', 'vencida']]) { const s = el('span'); s.appendChild(el('i', 'g-barra-mini is-' + cls)); s.appendChild(el('span', '', texto)); ley.appendChild(s); }
-    if (p.Vence && lp.fin) { const s = el('span'); s.appendChild(el('i', 'g-rombo-mini is-fin')); s.appendChild(el('span', '', 'fin del frente')); ley.appendChild(s); }
+    for (const [cls, texto] of [['idle', 'por hacer'], ['brand', 'en curso'], ['info', 'en revisión'], ['ok', 'hecha'], ['danger', 'vencida']]) ley.appendChild(muestraLeyenda('g-barra-mini', cls, texto));
+    if (p.Vence && lp.fin) ley.appendChild(muestraLeyenda('g-rombo-mini', 'fin', 'fin del frente'));
     cont.appendChild(ley);
 }
 
@@ -330,17 +350,23 @@ export function pintarRoadmap() {
             const hitos = acomodarHitos(hitosPs[i], rango, umbral, fin ? fin.left : 100);
             for (const h of hitos) h.titulo = h.hitos.length > 1 ? `${h.hitos.length} tarjetas del ${fechaCorta(h.dia)} al ${fechaCorta(h.hasta)}: ${h.hitos.map(x => x.tarea.Title).join(' · ')} — ${tactil() ? 'toca para verlas' : 'abre el roadmap del frente'}` : tituloHito(h.hitos[0]);
             const nHitos = hitos.reduce((n, h) => n + h.hitos.length, 0); const venc = vencidasEn(ts);
+            // U-23: si el texto de la barra no cabe a la derecha del ultimo rombo que cae sobre ella, «N vencidas» pasa a la etiqueta pegada (en celular se leia «4◆◇ncidas»)
+            let texto = textoBarraFrente(p, a, venc); const bb = venc && anchoPista && hitos.length ? barraEn(lapsos[i], rango) : null;
+            if (bb) {
+                const ult = Math.max(bb.left, ...hitos.map(h => h.left).filter(l => l >= bb.left && l <= bb.left + bb.width));
+                if ((bb.left + bb.width - ult) * anchoPista / 100 - 12 < texto.length * 7 + 12) { texto = textoBarraFrente(p, a); eti.querySelector('.cuerpo').appendChild(el('span', 'v', `${venc} ${venc === 1 ? 'vencida' : 'vencidas'}`)); }   // su propio renglon: el de «7/17 · fin» ya va lleno a 390
+            }
             return {
-                etiqueta: eti, lapso: lapsos[i], clase: claseFrente(p, venc), pct: a.pct, texto: textoBarraFrente(p, a, venc),
+                etiqueta: eti, lapso: lapsos[i], clase: claseFrente(p, venc), pct: a.pct, texto,
                 titulo: `${p.Title} · ${textoFin} · ${a.pct}% · ${nHitos} hito(s)${venc ? ` · ${venc} vencida(s)` : ''}`, abrir: () => irFrenteId(p.id, 'roadmap'), dataset: { roadmapBarra: String(p.id) }, sinFecha: 'sin fechas', fin, hitos,
                 abrirHito: h => h.hitos.length > 1 ? irFrenteId(p.id, 'roadmap') : irTarjetaId(h.hitos[0].tarea.id)
             };
         });
         gantt(caja, filas, rango, { rotulo: 'Frente', umbralTxt, anchoPista, previo, anchoGantt: visible > 0 ? eti + anchoPista : 0 });
         // leyenda: las cuatro clases del rombo y que es cada cosa (la N de «pronto» sale de CONFIG, como en el tablero)
-        const item = (cls, texto) => { const s = el('span'); s.appendChild(el('i', 'g-rombo-mini' + (cls ? ' is-' + cls : ''))); s.appendChild(el('span', '', texto)); return s; };
+        const item = (cls, texto) => muestraLeyenda('g-rombo-mini', cls, texto);   // C-20
         ley.appendChild(item('', 'hito pendiente')); ley.appendChild(item('pronto', `vence hoy o en ${CONFIG.vencePronto} días`)); ley.appendChild(item('vencida', 'vencido')); ley.appendChild(item('hecha', 'hecho'));
-        for (const [cls, texto] of [['brand', 'frente a tiempo'], ['warn', 'en riesgo: fin cercano o tarjetas vencidas'], ['danger', 'fin del frente vencido']]) { const s = el('span'); s.appendChild(el('i', 'g-barra-mini is-' + cls)); s.appendChild(el('span', '', texto)); ley.appendChild(s); }   // R-03 (v0.121.0)
+        for (const [cls, texto] of [['brand', 'frente a tiempo'], ['warn', 'en riesgo: fin cercano o tarjetas vencidas'], ['danger', 'fin del frente vencido']]) ley.appendChild(muestraLeyenda('g-barra-mini', cls, texto));   // R-03 (v0.121.0)
         ley.appendChild(el('span', 'fin', 'rombo = tarjeta con fecha · barra = creación → fin del frente · relleno = avance · raya = fin del frente'));
     }
     // hitos: fines de frente en los proximos 60 dias (y los ya vencidos), como «Upcoming milestones» de la foto
@@ -453,7 +479,7 @@ export function engancharRoadmap() {
     const revisarAncho = conRetardo(() => { const w = caja.clientWidth; if (w && estado.pestana === 'roadmap' && String(w) !== caja.dataset.anchoPintado) pintarRoadmap(); }, 100);   // C-10 (v0.120.0): una rafaga de resize (arrastrar la ventana) repinta una vez, no en cada evento
     if (typeof ResizeObserver === 'function') new ResizeObserver(revisarAncho).observe(caja);
     window.addEventListener('resize', revisarAncho);
-    window.addEventListener('hashchange', cerrarPopHito);   // U-04 (v0.79.0, revisor): «Atrás» cambia de pantalla sin repintar el gantt y la hoja fija se quedaba encima
+    window.addEventListener('hashchange', () => cerrarPopHito());   // U-04 (v0.79.0, revisor): «Atrás» cambia de pantalla sin repintar el gantt y la hoja fija se quedaba encima
     $('btnRoadmapFull').addEventListener('click', () => roadmapFull());
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('roadmapLinea').classList.contains('is-full')) roadmapFull(false); });
 }

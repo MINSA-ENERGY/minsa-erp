@@ -2225,3 +2225,11 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
   /* U-41: en la ficha a 390, «1 de 5» y las dos flechas en un solo renglon */
   #dlgTarea .t-cel .orden { flex-wrap: nowrap; }
 }
+/* /mejorar-app proyectos roadmap, tanda 1 (v0.136.0) */
+.g-proy .cuerpo .v { font-family: var(--font-data); font-size: .72rem; font-weight: 600; color: var(--status-danger-fg); white-space: nowrap; }   /* U-23 (roadmap): «N vencidas» sale de la barra a su propio renglon de la etiqueta cuando los rombos lo taparian */
+.g-tarea .t { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.25; overflow-wrap: anywhere; }   /* U-25 (roadmap): el nombre de la tarjeta usa los dos renglones que la fila ya tiene */
+.g-fin-dia { font-family: var(--font-data); font-weight: 600; letter-spacing: 0; color: var(--text-strong); } .g-fin-dia.is-danger { color: var(--status-danger-fg); }   /* U-26 (roadmap): la fecha del fin en la etiqueta pegada */
+.g-barra.is-hito .g-txt { overflow: visible; }   /* U-26 (roadmap): la barra-hito mide un dia; con overflow hidden su dd/mm no se veia */
+.g-barra.is-danger { box-shadow: inset 0 0 0 1px var(--status-danger-fg); } .g-txt.g-fuera.is-danger { color: var(--status-danger-fg); font-weight: 600; }   /* U-27 (roadmap): la vencida con el contorno de su muestra en la leyenda y su texto de afuera en rojo */
+.g-rombo-txt.is-grupo.is-izq { transform: translateX(-100%); padding: 0 8px 0 2px; }   /* U-24 (roadmap): el «+N» de un grupo pegado al fin va a la izquierda del rombo */
+.g-leyenda .fin { font-family: var(--font-ui); }   /* U-29 (roadmap): la frase de la leyenda en la letra de texto; en mono sumaba tres renglones a 390 */

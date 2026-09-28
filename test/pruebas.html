@@ -1908,6 +1908,14 @@ try {
                     R.ok('U-04 (v0.79.0): la fila abre SU tarjeta y la hoja se va', $('tTitulo').textContent === 'Hito hecho el 10 de agosto' && !document.getElementById('gPop'));
                     clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada');
                     irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-rombo'), 'roadmap');
+                    // C-19: la hoja del rombo toma el foco (U-30), sobrevive a un refresco repintada con los datos nuevos (C-18) y Esc la cierra devolviendo el foco al rombo (U-30)
+                    { const sel = `#roadmapCaja .g-fila:has([data-roadmap-barra="${proyectoId}"]) .g-rombo.is-grupo`; document.querySelector(sel).click(); await esperar(() => document.getElementById('gPop'), 'hoja para el refresco');
+                      const pop1 = document.getElementById('gPop'); const hito = pop1.dataset.hito;
+                      R.ok('U-30 (v0.136.0): al abrir la hoja del rombo el foco va a su primer renglón', document.activeElement === pop1.querySelector('.g-pop-it'), document.activeElement?.className);
+                      await recargarYEsperar(); await dormir(30); const pop2 = document.getElementById('gPop');
+                      R.ok('C-18 (v0.136.0): tras un refresco la hoja sigue abierta, repintada (nodo nuevo) con el mismo grupo y el foco en el mismo renglón', !!pop2 && pop2 !== pop1 && pop2.dataset.hito === hito && document.activeElement === pop2.querySelector('.g-pop-it'), `hito=${pop2?.dataset.hito} foco=${document.activeElement?.className}`);
+                      document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await dormir(30);
+                      R.ok('U-30 (v0.136.0): Esc cierra la hoja y el foco vuelve al rombo que la abrió', !document.getElementById('gPop') && document.activeElement === document.querySelector(sel), document.activeElement?.className); }
                 } finally { delete ESTADO.tactil; }
                 [...document.querySelectorAll('#roadmapCaja .g-rombo')].find(r => r.dataset.hito === String(tHechaVieja.id)).click();
                 if (TACTIL) { await esperar(() => document.getElementById('gPop'), 'hoja por media query'); R.ok('U-04 (v0.79.0): con (hover: none) real —el driver a 390— el rombo abre la hoja sin forzar estado.tactil', !!document.getElementById('gPop') && !$('dlgTarea').open); document.querySelector('#gPop [data-pop-cerrar]').click(); await esperar(() => !document.getElementById('gPop'), 'hoja cerrada'); }
@@ -1943,6 +1951,10 @@ try {
               document.querySelector('#roadmapEscala [data-escala="semanas"]').click(); await esperar(() => caja.dataset.escala === 'semanas', 'escala semanas'); const wSem = ancho();
               document.querySelector('#roadmapEscala [data-escala="trimestre"]').click(); await esperar(() => caja.dataset.escala === 'trimestre', 'escala trimestre'); const wTri = ancho();
               R.ok('R-01 (v0.122.0): Semanas estira la pista (desborda la caja) y Trimestre la encoge; la elegida queda encendida y guardada', wSem > wTri && wSem > caja.clientWidth + 1 && document.querySelector('#roadmapEscala [data-escala="trimestre"]').getAttribute('aria-pressed') === 'true' && leer() === 'trimestre', `sem=${wSem} tri=${wTri} caja=${caja.clientWidth}`);
+              // C-19: una escala guardada que ya no existe (una version vieja, otra app) cae a la del CSS con su boton encendido
+              try { localStorage.setItem('proy.roadmapEscala', 'decadas'); } catch (_) {} ESTADO.roadmapEscala = null; pestana('inicio'); await dormir(30); irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-barra'), 'roadmap con escala vieja');
+              { const css = getComputedStyle(caja).getPropertyValue('--escala').trim(); const esp = ['semanas', 'meses', 'trimestre'].includes(css) ? css : 'trimestre';
+                R.ok('C-19 (v0.136.0): una escala guardada que ya no existe cae a la del CSS (--escala) y enciende su botón', caja.dataset.escala === esp && document.querySelector(`#roadmapEscala [data-escala="${esp}"]`).getAttribute('aria-pressed') === 'true', `escala=${caja.dataset.escala} css=${css}`); }
               try { if (escAntes) localStorage.setItem('proy.roadmapEscala', escAntes); else localStorage.removeItem('proy.roadmapEscala'); } catch (_) {} }
             // C-01 / U-01 corren en Semanas: a 300 px la escala por omisión (trimestre) ya no desborda, y lo que prueban es el repintado y el arranque en hoy CON desborde
             { const caja = $('roadmapCaja'); const antes = caja.dataset.anchoPintado; ESTADO.roadmapEscala = 'semanas'; caja.style.width = '300px'; window.dispatchEvent(new Event('resize')); await esperar(() => caja.dataset.anchoPintado === '300', 'repintado por ancho');
