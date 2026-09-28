@@ -14,7 +14,7 @@
 
 import { CONFIG } from './config.js';
 import { crearCliente, esConflicto } from './graph.js';
-import { rolDe, PUEDE, nombreCorto, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, misAbiertas as misAbiertasDe } from './reglas.js';
+import { rolDe, PUEDE, nombreCorto, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, misAbiertas as misAbiertasDe, HECHO } from './reglas.js';
 import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, chipVence, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas } from './comun.js';
 import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambiarTareas, abrirTarjeta, tarjetaAbiertaId, repintarFicha, pintarFiltroTareas, pintarBotonFiltros, abrirNuevaTarea } from './tablero.js';
 import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
@@ -451,7 +451,7 @@ function pintarRailEquipos() {
 function chipReloj(p, ts) {
     if (p.Estado !== 'activo' || !p.Vence) return null;
     const d = diasPara(p.Vence); if (d === null || d > CONFIG.vencePronto) return null;
-    const faltan = ts.filter(t => t.Columna !== 'hecho').length;
+    const faltan = ts.filter(t => t.Columna !== HECHO).length;
     const c = chip(`${fraseVence(d, 'dias')} · faltan ${faltan}`, claseVence(d, CONFIG.vencePronto)); c.dataset.reloj = String(p.id);   // C-04 (v0.79.0)
     return c;
 }
@@ -761,7 +761,7 @@ function pintarGrupoCola(lista, clave, texto, arr, cls, textoMas, ir) {
  *  C-11 (v0.95.0): el conmutador y el salto la recalculan al clic; antes capturaban el arreglo del ultimo pintado. */
 function abiertasInicio(vivos = activos()) {
     const ids = new Set(vivos.map(p => p.id));   // v0.13.1: una vez, no por cada tarjeta
-    return estado.tareas.filter(t => t.Columna !== 'hecho' && ids.has(Number(t.ProyectoId)));
+    return estado.tareas.filter(t => t.Columna !== HECHO && ids.has(Number(t.ProyectoId)));
 }
 /** Los dos botones «todo el frente / solo mías» (estado.hoySoloMias, la sesion); cambiar repinta la cola y «Sin movimiento». */
 function pintarFiltroCola() {
@@ -886,7 +886,7 @@ function abrirEquipo() {
     const roles = estado.roles.slice().sort((a, b) => String(a.Nombre || a.Title || '').localeCompare(String(b.Nombre || b.Title || '')));
     for (const r of roles) {
         const correo = String(r.Title || '').toLowerCase();
-        const abiertas = estado.tareas.filter(t => String(t.Asignado || '').toLowerCase() === correo && t.Columna !== 'hecho').length;
+        const abiertas = estado.tareas.filter(t => String(t.Asignado || '').toLowerCase() === correo && t.Columna !== HECHO).length;
         const fa = el('div', 'eq-ficha' + (r.Activo === false ? ' inactivo' : ''));
         fa.appendChild(el('span', 'n', nombreDe(correo, estado.roles)));
         const ch = el('span', 'ch');
@@ -901,7 +901,7 @@ function abrirEquipo() {
         tr.appendChild(el('td', 'mn-mono', correo));
         const tdr = el('td'); tdr.appendChild(chip(r.Rol || 'lectura', r.Rol === 'gerencia' ? 'info' : null)); tr.appendChild(tdr);
         const tda = el('td'); tda.appendChild(r.Activo === false ? chip('no', 'danger') : chip('sí', 'ok')); tr.appendChild(tda);
-        tr.appendChild(el('td', 'mn-mono', String(estado.tareas.filter(t => String(t.Asignado || '').toLowerCase() === correo && t.Columna !== 'hecho').length)));
+        tr.appendChild(el('td', 'mn-mono', String(estado.tareas.filter(t => String(t.Asignado || '').toLowerCase() === correo && t.Columna !== HECHO).length)));
         tb.appendChild(tr);
     }
     if (!roles.length) { const tr = el('tr'); const td = el('td', 'vacio', 'PROY_Roles está vacía.'); td.colSpan = 5; tr.appendChild(td); tb.appendChild(tr); fi.appendChild(el('p', 'vacio', 'PROY_Roles está vacía.')); }
@@ -970,7 +970,7 @@ function pintarCabeceraProyecto(p, ts, a) {
     $('btnEditarProyecto').disabled = !PUEDE.proyecto(estado.rol) || p.Estado !== 'activo';
     $('btnCubetas').disabled = !PUEDE.proyecto(estado.rol) || p.Estado !== 'activo';   // v0.11.0
     $('btnCerrarProyecto').disabled = !PUEDE.proyecto(estado.rol) || p.Estado !== 'activo';
-    const faltan = ts.filter(t => t.Columna !== 'hecho').length;
+    const faltan = ts.filter(t => t.Columna !== HECHO).length;
     // v0.12.0: el boton ya no cuenta («· faltan N» salio del titulo); la cuenta va en su title y en la confirmacion.
     $('btnCerrarProyecto').textContent = p.Estado !== 'activo' ? 'Cerrado' : 'Cerrar proyecto';
     $('btnCerrarProyecto').title = p.Estado !== 'activo' ? '' : faltan ? `Falta${faltan === 1 ? '' : 'n'} ${faltan} tarjeta${faltan === 1 ? '' : 's'} por terminar` : 'Todas las tarjetas están hechas';
@@ -1048,7 +1048,7 @@ function pintarLateralProyecto(p, ts, a) {
     // C-16 (v0.114.0): abiertas por persona en UNA pasada (antes un filter por persona dentro del for).
     const abiertasDe = new Map();
     let sinDuenoAbiertas = 0;
-    for (const x of ts) { const k = String(x.Asignado || '').toLowerCase(); const abierta = x.Columna !== 'hecho' ? 1 : 0; if (!k) { sinDuenoAbiertas += abierta; continue; } abiertasDe.set(k, (abiertasDe.get(k) || 0) + abierta); }
+    for (const x of ts) { const k = String(x.Asignado || '').toLowerCase(); const abierta = x.Columna !== HECHO ? 1 : 0; if (!k) { sinDuenoAbiertas += abierta; continue; } abiertasDe.set(k, (abiertasDe.get(k) || 0) + abierta); }
     const quienes = [...abiertasDe.keys()];
     // U-27 / U-28 (v0.123.0): cada renglon abre el Tablero filtrado por esa persona (llave «q:<correo>», la resuelve el delegado de
     // data-abre); las abiertas sin dueño van en su renglon «Sin asignar», asi Quiénes suma lo mismo que el tablero; y el singular concuerda.
@@ -1250,7 +1250,7 @@ fijarGuarda('dlgSalud', guardaSalud);
 async function cerrarProyecto() {
     const p = proyectoAbierto(); if (!p) return;
     if (!PUEDE.proyecto(estado.rol)) { avisar('Solo gerencia cierra proyectos.', 'error'); return; }
-    const faltan = tareasDe(p, estado.tareas).filter(t => t.Columna !== 'hecho').length;
+    const faltan = tareasDe(p, estado.tareas).filter(t => t.Columna !== HECHO).length;
     const { ok } = await confirmar({ titulo: 'Cerrar el proyecto', ok: 'Cerrar', texto: `«${p.Title}» pasa a cerrado con tu sello. Sale de Inicio; sus tarjetas quedan como registro y nada se borra.${faltan ? ` Ojo: queda${faltan === 1 ? '' : 'n'} ${faltan} tarjeta${faltan === 1 ? '' : 's'} sin terminar.` : ''}` });
     if (!ok) return;
     const campos = { Estado: 'cerrado', CerradoPor: estado.cuenta.username, CerradoEl: new Date().toISOString() };
@@ -1372,7 +1372,7 @@ function pintarSelectorProyecto(p) {
     const lista = ordenarProyectos(activos()); if (!lista.some(x => x.id === p.id)) lista.unshift(p);
     if (lista.length < 2) { caja.appendChild(el('p', 'vacio', 'No hay otro proyecto activo.')); }
     for (const q of lista) {
-        const ts = tareasDe(q, estado.tareas); const abiertas = ts.filter(t => t.Columna !== 'hecho').length, vencidas = vencidasEn(ts);
+        const ts = tareasDe(q, estado.tareas); const abiertas = ts.filter(t => t.Columna !== HECHO).length, vencidas = vencidasEn(ts);
         const b = el('button', q.id === p.id ? 'is-on' : ''); b.type = 'button'; b.setAttribute('role', 'option'); b.setAttribute('aria-selected', q.id === p.id ? 'true' : 'false'); b.dataset.proyecto = String(q.id);
         b.appendChild(iconoEquipo(equipoDe(q), 'sm')); b.appendChild(el('span', 't', q.Title));
         const n = el('span', 'n' + (vencidas ? ' is-danger' : ''), q.Estado !== 'activo' ? 'cerrado' : `${abiertas} abierta${abiertas === 1 ? '' : 's'}${vencidas ? ` · ${vencidas} vencida${vencidas === 1 ? '' : 's'}` : ''}`); b.appendChild(n);

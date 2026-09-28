@@ -6,7 +6,7 @@
 // graficos son SVG por DOM o cajas con ancho en %.
 
 import { CONFIG } from './config.js';
-import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona } from './reglas.js';
+import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona, HECHO } from './reglas.js';
 import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo } from './comun.js';
 import { pintarChat } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
 import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';   // v0.17.0: la misma tabla que Docs del proyecto; v0.18.0: y el mismo orden; v0.36.0: y el mismo arbol
@@ -161,7 +161,7 @@ function etiquetaTarea(t) {
     return b;
 }
 const CLASE_BARRA = { h: 'ok', r: 'info', c: 'brand', p: 'idle' };
-const claseBarraTarea = t => t.Columna === 'hecho' ? 'ok' : estadoVence(t, CONFIG.vencePronto) === 'danger' ? 'danger' : CLASE_BARRA[claseDeColumna(t.Columna, columnasDeTarea(t))];
+const claseBarraTarea = t => t.Columna === HECHO ? 'ok' : estadoVence(t, CONFIG.vencePronto) === 'danger' ? 'danger' : CLASE_BARRA[claseDeColumna(t.Columna, columnasDeTarea(t))];
 /** v0.22.0: lo que dice un rombo: estado con fecha y quien (el title lo junta con el titulo; la hoja tactil lo pinta aparte). */
 function partesHito(h) {
     const t = h.tarea;
@@ -221,7 +221,7 @@ export function pintarRoadmapProyecto(p) {
     for (const { clave: col, nombre, huerfana } of carriles) {
         const de = ts.filter(t => t.Columna === col);
         if (!de.length) continue;
-        const oculta = col === 'hecho' && !verHechas; const conFecha = de.filter(t => lapsoDe.get(t.id).fin);
+        const oculta = col === HECHO && !verHechas; const conFecha = de.filter(t => lapsoDe.get(t.id).fin);
         if (!oculta) sinFecha.push(...de.filter(t => !lapsoDe.get(t.id).fin));
         if (!oculta && !conFecha.length) continue;   // un carril de puras tarjetas sin fecha no gasta renglon: sus tarjetas estan abajo
         // U-22 (v0.120.0): el color de la cubeta es un filete bajo el nombre (--cub, como el tablero desde v0.64.0), ya no un punto
@@ -231,13 +231,13 @@ export function pintarRoadmapProyecto(p) {
         if (oculta) continue;
         for (const t of conFecha.sort((a, b) => String(lapsoDe.get(a.id).fin || '9').localeCompare(String(lapsoDe.get(b.id).fin || '9')) || a.id - b.id)) {
             const l = lapsoDe.get(t.id); const d = t.Vence ? diasPara(t.Vence) : null;
-            const texto = l.fin ? (t.Columna === 'hecho' ? `hecha ${fechaEje(t.HechoEl || t.Vence)}` : fraseVence(d, 'corta', fechaEje(t.Vence))) : '';   // C-04 (v0.79.0); U-12 (v0.120.0): sin año si es el de hoy
+            const texto = l.fin ? (t.Columna === HECHO ? `hecha ${fechaEje(t.HechoEl || t.Vence)}` : fraseVence(d, 'corta', fechaEje(t.Vence))) : '';   // C-04 (v0.79.0); U-12 (v0.120.0): sin año si es el de hoy
             filas.push({ etiqueta: etiquetaTarea(t), lapso: l, clase: claseBarraTarea(t), texto, titulo: `${t.Title} · ${texto}`, abrir: () => irTarjetaId(t.id, 'roadmap'), dataset: { roadmap: String(t.id) } });
         }
     }
     if (!ts.length) { cont.appendChild(el('p', 'vacio', 'Sin tarjetas todavía: el roadmap se dibuja con las fechas de vencimiento.')); return; }
     const res = el('p', 'g-resumen', `${rango.dias} días en el eje · ${lapsos.filter(l => l.fin).length} de ${ts.length} tarjetas con fecha · barra = entrada a la columna (o creación) → vencimiento; hecha → cuando se hizo.`);   // U-08 (v0.78.0): un renglon
-    const nHechas = ts.filter(t => t.Columna === 'hecho').length;
+    const nHechas = ts.filter(t => t.Columna === HECHO).length;
     const herr = el('div', 'g-herr'); herr.appendChild(res);
     if (nHechas) {   // R-02: el interruptor, suelto sobre el gantt; se resuelve el proyecto por id al clic (regla v0.4.0)
         const b = boton(verHechas ? 'ocultar hechas' : `ver hechas (${nHechas})`, 'mn-btn is-ghost is-sm', () => { estado.roadmapHechas = !verHechas; const q = porId(estado.proyectos, p.id); if (q) pintarRoadmapProyecto(q); }, { verHechas: '1' });
@@ -347,7 +347,7 @@ export function pintarRoadmap() {
     const h = $('roadmapHitos'); h.textContent = '';
     const hitos = ps.filter(p => p.Vence && diasPara(p.Vence) <= 60).sort((a, b) => String(a.Vence).localeCompare(String(b.Vence)));
     for (const p of hitos) {
-        const d = diasPara(p.Vence); const ts = tsDe.get(p.id); const faltan = ts.filter(t => t.Columna !== 'hecho').length; const dia = diaDe(p.Vence);   // C-02 (v0.78.0): el dia corta por hora de Mexico, como el resto de la app
+        const d = diasPara(p.Vence); const ts = tsDe.get(p.id); const faltan = ts.filter(t => t.Columna !== HECHO).length; const dia = diaDe(p.Vence);   // C-02 (v0.78.0): el dia corta por hora de Mexico, como el resto de la app
         const kv = claseVence(d, CONFIG.vencePronto, ''); const it = el('button', 'hito' + (kv ? ' is-' + kv : '')); it.type = 'button'; it.dataset.hito = String(p.id);   // C-04 (v0.79.0)
         const f = el('span', 'fecha'); f.appendChild(el('small', '', mesCorto(dia))); f.appendChild(el('b', '', String(diaNum(dia)))); it.appendChild(f);
         const c = el('span', 'cuerpo'); c.appendChild(el('span', 't', p.Title)); c.appendChild(el('span', 'm', `${equipoDe(p).nombre} · ${faltan ? `faltan ${faltan}` : 'todo hecho'}`)); it.appendChild(c);
@@ -761,7 +761,7 @@ function pintarCarga(todas, hist) {
     const cp = $('repPersonas'); cp.textContent = '';
     const carga = cargaPorPersona(todas, CONFIG.vencePronto); const maxC = Math.max(1, ...carga.map(c => c.abiertas));
     // C-05 (v0.129.0): «N hechas» cuenta tambien los frentes ya cerrados; las abiertas y vencidas siguen siendo las de los activos
-    const hechasDe = new Map(); for (const t of hist) if (t.Columna === 'hecho') { const q = String(t.Asignado || '').toLowerCase(); hechasDe.set(q, (hechasDe.get(q) || 0) + 1); }
+    const hechasDe = new Map(); for (const t of hist) if (t.Columna === HECHO) { const q = String(t.Asignado || '').toLowerCase(); hechasDe.set(q, (hechasDe.get(q) || 0) + 1); }
     for (const c of carga) {
         const tramos = [['abiertas', (c.abiertas - c.vencidas) * 100 / maxC]]; if (c.vencidas) tramos.push(['vencidas', c.vencidas * 100 / maxC, String(c.vencidas)]);
         const sinDueno = !c.quien && c.abiertas > 0;   // U-12 (v0.129.0): la fila «Sin dueño» lleva al tablero filtrado sin dueño (irASinDueno)

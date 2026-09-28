@@ -170,7 +170,7 @@ export function pintarFiltroTareas(proyecto) {
     const ts = tareasDe(proyecto, estado.tareas);
     // Conteo por persona (todas sus tarjetas, hechas incluidas: es lo que su casilla deja pasar); el de «sin dueño» solo
     // las huerfanas ABIERTAS, que es lo que filtra esa casilla (reglas.js: huerfana).
-    const conteo = {}; for (const t of ts) { const q = String(t.Asignado || '').toLowerCase(); if (q || t.Columna !== 'hecho') conteo[q] = (conteo[q] || 0) + 1; }
+    const conteo = {}; for (const t of ts) { const q = String(t.Asignado || '').toLowerCase(); if (q || t.Columna !== HECHO) conteo[q] = (conteo[q] || 0) + 1; }
     const quienes = Object.keys(conteo).filter(Boolean).sort();
     const repintar = () => { conAbierto(pintarFiltroTareas)(); pintarSoloTareas(); };
     const chipBtn = (texto, on, alClic, datos) => {
@@ -346,9 +346,9 @@ export function pintarLista(proyecto) {
         tr.appendChild(th);
     }
     thead.appendChild(tr); tabla.appendChild(thead);
-    const tbody = el('tbody'); const fin = (columnasDe(proyecto).at(-1) || {}).clave;   // U-29 (v0.123.0): lo de la cubeta final va atenuado
+    const tbody = el('tbody');   // U-29 (v0.123.0): lo de la cubeta final va atenuado; C-34: la final es siempre HECHO (normalizarColumnas)
     for (const t of ts) {
-        const r = el('tr', 'clic' + (t.Prioridad === 'alta' ? ' alta' : '') + (t.Columna === fin ? ' is-hecha' : '')); r.dataset.t = String(t.id);
+        const r = el('tr', 'clic' + (t.Prioridad === 'alta' ? ' alta' : '') + (t.Columna === HECHO ? ' is-hecha' : '')); r.dataset.t = String(t.id);
         const tdp = el('td', 'col-p'); tdp.appendChild(marcaPrioridad(t.Prioridad)); tdp.title = 'Prioridad ' + (t.Prioridad || 'normal'); r.appendChild(tdp);   // v0.60.0: barras en las tres
         r.appendChild(el('td', '', t.Title));
         r.appendChild(el('td', '', t.Asignado ? nombreDe(t.Asignado, estado.roles) : 'sin asignar'));   // U-31 (v0.123.0): lo mismo que dice la tarjeta del tablero
@@ -444,7 +444,7 @@ const BLOQUES = { 'Vencidas': 'vencidas', 'Esta semana': 'semana', 'Después': '
  * Reproduce estadoVence() y semaforo() de reglas.js sobre un solo diasPara; las unitarias de esas dos siguen siendo la referencia.
  */
 function infoVence(t) {
-    const hecha = t.Columna === 'hecho', d = hecha ? null : diasPara(t.Vence);
+    const hecha = t.Columna === HECHO, d = hecha ? null : diasPara(t.Vence);
     const e = d === null ? null : claseVence(d, CONFIG.vencePronto), s = d === null ? null : claseVence(d, CONFIG.semaforoDias);
     return { e, bloque: e === 'danger' ? 'Vencidas' : e === 'warn' ? 'Esta semana' : t.Vence ? 'Después' : 'Sin fecha', sem: hecha ? 'hecha' : s === 'danger' ? 'vencida' : s === 'warn' ? 'pronto' : '' };
 }
