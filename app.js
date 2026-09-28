@@ -15,7 +15,7 @@
 import { CONFIG } from './config.js';
 import { crearCliente, esConflicto } from './graph.js';
 import { rolDe, PUEDE, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, diaDe, sumarDias, misAbiertas as misAbiertasDe } from './reglas.js';
-import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, chipVence, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas } from './comun.js';
+import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, chipVence, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas } from './comun.js';
 import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambiarTareas, abrirTarjeta, tarjetaAbiertaId, repintarFicha, pintarFiltroTareas, pintarBotonFiltros, abrirNuevaTarea } from './tablero.js';
 import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
 import { pintarChat, engancharChat, alCambiarChat, fijarAbrirTarjeta, salirDelChat } from './chat.js';
@@ -536,6 +536,7 @@ const llaveEvento = (a, pid) => hashEvento(a, pid) ? `a:${a.id}${pid ? ':' + pid
 document.addEventListener('click', ev => {
     const b = ev.target.closest('[data-abre]'); if (!b) return;
     const [tipo, id, pid] = b.dataset.abre.split(':');
+    if (tipo === 'q') { const p = proyectoAbierto(); if (!p) return; limpiarFiltroTareas(id ? { quien: [id] } : { sinDueno: true }); estado.tab = 'tablero'; pintarPestanasAbierto(); fijarHash(hashDe()); return; }   // U-27 (v0.123.0): Quiénes del Resumen
     const h = tipo === 't' ? hashTarea(id) : hashEvento(porId(estado.actividad, id), pid);
     if (!h) { avisar('Eso ya no está: se borró o se movió desde que se pintó la pantalla.', 'ojo'); return; }
     if ($('dlgActividad').open) cerrarDialogo('dlgActividad');   // desde Toda la actividad (antes lo hacia abridorDe)
@@ -957,7 +958,7 @@ function pintarCabeceraProyecto(p, ts, a) {
     const eq = equipoDe(p);
     $('pEquipo').textContent = ''; $('pEquipo').appendChild(iconoEquipo(eq, 'lg'));   // v0.7.0: icono, no nombre
     $('pTitulo').textContent = p.Title; $('pDesc').textContent = p.Descripcion || '';
-    pintarSelectorProyecto(p);   // v0.29.0 (M5): los demas frentes activos, bajo el titulo
+    if ($('selProyecto').open) pintarSelectorProyecto(p);   // v0.29.0 (M5): los demas frentes activos, bajo el titulo; C-23 (v0.123.0): solo con la lista abierta (se pinta al abrirla)
     $('proyectoCab').classList.toggle('contraida', cabeceraContraida());
     $('pEstado').textContent = p.Estado === 'cerrado' ? 'Cerrado' : '';   // v0.12.0: el «N/M hechas · %» salio del titulo (Carlos, 12-sep); vive en Avance
     $('btnEditarProyecto').disabled = !PUEDE.proyecto(estado.rol) || p.Estado !== 'activo';
@@ -993,7 +994,7 @@ function pintarPestanas(p) {
     // C-13 (v0.114.0): el boton sigue a la pestaña — en Capital abre una partida (abrirPartida exige puedeVerCapital), en las demas una tarea.
     $('btnNuevaTarea').disabled = estado.tab === 'capital' ? !verCap : (!PUEDE.tarea(estado.rol) || p.Estado !== 'activo');
     $('btnNuevaTarea').textContent = estado.tab === 'capital' ? 'Nueva partida' : 'Nueva tarea';   // v0.103.0
-    for (const b of document.querySelectorAll('.tab')) { const on = b.dataset.tab === estado.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); }
+    for (const b of document.querySelectorAll('.tab')) { const on = b.dataset.tab === estado.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; if ($('tab-' + b.dataset.tab)) b.setAttribute('aria-controls', 'tab-' + b.dataset.tab); }   // U-35 (v0.123.0): tabindex rotativo y el panel que controla
     { const on = document.querySelector('.tabs .tab.is-on'); if (on && on.scrollIntoView) on.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }   // U-02 (17-sep): a 390 la fila rueda y «Resumen» quedaba fuera aun activa
     for (const t of ['tablero', 'lista', 'roadmap', 'docs', 'chat', 'capital']) $('tab-' + t).classList.toggle('oculto', estado.tab !== t);
     if (estado.tab !== 'chat') salirDelChat();   // v0.9.0: cambiar de pestana dentro del proyecto tambien es salir
@@ -1018,19 +1019,19 @@ function pintarPestanas(p) {
 }
 /** La barra de chips/buscador de tarjetas: depende de la pestaña y de estado.filtrosAbiertos. */
 function pintarFiltrosProyecto(p) {
-    const sinFiltros = ['docs', 'chat', 'resumen', 'roadmap', 'capital'].includes(estado.tab);
+    const sinFiltros = !PESTANAS_CON_FILTRO.includes(estado.tab);   // C-18 (v0.123.0)
     $('filtroTareas').classList.toggle('oculto', sinFiltros);
     $('filtroTareas').classList.toggle('plegado', !estado.filtrosAbiertos);
     if (!sinFiltros) pintarFiltroTareas(p);
     pintarBotonFiltros();
 }
 function pintarLateralProyecto(p, ts, a) {
-    $('pBarra').style.width = a.pct + '%';
-    $('pAnillo').textContent = ''; $('pAnillo').appendChild(anillo(segmentosDe(a), a.total, 96));   // v0.10.0: el anillo de la foto; v0.11.0: por cubeta del proyecto
+    const segs = segmentosDe(a);   // C-23 (v0.123.0): una vez por pintada (antes una mas por cubeta); U-34: la barra pBarra salio, el anillo ya dice el %
+    $('pAnillo').textContent = ''; $('pAnillo').appendChild(anillo(segs, a.total, 96));   // v0.10.0: el anillo de la foto; v0.11.0: por cubeta del proyecto
     const kv = $('pAvance'); kv.textContent = '';
     // U-23 (v0.114.0): Hechas y las cubetas de en medio llevan la muestra del color de su segmento del anillo (mismas clases que .leyenda).
     const par = (k, v, seg) => { const b = el('b', seg ? 'muestra is-' + seg[2] : '', k); if (seg) { if (seg[3]) b.dataset.tono = seg[3]; b.prepend(el('i')); } kv.appendChild(b); kv.appendChild(el('span', '', v)); };
-    const segDe = clave => segmentosDe(a).find(s => s[0].clave === clave);
+    const segDe = clave => segs.find(s => s[0].clave === clave);
     par('Hechas', `${a.hechas} de ${a.total}`, segDe(a.columnas[a.columnas.length - 1].clave)); for (const c of a.columnas.slice(1, -1)) par(c.nombre, String(a.porColumna[c.clave]), segDe(c.clave));
     par('Fin del frente', fechaCorta(p.Vence)); par('Responsable', p.Responsable ? nombreDe(p.Responsable, estado.roles) : '—'); par('Clave', p.Clave);
     if (p.Carpeta) par('Carpeta', p.Carpeta);
@@ -1038,10 +1039,15 @@ function pintarLateralProyecto(p, ts, a) {
     const q = $('pQuienes'); q.textContent = '';
     // C-16 (v0.114.0): abiertas por persona en UNA pasada (antes un filter por persona dentro del for).
     const abiertasDe = new Map();
-    for (const x of ts) { const k = String(x.Asignado || '').toLowerCase(); if (!k) continue; abiertasDe.set(k, (abiertasDe.get(k) || 0) + (x.Columna !== 'hecho' ? 1 : 0)); }
+    let sinDuenoAbiertas = 0;
+    for (const x of ts) { const k = String(x.Asignado || '').toLowerCase(); const abierta = x.Columna !== 'hecho' ? 1 : 0; if (!k) { sinDuenoAbiertas += abierta; continue; } abiertasDe.set(k, (abiertasDe.get(k) || 0) + abierta); }
     const quienes = [...abiertasDe.keys()];
-    for (const k of quienes) q.appendChild(itemMini(k, nombreDe(k, estado.roles), `${abiertasDe.get(k)} abiertas`, ''));
-    if (!quienes.length) q.appendChild(el('p', 'vacio', 'Nadie asignado todavía.'));
+    // U-27 / U-28 (v0.123.0): cada renglon abre el Tablero filtrado por esa persona (llave «q:<correo>», la resuelve el delegado de
+    // data-abre); las abiertas sin dueño van en su renglon «Sin asignar», asi Quiénes suma lo mismo que el tablero; y el singular concuerda.
+    const abiertas = n => `${n} abierta${n === 1 ? '' : 's'}`;
+    for (const k of quienes) { const it = itemMini(k, nombreDe(k, estado.roles), abiertas(abiertasDe.get(k)), '', '', `q:${k}`); it.title = 'Ver sus tarjetas en el tablero'; q.appendChild(it); }
+    if (sinDuenoAbiertas) { const it = itemMini('', '—', abiertas(sinDuenoAbiertas), '', '', 'q:'); it.querySelector('.q').textContent = 'Sin asignar'; it.title = 'Ver las tarjetas sin dueño en el tablero'; q.appendChild(it); }
+    if (!quienes.length && !sinDuenoAbiertas) q.appendChild(el('p', 'vacio', 'Nadie asignado todavía.'));
     const v = $('pVence'); v.textContent = '';
     for (const { tarea: t, dias } of proximos(ts, 5)) v.appendChild(itemMini(t.Asignado, t.Title, '', fraseVenceTarjeta(t), claseVence(dias, CONFIG.vencePronto, null), llaveTarea(t)));   // C9
     if (!v.childNodes.length) v.appendChild(el('p', 'vacio', 'Nada por vencer.'));
@@ -1318,6 +1324,10 @@ function pintarSelectorProyecto(p) {
     }
 }
 document.addEventListener('click', e => { const m = $('selProyecto'); if (m.open && !m.contains(e.target)) m.open = false; });
+// C-23 (v0.123.0): la lista del selector se pinta al ABRIRLA (antes en cada pintada del proyecto y en cada refresco de 120 s, cerrada).
+// El clic del summary corre antes de que el details se abra (sin un cuadro con la lista vieja); `toggle` cubre el open puesto por codigo.
+$('selProyecto').querySelector('summary').addEventListener('click', () => { const p = proyectoAbierto(); if (!$('selProyecto').open && p) pintarSelectorProyecto(p); });
+$('selProyecto').addEventListener('toggle', () => { const p = proyectoAbierto(); if ($('selProyecto').open && p) pintarSelectorProyecto(p); });
 $('selProyecto').addEventListener('keydown', e => { if (e.key === 'Escape') { $('selProyecto').open = false; $('selProyecto').querySelector('summary').focus(); } });
 function cabeceraContraida() { try { return localStorage.getItem('cabecera') === 'contraida'; } catch (_) { return false; } }
 function fijarCabecera(contraida) {
@@ -1337,6 +1347,13 @@ $('btnActualizar').addEventListener('click', recargar);
 $('btnActualizarMovil').addEventListener('click', () => { $('menuMovil').open = false; recargar(); });
 for (const b of document.querySelectorAll('#pestanas button')) b.addEventListener('click', () => irA(b.dataset.p));
 for (const b of document.querySelectorAll('.tab')) b.addEventListener('click', () => { estado.tab = b.dataset.tab; olvidarLugarRoadmap(); pintarPestanasAbierto(); fijarHash(hashDe()); });   // C-12 (v0.115.0): solo lo que cambia con la pestaña
+// U-35 (v0.123.0): las pestañas del proyecto como tablist de verdad — una sola parada de Tab (tabindex rotativo, lo pone pintarPestanas)
+// y flechas izquierda/derecha entre las visibles (Capital se salta cuando esta oculta).
+for (const b of document.querySelectorAll('.tabs .tab')) b.addEventListener('keydown', ev => {
+    const d = ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : 0; if (!d) return;
+    ev.preventDefault(); const ts = [...document.querySelectorAll('.tabs .tab')].filter(x => !x.classList.contains('oculto'));
+    const n = ts[(ts.indexOf(b) + d + ts.length) % ts.length]; n.click(); n.focus();
+});
 // B1: filtros plegados en celular; el boton los abre y dice cuantos hay puestos.
 $('btnFiltros').addEventListener('click', () => { estado.filtrosAbiertos = !estado.filtrosAbiertos; const p = proyectoAbierto(); if (p) pintarFiltrosProyecto(p); });   // C-12 (v0.115.0)
 $('pDesc').addEventListener('click', () => $('pDesc').classList.toggle('abierta'));
@@ -1345,11 +1362,12 @@ $('pDesc').addEventListener('click', () => $('pDesc').classList.toggle('abierta'
 // real en todo ancho, asi que al cruzar los 720 px solo se CIERRA (v0.81.0: abierto quedaba desplegado sobre el tablero).
 const enCelular = window.matchMedia('(max-width: 720px)');
 function acomodarAccMenu() { $('accMenu').open = false; }   // v0.81.0: desde v0.13.0 el «⋮» es menu en TODO ancho — abrirlo arriba de 720 lo dejaba desplegado al cruzar el ancho (lo delataban las capturas -full a 1366 desde v0.80.0 o antes)
-// Al cruzar los 720 px (girar el telefono, redimensionar la ventana) se repinta el proyecto: ahi es
-// donde «Resumen» deja de existir y donde el menu «···» cambia de forma.
+// Al cruzar los 720 px (girar el telefono, redimensionar la ventana) se cierra el menu «⋮», la leyenda del tablero se pliega o se
+// abre (U-24) y se repinta, porque Inicio cambia cuantos renglones enseña (B3). C-25 (v0.123.0): «Resumen» ya no depende del ancho (v0.30.0).
+function acomodarLeyenda() { $('leyendaDet').open = !enCelular.matches; }   // U-24 (v0.123.0): en celular la leyenda del tablero nace plegada
 // B3: Inicio tambien depende del ancho (3 renglones de actividad en celular, 5 en escritorio).
-enCelular.addEventListener('change', () => { acomodarAccMenu(); if (estado.sesion) repintar(); });
-acomodarAccMenu();
+enCelular.addEventListener('change', () => { acomodarAccMenu(); acomodarLeyenda(); if (estado.sesion) repintar(); });
+acomodarAccMenu(); acomodarLeyenda();
 // v0.13.0: el menu «⋮» existe en todos los anchos. Se cierra al tocar fuera y al elegir un BOTON (abrir el submenu «Editar»
 // no lo cierra); al cerrarse, el submenu vuelve plegado para que la proxima vez abra limpio.
 document.addEventListener('click', e => { const m = $('accMenu'); if (m.open && !m.contains(e.target)) m.open = false; });

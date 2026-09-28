@@ -53,55 +53,65 @@ export function pintarChat(p) {
         const d = c.Cuando ? diaDe(c.Cuando) : '';
         if (d !== dia) { dia = d; hilo.appendChild(el('div', 'dia', c.Cuando ? rotuloDia(c.Cuando) : '—')); anterior = null; }
         if (!rayaPuesta && nuevos.has(c.id)) { rayaPuesta = true; hilo.appendChild(el('div', 'nuevos', `${nuevos.size} nuevo${nuevos.size === 1 ? '' : 's'} desde tu última visita`)); anterior = null; }
-        const quien = String(c.Quien || '').toLowerCase();
-        // Mensajes seguidos de la misma persona (en el mismo dia, y sin tarjeta de por medio) se agrupan: sin nombre.
-        const seguido = anterior && String(anterior.Quien || '').toLowerCase() === quien && !c.TareaId && !anterior.TareaId;
-        const m = el('div', 'msg' + (quien === yo ? ' is-mio' : '') + (seguido ? ' is-seguido' : '')); m.dataset.comentario = String(c.id);
-        if (quien) m.dataset.tono = String(tonoDe(quien));   // v0.14.0: burbuja del color de la persona
-        // v0.49.0 (Carlos, 15-sep; artifact C8meacEE, opcion B): sin avatar en el hilo — el nombre ya va en la cabecera
-        // de la burbuja y el tono de la persona lo da su fondo; la bolita repetia lo que el renglon ya dice.
-        const cuerpo = el('div', 'cuerpo');
-        if (!seguido) { const cab = el('div', 'cab'); cab.appendChild(el('span', 'q', nombreDe(quien, estado.roles))); cab.appendChild(el('span', 'h mn-mono', fechaHora(c.Cuando))); cuerpo.appendChild(cab); }
-        if (c.TareaId) {
-            // La nota de una tarjeta: el chip la nombra y la abre (la nota vive en la tarjeta; aqui se lee en contexto).
-            const t = porId(estado.tareas, c.TareaId);
-            // U-21 (v0.114.0): la tarjeta borrada ya no es una caja deshabilitada: texto tenue en la linea del autor.
-            const cabR = cuerpo.querySelector('.cab');
-            if (!t && cabR) { const s = el('span', 'ref-borrada', '· tarjeta borrada'); s.title = 'La tarjeta ya no existe'; cabR.appendChild(s); }
-            else {
-            const ref = boton('', 'ref', () => { if (t) abrirTarjeta(t.id); }, { tarjeta: String(c.TareaId) });
-            ref.appendChild(iconoSvg(TRAZOS.tarjeta)); ref.appendChild(el('span', '', t ? t.Title : 'tarjeta borrada')); ref.title = t ? 'Abrir la tarjeta' : 'La tarjeta ya no existe'; ref.disabled = !t;
-            cuerpo.appendChild(ref);
-            }
-        }
-        const texto = el('p', 't'); texto.appendChild(textoConMenciones(c.Title, yo));
-        if (seguido) texto.title = fechaHora(c.Cuando);
-        cuerpo.appendChild(texto);
-        // v0.15.0: ✓ visto — quienes ya lo vieron y, en lo ajeno, el boton para marcarlo (contesta «¿ya viste?» sin escribir).
-        // C-02 (17-sep): los handlers resuelven comentario y proyecto POR ID al clic (el hilo se repinta cada 120 s: el objeto
-        // capturado seria el de una pintada vieja). U-05: la lista de quien lo vio nombra a los DEMAS; el propio ya lo dice el chip.
-        const vs = vistosDeComentario(c); const mio = miVistoDe(c);
-        const otros = mio ? vs.filter(a => a.id !== mio.id) : vs;
-        if (vs.length || puedeMarcarVisto(c, p)) {
-            const fila = el('div', 'vistos');
-            if (puedeMarcarVisto(c, p)) {
-                const b = boton(mio ? '✓ visto' : '¿visto?', 'visto-btn' + (mio ? ' is-on' : ''), () => alClic(c.id, p.id, alternarVisto), { visto: String(c.id) });   // U-07 (17-sep): el no pulsado lleva palabra (en tactil no hay title)
-                b.title = mio ? 'Quitar tu visto' : 'Marcar como visto'; b.setAttribute('aria-pressed', mio ? 'true' : 'false'); fila.appendChild(b);
-            }
-            if (otros.length) { const q = el('span', 'q', '✓ ' + otros.map(a => nombreDe(a.Quien, estado.roles).split(' ')[0]).join(', ')); q.title = otros.map(a => `${nombreDe(a.Quien, estado.roles)} · ${fechaHora(a.Cuando)}`).join(' · '); fila.appendChild(q); }
-            cuerpo.appendChild(fila);
-        }
-        m.appendChild(cuerpo);
-        // v0.9.0: borrar — lo propio, o cualquiera si gerencia; el boton vive en el mensaje y se ve al pasar el raton (siempre en tactil).
-        if (puedeBorrarComentario(c, p)) {
-            const b = boton('', 'borrar-msg', () => alClic(c.id, p.id, borrarComentario), { borrar: String(c.id) });
-            b.title = c.TareaId ? 'Borrar esta nota' : 'Borrar este comentario'; b.setAttribute('aria-label', b.title);
-            b.appendChild(iconoSvg(TRAZOS.basura));
-            m.classList.add('has-borrar'); m.appendChild(b);
-        }
+        const m = mensajeDelHilo(c, anterior, p, yo);
         hilo.appendChild(m);
         anterior = c;
     }
+    cerrarPintadaHilo(p, cs, estabaAlFondo, scrollAntes);
+}
+/** C-22 (v0.123.0): un mensaje del hilo —burbuja, liga a la tarjeta, texto, vistos y borrar—; pintarChat solo recorre y pone las rayas. */
+function mensajeDelHilo(c, anterior, p, yo) {
+    const quien = String(c.Quien || '').toLowerCase();
+    // Mensajes seguidos de la misma persona (en el mismo dia, y sin tarjeta de por medio) se agrupan: sin nombre.
+    const seguido = anterior && String(anterior.Quien || '').toLowerCase() === quien && !c.TareaId && !anterior.TareaId;
+    const m = el('div', 'msg' + (quien === yo ? ' is-mio' : '') + (seguido ? ' is-seguido' : '')); m.dataset.comentario = String(c.id);
+    if (quien) m.dataset.tono = String(tonoDe(quien));   // v0.14.0: burbuja del color de la persona
+    // v0.49.0 (Carlos, 15-sep; artifact C8meacEE, opcion B): sin avatar en el hilo — el nombre ya va en la cabecera
+    // de la burbuja y el tono de la persona lo da su fondo; la bolita repetia lo que el renglon ya dice.
+    const cuerpo = el('div', 'cuerpo');
+    if (!seguido) { const cab = el('div', 'cab'); cab.appendChild(el('span', 'q', nombreDe(quien, estado.roles))); cab.appendChild(el('span', 'h mn-mono', fechaHora(c.Cuando))); cuerpo.appendChild(cab); }
+    if (c.TareaId) {
+        // La nota de una tarjeta: el chip la nombra y la abre (la nota vive en la tarjeta; aqui se lee en contexto).
+        const t = porId(estado.tareas, c.TareaId);
+        // U-21 (v0.114.0): la tarjeta borrada ya no es una caja deshabilitada: texto tenue en la linea del autor.
+        const cabR = cuerpo.querySelector('.cab');
+        if (!t && cabR) { const s = el('span', 'ref-borrada', '· tarjeta borrada'); s.title = 'La tarjeta ya no existe'; cabR.appendChild(s); }
+        else {
+        const ref = boton('', 'ref', () => { if (t) abrirTarjeta(t.id); }, { tarjeta: String(c.TareaId) });
+        ref.appendChild(iconoSvg(TRAZOS.tarjeta)); ref.appendChild(el('span', '', t ? t.Title : 'tarjeta borrada')); ref.title = t ? 'Abrir la tarjeta' : 'La tarjeta ya no existe'; ref.disabled = !t;
+        cuerpo.appendChild(ref);
+        }
+    }
+    const texto = el('p', 't'); texto.appendChild(textoConMenciones(c.Title, yo));
+    if (seguido) texto.title = fechaHora(c.Cuando);
+    cuerpo.appendChild(texto);
+    // v0.15.0: ✓ visto — quienes ya lo vieron y, en lo ajeno, el boton para marcarlo (contesta «¿ya viste?» sin escribir).
+    // C-02 (17-sep): los handlers resuelven comentario y proyecto POR ID al clic (el hilo se repinta cada 120 s: el objeto
+    // capturado seria el de una pintada vieja). U-05: la lista de quien lo vio nombra a los DEMAS; el propio ya lo dice el chip.
+    const vs = vistosDeComentario(c); const mio = miVistoDe(c);
+    const otros = mio ? vs.filter(a => a.id !== mio.id) : vs;
+    if (vs.length || puedeMarcarVisto(c, p)) {
+        const fila = el('div', 'vistos');
+        if (puedeMarcarVisto(c, p)) {
+            const b = boton(mio ? '✓ visto' : '¿visto?', 'visto-btn' + (mio ? ' is-on' : ''), () => alClic(c.id, p.id, alternarVisto), { visto: String(c.id) });   // U-07 (17-sep): el no pulsado lleva palabra (en tactil no hay title)
+            b.title = mio ? 'Quitar tu visto' : 'Marcar como visto'; b.setAttribute('aria-pressed', mio ? 'true' : 'false'); fila.appendChild(b);
+        }
+        if (otros.length) { const q = el('span', 'q', '✓ ' + otros.map(a => nombreDe(a.Quien, estado.roles).split(' ')[0]).join(', ')); q.title = otros.map(a => `${nombreDe(a.Quien, estado.roles)} · ${fechaHora(a.Cuando)}`).join(' · '); fila.appendChild(q); }
+        cuerpo.appendChild(fila);
+    }
+    m.appendChild(cuerpo);
+    // v0.9.0: borrar — lo propio, o cualquiera si gerencia; el boton vive en el mensaje y se ve al pasar el raton (siempre en tactil).
+    if (puedeBorrarComentario(c, p)) {
+        const b = boton('', 'borrar-msg', () => alClic(c.id, p.id, borrarComentario), { borrar: String(c.id) });
+        b.title = c.TareaId ? 'Borrar esta nota' : 'Borrar este comentario'; b.setAttribute('aria-label', b.title);
+        b.appendChild(iconoSvg(TRAZOS.basura));
+        m.classList.add('has-borrar'); m.appendChild(b);
+    }
+    return m;
+}
+/** C-22 (v0.123.0): el cierre de una pintada del hilo — la marca de visto, el formulario segun permisos y el scroll. */
+function cerrarPintadaHilo(p, cs, estabaAlFondo, scrollAntes) {
+    const hilo = $('chatHilo');
     // v0.9.0: lo que ya estuvo en pantalla deja de ser nuevo (la raya se queda hasta salir del chat). C-01 (17-sep): solo si la
     // pintada aterriza al fondo; leyendo arriba, el refresco no marca visto lo que no se vio (lo marca el scroll al llegar abajo).
     hiloEstado.ultimo = cs.length ? cs[cs.length - 1].Cuando : null;

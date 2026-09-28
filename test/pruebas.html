@@ -890,6 +890,14 @@ try {
             location.hash);
         R.ok('L6: fuera de Resumen la lateral no se ve (el tablero toma todo el ancho)', (() => { tab('tablero'); return getComputedStyle(document.querySelector('#p-proyecto .lateral')).display === 'none'; })());
         tab('resumen'); await dormir(20);
+        // C-21 / U-27 / U-28 (v0.123.0): «Quiénes» suma las abiertas del frente (con «Sin asignar»), concuerda el singular y cada renglón abre el tablero filtrado.
+        { const mod = await import('../comun.js'); const p = mod.proyectoAbierto(); const its = [...document.querySelectorAll('#pQuienes [data-abre^="q:"]')];
+          const suma = its.reduce((s, x) => s + Number((x.textContent.match(/(\d+) abiertas?/) || [0, 0])[1]), 0);
+          const abiertas = mod.estado.tareas.filter(x => Number(x.ProyectoId) === p.id && x.Columna !== 'hecho').length;
+          R.ok('C-21 / U-27 / U-28 (v0.123.0): Quiénes suma todas las abiertas (con «Sin asignar» si hay), cada renglón es botón y no dice «1 abiertas»', its.length > 0 && its.every(x => x.tagName === 'BUTTON') && suma === abiertas && !/\b1 abiertas/.test($('pQuienes').textContent), `suma=${suma} abiertas=${abiertas} renglones=${its.length}`);
+          const it = its.find(x => x.dataset.abre !== 'q:') || its[0]; const quien = it.dataset.abre.slice(2); it.click(); await dormir(40);
+          R.ok('U-27 (v0.123.0): tocar una persona de Quiénes abre el Tablero con el filtro de esa persona', document.querySelector('.tab.is-on').dataset.tab === 'tablero' && (quien ? mod.estado.filtroTareas.quien.join() === quien : mod.estado.filtroTareas.sinDueno === true), JSON.stringify(mod.estado.filtroTareas));
+          mod.limpiarFiltroTareas(); tab('resumen'); await dormir(20); }
         // B1 (v0.5.0): el resumen de una línea con el estado del frente, sin bajar a la lateral.
         R.ok('B1: la línea de resumen dice en curso, en revisión y el reloj del frente', /en curso/.test($('pResumen').textContent) && /en revisión/.test($('pResumen').textContent), $('pResumen').textContent);
         tab('tablero'); await esperar(() => document.querySelector(`.tarjeta[data-t="${t.id}"]`), 'tablero');
@@ -1039,7 +1047,8 @@ try {
             // U-10: los renglones de la Lista se alcanzan con Tab y abren con Enter / Espacio.
             tab('lista'); await esperar(() => visible('tab-lista'), 'lista');
             { const r = document.querySelector('#tab-lista tbody tr.clic');
-              R.ok('U-10: el renglón de la Lista lleva tabindex=0, role=button y aria-label con el título', r.tabIndex === 0 && r.getAttribute('role') === 'button' && r.getAttribute('aria-label') === r.children[1].textContent);
+              R.ok('U-10 / U-30 (v0.123.0): el renglón de la Lista lleva tabindex=0, role=button y aria-label con título · asignado · cubeta · fecha', r.tabIndex === 0 && r.getAttribute('role') === 'button' && r.getAttribute('aria-label').startsWith(r.children[1].textContent + ' · ') && r.getAttribute('aria-label').split(' · ').length === 4 && r.getAttribute('aria-label').includes(r.children[3].textContent), r.getAttribute('aria-label'));
+              R.ok('U-30 (v0.123.0): los encabezados que ordenan la Lista son botones (se alcanzan con Tab)', [...document.querySelectorAll('#tab-lista th[data-sort]')].every(th => th.querySelector('button.th-orden')));
               r.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await esperar(() => $('dlgTarea').open, 'abierta por Enter');
               R.ok('U-10: Enter sobre el renglón abre su tarjeta', $('dlgTarea').open && $('tTitulo').textContent === r.children[1].textContent);
               clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada');
@@ -1206,6 +1215,7 @@ try {
         await esperar(() => filas('ligas').length === 1, 'liga creada');
         const lg = filas('ligas')[0];
         R.ok('liga archivada con ruta, url, id y tarjeta', lg.fields.Tipo === 'archivado' && lg.fields.Ruta.startsWith('04_SGI/') && lg.fields.DriveItemId === 'archivo-a1' && Number(lg.fields.TareaId) === t.id && lg.fields.Unidad === 'CALYTEK', JSON.stringify(lg.fields));
+        await esperar(() => actividad('ligar').length, 'actividad de ligar').catch(() => {});   // v0.123.0: ligar escribe la bitacora DESPUES de la liga, con su propio await (docs.js); leerla al aparecer la liga era una carrera de la prueba
         R.ok('PROY_Actividad: ligar', actividad('ligar').length === 1);
         await esperar(() => document.querySelector('#docsLista .doc'), 'docs repintado');
         // Subir al buzon.
@@ -1324,7 +1334,7 @@ try {
         // v0.16.0 (icono + .grupo + conteo) y sus documentos son los tr.doc que le siguen; «Del proyecto» lleva is-proyecto.
         const pests = document.querySelectorAll('#docsLista tr.pest');
         const siguiente = tr => tr.nextElementSibling;
-        R.ok('v0.17.0 (5 columnas desde v0.55.0: sin «Tarjeta», el select va en el menú «⋯»): tabla y un renglon de grupo por tarjeta — «Del proyecto» es .is-proyecto, la de la tarjeta trae data-tarjeta, cada una seguida de su único doc y con conteo 1', document.querySelectorAll('#docsLista .dtabla thead th').length === 5 && !document.querySelector('#docsLista td.c-tarjeta') && !!document.querySelector('#docsLista .fila-menu .menu-mover [data-tarjeta-de]') && pests.length === 2 && pests[0].classList.contains('is-proyecto') && !!pests[1].dataset.tarjeta && [...pests].every(s => siguiente(s) && siguiente(s).classList.contains('doc') && s.querySelector('.cab .n').textContent === '1' && !!s.querySelector('.cab svg')));
+        R.ok('v0.17.0 (5 columnas desde v0.55.0: sin «Tarjeta», el select va en el menú «⋯»): tabla y un renglon de grupo por tarjeta — «Del proyecto» es .is-proyecto, la de la tarjeta trae data-tarjeta, cada una seguida de su único doc y con conteo 1', document.querySelectorAll('#docsLista .dtabla thead th').length === 5 && !document.querySelector('#docsLista td.c-tarjeta') && !!document.querySelector('#docsLista .fila-menu .menu-mover [data-tarjeta-de]') && pests.length === 2 && pests[0].classList.contains('is-proyecto') && !!pests[1].dataset.tarjeta && [...pests].every(s => siguiente(s) && siguiente(s).classList.contains('doc') && /^1( doc)?$/.test(s.querySelector('.cab .n').textContent) && !!s.querySelector('.cab svg')));
         R.ok('v0.17.0 → v0.29.0: cada renglon trae el chip del tipo (PDF / Enlace), NINGUNA celda de quién/fecha, y el menú «⋯» con la nota «Ligado por … · fecha» (sin avatar desde v0.61.0), Abrir y Quitar', [...document.querySelectorAll('#docsLista tr.doc')].every(tr => !!tr.querySelector('.c-tipo .mn-chip.tipo[data-tipo]') && !tr.querySelector('.c-quien') && !tr.querySelector('.c-fecha') && /^Ligado por .+\d{2}\/\d{2}\/\d{4}$/.test(tr.querySelector('.fila-menu .menu-nota').textContent) && !!tr.querySelector('.fila-menu .menu-nota .fecha') && !tr.querySelector('.fila-menu .menu-nota .av') && !!tr.querySelector('.fila-menu a.mn-btn') && !!tr.querySelector('.fila-menu [data-quitar]')));
         // v0.33.0 (Carlos, 14-sep; artifact HMVvZx2L, opcion E): Docs es un ARBOL DE EXPEDIENTE sobre la misma tabla (.is-arbol):
         // raiz = el proyecto; cada tarjeta un nodo-boton (caret + carpeta con tono + cubeta + conteo) que se pliega; y al final el
@@ -1926,6 +1936,7 @@ try {
               $('tab-roadmap').style.width = ''; await recargarYEsperar(); }
             R.ok('v0.10.0: la lateral trae el anillo de avance con el % al centro', !!document.querySelector('#pAnillo svg.anillo .pct') && /^\d+%$/.test(document.querySelector('#pAnillo svg.anillo .pct').textContent));
             R.ok('v0.10.0: con Roadmap abierto no hay filtros de tarjetas', $('filtroTareas').classList.contains('oculto'), `hash=${location.hash} tab=${document.querySelector('.tab.is-on')?.dataset.tab}`);
+            R.ok('C-18 (v0.123.0): con Roadmap abierto «Filtrar» tampoco se ve (una sola lista de pestañas con filtro)', $('btnFiltros').classList.contains('oculto'));
             // Calendario
             irHash('#calendario'); await esperar(() => visible('p-calendario'), 'calendario');
             const mesHoy = hoyIso.slice(0, 7);
@@ -2347,6 +2358,7 @@ try {
                 irHash('#p/borrable'); await esperar(() => visible('p-proyecto') && $('pTitulo').textContent === 'BORRABLE', 'abierto');
                 // v0.29.0 (M5): el titulo es un selector con TODOS los activos (el abierto marcado); elegir otro cambia de proyecto en la
                 // misma pestaña; y la cabecera se contrae/despliega con #btnCabecera y lo recuerda en localStorage `cabecera`.
+                $('selProyecto').open = true; await dormir(30);   // C-23 (v0.123.0): la lista del selector se pinta al abrirlo
                 { const nAct = filas('proyectos').filter(x => x.fields.Estado === 'activo').length; const ops = [...document.querySelectorAll('#selLista [data-proyecto]')];
                   R.ok('v0.29.0: el selector del titulo lista los proyectos activos, marca el abierto y cada uno dice sus abiertas', ops.length === nAct && ops.filter(o => o.classList.contains('is-on')).length === 1 && ops.find(o => o.classList.contains('is-on')).dataset.proyecto === String(pb.id) && ops.every(o => /^(\d+ abiertas?( · \d+ vencidas?)?|cerrado)$/.test(o.querySelector('.n').textContent)), `${ops.length} de ${nAct}`);
                   // v0.29.2: el titulo va en UN renglon mientras quepa (a 1366 el h1 de la LAU media 72 px de alto = 2 lineas con 1,000 px libres: `max-width: 100%` en el summary), el chevron pega al texto y los botones «⋮»/plegar viven en la fila del titulo.
@@ -2461,7 +2473,7 @@ try {
         // C6 (v0.6.0): una sola señal — la linea gris; ni banda roja ni «Mover a…» a la vista.
         R.ok('C6 (lectura): una línea «Solo lectura», sin banda roja y sin menú de cubetas (v0.50.0: la cubeta es texto, sin botón que abra #tMover)', !$('tSoloLectura').classList.contains('oculto') && $('tSoloLectura').textContent.startsWith('Solo lectura') && $('tDeny').classList.contains('oculto') && $('tMover').classList.contains('oculto') && !document.querySelector('#tChips [data-abre-mover]') && !document.querySelector('#tChips .prop-btn'));
         R.ok('lectura: botones de mover deshabilitados y sin editar (ni un lápiz, ni menú «···», título como texto)', [...document.querySelectorAll('#tMover button')].every(b => b.disabled) && !document.querySelector('#dlgTarea [data-edita]') && $('tMenu').classList.contains('oculto') && $('tBorrar').disabled && !$('tTitulo').querySelector('button'));
-        R.ok('D2 (lectura): «Proyecto» es un enlace a #p/<clave> con el icono del equipo (v0.7.0: icono, no chip)', !!document.querySelector('#tKv a[data-proyecto="lau-demo"]') && document.querySelector('#tKv .proy .eqi').title === 'CALYTEK');
+        R.ok('D2 → U-33 (v0.123.0, lectura): el frente es un enlace a #p/<clave> con el icono del equipo en la ceja, y la columna derecha ya no lo repite', !!document.querySelector('#tCeja a[data-proyecto="lau-demo"]') && document.querySelector('#tCeja .eqi').title === 'CALYTEK' && !document.querySelector('#tKv a[data-proyecto]'));
         R.ok('lectura: sin «→ siguiente», sin Subir/Bajar, sin pegar enlace', !document.querySelector('[data-sig]') && !$('tOrden').querySelector('button') && !document.querySelector('#tDocs [data-enlace]'));
         // v0.5.0: lo de la tanda 4 también con el rol que solo mira (antes sus 15 pruebas no tocaban nada nuevo).
         R.ok('C5 (lectura): Mover a… antes que Notas y Documentos, y sin pie de borrar en el diálogo',

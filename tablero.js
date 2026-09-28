@@ -8,7 +8,7 @@
 
 import { CONFIG } from './config.js';
 import { sellarAsignadoPor, PUEDE, ordenar, tareasDe, diasQuieta, rotuloQuieta, camposDeMovimiento, nombreDe, diasPara, estadoVence, semaforo, vencidasEn, filtrarTareas, ordenarLista, reordenar, sinAcentos, columnasDe, normalizarColumnas, nombreColumnaEn, claseDeColumna, HECHO, MAX_COLUMNAS, MAX_NOMBRE_COLUMNA, COLORES, colorValido, hrefSeguro, delegadas, misAbiertas, porVence, claseVence } from './reglas.js';
-import { $, L, estado, limpiarFiltroTareas, el, boton, chip, chipVence, avisar, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaHora, aIsoDia, diaInput, fechaInput, atajosFecha, opciones, limpiar, porId, proyectoAbierto, registrarActividad, hashDe, fijarHash, irAHash, ligaDeTarjeta, notasDe, aplicar, pedirRelectura, equipoDe, iconoEquipo, iconoArchivo, textoConMenciones, insignia, TRAZOS, iconoSvg, puedeBorrarComentario, borrarComentario, columnasDeTarea, notasPorTarea, ligasPorTarea, buzonPorTarea, mesDia, personasActivas, contadorTexto, mayusculasEnVivo } from './comun.js';
+import { $, L, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, el, boton, chip, chipVence, avisar, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaHora, aIsoDia, diaInput, fechaInput, atajosFecha, opciones, limpiar, porId, proyectoAbierto, registrarActividad, hashDe, fijarHash, irAHash, ligaDeTarjeta, notasDe, aplicar, pedirRelectura, equipoDe, iconoEquipo, iconoArchivo, textoConMenciones, insignia, TRAZOS, iconoSvg, puedeBorrarComentario, borrarComentario, columnasDeTarea, notasPorTarea, ligasPorTarea, buzonPorTarea, mesDia, personasActivas, contadorTexto, mayusculasEnVivo } from './comun.js';
 import { abrirPartida } from './capital.js';   // v0.103.0: «Nueva partida» desde la pestaña Capital del proyecto
 import { abrirLigar, abrirSubir, abrirEnlace, quitarLiga, puedeLigarEn, puedeEnlazarEn } from './docs.js';
 import { esConflicto } from './graph.js';
@@ -221,7 +221,7 @@ export function pintarBotonFiltros() {
     b.textContent = n ? `Filtrar · ${n}` : 'Filtrar';
     b.classList.toggle('is-on', !!n || estado.filtrosAbiertos);
     b.setAttribute('aria-expanded', estado.filtrosAbiertos ? 'true' : 'false');
-    b.classList.toggle('oculto', ['docs', 'chat', 'resumen', 'capital'].includes(estado.tab));
+    b.classList.toggle('oculto', !PESTANAS_CON_FILTRO.includes(estado.tab));   // C-18 (v0.123.0): la misma lista que la barra (faltaba roadmap)
     $('densidad').classList.toggle('oculto', estado.tab !== 'tablero');   // v0.20.0: el conmutador solo tiene sentido en el tablero
     // U-01 (17-sep): con filtro puesto, el propio tablero/lista lo dice — a 390 «Filtrar · N» vive al final de la fila de pestañas, fuera de la vista.
     const av = $('filtroAviso'); av.textContent = '';
@@ -330,20 +330,21 @@ export function pintarLista(proyecto) {
     const tabla = el('table'); const thead = el('thead'); const tr = el('tr');
     // F10: clic en el encabezado ordena; segundo clic invierte. La flecha va en el activo (aria-sort).
     for (const [clave, texto] of COLUMNAS_LISTA) {
-        const th = el('th', clave === 'prioridad' ? 'col-p' : '', texto);
+        const th = el('th', clave === 'prioridad' ? 'col-p' : '', clave === 'prioridad' ? texto : null);
         if (clave === 'prioridad') { th.title = 'Prioridad alta'; th.setAttribute('aria-label', 'Prioridad'); tr.appendChild(th); continue; }
         th.dataset.sort = clave;
+        const bo = el('button', 'th-orden', texto); bo.type = 'button'; th.appendChild(bo);   // U-30 (v0.123.0): el encabezado que ordena se alcanza con Tab; su clic llega al th
         if (o.col === clave) th.setAttribute('aria-sort', o.dir === 1 ? 'ascending' : 'descending');
         th.addEventListener('click', () => { estado.ordenLista = o.col === clave ? { col: clave, dir: -o.dir } : { col: clave, dir: 1 }; pintarLista(proyecto); });
         tr.appendChild(th);
     }
     thead.appendChild(tr); tabla.appendChild(thead);
-    const tbody = el('tbody');
+    const tbody = el('tbody'); const fin = (columnasDe(proyecto).at(-1) || {}).clave;   // U-29 (v0.123.0): lo de la cubeta final va atenuado
     for (const t of ts) {
-        const r = el('tr', 'clic' + (t.Prioridad === 'alta' ? ' alta' : '')); r.dataset.t = String(t.id);
+        const r = el('tr', 'clic' + (t.Prioridad === 'alta' ? ' alta' : '') + (t.Columna === fin ? ' is-hecha' : '')); r.dataset.t = String(t.id);
         const tdp = el('td', 'col-p'); tdp.appendChild(marcaPrioridad(t.Prioridad)); tdp.title = 'Prioridad ' + (t.Prioridad || 'normal'); r.appendChild(tdp);   // v0.60.0: barras en las tres
         r.appendChild(el('td', '', t.Title));
-        r.appendChild(el('td', '', t.Asignado ? nombreDe(t.Asignado, estado.roles) : '—'));
+        r.appendChild(el('td', '', t.Asignado ? nombreDe(t.Asignado, estado.roles) : 'sin asignar'));   // U-31 (v0.123.0): lo mismo que dice la tarjeta del tablero
         r.appendChild(el('td', '', nombreColumna(t)));   // v0.59.0: texto plano, sin chip (Carlos, 15-sep) — el chip sigue en tarjeta y Mis tareas
         // U-09 (mejorar-app proyecto, 17-sep): bajo 720 px el CSS acomoda el renglon como FICHA y enseña la fecha corta («15 sep»);
         // la larga (con año) es la de la tabla. Van las dos en el DOM y el CSS elige; textContent del td trae ambas.
@@ -353,7 +354,7 @@ export function pintarLista(proyecto) {
         tdv.appendChild(el('span', 'fecha-larga', fechaCorta(t.Vence))); tdv.appendChild(el('span', 'fecha-corta', md ? `${md.dia} ${md.mes}` : '—'));
         r.appendChild(tdv);
         r.addEventListener('click', () => abrirTarjeta(t.id));
-        r.tabIndex = 0; r.setAttribute('role', 'button'); r.setAttribute('aria-label', t.Title);   // U-10 (17-sep): el renglon se alcanza con Tab y abre con Enter/Espacio
+        r.tabIndex = 0; r.setAttribute('role', 'button'); r.setAttribute('aria-label', [t.Title, t.Asignado ? nombreDe(t.Asignado, estado.roles) : 'sin asignar', nombreColumna(t), t.Vence ? 'vence ' + fechaCorta(t.Vence) : 'sin fecha'].join(' · '));   // U-10 (17-sep): el renglon se alcanza con Tab y abre con Enter/Espacio; U-30 (v0.123.0): su nombre trae asignado, cubeta y fecha
         r.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abrirTarjeta(t.id); } });
         tbody.appendChild(r);
     }
@@ -598,15 +599,9 @@ function pintarDescripcionFicha(t, puedeEditar) {
 function pintarKvFicha(t, p) {
     const kv = $('tKv'); kv.textContent = '';
     const par = (k, v, clase) => { kv.appendChild(el('b', '', k)); const s = el('span', clase || '', typeof v === 'string' ? v : null); if (typeof v !== 'string') s.appendChild(v); kv.appendChild(s); return s; };
-    // D2 (v0.6.0): desde Mis tareas, «Proyecto» era texto plano; ahora lleva al tablero y trae el chip del equipo.
-    if (p) {
-        const caja = el('span', 'proy'); const eq = equipoDe(p);
-        const a = el('a', '', p.Title); a.href = `#p/${p.Clave}`; a.dataset.proyecto = p.Clave;
-        a.addEventListener('click', ev => { ev.preventDefault(); cerrarDialogo('dlgTarea'); irAHash(`#p/${p.Clave}`); });
-        caja.appendChild(a);
-        caja.appendChild(iconoEquipo(eq, 'sm'));   // v0.7.0: el equipo por icono (nombre en el title)
-        par('Proyecto', caja);
-    } else par('Proyecto', '—');
+    // D2 (v0.6.0) puso aqui la liga al frente con el icono del equipo; U-33 (v0.123.0): la ceja sobre el titulo ya la trae (v0.69.0),
+    // asi que aqui solo se dice cuando la tarjeta se quedo sin proyecto.
+    if (!p) par('Proyecto', '—');
     // v0.11.0: «Origen» (el puntero a la KB) ya no se ensena; el dato sigue en la lista para los scripts.
     if (t.HechoPor) par('Hecho por', `${nombreDe(t.HechoPor, estado.roles)} · ${fechaCorta(t.HechoEl)}`);
     if (t._creado) par('Creada', `${t._creadoPor ? nombreDe(t._creadoPor, estado.roles) + ' · ' : ''}${fechaHora(t._creado)}`, 'creada');

@@ -156,7 +156,8 @@
           <div class="filtro-aviso oculto" id="filtroAviso" role="status"></div>
           <div id="tab-tablero" class="tablero-caja"><div class="col-tabs" id="colTabs" role="tablist" aria-label="Columna"></div><div class="tablero" id="tableroCols"></div>
             <!-- v0.20.0: el filete izquierdo de cada tarjeta es semaforo de FECHA; la prioridad alta es el punto azul -->
-            <div class="leyenda-sem" aria-label="Leyenda del filete"><span class="is-vencida"><i></i>vencida</span><span class="is-pronto"><i></i><span id="leyendaPronto">hoy o en 3 días</span></span><span><i></i>en tiempo</span><span class="is-hecha"><i></i>hecha</span><span class="prio-l"><span class="barras is-alta" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></span>prioridad alta</span><span class="prio-l"><span class="barras is-normal" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i></span>normal</span><span class="prio-l"><span class="barras is-baja" aria-hidden="true"><i class="on"></i><i></i><i></i></span>baja</span></div></div>
+            <!-- U-24 (v0.123.0): en celular la leyenda nace plegada tras «Qué significan los colores» (app.js acomodarLeyenda); en escritorio abierta y sin summary -->
+            <details class="leyenda-det" id="leyendaDet" open><summary>Qué significan los colores</summary><div class="leyenda-sem" aria-label="Leyenda del filete"><span class="is-vencida"><i></i>vencida</span><span class="is-pronto"><i></i><span id="leyendaPronto">hoy o en 3 días</span></span><span><i></i>en tiempo</span><span class="is-hecha"><i></i>hecha</span><span class="prio-l"><span class="barras is-alta" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></span>prioridad alta</span><span class="prio-l"><span class="barras is-normal" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i></span>normal</span><span class="prio-l"><span class="barras is-baja" aria-hidden="true"><i class="on"></i><i></i><i></i></span>baja</span></div></details></div>
           <div id="tab-lista" class="tabla oculto"></div>
           <div id="tab-roadmap" class="roadmap oculto"></div>
           <div id="tab-docs" class="docs oculto">
@@ -182,7 +183,7 @@
           </div>
         </div>
         <div class="apilado lateral"><!-- v0.30.0: solo visible con #p-proyecto.ver-resumen (pestaña Resumen), en todo ancho -->
-          <section class="mn-card avance"><h2>Avance</h2><div class="avance-anillo" id="pAnillo"></div><div class="barra"><i id="pBarra"></i></div><div class="kv" id="pAvance"></div></section>
+          <section class="mn-card avance"><h2>Avance</h2><div class="avance-anillo" id="pAnillo"></div><div class="kv" id="pAvance"></div></section>
           <!-- v0.100.0: el capital del frente (solo gerencia); el boton lleva a la seccion Capital filtrada por este proyecto -->
           <section class="mn-card capital-resumen oculto" id="pCapital"><h2>Capital de trabajo</h2><div class="kv" id="pCapitalKv"></div><button class="mn-btn is-ghost is-sm" id="pCapitalIr" type="button">Ver las partidas</button></section>
           <section class="mn-card"><h2>Quiénes</h2><div class="mini" id="pQuienes"></div></section>

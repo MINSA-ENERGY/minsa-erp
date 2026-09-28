@@ -1223,10 +1223,8 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 .g-eti { min-width: 0; padding: var(--sp-1) var(--sp-2) var(--sp-1) 0; display: flex; align-items: center; font-size: .66rem; text-transform: uppercase; letter-spacing: .07em; font-weight: 600; color: var(--text-muted); }
 .g-fila .g-eti { text-transform: none; letter-spacing: 0; font-size: .8rem; font-weight: 500; color: var(--text-body); }
 .g-fila.is-grupo { background: var(--surface-sunken); }
-.g-grupo { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; font-weight: 600; color: var(--text-muted); }
+.g-grupo { --cub: var(--border-default); display: inline-flex; align-items: center; gap: var(--sp-2); font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; font-weight: 600; color: var(--text-muted); }
 .g-grupo .n { font-family: var(--font-data); font-weight: 500; color: var(--text-faint); }
-.g-grupo .punto { width: 8px; height: 8px; border-radius: 50%; background: var(--border-default); }
-.g-grupo .punto.is-c { background: var(--brand-primary); } .g-grupo .punto.is-r { background: var(--status-info-solid); } .g-grupo .punto.is-h { background: var(--status-ok-solid); }   /* v0.11.0: por posicion de la cubeta */
 .g-tarea, .g-proy { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; width: 100%; min-height: 36px; padding: 2px 4px; border: 0; border-radius: var(--r-sm); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .g-tarea:hover, .g-proy:hover { background: var(--surface-hover); }
 .g-tarea .t, .g-proy .t { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -1277,7 +1275,7 @@ button.g-barra { cursor: pointer; } button.g-barra:hover { filter: brightness(.9
 .g-txt.g-fuera.is-clic { pointer-events: auto; cursor: pointer; } .g-txt.g-fuera.is-clic:hover { color: var(--text-strong); }
 button.g-barra.is-corta { overflow: visible; } button.g-barra.is-corta::after { content: ""; position: absolute; top: -7px; bottom: -7px; left: -6px; right: -6px; }
 /* v0.78.0 (revisor): «sin fecha» va pegado al borde visible de la pista (sticky a --eti + 6 px), no absoluto en su inicio: con el scroll inicial en hoy (U-01) el inicio queda bajo la etiqueta pegada (U-02) y solo se leia «a de vencimiento». */
-.g-sinfecha { position: sticky; left: calc(var(--eti) + 6px); display: inline-block; margin: 10px 0 0 6px; font-size: .72rem; line-height: 16px; color: var(--text-faint); font-style: italic; }
+.g-sinfecha { position: sticky; left: calc(var(--eti) + 6px); display: inline-block; margin: 10px 0 0 6px; font-size: .72rem; line-height: 16px; color: var(--text-faint); font-style: italic; z-index: 2; background: var(--surface-card); border-radius: 3px; }   /* C-24 (v0.123.0): junta con la de U-17 (v0.120.0) */
 .g-resumen { margin: 0; font-size: .8rem; color: var(--text-muted); }
 #tab-roadmap { display: grid; gap: var(--sp-3); min-width: 0; }
 /* v0.26.0: la linea de tiempo a pantalla completa. La tarjeta se fija a la ventana entera por encima del rail (z-pop),
@@ -1885,7 +1883,7 @@ button.hoy-r:focus-visible { outline: 2px solid var(--brand-primary); outline-of
   .filtro-aviso .mn-btn { flex: none; }
   /* U-11: la leyenda del semaforo sube ENTRE las pestañas de cubeta y la columna; al pie la tapaba el flotante «Nueva tarea». */
   .tablero-caja .col-tabs { order: -2; }
-  .tablero-caja .leyenda-sem { order: -1; }
+  .tablero-caja .leyenda-det { order: -1; }   /* U-24 (v0.123.0): la leyenda va dentro de details.leyenda-det */
   /* U-05: la cabecera de la tarjeta a dos filas — botones arriba a la derecha, ceja + titulo debajo a TODO el ancho (antes el titulo vivia en ~170 px). */
   #dlgTarea .mn-dialog-head { flex-wrap: wrap; }
   #dlgTarea .head-botones { order: -1; margin-left: auto; }
@@ -2135,14 +2133,13 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 /* U-14: la barra «por hacer» es blanca con filete fuerte: el gris sobre la banda gris del mes no se veia */
 .g-barra.is-idle { background: var(--surface-card); border-color: var(--border-strong, var(--text-faint)); }
 /* U-17: la raya roja de hoy ya no parte los textos de la pista — van encima, con fondo de la superficie */
-.g-txt.g-fuera, .g-sinfecha, .g-rombo-txt.is-grupo { z-index: 2; background: var(--surface-card); border-radius: 3px; }
+.g-txt.g-fuera, .g-rombo-txt.is-grupo { z-index: 2; background: var(--surface-card); border-radius: 3px; }
 /* U-18: el nombre del mes se queda pegado al borde de la columna fija al desplazar el eje, dentro de su banda */
 .g-meses span { overflow: visible; }
 .g-meses span b { position: sticky; left: calc(var(--eti) + 4px); display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: top; font-weight: inherit; }
 /* U-21: en celular el flotante «Nueva tarea» no tapa el final del roadmap del proyecto (como el tablero, B5) */
 @media (max-width: 720px) { #tab-roadmap .gantt-caja { padding-bottom: calc(var(--control-h) + var(--sp-3)); } }
 /* U-22: el encabezado de grupo lleva el color de su cubeta como filete bajo el nombre (--cub por posicion, como .col h3 desde v0.64.0) */
-.g-grupo { --cub: var(--border-default); }
 .g-grupo[data-cls="c"] { --cub: var(--brand-primary); } .g-grupo[data-cls="r"] { --cub: var(--status-info-solid); } .g-grupo[data-cls="h"] { --cub: var(--status-ok-solid); } .g-grupo[data-cls="huerfana"] { --cub: var(--status-warn-fg); }
 .g-grupo[data-cls] b { padding-bottom: 1px; border-bottom: 2px solid var(--cub); }
 
@@ -2165,3 +2162,24 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 #roadmapLinea > h2 { flex-wrap: wrap; }
 .roadmap-escala { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; }
 .roadmap-escala > button { min-height: var(--control-h-sm); font-size: .72rem; }
+
+/* ==== v0.123.0 (27-sep, /mejorar-app proyectos proyecto, tanda 1 automatica) ==== */
+/* U-24: la leyenda del tablero en un details — en escritorio siempre abierta y sin summary; en celular plegada (app.js acomodarLeyenda) */
+.leyenda-det > summary { display: none; }
+@media (max-width: 720px) {
+  .leyenda-det > summary { display: list-item; font-size: .72rem; color: var(--text-muted); padding: var(--sp-1); cursor: pointer; }
+  /* U-25: la carpeta del arbol de Docs con area tactil de 44 px */
+  .is-arbol .cab.nodo { min-height: 44px; }
+  /* U-26: el titulo envuelve en su columna junto al chevron y la carpeta, en vez de saltar al renglon de abajo */
+  .is-arbol .cab.nodo .grupo { flex: 1 1 calc(100% - 3.5rem); min-width: 0; }
+}
+/* U-29: en la Lista, lo de la cubeta final va atenuado y sin barras de prioridad */
+#tab-lista tr.is-hecha td { color: var(--text-muted); }
+#tab-lista tr.is-hecha .col-p .barras { visibility: hidden; }
+/* U-30: el encabezado que ordena es un boton sin caja */
+#tab-lista th > .th-orden { font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+#tab-lista th > .th-orden:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 2px; }
+/* U-32: la ficha abre con el foco en el dialogo, sin anillo */
+#dlgTarea:focus { outline: none; }
+/* U-33: «1 de 5» en su renglon y las dos flechas juntas debajo — nunca la «↓» sola (el wrap de la celda se queda: con nowrap se salia sobre VENCE) */
+#dlgTarea .t-cel .orden > span { flex-basis: 100%; }

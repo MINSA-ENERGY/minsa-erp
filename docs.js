@@ -223,7 +223,7 @@ export function filaGrupo(tareaId, titulo, n, { icono = null, alClic = null, tit
     if (tarea) { const color = colorValido(tarea.Color); if (color) cab.dataset.tono = color; else cab.classList.add('is-' + claseDeColumna(tarea.Columna, columnas)); }
     cab.appendChild(el('span', 'grupo', titulo));
     if (tarea) { cab.appendChild(el('span', 'cubeta-de', nombreColumnaEn(tarea.Columna, columnas))); const v = chipVence(tarea); if (v) cab.appendChild(v); }
-    cab.appendChild(el('span', 'n', String(n)));
+    cab.appendChild(el('span', 'n', alPlegar ? `${n} doc${n === 1 ? '' : 's'}` : String(n)));   // U-26 (v0.123.0): en el arbol la cifra dice que cuenta
     td.appendChild(cab); tr.appendChild(td);
     return tr;
 }

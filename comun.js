@@ -5,13 +5,16 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.122.0';
+export const VERSION = '0.123.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
  *  sinDueno) y vivia literal en cinco sitios de tres modulos. `extra` va encima (irASinDueno: { sinDueno: true }). */
 export const filtroVacio = (extra = {}) => ({ quien: [], alta: false, vencidas: false, sinDueno: false, texto: '', ...extra });
 /** Deja el filtro de tarjetas vacio (con `extra` encima) y vacia el buscador que lo refleja. */
+/** C-18 (v0.123.0): las pestañas del proyecto que filtran tarjetas, en UN lugar — la barra (app.js) y el boton «Filtrar» (tablero.js)
+ *  llevaban cada uno su lista de las que NO filtran y se separaron: Roadmap enseñaba «Filtrar · N» sin barra que abrir. */
+export const PESTANAS_CON_FILTRO = ['tablero', 'lista'];
 export function limpiarFiltroTareas(extra) { estado.filtroTareas = filtroVacio(extra); $('filtroTexto').value = ''; }
 
 export const estado = {
@@ -177,6 +180,7 @@ export function abrirDialogo(id) {
     if (!d.open) {
         if (id !== 'dlgTarea') { history.pushState({ dlg: id }, '', location.href); d.dataset.enHistorial = '1'; }
         d.showModal();
+        if (id === 'dlgTarea') { d.tabIndex = -1; d.focus(); }   // U-32 (v0.123.0): la ficha abre con el foco en el dialogo, no en el titulo (parecia en edicion) ni en la liga al frente (un Enter sacaba de la tarjeta)
     }
     d.scrollTo({ top: 0 });
 }
