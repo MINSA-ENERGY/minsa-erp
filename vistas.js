@@ -39,6 +39,24 @@ const fechaEje = f => { const d = diaDe(f); return d && d.slice(0, 4) === hoyDia
 // Si la caja cambio de ancho (rotar, plegar el rail, pantalla completa: C-01) el lugar viejo no significa lo mismo y se vuelve a hoy (U-01).
 let lugarClave = null, lugarAncho = 0;
 export function olvidarLugarRoadmap() { lugarClave = null; }
+// R-01 (v0.122.0): la escala de la linea de tiempo del roadmap general, como GitHub Projects / Jira / Linear: cuantos dias caben en el
+// ancho VISIBLE de la pista. Sin eleccion guardada manda el CSS (`--escala` de .gantt-caja: trimestre en laptop, meses en celular), asi el
+// corte de 720 px sigue viviendo solo en estilo.css (C-09). La eleccion se recuerda por dispositivo (localStorage), como la densidad.
+const ESCALAS = [['semanas', 'Semanas', 35], ['meses', 'Meses', 91], ['trimestre', 'Trimestre', 182]];
+const CLAVE_ESCALA = 'proy.roadmapEscala';
+function escalaRoadmap(caja) {
+    let e = estado.roadmapEscala;
+    if (!e) { try { e = localStorage.getItem(CLAVE_ESCALA) || ''; } catch (_) { e = ''; } }
+    if (!ESCALAS.some(x => x[0] === e)) e = getComputedStyle(caja).getPropertyValue('--escala').trim();
+    return ESCALAS.some(x => x[0] === e) ? e : 'trimestre';
+}
+function pintarEscala(actual) {
+    const g = $('roadmapEscala'); g.textContent = '';
+    for (const [clave, nombre] of ESCALAS) {
+        const b = boton(nombre, clave === actual ? 'is-on' : '', () => { estado.roadmapEscala = clave; try { localStorage.setItem(CLAVE_ESCALA, clave); } catch (_) {} olvidarLugarRoadmap(); pintarRoadmap(); }, { escala: clave });
+        b.setAttribute('aria-pressed', String(clave === actual)); g.appendChild(b);
+    }
+}
 function lugarPrevio(clave, caja, medida = caja) {   // `medida`: lo que sobrevive al repintado (la caja del proyecto se rehace; su pestaña no)
     const ancho = medida ? medida.clientWidth : 0;
     const previo = lugarClave === clave && caja && ancho === lugarAncho ? { left: caja.scrollLeft, top: caja.scrollTop } : null;
@@ -67,6 +85,7 @@ function gantt(cont, filas, rango, opts = {}) {
     cont.textContent = ''; if (!opts.previo) cerrarPopHito();   // C-07 (v0.120.0): un repintado de la misma pantalla deja abierta la hoja del rombo
     const conHitos = filas.some(f => f.hitos || f.fin); const medir = [];
     const g = el('div', 'gantt' + (conHitos ? ' is-hitos' : '')); g.style.setProperty('--dias', String(rango.dias));
+    if (opts.anchoGantt) g.style.minWidth = opts.anchoGantt + 'px';   // R-01 (v0.122.0): la escala fija el ancho (manda sobre el --gantt-min del CSS)
     // cabecera: meses arriba, semanas abajo
     const cab = el('div', 'g-cab'); cab.appendChild(el('span', 'g-eti', opts.rotulo || ''));
     const eje = el('div', 'g-eje');
@@ -78,7 +97,8 @@ function gantt(cont, filas, rango, opts = {}) {
     g.style.setProperty('--bandas', `linear-gradient(90deg, ${bandas.join(', ')})`);
     eje.appendChild(meses);
     const semanas = el('div', 'g-semanas');
-    for (let d = rango.desde; d <= rango.hasta; d = sumarDias(d, 7)) { const s = el('span', '', String(diaNum(d))); s.style.left = (diasEntre(rango.desde, d) * 100 / rango.dias) + '%'; s.style.width = (7 * 100 / rango.dias) + '%'; semanas.appendChild(s); }
+    const semanaPx = opts.anchoPista ? opts.anchoPista * 7 / rango.dias : Infinity;   // R-01 (v0.122.0): de lejos (Meses/Trimestre en celular) la semana mide ~15 px y su numero salia «1.»; bajo 24 px la cabecera se queda con los meses
+    if (semanaPx >= 24) for (let d = rango.desde; d <= rango.hasta; d = sumarDias(d, 7)) { const s = el('span', '', String(diaNum(d))); s.style.left = (diasEntre(rango.desde, d) * 100 / rango.dias) + '%'; s.style.width = (7 * 100 / rango.dias) + '%'; semanas.appendChild(s); }
     eje.appendChild(semanas);
     const hoy = hoyDia(); const hoyPct = (diasEntre(rango.desde, hoy) + 0.5) * 100 / rango.dias;
     // la etiqueta de hoy va en la cabecera (fija al hacer scroll); cerca del borde derecho se lee hacia la izquierda
@@ -289,14 +309,18 @@ export function pintarRoadmap() {
         // caja aun no mide (pantalla oculta) se toma 2 % del eje. El titulo del rombo se pinta si hay ~56 px libres.
         // C-09 (v0.120.0): la columna del nombre (--eti) y el ancho minimo del gantt (--gantt-min) se LEEN del CSS de la caja; el corte de 720 px vive solo en estilo.css
         const cs = getComputedStyle(caja), eti = parseFloat(cs.getPropertyValue('--eti')) || 0, minimo = parseFloat(cs.getPropertyValue('--gantt-min')) || 0;
-        const anchoPista = caja.clientWidth ? Math.max(caja.clientWidth, minimo) - eti : 0;
-        const umbral = anchoPista ? 18 * 100 / anchoPista : 2, umbralTxt = anchoPista ? 56 * 100 / anchoPista : 6;
         const hitosPs = ps.map(p => hitosDe(tsDe.get(p.id), CONFIG.vencePronto));
         // Un frente sin ninguna fecha (ni fin ni tarjetas con vencimiento) se dibuja de su creacion a hoy, en gris; uno sin
         // fin de frente pero con tarjetas con fecha lleva la barra gris hasta su ultima tarjeta con fecha (lapsoProyecto), con
         // los rombos encima — el mockup los pintaba sin barra, pero la barra es lo que abre el frente y lo que la E2E cuenta.
-        const lapsos = ps.map(p => { const l = lapsoProyecto(p, estado.tareas); return l.fin ? l : { inicio: l.inicio || hoyDia(), fin: hoyDia() }; });
+        const lapsos = ps.map(p => { const l = lapsoProyecto(p, tsDe.get(p.id)); return l.fin ? l : { inicio: l.inicio || hoyDia(), fin: hoyDia() }; });   // C-12 (v0.122.0, correccion): las tarjetas DEL frente; v0.120.0 le paso todas y un frente sin fin se estiraba a la ultima fecha de cualquier proyecto
         const rango = rangoRoadmap([...lapsos, ...hitosPs.flat().map(h => ({ inicio: h.dia, fin: h.dia }))], new Date(), 84);
+        // R-01 (v0.122.0): la pista mide lo que pide la escala (dias visibles en el ancho visible), nunca menos que ese ancho; sin la escala
+        // (caja oculta, mide 0) queda como antes: el ancho de la caja o el --gantt-min. El umbral de los rombos sale de este ancho real.
+        const esc = escalaRoadmap(caja); pintarEscala(esc); caja.dataset.escala = esc;
+        const visible = caja.clientWidth ? caja.clientWidth - eti : 0;
+        const anchoPista = visible > 0 ? Math.max(visible, Math.round(rango.dias * visible / ESCALAS.find(x => x[0] === esc)[2])) : caja.clientWidth ? Math.max(caja.clientWidth, minimo) - eti : 0;
+        const umbral = anchoPista ? 18 * 100 / anchoPista : 2, umbralTxt = anchoPista ? 56 * 100 / anchoPista : 6;
         const filas = ps.map((p, i) => {
             const ts = tsDe.get(p.id); const a = avance(ts, columnasDe(p)); const d = diasPara(p.Vence);
             const eti = etiquetaFrente(p, a);
@@ -312,7 +336,7 @@ export function pintarRoadmap() {
                 abrirHito: h => h.hitos.length > 1 ? irFrenteId(p.id, 'roadmap') : irTarjetaId(h.hitos[0].tarea.id)
             };
         });
-        gantt(caja, filas, rango, { rotulo: 'Frente', umbralTxt, anchoPista, previo });
+        gantt(caja, filas, rango, { rotulo: 'Frente', umbralTxt, anchoPista, previo, anchoGantt: visible > 0 ? eti + anchoPista : 0 });
         // leyenda: las cuatro clases del rombo y que es cada cosa (la N de «pronto» sale de CONFIG, como en el tablero)
         const item = (cls, texto) => { const s = el('span'); s.appendChild(el('i', 'g-rombo-mini' + (cls ? ' is-' + cls : ''))); s.appendChild(el('span', '', texto)); return s; };
         ley.appendChild(item('', 'hito pendiente')); ley.appendChild(item('pronto', `vence hoy o en ${CONFIG.vencePronto} días`)); ley.appendChild(item('vencida', 'vencido')); ley.appendChild(item('hecha', 'hecho'));

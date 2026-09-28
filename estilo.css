@@ -1204,7 +1204,7 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 /* v0.13.0 (Carlos, 12-sep): el contador del rail deja la pildora por un cuadrado redondeado de 20 px con borde fino del mismo tono; solo cambia la forma, los colores siguen de minsa-ui. */
 .mn-rail .mn-rail-hot { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 5px; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent); font-size: .72rem; line-height: 1; }
 /* ---- gantt: etiqueta fija a la izquierda + pista en %; la cabecera trae meses y el dia del lunes de cada semana. */
-.gantt-caja { overflow-x: auto; min-width: 0; --eti: 230px; --gantt-min: 640px; }   /* C-09 (v0.120.0): la columna del nombre y el ancho minimo viven en la CAJA; vistas.js los lee con getComputedStyle */
+.gantt-caja { overflow-x: auto; min-width: 0; --eti: 230px; --gantt-min: 640px; --escala: trimestre; }   /* C-09 (v0.120.0): la columna del nombre y el ancho minimo viven en la CAJA; vistas.js los lee con getComputedStyle */
 /* La tarjeta que contiene el gantt no puede tomar el ancho minimo de su contenido (a 390 desbordaba 176 px, medido). */
 #p-roadmap .mn-card { min-width: 0; }
 .gantt { display: grid; gap: 0; min-width: var(--gantt-min); font-size: .8rem; }
@@ -1464,7 +1464,7 @@ body.sin-scroll { overflow: hidden; }
   /* U-03 (v0.86.0): a 390 el titulo se cortaba a ~25 caracteres y el proyecto a «LAU ASEA-03-001 (Lic…» (nowrap + elipsis en dos columnas). Titulo hasta 2 lineas; el proyecto como segundo renglon tenue completo. */
   .cal-ag .cal-it .t { white-space: normal; overflow-wrap: anywhere; flex: 1 1 60%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .cal-ag .cal-it .m { flex: 1 1 100%; max-width: none; margin-left: 0; padding-left: 0; white-space: normal; }
-  .gantt-caja { --eti: 150px; --gantt-min: 520px; } .g-proy .m .solo-ancho { display: none; }   /* C-09 (v0.120.0): el corte de 720 px vive solo aqui; bajo el, la etiqueta del frente va sin «hechas» */
+  .gantt-caja { --eti: 150px; --gantt-min: 520px; --escala: meses; } .g-proy .m .solo-ancho { display: none; }   /* C-09 (v0.120.0): el corte de 720 px vive solo aqui; bajo el, la etiqueta del frente va sin «hechas» */
   /* U-06 (v0.79.0): la cabecera de meses/semanas no se pegaba al bajar: .gantt-caja (overflow-x: auto) ya era el scrollport y solo se movia a lo ancho. En celular la caja toma tambien el scroll vertical (tope: la ventana menos cabecera y barra), y el sticky top: 0 de .g-cab ya tiene contra que pegarse. Mas corta que eso, no hay scroll interno y nada cambia. Revertir = borrar este renglon. */
   .gantt-caja { max-height: calc(100dvh - 200px); overflow: auto; }
   #roadmapLinea.is-full .gantt-caja { max-height: none; }   /* U-06 (revisor): en pantalla completa la caja ya es la ventana; el tope la dejaba 200 px corta */
@@ -2159,3 +2159,9 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 .g-sf-it { min-height: 36px; max-width: 100%; padding: 2px var(--sp-2); border: 1px dashed var(--border-default); border-radius: var(--r-sm); background: none; font: inherit; color: var(--text-body); text-align: left; cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .g-sf-it:hover { background: var(--surface-hover); }
 .g-sf-it:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+
+/* ==== v0.122.0 (27-sep, /mejorar-app proyectos roadmap, referente R-01 con OK de Carlos) ==== */
+/* R-01: Semanas · Meses · Trimestre junto a «pantalla completa»; la escala por omision la dice --escala de .gantt-caja (trimestre en laptop, meses en celular) */
+#roadmapLinea > h2 { flex-wrap: wrap; }
+.roadmap-escala { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.roadmap-escala > button { min-height: var(--control-h-sm); font-size: .72rem; }
