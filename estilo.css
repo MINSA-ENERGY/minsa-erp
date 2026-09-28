@@ -562,6 +562,7 @@ body:has(#pantallaEntrar:not(.oculto)) #pie { display: none; }
 #p-proyecto .lateral { display: none; }
 #p-proyecto.ver-resumen .lateral { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
 #p-proyecto.ver-resumen .lateral > .mn-card:last-child { grid-column: 1 / -1; }
+#p-proyecto.ver-resumen .lateral > .salud { grid-column: 1 / -1; }   /* R-05 (v0.128.0): renglon propio; en la primera celda dejaba un hueco bajo ella del alto de Avance */
 @media (max-width: 900px) { #p-proyecto.ver-resumen .lateral { grid-template-columns: 1fr; } }
 @media (max-width: 900px) { .dos-columnas, .dos-columnas.ancha { grid-template-columns: 1fr; } }
 
@@ -1996,6 +1997,11 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 .cgrupo-nombre .t { overflow-wrap: anywhere; }
 .capital-resumen .kv .is-danger { color: var(--status-danger-fg); font-weight: 600; }
 .capital-resumen .kv .is-ok { color: var(--status-ok-fg); font-weight: 600; }
+/* R-05 (v0.128.0): estado declarado del frente, arriba de Avance; el semaforo de la casa en el texto */
+.salud .salud-linea { margin: 0; overflow-wrap: anywhere; }
+.salud .salud-linea .is-ok { color: var(--status-ok-fg); } .salud .salud-linea .is-warn { color: var(--status-warn-fg); } .salud .salud-linea .is-danger { color: var(--status-danger-fg); }
+.salud .salud-sello { margin: var(--sp-1) 0 0; }
+.salud .salud-sello:empty { display: none; }
 @media (max-width: 720px) {
   .ctabla .c-tipo, .ctabla .c-cat, .ctabla .c-fecha, .ctabla .c-estado { display: none; }
   .ctabla .c-concepto .p { display: block; font-family: var(--font-data); font-size: .66rem; color: var(--text-muted); white-space: normal; overflow: visible; }

@@ -62,7 +62,7 @@
     const DESCARGA = 'https://minsaenergy.sharepoint.com/_descarga-falsa/';
     // Dos sitios: el de las listas (Administracion) y la biblioteca de CALYTEK; el resto contesta 403.
     const SITIOS = { '/sites/Administracion': 'sitio-falso', '/sites/Ambiental-CALYTEK': 'sitio-calytek' };
-    const DB = { listas: {}, carpetas: [], archivos: [], siguienteId: 1, esquema: null, fallas: [], llamadas: [], filtros: [], ifMatch: 0, textoLargo: [], itemsLeidos: [], descargas: [], sinAsignadoPor: false };   // sinAsignadoPor: la lista viva ANTES de provisionar la columna (C-02)
+    const DB = { listas: {}, carpetas: [], archivos: [], siguienteId: 1, esquema: null, fallas: [], llamadas: [], filtros: [], ifMatch: 0, textoLargo: [], itemsLeidos: [], descargas: [], sinAsignadoPor: false, sinSalud: false };   // sinSalud (R-05): PROY_Proyectos antes de provisionar Salud/SaludNota/SaludPor/SaludEl   // sinAsignadoPor: la lista viva ANTES de provisionar la columna (C-02)
     window.__DB = DB;
 
     function lista(id) { for (const l of Object.values(DB.listas)) if (l.id === id) return l; return null; }
@@ -80,6 +80,7 @@
         }
         // C-02: como SharePoint, un campo que la lista no tiene es 400 aunque el resto del cuerpo sea valido.
         if (DB.sinAsignadoPor && l.nombre === 'PROY_Tareas' && 'AsignadoPor' in campos) return "Field 'AsignadoPor' is not recognized";
+        if (DB.sinSalud && l.nombre === 'PROY_Proyectos') { const f = ['Salud', 'SaludNota', 'SaludPor', 'SaludEl'].find(k => k in campos); if (f) return `Field '${f}' is not recognized`; }
         return null;
     }
     // Cada renglon lleva un eTag que sube en cada PATCH, como en SharePoint (v0.3.0, T1).
@@ -119,7 +120,7 @@
         if ((m = /^\/sites\/sitio-falso\/lists\/([^/]+)\/columns/.exec(ruta)) && metodo === 'GET') {   // C-02: las columnas reales, segun esquema.json (menos AsignadoPor si la lista «no esta provisionada»)
             const l = lista(m[1]); if (!l) return error(404, 'lista');
             const esq = DB.esquema.listas.find(x => x.nombre === l.nombre);
-            return json(200, { value: esq.columnas.filter(c => !(DB.sinAsignadoPor && c.nombre === 'AsignadoPor')).map(c => ({ name: c.nombre, displayName: c.titulo })) });
+            return json(200, { value: esq.columnas.filter(c => !(DB.sinAsignadoPor && c.nombre === 'AsignadoPor') && !(DB.sinSalud && l.nombre === 'PROY_Proyectos' && /^Salud/.test(c.nombre))).map(c => ({ name: c.nombre, displayName: c.titulo })) });
         }
         if ((m = /^\/sites\/sitio-falso\/lists\/([^/]+)\/items\?/.exec(ruta)) && metodo === 'GET') {
             const l = lista(m[1]); if (!l) return error(404, 'lista');
@@ -544,7 +545,7 @@ try {
         R.ok('v0.53.0: el lápiz de Asignado abre el popover en el renglón con solo esa sección, el select cargado y con foco', popAbierto() === 'asignado' && $('tPop').closest('#tChips') !== null && [...$('tPop').querySelectorAll('.pop-campo')].filter(s => !s.hidden).map(s => s.dataset.campo).join() === 'asignado' && $('ftAsignado').value === String(t.fields.Asignado).toLowerCase() && document.activeElement === $('ftAsignado'), document.activeElement && document.activeElement.id);
         poner('ftAsignado', YO); clic('btnGuardarTarea');
         await esperar(() => t.fields.Asignado === YO, 'reasignada');
-        R.ok('C-02 (v0.91.0): reasignar escribe AsignadoPor = quien asigna en el mismo PATCH (la lista tiene la columna: GET /columns una vez por sesión)', t.fields.AsignadoPor === YO && DB.llamadas.filter(c => /\/lists\/[^/]+\/columns/.test(c)).length === 1, `AsignadoPor=${t.fields.AsignadoPor} columns=${DB.llamadas.filter(c => /\/columns/.test(c)).length}`);
+        R.ok('C-02 (v0.91.0): reasignar escribe AsignadoPor = quien asigna en el mismo PATCH (la lista tiene la columna: GET /columns de PROY_Tareas una vez por sesión)', t.fields.AsignadoPor === YO && DB.llamadas.filter(c => /\/lists\/lista-tareas\/columns/.test(c)).length === 1, `AsignadoPor=${t.fields.AsignadoPor} columns=${DB.llamadas.filter(c => /\/lists\/lista-tareas\/columns/.test(c)).length}`);
         R.ok('editar reasigna y registra, y la ficha sigue abierta con el popover cerrado y el valor nuevo', t.fields.Asignado === YO && actividad('editar-tarea').length === 1 && $('dlgTarea').open && !popAbierto() && $('tChips').querySelector('[data-chip="asignado"]').textContent.includes('Persona de Prueba'), $('tChips').querySelector('[data-chip="asignado"]').textContent);
         R.ok('v0.53.0: tras Guardar el foco queda en el lápiz (nuevo) del mismo campo, no en el body', document.activeElement === $('tChips').querySelector('[data-edita="asignado"]'), document.activeElement && document.activeElement.outerHTML.slice(0, 50));
         editar('asignado'); $('tChips').querySelector('[data-edita="asignado"]').click();
@@ -2569,6 +2570,61 @@ try {
         irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes');
         R.ok('v0.10.0 (lectura): Reportes cuenta 1 vencida y ninguna pantalla nueva trae botones de escritura', document.querySelectorAll('#repVencidas [data-rep-v]').length === 1 && !document.querySelector('#p-roadmap [data-enlace], #p-archivos [data-quitar], #p-archivos select[data-tarjeta-de]'));
         pestana('inicio'); await dormir(30);
+    }
+    // ---- R-05 (v0.128.0): estado DECLARADO del frente en el Resumen. Lo pone gerencia o el Responsable (colaborador); lectura solo lo ve.
+    {
+        const p = filas('proyectos').find(x => x.fields.Clave === CLAVE), respAntes = p.fields.Responsable;
+        const resumen = async que => { irHash(`#p/${CLAVE}/resumen`); await esperar(() => $('p-proyecto').classList.contains('ver-resumen'), que); await dormir(20); };
+        const nuevaSesion = async () => { ESTADO.columnasProyectos = null; await recargarYEsperar(); };
+        // Sin la columna en el tenant: la tarjeta no existe y la app carga igual.
+        DB.sinSalud = true; await nuevaSesion(); await resumen('resumen sin Salud');
+        R.ok(`R-05 (${ROL}): sin la columna Salud en PROY_Proyectos, la tarjeta «Estado del frente» no aparece y el resto carga`, $('pSalud').classList.contains('oculto') && ESTADO.columnasProyectos instanceof Set && !ESTADO.columnasProyectos.has('Salud') && ESTADO.tareas.length > 0);
+        DB.sinSalud = false; await nuevaSesion(); await resumen('resumen con Salud');
+        const puedeYo = gerencia;   // colaborador aun NO es responsable (el sembrado es jefa@)
+        R.ok(`R-05 (${ROL}): con la columna, la tarjeta va ARRIBA de Avance, dice «Nadie lo ha declarado todavía.» y ${puedeYo ? 'ofrece' : 'NO ofrece'} «Actualizar»`, !$('pSalud').classList.contains('oculto') && $('pSalud').nextElementSibling.classList.contains('avance') && $('pSaludLinea').textContent === 'Nadie lo ha declarado todavía.' && $('btnSalud').hidden === !puedeYo, `hidden=${$('btnSalud').hidden}`);
+        if (!puedeYo) {
+            // Forzar el botón no abre nada: la guarda está en la función, no solo en el botón.
+            $('btnSalud').hidden = false; clic('btnSalud'); await dormir(40);
+            R.ok(`R-05 (${ROL}): forzar «Actualizar» sin ser gerencia ni responsable no abre el diálogo`, !$('dlgSalud').open);
+        }
+        if (ROL === 'colaborador') { p.fields.Responsable = YO; await recargarYEsperar(); await resumen('resumen responsable');
+            R.ok('R-05 (colaborador): siendo el Responsable del frente, «Actualizar» aparece', !$('btnSalud').hidden); }
+        if (escribe) {
+            const nAct = filas('actividad').length;
+            clic('btnSalud'); await esperar(() => $('dlgSalud').open, 'dlgSalud');
+            R.ok(`R-05 (${ROL}): el diálogo trae las tres opciones en orden y nace en «En tiempo» con la nota vacía (140 máx.)`, [...$('slSalud').options].map(o => o.value).join(',') === 'en-tiempo,en-riesgo,atrasado' && $('slSalud').value === 'en-tiempo' && $('slNota').value === '' && $('slNota').maxLength === 140);
+            $('slSalud').value = 'en-riesgo'; $('slNota').value = '  Falta la firma del representante legal  ';
+            clic('slGuardar'); await esperar(() => !$('dlgSalud').open && p.fields.Salud === 'en-riesgo', 'salud guardada');
+            R.ok(`R-05 (${ROL}): Guardar escribe Salud, la nota recortada, SaludPor = quien y SaludEl`, p.fields.Salud === 'en-riesgo' && p.fields.SaludNota === 'Falta la firma del representante legal' && p.fields.SaludPor === YO && !!p.fields.SaludEl, JSON.stringify(p.fields));
+            R.ok(`R-05 (${ROL}): la tarjeta dice «En riesgo · Falta la firma…» con el ámbar de la casa y el sello «Persona de Prueba · fecha»`, $('pSaludLinea').textContent === 'En riesgo · Falta la firma del representante legal' && !!$('pSaludLinea').querySelector('b.is-warn') && $('pSaludSello').textContent.startsWith('Persona de Prueba · '), `${$('pSaludLinea').textContent} | ${$('pSaludSello').textContent}`);
+            await esperar(() => filas('actividad').length > nAct, 'bitácora salud');
+            R.ok(`R-05 (${ROL}): queda en la actividad como «marcó … en riesgo: nota» (Accion editar-proyecto)`, filas('actividad').slice(nAct).some(a => a.fields.Accion === 'editar-proyecto' && /marcó .* en riesgo: Falta la firma/.test(a.fields.Title)), filas('actividad').slice(nAct).map(a => a.fields.Title).join(' | '));
+            // Guardar sin cambios no escribe.
+            { const ifm = DB.ifMatch; clic('btnSalud'); await esperar(() => $('dlgSalud').open, 'dlgSalud 2');
+              R.ok(`R-05 (${ROL}): al reabrir, el diálogo trae lo declarado`, $('slSalud').value === 'en-riesgo' && $('slNota').value === 'Falta la firma del representante legal');
+              clic('slGuardar'); await esperar(() => !$('dlgSalud').open, 'sin cambios');
+              R.ok(`R-05 (${ROL}): Guardar sin cambios no manda PATCH y lo dice`, DB.ifMatch === ifm && !!avisoCon('Sin cambios')); }
+            if (gerencia) {
+                // 412: alguien cambió el proyecto entre la lectura y el Guardar -> se relee, el diálogo se queda con lo escrito, el segundo intento pasa.
+                clic('btnSalud'); await esperar(() => $('dlgSalud').open, 'dlgSalud 412');
+                p.etag = (p.etag || 1) + 1; p.fields.Descripcion = 'Cambiada por alguien más (R-05)';
+                $('slSalud').value = 'atrasado'; $('slNota').value = 'Se cayó la cita';
+                clic('slGuardar'); await esperar(() => !!avisoCon('Lo que escribiste sigue aquí'), '412 salud');
+                R.ok('R-05 (gerencia): con 412 el estado no se pisa, el diálogo sigue abierto con lo escrito y el cambio ajeno se conserva', p.fields.Salud === 'en-riesgo' && $('dlgSalud').open && $('slSalud').value === 'atrasado' && $('slNota').value === 'Se cayó la cita' && p.fields.Descripcion === 'Cambiada por alguien más (R-05)');
+                clic('slGuardar'); await esperar(() => !$('dlgSalud').open && p.fields.Salud === 'atrasado', 'segundo intento');
+                R.ok('R-05 (gerencia): el segundo intento pasa y la tarjeta dice «Atrasado» en rojo', !!$('pSaludLinea').querySelector('b.is-danger') && $('pSaludLinea').textContent === 'Atrasado · Se cayó la cita');
+                // Cancelar con algo escrito pregunta; «Descartar» cierra sin escribir.
+                clic('btnSalud'); await esperar(() => $('dlgSalud').open, 'dlgSalud cancelar'); $('slNota').value = 'a medio escribir';
+                { const ifm = DB.ifMatch; clic('slCancelar'); await confirmar(); await esperar(() => !$('dlgSalud').open, 'descartado');
+                  R.ok('R-05 (gerencia): Cancelar con cambios pide confirmación y Descartar no escribe', DB.ifMatch === ifm && p.fields.SaludNota === 'Se cayó la cita'); }
+            }
+        } else {
+            p.fields.Salud = 'atrasado'; p.fields.SaludNota = 'Se cayó la cita'; p.fields.SaludPor = 'jefa@example.invalid'; p.fields.SaludEl = '2026-09-26T18:00:00Z';
+            await recargarYEsperar(); await resumen('resumen lectura declarado');
+            R.ok('R-05 (lectura): ve lo declarado por otro, en rojo, con el sello y sin «Actualizar»', $('pSaludLinea').textContent === 'Atrasado · Se cayó la cita' && !!$('pSaludLinea').querySelector('b.is-danger') && $('pSaludSello').textContent.includes('26') && $('btnSalud').hidden, $('pSaludSello').textContent);
+        }
+        p.fields.Responsable = respAntes; for (const k of ['Salud', 'SaludNota', 'SaludPor', 'SaludEl']) delete p.fields[k];
+        await recargarYEsperar(); pestana('inicio'); await dormir(30);
     }
     // ---- v0.100.0: Capital de trabajo (PROY_Capital). Solo gerencia la ve y la edita; la lista puede faltar en el tenant.
     {

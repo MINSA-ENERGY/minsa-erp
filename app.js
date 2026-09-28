@@ -14,7 +14,7 @@
 
 import { CONFIG } from './config.js';
 import { crearCliente, esConflicto } from './graph.js';
-import { rolDe, PUEDE, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, diaDe, sumarDias, misAbiertas as misAbiertasDe } from './reglas.js';
+import { rolDe, PUEDE, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, misAbiertas as misAbiertasDe } from './reglas.js';
 import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, chipVence, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas } from './comun.js';
 import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambiarTareas, abrirTarjeta, tarjetaAbiertaId, repintarFicha, pintarFiltroTareas, pintarBotonFiltros, abrirNuevaTarea } from './tablero.js';
 import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
@@ -206,12 +206,14 @@ async function cargarTodo() {
         // C-02 (v0.91.0): los nombres reales de PROY_Tareas, UNA vez por sesion (AsignadoPor solo se escribe si la lista ya lo tiene);
         // si la lectura falla se queda en null y la app no manda el campo, nunca deja de cargar.
         const columnasTareas = async () => estado.columnasTareas || c.columnas(s, await c.idDeLista(s, L.tareas)).then(cs => new Set(cs.map(x => x.name))).catch(e => { console.warn('PROY_Tareas: no se pudieron leer las columnas; AsignadoPor no se escribe.', e && e.message); return null; });
-        const [proyectos, tareas, ligas, roles, actividad, delAbierto, colsTareas] = await Promise.all([
+        // R-05 (v0.128.0): la misma guarda para PROY_Proyectos (Salud y su sello); sin la columna la tarjeta no se pinta.
+        const columnasProyectos = async () => estado.columnasProyectos || c.columnas(s, await c.idDeLista(s, L.proyectos)).then(cs => new Set(cs.map(x => x.name))).catch(e => { console.warn('PROY_Proyectos: no se pudieron leer las columnas; el estado del frente no se muestra.', e && e.message); return null; });
+        const [proyectos, tareas, ligas, roles, actividad, delAbierto, colsTareas, colsProyectos] = await Promise.all([
             c.renglones(s, L.proyectos), c.renglones(s, L.tareas), c.renglones(s, L.ligas), c.renglones(s, L.roles), actividadAcotada(),
             abierto && piso ? c.renglones(s, L.actividad, `fields/ProyectoId eq ${abierto}`).catch(() => null) : Promise.resolve(null),
-            columnasTareas()
+            columnasTareas(), columnasProyectos()
         ]);
-        estado.columnasTareas = colsTareas;
+        estado.columnasTareas = colsTareas; estado.columnasProyectos = colsProyectos;
         estado.proyectos = proyectos; estado.tareas = tareas; estado.ligas = ligas; estado.roles = roles;
         estado.actividad = actividad.sort((a, b) => String(b.Cuando || '').localeCompare(String(a.Cuando || '')));
         estado.actividadCompleta = new Set(piso ? [] : proyectos.map(p => p.id));
@@ -260,7 +262,7 @@ async function recargar() {
 // Refresco automatico mientras la app esta a la vista; nunca borra un dialogo de EDICION abierto.
 // E4 (v0.6.0): Equipo y Toda la actividad son de lectura y alguien los deja abiertos minutos; con
 // ellos abiertos se sigue releyendo, y al cerrarlos se relee si ya pasaron 60 s (la regla de visibilitychange).
-const DLG_EDICION = ['dlgTarea', 'dlgNuevaTarea', 'dlgProyecto', 'dlgCubetas', 'dlgLigar', 'dlgSubir', 'dlgEnlace', 'dlgPartida', 'dlg'];
+const DLG_EDICION = ['dlgTarea', 'dlgNuevaTarea', 'dlgProyecto', 'dlgSalud', 'dlgCubetas', 'dlgLigar', 'dlgSubir', 'dlgEnlace', 'dlgPartida', 'dlg'];
 const editando = () => DLG_EDICION.some(id => $(id).open);
 const rancio = () => estado.sesion && Date.now() - estado.cargadoEl > 60000;
 if (CONFIG.refrescoMs > 0 && new URLSearchParams(location.search).get('refresco') !== '0') {
@@ -1067,6 +1069,7 @@ function pintarLateralProyecto(p, ts, a) {
     }
     if (!act.childNodes.length) act.appendChild(el('p', 'vacio', 'Sin actividad todavía.'));
     $('btnActividadProyecto').hidden = deP.length <= 6;
+    pintarSaludProyecto(p);   // R-05 (v0.128.0)
     pintarCapitalProyecto(p);   // v0.100.0: «Capital de trabajo · falta $X» (solo gerencia)
 }
 
@@ -1182,6 +1185,56 @@ async function guardarProyecto(ev) {
     await registrarActividad('crear-proyecto', `creó el proyecto «${titulo.slice(0, 80)}»`, creado.id, null);
     abrirProyecto(creado.id);
 }
+
+// ---------------------------------------------------------------- R-05: estado declarado del frente
+
+// R-05 (v0.128.0): la tarjeta existe solo si PROY_Proyectos ya trae la columna Salud (provisionar.html la agrega); antes, ni se ve.
+const haySalud = () => !!(estado.columnasProyectos && estado.columnasProyectos.has('Salud'));
+const puedeSalud = p => haySalud() && !!p && p.Estado === 'activo' && PUEDE.salud(estado.rol, p, estado.cuenta && estado.cuenta.username);
+function pintarSaludProyecto(p) {
+    $('pSalud').classList.toggle('oculto', !haySalud());
+    if (!haySalud()) return;
+    const s = saludDe(p), linea = $('pSaludLinea'); linea.textContent = '';
+    if (s) { linea.appendChild(el('b', 'is-' + s.clase, s.nombre)); if (s.nota) linea.appendChild(document.createTextNode(' · ' + s.nota)); }
+    else linea.appendChild(el('span', 'vacio', 'Nadie lo ha declarado todavía.'));
+    $('pSaludSello').textContent = s && s.por ? `${nombreDe(s.por, estado.roles)} · ${fechaCorta(s.el)}` : '';
+    $('btnSalud').hidden = !puedeSalud(p);
+}
+let slAlAbrir = '';
+const slValores = () => JSON.stringify([$('slSalud').value, $('slNota').value.trim()]);
+function abrirSalud() {
+    const p = proyectoAbierto(); if (!puedeSalud(p)) return;
+    const s = saludDe(p);
+    $('slSalud').textContent = '';
+    for (const x of SALUD) $('slSalud').appendChild(new Option(x.nombre, x.clave));
+    $('slSalud').value = s ? s.clave : SALUD[0].clave; $('slNota').value = s ? s.nota : ''; $('slNota').maxLength = MAX_NOTA_SALUD;
+    slAlAbrir = slValores();
+    abrirDialogo('dlgSalud'); $('slSalud').focus();
+}
+async function guardarSalud(ev) {
+    ev.preventDefault();
+    const p = proyectoAbierto();
+    if (!puedeSalud(p)) { avisar('Solo gerencia o el responsable del proyecto declaran su estado.', 'error'); return; }
+    if (slValores() === slAlAbrir && saludDe(p)) { cerrarDialogo('dlgSalud'); avisar('Sin cambios que guardar.', 'ojo'); return; }
+    const salud = SALUD.find(x => x.clave === $('slSalud').value); if (!salud) return;
+    const nota = $('slNota').value.trim().slice(0, MAX_NOTA_SALUD);
+    const campos = { Salud: salud.clave, SaludNota: nota || null, SaludPor: estado.cuenta.username, SaludEl: new Date().toISOString() };
+    $('slGuardar').disabled = true;
+    try {
+        const antes = proyectoVivo(p.id); if (!antes) { cerrarDialogo('dlgSalud'); avisar('Este proyecto ya no existe: alguien lo eliminó.', 'error'); return; }
+        const res = await estado.cliente.actualizarRenglon(estado.siteId, L.proyectos, p.id, campos, m => avisar(m, 'ojo'), antes._etag);
+        aplicar(proyectoVivo(p.id) || antes, campos, res && res._etag);
+    } catch (e) {
+        // Igual que Editar proyecto (C-08): el dialogo se queda con lo escrito y la relectura trae el candado nuevo.
+        if (esConflicto(e)) { await pedirRelectura(); avisar('Alguien cambió este proyecto hace un momento: se releyó. Lo que escribiste sigue aquí; revisa y vuelve a guardar.', 'ojo'); return; }
+        avisar('No se pudo guardar el estado: ' + (e && e.message ? e.message : e), 'error'); return;
+    } finally { $('slGuardar').disabled = false; }
+    cerrarDialogo('dlgSalud');
+    avisar(`Estado del frente: ${salud.nombre.toLowerCase()}.`, 'ok'); repintar();
+    await registrarActividad('editar-proyecto', `marcó «${p.Title.slice(0, 60)}» ${salud.nombre.toLowerCase()}${nota ? ': ' + nota : ''}`, p.id, null); repintar();
+}
+const guardaSalud = { sucio: () => slValores() !== slAlAbrir, intentar: async () => { const { ok } = await confirmar({ titulo: '¿Descartar los cambios?', ok: 'Descartar', texto: 'El estado que escribiste no se ha guardado.' }); if (ok) cerrarDialogo('dlgSalud'); } };
+fijarGuarda('dlgSalud', guardaSalud);
 
 async function cerrarProyecto() {
     const p = proyectoAbierto(); if (!p) return;
@@ -1392,6 +1445,10 @@ $('btnCerrarProyecto').addEventListener('click', cerrarProyecto);
 $('btnReabrirProyecto').addEventListener('click', reabrirProyecto);
 $('btnEliminarProyecto').addEventListener('click', eliminarProyecto);   // v0.13.0
 $('formProyecto').addEventListener('submit', guardarProyecto);
+$('btnSalud').addEventListener('click', abrirSalud);   // R-05 (v0.128.0)
+$('formSalud').addEventListener('submit', guardarSalud);
+$('slCancelar').addEventListener('click', () => { if (slValores() !== slAlAbrir) guardaSalud.intentar(); else cerrarDialogo('dlgSalud'); });
+$('dlgSalud').addEventListener('cancel', ev => { if (slValores() !== slAlAbrir) { ev.preventDefault(); guardaSalud.intentar(); } });   // Esc
 $('npCancelar').addEventListener('click', cancelarFormaProyecto);   // U-08 (24-sep)
 engancharTablero();
 engancharDocs();

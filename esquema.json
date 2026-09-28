@@ -19,7 +19,11 @@
         { "nombre": "CerradoPor", "titulo": "Cerrado por", "tipo": "text" },
         { "nombre": "CerradoEl", "titulo": "Cerrado el", "tipo": "dateTime" },
         { "nombre": "Notas", "titulo": "Notas", "tipo": "note" },
-        { "nombre": "Columnas", "titulo": "Cubetas del tablero (JSON)", "tipo": "note", "nota": "v0.11.0 (2026-09-12): las cubetas de ESTE proyecto, [{\"clave\":\"por-hacer\",\"nombre\":\"Por hacer\"}, ...]; vacia = las 4 de siempre (COLUMNAS_DEFAULT de reglas.js). La ultima es siempre `hecho` (renombrable, no se quita). Las edita gerencia desde «Cubetas» en el proyecto. En una lista ya provisionada se AGREGA con provisionar.html" }
+        { "nombre": "Columnas", "titulo": "Cubetas del tablero (JSON)", "tipo": "note", "nota": "v0.11.0 (2026-09-12): las cubetas de ESTE proyecto, [{\"clave\":\"por-hacer\",\"nombre\":\"Por hacer\"}, ...]; vacia = las 4 de siempre (COLUMNAS_DEFAULT de reglas.js). La ultima es siempre `hecho` (renombrable, no se quita). Las edita gerencia desde «Cubetas» en el proyecto. En una lista ya provisionada se AGREGA con provisionar.html" },
+        { "nombre": "Salud", "titulo": "Estado del frente", "tipo": "choice", "opciones": ["en-tiempo", "en-riesgo", "atrasado"], "nota": "R-05 (v0.128.0, 2026-09-28): el estado DECLARADO del frente (project update de Linear), claves de SALUD en reglas.js. Lo cambia gerencia o el Responsable del proyecto desde el Resumen. Vacio = nadie lo ha declarado. En una lista ya provisionada se AGREGA con provisionar.html; mientras no exista, la tarjeta no aparece (estado.columnasProyectos)" },
+        { "nombre": "SaludNota", "titulo": "Nota del estado", "tipo": "text", "nota": "R-05: una frase de hasta 140 caracteres (MAX_NOTA_SALUD)" },
+        { "nombre": "SaludPor", "titulo": "Estado puesto por (correo)", "tipo": "text" },
+        { "nombre": "SaludEl", "titulo": "Estado puesto el", "tipo": "dateTime" }
       ]
     },
     {

@@ -183,6 +183,8 @@
           </div>
         </div>
         <div class="apilado lateral"><!-- v0.30.0: solo visible con #p-proyecto.ver-resumen (pestaña Resumen), en todo ancho -->
+          <!-- R-05 (v0.128.0): el estado DECLARADO del frente (project update de Linear); solo si PROY_Proyectos ya trae la columna Salud -->
+          <section class="mn-card salud oculto" id="pSalud"><h2>Estado del frente <button class="mn-btn is-ghost is-sm ver-toda" id="btnSalud" type="button">Actualizar</button></h2><p class="salud-linea" id="pSaludLinea"></p><p class="mn-help salud-sello" id="pSaludSello"></p></section>
           <section class="mn-card avance"><h2>Avance</h2><div class="avance-anillo" id="pAnillo"></div><div class="kv" id="pAvance"></div></section>
           <!-- v0.100.0: el capital del frente (solo gerencia); el boton lleva a la seccion Capital filtrada por este proyecto -->
           <section class="mn-card capital-resumen oculto" id="pCapital"><h2>Capital de trabajo</h2><div class="kv" id="pCapitalKv"></div><button class="mn-btn is-ghost is-sm" id="pCapitalIr" type="button">Ver las partidas</button></section>
@@ -385,6 +387,19 @@
       <p class="mn-help">Una tarjeta nueva nace en la primera. «Hecho» cierra las tarjetas: se puede renombrar, no quitar. Una cubeta con tarjetas no se quita hasta moverlas. El color tiñe el filete de la columna; sin color, va por posición.</p>
     </div>
     <div class="mn-dialog-foot"><button class="mn-btn is-sm" id="cbCancelar" type="button">Cancelar</button><button class="mn-btn is-primary is-sm" id="cbGuardar" type="submit">Guardar cubetas</button></div>
+  </form>
+</dialog>
+
+<!-- R-05 (v0.128.0): estado del frente -->
+<dialog id="dlgSalud" class="mn-dialog">
+  <form id="formSalud" method="dialog" class="forma" novalidate>
+    <div class="mn-dialog-head"><h2>Estado del frente</h2></div>
+    <div class="mn-dialog-body">
+      <div class="dlg-avisos"></div>
+      <div class="mn-field"><label for="slSalud">¿Cómo va?</label><select id="slSalud"></select></div>
+      <div class="mn-field"><label for="slNota">Nota (opcional)</label><input id="slNota" maxlength="140" autocomplete="off" placeholder="Falta la firma del representante legal" aria-describedby="slAyuda"><small class="mn-help" id="slAyuda">Una frase: qué pasa o qué falta. Lo ve todo el equipo en el Resumen, con tu nombre y la fecha, y queda en la actividad.</small></div>
+    </div>
+    <div class="mn-dialog-foot"><button class="mn-btn is-sm" id="slCancelar" type="button">Cancelar</button><button class="mn-btn is-primary is-sm" id="slGuardar" type="submit">Guardar</button></div>
   </form>
 </dialog>
 

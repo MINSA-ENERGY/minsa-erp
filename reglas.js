@@ -124,8 +124,27 @@ export const PUEDE = {
     ligar: rol => ['gerencia', 'colaborador'].includes(rol),     // ligar y subir al buzon
     borrar: rol => rol === 'gerencia',
     proyecto: rol => rol === 'gerencia',                         // crear, editar, cerrar
-    capital: rol => rol === 'gerencia'                           // v0.100.0: ver y editar el capital de trabajo (dato financiero)
+    capital: rol => rol === 'gerencia',                          // v0.100.0: ver y editar el capital de trabajo (dato financiero)
+    // R-05 (v0.128.0): el estado declarado del frente lo pone gerencia o el Responsable de ESE proyecto si es colaborador
+    salud: (rol, p, correo) => rol === 'gerencia' || (rol === 'colaborador' && !!p && !!correo && String(p.Responsable || '').trim().toLowerCase() === String(correo).trim().toLowerCase())
 };
+
+/**
+ * R-05 (v0.128.0, referente: los project updates de Linear): el estado DECLARADO del frente — lo que el
+ * responsable dice, no lo que los conteos deducen. Tres valores con el semaforo de la casa (clase = la de
+ * los .is-ok/.is-warn/.is-danger). Vive en PROY_Proyectos.Salud/SaludNota/SaludPor/SaludEl.
+ */
+export const SALUD = [
+    { clave: 'en-tiempo', nombre: 'En tiempo', clase: 'ok' },
+    { clave: 'en-riesgo', nombre: 'En riesgo', clase: 'warn' },
+    { clave: 'atrasado', nombre: 'Atrasado', clase: 'danger' }
+];
+export const MAX_NOTA_SALUD = 140;
+/** El estado declarado de un proyecto, o null si nadie lo ha puesto (o trae un valor que no es de SALUD). */
+export function saludDe(p) {
+    const s = p && SALUD.find(x => x.clave === p.Salud);
+    return s ? { ...s, nota: String(p.SaludNota || ''), por: p.SaludPor || '', el: p.SaludEl || '' } : null;
+}
 
 /**
  * Dias entre hoy y una fecha ISO (negativo si ya paso). null si no hay fecha o no es fecha.

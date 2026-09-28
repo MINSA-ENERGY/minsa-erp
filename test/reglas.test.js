@@ -376,4 +376,15 @@ ok('S-12 (v0.96.0): marcaFiable topa la marca en ahora + 5 min: un Cuando del fu
   ok('capital: solo gerencia ve y edita (PUEDE.capital)', PUEDE.capital('gerencia') && !PUEDE.capital('colaborador') && !PUEDE.capital('lectura'));
 }
 
+// R-05 (v0.128.0): estado declarado del frente
+{
+  const { SALUD, saludDe, MAX_NOTA_SALUD } = await import('../reglas.js');
+  const p = { Responsable: 'Jefa@Example.invalid ', Salud: 'en-riesgo', SaludNota: 'falta firma', SaludPor: 'jefa@example.invalid', SaludEl: '2026-09-26T18:00:00Z' };
+  ok('salud: gerencia siempre; colaborador solo si es el Responsable (sin importar mayúsculas/espacios); lectura nunca', PUEDE.salud('gerencia', p, 'otro@x') && PUEDE.salud('colaborador', p, 'jefa@example.invalid') && !PUEDE.salud('colaborador', p, 'otro@x') && !PUEDE.salud('lectura', p, 'jefa@example.invalid') && !PUEDE.salud('colaborador', { Responsable: '' }, '') && !PUEDE.salud('colaborador', null, 'jefa@example.invalid'));
+  ok('salud: tres estados en orden con el semáforo de la casa y nota de 140', SALUD.map(s => s.clave + ':' + s.clase).join(',') === 'en-tiempo:ok,en-riesgo:warn,atrasado:danger' && MAX_NOTA_SALUD === 140);
+  const s = saludDe(p);
+  ok('saludDe: devuelve nombre, clase, nota y sello', s && s.nombre === 'En riesgo' && s.clase === 'warn' && s.nota === 'falta firma' && s.por === 'jefa@example.invalid' && s.el === p.SaludEl);
+  ok('saludDe: sin declarar o con un valor ajeno a SALUD = null', saludDe({}) === null && saludDe({ Salud: 'verde' }) === null && saludDe(null) === null);
+}
+
 console.log(`reglas: ok (${n} comprobaciones)`);
