@@ -1427,6 +1427,10 @@ body.sin-scroll { overflow: hidden; }
 .rep-fila .eti .tx { display: grid; min-width: 0; }
 .rep-fila .eti .t { font-weight: 600; color: var(--text-strong); font-size: .85rem; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .rep-fila .eti .m { font-size: .72rem; color: var(--text-faint); font-family: var(--font-data); }
+.rep-fila .eti .m.is-danger { color: var(--status-danger-fg); font-weight: 600; }   /* U-11 (v0.129.0): frente vencido, como el chip de las tarjetas vencidas */
+.rep-leyenda .leyenda { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); font-size: .75rem; } .rep-leyenda .leyenda b { margin-left: 0; }
+.rep-leyenda:not(:empty) { margin-top: var(--sp-3); padding-top: var(--sp-2); border-top: 1px solid var(--border-hairline); }   /* U-10 (v0.129.0) */
+@media screen and (max-width: 720px) { .rep-rejilla > .rep-global { order: -2; } .rep-rejilla > .rep-vencidas { order: -1; } }   /* U-08 (v0.129.0): en celular lo accionable (Vencidas) sube tras el anillo; screen para no reordenar la impresion */
 .rep-barra { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: var(--sp-2); align-items: center; }
 .rep-barra > b { font-size: .8rem; text-align: right; color: var(--text-strong); }
 .segbar.alta { height: 18px; gap: 2px; } .segbar.alta i { display: flex; align-items: center; justify-content: center; min-width: 0; font-family: var(--font-data); font-size: .66rem; font-weight: 500; color: var(--text-on-brand); border-radius: 3px; }

@@ -538,6 +538,7 @@ const llaveEvento = (a, pid) => hashEvento(a, pid) ? `a:${a.id}${pid ? ':' + pid
 document.addEventListener('click', ev => {
     const b = ev.target.closest('[data-abre]'); if (!b) return;
     const [tipo, id, pid] = b.dataset.abre.split(':');
+    if (tipo === 'sd') { irASinDueno(); return; }   // U-12 (v0.129.0): «Sin dueño» de Carga por persona (Reportes)
     if (tipo === 'q') { const p = proyectoAbierto(); if (!p) return; limpiarFiltroTareas(id ? { quien: [id] } : { sinDueno: true }); estado.tab = 'tablero'; pintarPestanasAbierto(); fijarHash(hashDe()); return; }   // U-27 (v0.123.0): Quiénes del Resumen
     const h = tipo === 't' ? hashTarea(id) : hashEvento(porId(estado.actividad, id), pid);
     if (!h) { avisar('Eso ya no está: se borró o se movió desde que se pintó la pantalla.', 'ojo'); return; }

@@ -38,4 +38,13 @@ for (const f of rastreados) {
     }
 }
 assert.deepEqual(fallas, [], 'datos que no deben estar en el repo publico:\n  ' + fallas.join('\n  '));
+
+// S-19 (v0.129.0): lo unico que deja el arnes (test/pruebas.html: sin CSP y con un MSAL falso) y el servidor local FUERA de Pages
+// es el `exclude` de _config.yml; un .nojekyll apagaria Jekyll y los publicaria en el mismo origen que guarda la sesion de MSAL.
+{
+    const cfg = readFileSync(join(raiz, '_config.yml'), 'utf8');
+    const excluidos = [...cfg.matchAll(/^\s*-\s*(\S+)\s*$/gm)].map(m => m[1]);
+    for (const x of ['test', 'servidor-local.js']) assert.ok(excluidos.includes(x), `_config.yml ya no excluye ${x}: se publicaria en Pages`);
+    assert.ok(!existsSync(join(raiz, '.nojekyll')), '.nojekyll apaga Jekyll y publica test/ y servidor-local.js');
+}
 console.log(`datos: ok (${rastreados.length} archivos, ${fijas.length} reglas fijas, ${privadas.length} privadas${privadas.length ? '' : ' — lista privada no encontrada'})`);

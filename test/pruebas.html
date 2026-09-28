@@ -552,8 +552,12 @@ try {
         R.ok('v0.53.0: pulsar el mismo lápiz con su popover abierto lo cierra (conmuta) y aria-expanded vuelve a false', !popAbierto() && $('tChips').querySelector('[data-edita="asignado"]').getAttribute('aria-expanded') === 'false');
         // v0.12.0: color de la tarjeta (PROY_Tareas.Color) — se guarda, tiñe la cara y el selector lo trae marcado al reabrir. v0.53.0: Color es un renglon de la ficha con su popover.
         R.ok('v0.53.0: la ficha trae el renglón Color («Sin color» en gris tenue) con su lápiz', !!$('tChips').querySelector('[data-chip="color"]') && $('tChips').querySelector('[data-chip="color"]').textContent === 'Sin color' && $('tChips').querySelector('[data-chip="color"]').classList.contains('default') && !!$('tChips').querySelector('[data-edita="color"]'));
-        editar('color'); $('ftColor').querySelector('[data-tono="morado"]').click(); clic('btnGuardarTarea');
-        await esperar(() => t.fields.Color === 'morado', 'color guardado');
+        // Diagnostico (v0.129.0): 1 de 6 corridas a 1366 se quedaba sin guardar el color (tambien en HEAD de v0.128.0). Si vuelve, el error dice
+        // si el popover seguia abierto al pulsar Guardar, cuantos PATCH salieron y que aviso hubo — antes de tapar nada con esperas (obs. 603).
+        { const patches = () => DB.llamadas.filter(c => /^PATCH .*lista-tareas/.test(c)).length;
+          editar('color'); $('ftColor').querySelector('[data-tono="morado"]').click(); const popAntes = popAbierto(), valor = $('ftColor').dataset.valor, p0 = patches(), eOk = !$('btnGuardarTarea').disabled; clic('btnGuardarTarea');
+          try { await esperar(() => t.fields.Color === 'morado', 'color guardado'); }
+          catch (e) { throw new Error(`color guardado: pop=${popAntes} valor=${valor} guardarHabilitado=${eOk} popDespues=${popAbierto()} PATCH+${patches() - p0} Color=${t.fields.Color} avisos=${[...document.querySelectorAll('#avisos .mensaje')].map(m => m.textContent).join(' | ')} llamadas=${DB.llamadas.slice(-4).join(' ; ')}`); } }
         R.ok('v0.12.0: el color elegido se guarda en Color y la tarjeta lleva data-tono', t.fields.Color === 'morado' && document.querySelector(`.tarjeta[data-t="${t.id}"]`).dataset.tono === 'morado', t.fields.Color);
         R.ok('v0.53.0: guardar el color re-pinta el renglón Color con la muestra y el nombre del tono, sin cerrar la ficha', $('dlgTarea').open && $('tChips').querySelector('[data-chip="color"]').textContent === 'Morado' && $('tChips').querySelector('[data-chip="color"] .muestra').dataset.tono === 'morado' && actividad('editar-tarea').length === 2, $('tChips').querySelector('[data-chip="color"]').textContent);
         document.querySelector(`.tarjeta[data-t="${t.id}"]`).click(); await esperar(() => $('dlgTarea').open, 'tarjeta');
@@ -2363,10 +2367,53 @@ try {
               R.ok('U-02 (reportes, v0.89.0): el rótulo del proyecto en «Vencidas por proyecto» es .rep-grupo (texto), no el marco .grupo de los filtros', document.querySelectorAll('#repVencidas .rep-grupo').length >= 1 && !document.querySelector('#repVencidas .grupo') && getComputedStyle(document.querySelector('#repVencidas .rep-grupo')).borderTopWidth === '0px');
               const sinT = filas('proyectos').filter(p => p.fields.Estado === 'activo' && !filas('tareas').some(t => Number(t.fields.ProyectoId) === p.id));
               R.ok('U-06 (reportes, v0.89.0): un frente activo sin tarjetas dice «sin tarjetas» en la barra y «—» en vez de 0 %', sinT.length >= 1 && sinT.some(p => p.id === pVacio.id) && sinT.every(p => { const f = document.querySelector(`#repProyectos [data-rep-p="${p.id}"]`); return f && f.querySelector('.segbar i.vacia')?.textContent === 'sin tarjetas' && f.querySelector('.rep-barra > b').textContent === '—'; }), `${sinT.length} frente(s) sin tarjetas`);
+              // C-08 (v0.129.0): el orden de «Vencidas por proyecto» (Vence ascendente, desempate por id) y la leyenda del anillo cuadra con el total
+              { const grupos = [...document.querySelectorAll('#repVencidas .rep-grupo')];
+                const ordenOk = grupos.every(g => { const ids = []; let n = g.nextElementSibling; while (n && !n.classList.contains('rep-grupo')) { if (n.dataset.repV) ids.push(Number(n.dataset.repV)); n = n.nextElementSibling; }
+                    const ts = ids.map(id => filas('tareas').find(t => t.id === id)); return ts.every((t, i) => !i || String(ts[i - 1].fields.Vence) < String(t.fields.Vence) || (String(ts[i - 1].fields.Vence) === String(t.fields.Vence) && ts[i - 1].id < t.id)); });
+                R.ok('C-08 (v0.129.0): dentro de cada frente, las vencidas salen por Vence ascendente (y por id si empatan)', grupos.length >= 1 && ordenOk);
+                const sumaLey = [...document.querySelectorAll('#repGlobal .leyenda b')].reduce((n, b) => n + Number(b.textContent), 0), nSub = Number(($('reportesSub').textContent.match(/(\d+) tarjetas?/) || [])[1]);
+                R.ok('C-08 (v0.129.0): las cifras de la leyenda del anillo global suman las tarjetas del subtítulo', sumaLey === nSub && nSub > 0, `leyenda=${sumaLey} subtitulo=${nSub}`); }
+              // U-09 (v0.129.0): la vencida encabeza con el título de la tarjeta y lleva el nombre COMPLETO de quien la tiene
+              { const v = document.querySelector(`#repVencidas [data-rep-v="${tVenc.id}"]`);
+                R.ok('U-09 (v0.129.0): en «Vencidas por proyecto» el renglón principal es la tarjeta y la meta el nombre completo', v.querySelector('.cab .q').textContent === 'Vencida para Reportes' && v.querySelector('.f').textContent === (tVenc.fields.Asignado ? (await import("../reglas.js")).nombreDe(tVenc.fields.Asignado, ESTADO.roles) : 'sin dueño'), v.textContent); }
+              // U-10 (v0.129.0): la leyenda de cubetas al pie de «Avance por proyecto», con nombre y cifra
+              R.ok('U-10 (v0.129.0): «Avance por proyecto» trae al pie la leyenda de cubetas (Hecho, Por hacer…) con sus cifras', document.querySelectorAll('#repProyectosLeyenda .leyenda > span').length >= 2 && /Hecho/.test($('repProyectosLeyenda').textContent) && /Por hacer/.test($('repProyectosLeyenda').textContent), $('repProyectosLeyenda').textContent);
+              // U-11 (v0.129.0): un frente con fin vencido lleva su meta en rojo
+              { const pV = { id: DB.siguienteId++, fields: { Title: 'Frente vencido para Reportes', Clave: 'rep-vencido', Equipo: 'CALYTEK', Estado: 'activo', Vence: '2026-09-01T18:00:00Z' } }; filas('proyectos').push(pV); await recargarYEsperar(); irHash('#reportes'); await esperar(() => document.querySelector(`#repProyectos [data-rep-p="${pV.id}"]`), 'frente vencido');
+                const m = document.querySelector(`#repProyectos [data-rep-p="${pV.id}"] .eti .m`);
+                R.ok('U-11 (v0.129.0): la meta «venció…» de un frente vencido va en rojo (is-danger); la de uno en tiempo no', m.classList.contains('is-danger') && /venció/.test(m.textContent) && !document.querySelector(`#repProyectos [data-rep-p="${proyectoId}"] .eti .m`).classList.contains('is-danger'), m.textContent);
+                filas('proyectos').splice(filas('proyectos').indexOf(pV), 1); }
+              // U-13 / C-06 (v0.129.0): plural concordado y fecha de la última lectura
+              R.ok('U-13 / C-06 (v0.129.0): el subtítulo ya no dice «frente(s)» y fecha con la última lectura', !/\(s\)/.test($('reportesSub').textContent) && $('reportesSub').textContent.includes('leído de las listas el ' + (await import("../comun.js")).fechaHora(new Date(ESTADO.cargadoEl).toISOString())), $('reportesSub').textContent);
+              // C-07 (v0.129.0): con el foco en una fila, repintar Reportes se lo devuelve a la fila equivalente
+              { const f = document.querySelector('#repProyectos [data-rep-p]'); const id = f.dataset.repP; f.focus(); const vis = await import('../vistas.js'); vis.pintarReportes();
+                R.ok('C-07 (v0.129.0): tras repintar, el foco vuelve a la fila del mismo frente (no al body)', document.activeElement && document.activeElement.dataset.repP === id && document.activeElement !== f, document.activeElement && document.activeElement.tagName); }
+              // U-08 (v0.129.0): en celular «Vencidas por proyecto» sube tras el anillo (order -1); en escritorio queda en su lugar
+              { const o = getComputedStyle(document.querySelector('#p-reportes .rep-vencidas')).order;
+                R.ok('U-08 (v0.129.0): la tarjeta de vencidas lleva order -1 bajo 720 px y 0 arriba', innerWidth <= 720 ? o === '-1' : o === '0', `ancho=${innerWidth} order=${o}`); }
+              // C-05 (v0.129.0): cerrar un frente NO borra en retroactivo lo que su equipo hizo: la hecha de un frente cerrado cuenta en Semanas y en «N hechas»
+              { const sumaSemanas = () => [...document.querySelectorAll('#repSemanas .col-s b')].reduce((n, b) => n + Number(b.textContent || 0), 0);
+                const hechasYo = () => Number((document.querySelector(`#repPersonas [data-rep-q="${YO.toLowerCase()}"] .eti .m`) || { textContent: '0' }).textContent.match(/\d+/)[0]);
+                const s0 = sumaSemanas(), h0 = hechasYo();
+                const pC = { id: DB.siguienteId++, fields: { Title: 'Frente cerrado para Reportes', Clave: 'rep-cerrado', Equipo: 'CALYTEK', Estado: 'cerrado' } }; filas('proyectos').push(pC);
+                const hoyIso = new Date().toISOString(); const tC = { id: DB.siguienteId++, fields: { Title: 'Hecha en frente cerrado', ProyectoId: pC.id, Columna: 'hecho', Asignado: YO, HechoPor: YO, HechoEl: hoyIso, Desde: hoyIso } }; filas('tareas').push(tC);
+                await recargarYEsperar(); irHash('#reportes'); await esperar(() => visible('p-reportes') && sumaSemanas() === s0 + 1, 'semanas con la hecha del cerrado');
+                R.ok('C-05 (v0.129.0): la hecha de un frente CERRADO suma en «Hechas por semana» y en «N hechas» de su dueño, y el frente no sale en Avance', sumaSemanas() === s0 + 1 && hechasYo() === h0 + 1 && !document.querySelector(`#repProyectos [data-rep-p="${pC.id}"]`), `semanas ${s0}->${sumaSemanas()} · hechas ${h0}->${hechasYo()}`);
+                filas('tareas').splice(filas('tareas').indexOf(tC), 1); filas('proyectos').splice(filas('proyectos').indexOf(pC), 1); await recargarYEsperar(); irHash('#reportes'); await esperar(() => visible('p-reportes') && sumaSemanas() === s0, 'semanas sin el cerrado'); }
+              // U-12 (v0.129.0): «Sin dueño» de Carga por persona es botón y lleva al tablero filtrado sin dueño
+              { const tSD = { id: DB.siguienteId++, fields: { Title: 'Sin dueño para Reportes', ProyectoId: filas('proyectos').find(p => p.fields.Clave === CLAVE).id, Columna: 'por-hacer', Desde: new Date().toISOString() } }; filas('tareas').push(tSD);
+                await recargarYEsperar(); irHash('#reportes'); await esperar(() => document.querySelector('#repPersonas button[data-abre="sd"]'), 'fila sin dueño');
+                const b = document.querySelector('#repPersonas button[data-abre="sd"]'); const nBot = document.querySelectorAll('#repPersonas button.rep-fila').length;
+                b.click(); await esperar(() => visible('p-proyecto') && ESTADO.filtroTareas.sinDueno, 'tablero sin dueño');
+                R.ok('U-12 (v0.129.0): la fila «Sin dueño» es el único botón de la carga y abre el tablero con el filtro Sin dueño', nBot === 1 && visible('p-proyecto') && ESTADO.filtroTareas.sinDueno === true && ESTADO.tab === 'tablero', `botones=${nBot} hash=${location.hash}`);
+                ESTADO.filtroTareas.sinDueno = false; filas('tareas').splice(filas('tareas').indexOf(tSD), 1); irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes tras sin dueño'); }
               filas('tareas').splice(filas('tareas').indexOf(tVenc), 1); filas('proyectos').splice(filas('proyectos').indexOf(pVacio), 1); await recargarYEsperar(); irHash('#reportes'); await esperar(() => visible('p-reportes') && !document.querySelector(`#repVencidas [data-rep-v="${tVenc.id}"]`) && !document.querySelector(`#repProyectos [data-rep-p="${pVacio.id}"]`), 'vencida y frente sembrados retirados');
             }
             document.querySelector('#railEquipos [data-equipo="PITEPEC"]').click(); await dormir(30);
             R.ok('v0.10.0: el filtro por equipo del rail se queda en Reportes y lo vacía si no hay frentes de ese equipo', visible('p-reportes') && document.querySelectorAll('#repProyectos [data-rep-p]').length === 0 && $('reportesSub').textContent.includes('PITEPEC'));
+            // C-08 (v0.129.0): el filtro del rail vacía también Carga, Actividad y Semanas (antes solo se miraba Avance)
+            R.ok('C-08 (v0.129.0): con el rail en PITEPEC (sin frentes) Carga y Actividad no traen filas de otros equipos y Semanas suma 0', !document.querySelector('#repPersonas .rep-fila') && $('repPersonas').textContent === 'Sin tarjetas.' && !document.querySelector('#repActividad .rep-fila') && $('repActividad').textContent === 'Sin actividad en 30 días.' && [...document.querySelectorAll('#repSemanas .col-s b')].every(x => !x.textContent), `${$('repPersonas').textContent} | ${$('repActividad').textContent}`);
             document.querySelector('#railEquipos [data-equipo="PITEPEC"]').click(); await dormir(30);
             pestana('inicio'); await dormir(30);
         }
