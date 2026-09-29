@@ -8,7 +8,7 @@
 import { CONFIG } from './config.js';
 import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona, HECHO, plural } from './reglas.js';
 import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, comentariosDe, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo, conservarFoco } from './comun.js';
-import { pintarChat } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
+import { pintarChat, irAlComentario } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
 import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';   // v0.17.0: la misma tabla que Docs del proyecto; v0.18.0: y el mismo orden; v0.36.0: y el mismo arbol
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -575,7 +575,14 @@ function pintarListaMensajes(sel = estado.mensajesSel || null, leyendo = leyendo
         if (nuevos) { const n = el('b', 'mn-rail-hot', String(nuevos)); n.title = `${nuevos} ${plural(nuevos, 'nuevo')} desde tu última visita`; lado.appendChild(n); }
         if (p.Estado !== 'activo') lado.appendChild(chip('cerrado'));
         b.appendChild(lado);
-        b.addEventListener('click', () => irAHash(`#mensajes/f/${p.Clave}`));
+        // R-04 (v0.139.0): el renglon que casó por un mensaje viejo abre el hilo EN ese mensaje (la busqueda de Google Chat).
+        // Si ese frente ya es el hilo abierto, aplicarHash no repinta (la seleccion no cambio): se pinta aqui, o `irA` quedaba
+        // pendiente y el refresco de 120 s saltaba al mensaje viejo (revisor v0.139.0).
+        b.addEventListener('click', () => {
+            const ya = proyectoDeMensajes();
+            if (hallado) { irAlComentario(p.id, hallado.id); if (ya && ya.id === p.id) { pintarChat(ya); return; } }
+            irAHash(`#mensajes/f/${p.Clave}`);
+        });
         return b;
     };
     // U-09 (v0.138.0): el buscador dice «frente o texto» y solo miraba el ULTIMO mensaje; ahora recorre el hilo entero (del mas

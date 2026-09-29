@@ -1119,6 +1119,16 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 .chat { display: grid; gap: var(--sp-2); min-width: 0; }
 .chat .hilo { display: grid; gap: var(--sp-1); align-content: start; max-height: min(62vh, 640px); overflow-y: auto; padding: var(--sp-3); background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--r-md); scrollbar-width: thin; }
 .chat .hilo .vacio { color: var(--text-faint); font-size: .85rem; margin: 0; }
+/* R-03 (v0.139.0): la pildora «↓ N nuevos» comparte la celda del hilo (fila 1, columna 1), abajo a la derecha. En flujo y no
+   absoluta: Chrome no le da a un hijo absoluto la fila de la rejilla como contenedor (medido: quedaba 61 px bajo el hilo). */
+.chat > .hilo, .chat-bajar { grid-row: 1; grid-column: 1; }
+.chat-bajar { align-self: end; justify-self: end; margin: 0 var(--sp-3) var(--sp-2) 0; position: relative; z-index: 2; min-height: 36px; padding: 0 var(--sp-3); border: 1px solid var(--border-default); border-radius: var(--r-pill); background: var(--surface-card); color: var(--text-body); font: inherit; font-size: .78rem; font-weight: 600; box-shadow: var(--shadow-raise); cursor: pointer; }
+.chat-bajar:hover { background: var(--surface-hover); }
+@media (pointer: coarse) { .chat-bajar { min-height: 44px; } }
+/* R-04 (v0.139.0): el mensaje al que llevo el buscador se resalta un momento. */
+.chat .msg.is-hallado { animation: msg-hallado 2.4s ease-out; border-radius: var(--r-sm); }
+@keyframes msg-hallado { 0%, 45% { background: color-mix(in srgb, var(--status-warn-fg) 16%, transparent); } 100% { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .chat .msg.is-hallado { animation: none; outline: 2px solid var(--status-warn-fg); outline-offset: 2px; } }
 .chat .dia { justify-self: center; margin: var(--sp-2) 0 var(--sp-1); padding: 2px 10px; border-radius: var(--r-pill); background: var(--surface-sunken); font-family: var(--font-data); font-size: .66rem; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }   /* muted, no faint: 2.45:1 a 10 px (revisor) */
 /* v0.49.0 (Carlos, 15-sep; artifact C8meacEE, opcion B): el hilo y la bandeja pierden la columna del avatar — el nombre
    escrito y el tono del fondo ya dicen quien es. La rejilla de .msg pasa a UNA columna (+ la del boton borrar). */
@@ -1384,7 +1394,7 @@ body.sin-scroll { overflow: hidden; }
   .msj-plegar { display: none; }   /* U-02 (17-sep): el pliegue no aplica aqui; el boton solo confundia */
   .msj.is-hilo .msj-izq { display: none; }
   .msj:not(.is-hilo) .msj-der { display: none; }
-  .msj.is-hilo .msj-volver { display: inline-flex; }
+  .msj.is-hilo .msj-volver { display: inline-flex; min-width: 44px; min-height: 44px; justify-content: center; }   /* R-01 (v0.139.0): objetivo tactil de 44 px */
 }
 /* U-08 (v0.138.0): con el hilo abierto en ≤ 900 px la cabecera de la pantalla (Mensajes + subtítulo de la bandeja) sale y «←» va
    en el renglón del título del frente: el hilo gana esa altura (ajustarHilo mide lo que queda arriba). */

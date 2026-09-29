@@ -1,6 +1,7 @@
 // node test/lote.test.js — el manifiesto que la app deja en el buzon (contrato 1, firma minsa-proyectos).
 import assert from 'node:assert/strict';
 import { construirManifiesto, validarManifiesto, bytesDelManifiesto, nombreCarpetaLote, APP, CONTRATO, NOMBRE_MANIFIESTO, rutaRecibo, validarRecibo, CARPETA_RECIBOS, CONTRATO_RECIBO } from '../lote.js';
+import { rutaUrl } from '../graph.js';
 
 let n = 0;
 const ok = (nombre, cond) => { assert.ok(cond, nombre); n++; };
@@ -39,4 +40,9 @@ ok('recibo con ruta al buzon se rechaza', validarRecibo({ ...rec, piezas: [{ arc
 ok('recibo con .. se rechaza', validarRecibo({ ...rec, piezas: [{ archivo: 'a', ruta: '../x.pdf', como: 'movido' }] }).ok === false);
 ok('recibo de contrato nuevo se rechaza', validarRecibo({ ...rec, recibo: 2 }).ok === false);
 ok('recibo PARCIAL (una pieza sin archivar) se rechaza entero', validarRecibo({ ...rec, piezas: [...rec.piezas, { archivo: 'c', ruta: null, como: 'no-archivado' }] }).ok === false);
+// S-20 (v0.139.0): rutaUrl, por donde pasan existeRuta, itemPorRuta, leerJson y las dos escrituras, no deja salir de drive/root.
+const lanza = r => { try { rutaUrl(r); return false; } catch { return true; } };
+ok('rutaUrl conserva las diagonales y codifica cada segmento', rutaUrl('03_Predios/Arrocera/Federal (ASEA) - LAU') === '03_Predios/Arrocera/Federal%20(ASEA)%20-%20LAU');
+ok('rutaUrl rechaza .. y . en cualquier segmento', lanza('99_Pendiente-Archivar/../../me/drive') && lanza('./x') && lanza('a/./b') && lanza('..'));
+ok('rutaUrl deja pasar puntos dentro de un nombre', rutaUrl('a/..x/b..pdf') === 'a/..x/b..pdf');
 console.log(`lote: ok (${n} comprobaciones)`);

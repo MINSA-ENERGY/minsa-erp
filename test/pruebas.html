@@ -1190,8 +1190,13 @@ try {
               while (h.scrollHeight <= h.clientHeight + 60) { sembrados.push(DB.siguienteId); filas('actividad').push({ id: DB.siguienteId++, fields: { Title: 'relleno para que el hilo ruede ' + DB.siguienteId, Accion: 'comentar', Quien: 'colega@example.invalid', Cuando: new Date(Date.now() - 3600000 * 24 * 40 - DB.siguienteId * 1000).toISOString(), ProyectoId: proyectoId } }); await recargarYEsperar(); await dormir(30); if (filas('actividad').length > 400) break; }
               h.scrollTop = 0; await dormir(30); await recargarYEsperar(); await dormir(60);
               R.ok('C-07: releer con el hilo leído desde arriba deja scrollTop en 0 (no aterriza al fondo)', h.scrollHeight > h.clientHeight + 40 && h.scrollTop === 0, `scrollTop ${h.scrollTop} · ${h.scrollHeight}/${h.clientHeight} (antes ${antes})`);
+              R.ok('R-03 (v0.139.0): leyendo arriba, la píldora «↓» está a la vista sobre el hilo', !$('chatBajar').classList.contains('oculto') && /^↓/.test($('chatBajar').textContent) && $('chatBajar').getBoundingClientRect().bottom <= h.getBoundingClientRect().bottom + 1, `${$('chatBajar').className} «${$('chatBajar').textContent}» · píldora ${JSON.stringify($('chatBajar').getBoundingClientRect())} · hilo ${JSON.stringify(h.getBoundingClientRect())} · pos ${getComputedStyle($('chatBajar')).position}`);
               h.scrollTop = h.scrollHeight; await dormir(30); await recargarYEsperar(); await dormir(60);
-              R.ok('C-07: releer estando al fondo aterriza en lo último', Math.abs(h.scrollTop + h.clientHeight - h.scrollHeight) <= 2, `scrollTop ${h.scrollTop}`); h._sembrados = sembrados; }
+              R.ok('C-07: releer estando al fondo aterriza en lo último', Math.abs(h.scrollTop + h.clientHeight - h.scrollHeight) <= 2, `scrollTop ${h.scrollTop}`);
+              R.ok('R-03 (v0.139.0): al fondo la píldora se esconde', $('chatBajar').classList.contains('oculto'));
+              h.scrollTop = 0; h.dispatchEvent(new Event('scroll')); await dormir(30); clic('chatBajar'); await dormir(30);
+              R.ok('R-03 (v0.139.0): pulsar la píldora baja a lo último y la esconde', Math.abs(h.scrollTop + h.clientHeight - h.scrollHeight) <= 2 && $('chatBajar').classList.contains('oculto'), `scrollTop ${h.scrollTop}`);
+              h._sembrados = sembrados; }
             // U-06 (v0.82.0): a ≤ 720 px el hilo toma lo que queda del viewport (--hilo-alto medido por chat.js) y «Enviar» queda
             // pegado a la barra: el pie de la forma no rebasa el viewport ni deja mas de 4 px sobre el hueco de la barra. Arriba de 720 no hay variable.
             // El <pre id="resultados"> del arnés va ARRIBA de la app y crece con cada prueba: se esconde para medir como en la app real, y se devuelve.
@@ -2182,6 +2187,14 @@ try {
                 // (el ajeno «mensaje nuevo para la bandeja» va 1 s despues: el mio NO es el ultimo del frente)
                 poner('mensajesBusca', 'respuesta desde la'); await dormir(200);
                 R.ok('v0.138.0 (U-09): el buscador encuentra un mensaje que NO es el último del frente y el preview del renglón enseña ese mensaje', (() => { const r = document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"]`); return !!r && r.querySelector('.m').textContent.includes('respuesta desde la bandeja') && /^Coincide/.test(r.querySelector('.m').title); })(), (document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"] .m`) || {}).textContent);
+                document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"]`).click(); await esperar(() => location.hash === `#mensajes/f/${CLAVE}` && visible('tab-chat'), 'hilo en el mensaje hallado'); await dormir(30);
+                R.ok('R-04 (v0.139.0): el renglón que casó por un mensaje viejo abre el hilo con ESE mensaje resaltado (uno solo) y a la vista', (() => { const hs = document.querySelectorAll('#chatHilo .msg.is-hallado'), h = $('chatHilo'); if (hs.length !== 1 || !hs[0].textContent.includes('respuesta desde la bandeja')) return false; const a = hs[0].getBoundingClientRect(), b = h.getBoundingClientRect(); return a.bottom > b.top && a.top < b.bottom; })(), [...document.querySelectorAll('#chatHilo .msg.is-hallado')].map(m => m.textContent.slice(0, 40)).join(' | '));
+                if (matchMedia('(min-width: 901px)').matches) {   // la lista y el hilo a la vez: tocar el frente que YA esta abierto
+                    const h = $('chatHilo'); h.scrollTop = h.scrollHeight; h.querySelectorAll('.is-hallado').forEach(m => m.classList.remove('is-hallado'));
+                    document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"]`).click(); await dormir(30);
+                    R.ok('R-04 (v0.139.0): tocar el renglón del frente que YA está abierto también lleva al mensaje (aplicarHash no repinta si la selección no cambia)', [...document.querySelectorAll('#chatHilo .msg.is-hallado')].some(m => m.textContent.includes('respuesta desde la bandeja')));
+                }
+                await irHash('#mensajes'); await esperar(() => !visible('mensajesHilo'), 'de vuelta a la bandeja'); await dormir(20);
             }
             poner('mensajesBusca', ''); await dormir(200);
             await irHash(`#p/${CLAVE}/chat`); await esperar(() => visible('tab-chat') && visible('p-proyecto'), 'chat del proyecto'); await dormir(30);

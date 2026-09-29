@@ -55,9 +55,15 @@ function carpetaDe(it) {
     return i >= 0 ? decodeURIComponent(p.slice(i + 5)).replace(/^\//, '') : '';
 }
 
-/** Codifica una ruta para Graph SIN destruir las diagonales. */
+/**
+ * Codifica una ruta para Graph SIN destruir las diagonales. S-20 (v0.139.0): un segmento «.» o «..» revienta
+ * (la regla de validarRecibo, lote.js): encodeURIComponent los deja literales y Graph los resuelve, asi que una Ruta
+ * editada en PROY_Ligas sacaba la consulta de drive/root hacia cualquier endpoint, con el token de quien abre Docs.
+ */
 export function rutaUrl(ruta) {
-    return String(ruta).split('/').filter(s => s !== '').map(encodeURIComponent).join('/');
+    const partes = String(ruta).split('/').filter(s => s !== '');
+    if (partes.some(s => s === '.' || s === '..')) throw new Error(`ruta invalida: ${ruta}`);
+    return partes.map(encodeURIComponent).join('/');
 }
 
 /**

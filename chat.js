@@ -24,7 +24,9 @@ let proyectoChat = null;
 export const proyectoDelChat = () => proyectoChat;
 // C-09 (mensajes, 17-sep): el estado de «entre al chat» (que proyecto pinta el hilo, si ya se pinto, la raya de nuevos) vive
 // aqui y no como expandos/dataset del #chatHilo, que alojarChat mueve entre padres. El selector de @ igual: un WeakMap por textarea.
-const hiloEstado = { proyecto: null, pintado: false, nuevos: null, ultimo: null };   // ultimo: el Cuando del comentario mas nuevo pintado
+const hiloEstado = { proyecto: null, pintado: false, nuevos: null, ultimo: null, irA: null };   // ultimo: el Cuando del comentario mas nuevo pintado
+/** R-04 (v0.139.0): la bandeja pide que la proxima pintada del hilo de `pid` aterrice en el comentario `cid` (el que casó con el buscador). */
+export function irAlComentario(pid, cid) { hiloEstado.irA = { pid, cid }; }
 const selectores = new WeakMap();
 const personas = personasActivas;   // C-06 (17-sep): la copia vive en comun.js
 export const puedeComentarEn = p => PUEDE.tarea(estado.rol) && !!p && p.Estado === 'activo';
@@ -57,7 +59,32 @@ export function pintarChat(p) {
         hilo.appendChild(m);
         anterior = c;
     }
-    cerrarPintadaHilo(p, cs, estabaAlFondo, scrollAntes);
+    // R-04: si la bandeja pidio un comentario de ESTE frente, no se aterriza al fondo (ni se marca visto lo que queda abajo:
+    // lo sube el scroll al llegar, C-01) y el hilo se abre en ese mensaje, resaltado un momento.
+    const irA = hiloEstado.irA && hiloEstado.irA.pid === p.id ? hiloEstado.irA.cid : null; hiloEstado.irA = null;
+    cerrarPintadaHilo(p, cs, estabaAlFondo && !irA, scrollAntes);
+    if (irA) llevarA(irA);
+    pintarBajar(true);
+}
+function llevarA(cid) {
+    const hilo = $('chatHilo'), m = hilo.querySelector(`.msg[data-comentario="${cid}"]`); if (!m) return;
+    hilo.scrollTop += m.getBoundingClientRect().top - hilo.getBoundingClientRect().top - hilo.clientHeight / 3;
+    m.classList.add('is-hallado');   // la animacion es de una vez; el siguiente repintado ya no lo trae
+}
+/**
+ * R-03 (v0.139.0, Zulip): leyendo arriba, una pildora abajo a la derecha del hilo baja a lo ultimo y dice cuantos mensajes
+ * ajenos no se han visto (desde C-01 el refresco ya no los marca si no estas al fondo, pero nada avisaba que llegaron).
+ * `contar`: recalcular el texto (cada pintada); el scroll solo muestra/esconde.
+ */
+function pintarBajar(contar) {
+    const h = $('chatHilo'), b = $('chatBajar'); if (!b) return;
+    const esconder = !proyectoChat || alFondoDe(h);
+    if (!contar && esconder === b.classList.contains('oculto')) return;
+    b.classList.toggle('oculto', esconder);
+    if (esconder) return;
+    const n = proyectoChat ? comentariosNuevos(proyectoChat.id).length : 0;
+    b.textContent = n ? `↓ ${n} ${plural(n, 'nuevo')}` : '↓';
+    b.title = n ? `Bajar a lo último · ${n} ${plural(n, 'mensaje nuevo', 'mensajes nuevos')}` : 'Bajar a lo último'; b.setAttribute('aria-label', b.title);
 }
 /** C-22 (v0.123.0): un mensaje del hilo —burbuja, liga a la tarjeta, texto, vistos y borrar—; pintarChat solo recorre y pone las rayas. */
 function mensajeDelHilo(c, anterior, p, yo) {
@@ -136,6 +163,7 @@ async function alClic(cid, pid, accion) {
 }
 /** C-01: llegar al fondo por scroll (leyendo lo que el refresco trajo) es verlo: sube la marca y avisa para que la bandeja lo refleje. */
 function alDesplazarHilo() {
+    pintarBajar(false);   // R-03
     const u = hiloEstado.ultimo; if (!proyectoChat || !u || !alFondoDe($('chatHilo'))) return;
     if (!(u > chatVistoHasta(proyectoChat.id))) return;   // ya visto: nada que subir (y nada que ordenar por cada evento de scroll)
     marcarChatVisto(proyectoChat.id, u); alCambiar();
@@ -272,6 +300,8 @@ export function engancharChat() {
     $('formChat').addEventListener('submit', enviar);
     $('chatTexto').addEventListener('input', contar);
     $('chatHilo').addEventListener('scroll', alDesplazarHilo, { passive: true });   // C-01
+    // R-03: bajar es llegar al fondo por scroll (sube la marca, C-01); el foco pasa al cuadro, porque la pildora se esconde.
+    $('chatBajar').addEventListener('click', () => { alFondo(); alDesplazarHilo(); if (!$('formChat').classList.contains('oculto')) $('chatTexto').focus(); });
     engancharSelectorMenciones('chatTexto', 'chatSelector', () => $('formChat').requestSubmit(), 'chatArroba');
     // El boton «@» mete una arroba donde esta el cursor y abre el selector (en celular no hay tecla a la mano).
     $('chatArroba').addEventListener('click', () => {
