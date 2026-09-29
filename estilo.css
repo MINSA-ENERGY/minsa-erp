@@ -1386,6 +1386,23 @@ body.sin-scroll { overflow: hidden; }
   .msj:not(.is-hilo) .msj-der { display: none; }
   .msj.is-hilo .msj-volver { display: inline-flex; }
 }
+/* U-08 (v0.138.0): con el hilo abierto en ≤ 900 px la cabecera de la pantalla (Mensajes + subtítulo de la bandeja) sale y «←» va
+   en el renglón del título del frente: el hilo gana esa altura (ajustarHilo mide lo que queda arriba). */
+@media (max-width: 900px) {
+  #p-mensajes:has(> .msj.is-hilo) > .cabecera { display: none; }
+  .msj.is-hilo .msj-der { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
+  .msj.is-hilo .msj-der > .msj-vacio, .msj.is-hilo .msj-der > .msj-hilo { grid-column: 1 / -1; }
+}
+/* U-11 (v0.138.0): en celular el nombre del frente del hilo ocupa hasta dos renglones en vez de cortarse en uno. */
+@media (max-width: 720px) {
+  .msj-titulo-frente .t { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.25; }
+}
+/* U-12 (v0.138.0): con teclado y ratón, el atajo se enseña junto al cuadro mientras tiene el foco (antes solo en el title de Enviar);
+   usa el hueco del contador, que está vacío hasta acercarse al tope. */
+@media (hover: hover) and (pointer: fine) {
+  .chat-forma:focus-within .cont:empty { display: inline; }
+  .chat-forma:focus-within .cont:empty::before { content: "Ctrl+Enter envía"; color: var(--text-faint); }
+}
 .bandeja { gap: 0; background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--r-md); padding: 0 var(--sp-3); }
 .msg-proy { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3);   /* v0.49.0: sin la columna del avatar */ align-items: center; width: 100%; padding: var(--sp-3) 0; border: 0; border-top: 1px solid var(--border-hairline); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .msg-proy:first-child { border-top: 0; } .msg-proy:hover { background: var(--surface-hover); }

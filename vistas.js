@@ -6,8 +6,8 @@
 // graficos son SVG por DOM o cajas con ancho en %.
 
 import { CONFIG } from './config.js';
-import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona, HECHO } from './reglas.js';
-import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo, conservarFoco } from './comun.js';
+import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona, HECHO, plural } from './reglas.js';
+import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, comentariosDe, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo, conservarFoco } from './comun.js';
 import { pintarChat } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
 import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';   // v0.17.0: la misma tabla que Docs del proyecto; v0.18.0: y el mismo orden; v0.36.0: y el mismo arbol
 
@@ -521,13 +521,32 @@ export function devolverChat() { alojarChat(null); }
 
 const coincide = (q, ...textos) => !q || textos.some(t => sinAcentos(String(t || '')).includes(q));
 
+/**
+ * C-12/C-13 (v0.138.0): el frente cuyo chat esta en pantalla (la pestana Chat del proyecto, o el hilo abierto en Mensajes) ya se
+ * esta leyendo: cuenta 0 nuevos en TODO lugar —renglon, rail plegado, subtitulo e insignia—. Antes solo mensajesNuevos lo
+ * descontaba y la bandeja se pintaba antes de que pintarChat subiera la marca: el renglon elegido decia «3» y la insignia 0.
+ */
+function leyendoAhora() {
+    const sel = estado.pestana === 'mensajes' ? proyectoDeMensajes() : null;
+    return estado.pestana === 'proyecto' && estado.tab === 'chat' && proyectoAbierto() ? proyectoAbierto().id : sel ? sel.id : null;
+}
+const nuevosSinLeer = (pid, leyendo) => pid === leyendo ? 0 : nuevosDe(pid);   // C-04: nuevosDe sale del indice
+
 export function pintarMensajes() {
-    const yo = estado.cuenta.username.toLowerCase();
     const sel = estado.mensajesSel || null;
+    const leyendo = leyendoAhora();
+    const { ult, sinChat } = pintarListaMensajes(sel, leyendo);
+    pintarDerechaMensajes(sel, leyendo, ult, sinChat);
+}
+/**
+ * C-14 (v0.138.0): la mitad que el buscador filtra —las dos secciones de la bandeja y el subtitulo—. El input la llama sola (con
+ * retardo): antes cada tecla repintaba tambien el rail y el hilo entero, con sus lecturas de layout (ajustarHilo).
+ */
+function pintarListaMensajes(sel = estado.mensajesSel || null, leyendo = leyendoAhora()) {
+    const yo = estado.cuenta.username.toLowerCase();
     const q = sinAcentos(estado.buscaMensajes || '').trim();
     const ult = ultimoComentarioPorProyecto(estado.actividad);
     const lista = $('mensajesLista'); lista.textContent = '';
-    let nuevosTotal = 0;
     const seccion = (titulo, n, abierta, hijos, clave, vacio) => {
         const d = el('details', 'msj-sec'); d.open = abierta; d.dataset.sec = clave;
         const s = el('summary'); s.appendChild(el('span', '', titulo)); s.appendChild(el('span', 'cnt mn-mono', String(n))); d.appendChild(s);
@@ -535,8 +554,9 @@ export function pintarMensajes() {
         if (!hijos.length) d.appendChild(el('p', 'vacio', q ? 'Nada coincide.' : vacio));   // U-06 (17-sep): un estado vacio que diga que hacer, no «—»
         return d;
     };
-    const renglon = (p, ultimo) => {
-        const nuevos = nuevosDe(p.id); nuevosTotal += nuevos;   // C-04: del indice, una vez por pintada
+    // U-09 (v0.138.0): `hallado` es el mensaje que casó con el buscador cuando no es el ultimo; el preview lo enseña a él.
+    const renglon = (p, ultimo, hallado) => {
+        const nuevos = nuevosSinLeer(p.id, leyendo);   // C-13: renglon ya no acumula el total
         const on = sel && sel.t === 'f' && sel.k === p.Clave;
         const b = el('button', 'msg-proy' + (nuevos ? ' is-nuevo' : '') + (ultimo ? '' : ' is-vacio') + (on ? ' is-on' : '')); b.type = 'button'; b.dataset.mensajes = String(p.id);
         b.setAttribute('aria-current', on ? 'true' : 'false');
@@ -547,32 +567,47 @@ export function pintarMensajes() {
         if (ultimo) { const d = el('span', 'd', fechaBandeja(ultimo.Cuando)); d.title = fechaHora(ultimo.Cuando); cab.appendChild(d); }   // U-04: relativa; la completa en el title
         c.appendChild(cab);
         const m = el('span', 'm');
-        if (ultimo) { m.appendChild(el('b', '', (String(ultimo.Quien || '').toLowerCase() === yo ? 'Tú' : nombreCorto(ultimo.Quien, estado.roles)) + (ultimo.TareaId ? ' (nota): ' : ': '))); m.appendChild(textoConMenciones(ultimo.Title, undefined, false)); }
+        const vista = hallado || ultimo;
+        if (vista) { m.appendChild(el('b', '', (String(vista.Quien || '').toLowerCase() === yo ? 'Tú' : nombreCorto(vista.Quien, estado.roles)) + (vista.TareaId ? ' (nota): ' : ': '))); m.appendChild(textoConMenciones(vista.Title, undefined, false)); if (hallado) m.title = `Coincide · ${fechaHora(hallado.Cuando)}`; }
         else m.textContent = p.Estado === 'activo' ? 'Sin conversación todavía.' : 'Cerrado · sin conversación.';
         c.appendChild(m); b.appendChild(c);
         const lado = el('span', 'lado');
-        if (nuevos) { const n = el('b', 'mn-rail-hot', String(nuevos)); n.title = `${nuevos} nuevo${nuevos === 1 ? '' : 's'} desde tu última visita`; lado.appendChild(n); }
+        if (nuevos) { const n = el('b', 'mn-rail-hot', String(nuevos)); n.title = `${nuevos} ${plural(nuevos, 'nuevo')} desde tu última visita`; lado.appendChild(n); }
         if (p.Estado !== 'activo') lado.appendChild(chip('cerrado'));
         b.appendChild(lado);
         b.addEventListener('click', () => irAHash(`#mensajes/f/${p.Clave}`));
         return b;
     };
-    const con = ult.map(x => ({ p: porId(estado.proyectos, x.proyectoId), ultimo: x.ultimo })).filter(x => x.p && coincide(q, x.p.Title, x.p.Clave, x.ultimo.Title, nombreDe(x.ultimo.Quien, estado.roles)));
+    // U-09 (v0.138.0): el buscador dice «frente o texto» y solo miraba el ULTIMO mensaje; ahora recorre el hilo entero (del mas
+    // nuevo al mas viejo) y se queda con el primer mensaje que case.
+    const hallar = p => { const cs = comentariosDe(p.id); for (let i = cs.length - 1; i >= 0; i--) if (coincide(q, cs[i].Title, nombreDe(cs[i].Quien, estado.roles))) return cs[i]; return null; };
+    const con = [];
+    for (const x of ult) {
+        const p = porId(estado.proyectos, x.proyectoId); if (!p) continue;
+        if (coincide(q, p.Title, p.Clave)) { con.push({ p, ultimo: x.ultimo, hallado: null }); continue; }
+        const h = hallar(p); if (h) con.push({ p, ultimo: x.ultimo, hallado: h.id === x.ultimo.id ? null : h });
+    }
     const conChatIds = new Set(ult.map(x => x.proyectoId));
     const sinChat = ordenarProyectos(activos().filter(p => !conChatIds.has(p.id)));   // C-07: una vez, para la seccion y el rail
     const sin = sinChat.filter(p => coincide(q, p.Title, p.Clave));
-    // el conteo de nuevos es de TODOS los frentes con chat, no solo los que pasan el buscador
-    for (const x of ult) if (!con.some(y => y.p.id === x.proyectoId) && porId(estado.proyectos, x.proyectoId)) nuevosTotal += nuevosDe(x.proyectoId);
-    lista.appendChild(seccion('Frentes', con.length, true, con.map(x => renglon(x.p, x.ultimo)), 'frentes', 'Ningún frente tiene conversación todavía: abre uno en «Sin conversación».'));
-    lista.appendChild(seccion('Sin conversación', sin.length, !!q, sin.map(p => renglon(p, null)), 'sin', 'Todos los frentes activos ya tienen conversación.'));
+    lista.appendChild(seccion('Frentes', con.length, true, con.map(x => renglon(x.p, x.ultimo, x.hallado)), 'frentes', 'Ningún frente tiene conversación todavía: abre uno en «Sin conversación».'));
+    lista.appendChild(seccion('Sin conversación', sin.length, !!q, sin.map(p => renglon(p, null, null)), 'sin', 'Todos los frentes activos ya tienen conversación.'));
+    // U-03 (17-sep): solo la cifra, con plural real; la instruccion del @ ya vive en el placeholder del cuadro de texto.
+    // C-13 (v0.138.0): el total es el MISMO de la insignia del rail (mensajesNuevos: frentes activos, sin el que se lee).
+    const nuevosTotal = mensajesNuevos();
+    $('mensajesSub').textContent = `${con.length} ${plural(con.length, 'conversación', 'conversaciones')} · ${nuevosTotal ? `${nuevosTotal} ${plural(nuevosTotal, 'mensaje nuevo', 'mensajes nuevos')} desde tu última visita` : 'nada nuevo desde tu última visita'}.`;
+    return { ult, sinChat };
+}
+/** C-14 (v0.138.0): lo que el buscador NO filtra —el rail plegado y el hilo del frente elegido—. */
+function pintarDerechaMensajes(sel, leyendo, ult, sinChat) {
     // v0.56.0 (Carlos, 15-sep; artifact MHCmeJw5, opción C): la bandeja PLEGADA es un botón por frente —icono de la unidad,
     // título en el title, insignia de nuevos— en el MISMO orden de la lista (con conversación primero, luego sin). El buscador
     // no la filtra: plegada no hay buscador a la vista, y esconder un frente ahí sería esconderlo sin avisar.
     const rail = $('mensajesRailFrentes'); rail.textContent = '';
     const frenteRail = (p, conChat) => {
-        const nuevos = nuevosDe(p.id); const on = sel && sel.t === 'f' && sel.k === p.Clave;
+        const nuevos = nuevosSinLeer(p.id, leyendo); const on = sel && sel.t === 'f' && sel.k === p.Clave;
         const b = el('button', 'msj-frente' + (conChat ? '' : ' is-vacio') + (on ? ' is-on' : '')); b.type = 'button'; b.dataset.mensajesRail = String(p.id);
-        b.title = p.Title + (nuevos ? ` · ${nuevos} nuevo${nuevos === 1 ? '' : 's'}` : conChat ? '' : ' · sin conversación'); b.setAttribute('aria-label', b.title); b.setAttribute('aria-current', on ? 'true' : 'false');
+        b.title = p.Title + (nuevos ? ` · ${nuevos} ${plural(nuevos, 'nuevo')}` : conChat ? '' : ' · sin conversación'); b.setAttribute('aria-label', b.title); b.setAttribute('aria-current', on ? 'true' : 'false');
         b.appendChild(iconoEquipo(equipoDe(p)));
         if (nuevos) b.appendChild(el('b', 'msj-hot', String(nuevos)));
         b.addEventListener('click', () => irAHash(`#mensajes/f/${p.Clave}`));
@@ -580,8 +615,6 @@ export function pintarMensajes() {
     };
     for (const x of ult) { const p = porId(estado.proyectos, x.proyectoId); if (p) rail.appendChild(frenteRail(p, true)); }
     for (const p of sinChat) rail.appendChild(frenteRail(p, false));
-    // U-03 (17-sep): solo la cifra, con plural real; la instruccion del @ ya vive en el placeholder del cuadro de texto.
-    $('mensajesSub').textContent = `${con.length} ${con.length === 1 ? 'conversación' : 'conversaciones'} · ${nuevosTotal ? `${nuevosTotal} ${nuevosTotal === 1 ? 'mensaje nuevo' : 'mensajes nuevos'} desde tu última visita` : 'nada nuevo desde tu última visita'}.`;
     // ---- derecha: hilo del frente (con su cabecera, U-01) o el aviso de elegir
     const p = proyectoDeMensajes(sel);
     $('msj').classList.toggle('is-hilo', !!p);
@@ -599,16 +632,18 @@ export function pintarMensajes() {
 /** C-07 (17-sep): el frente que Mensajes tiene elegido ({t:'f', k: clave}), o null. app.js y mensajesNuevos lo usan tambien. */
 export const proyectoDeMensajes = (sel = estado.mensajesSel) => sel && sel.t === 'f' ? proyectoPorClave(sel.k) : null;
 export function engancharMensajes() {
-    $('mensajesBusca').addEventListener('input', () => { estado.buscaMensajes = $('mensajesBusca').value; pintarMensajes(); });
+    // C-14 (v0.138.0): el buscador repinta solo la lista, con retardo (una rafaga de teclas = una pintada); si en ese lapso se
+    // salio de Mensajes, no pinta nada — la proxima entrada ya lee estado.buscaMensajes.
+    const buscar = conRetardo(() => { if (estado.pestana === 'mensajes') pintarListaMensajes(); });
+    $('mensajesBusca').addEventListener('input', () => { estado.buscaMensajes = $('mensajesBusca').value; buscar(); });
     $('mensajesVolver').addEventListener('click', () => irAHash('#mensajes'));
 }
 /** Cuantos mensajes nuevos hay en total (insignia del rail): suma de comentariosNuevos por proyecto activo. */
 export function mensajesNuevos() {
     // El chat que esta en pantalla ya se esta leyendo: no cuenta (la pestana Chat tampoco lo pinta en ambar, app.js).
-    // v0.42.0: tambien el frente cuyo hilo esta abierto en Mensajes.
-    const sel = estado.pestana === 'mensajes' ? proyectoDeMensajes() : null;
-    const leyendo = estado.pestana === 'proyecto' && estado.tab === 'chat' && proyectoAbierto() ? proyectoAbierto().id : sel ? sel.id : null;
-    return activos().reduce((n, p) => n + (p.id === leyendo ? 0 : nuevosDe(p.id)), 0);   // C-04
+    // v0.42.0: tambien el frente cuyo hilo esta abierto en Mensajes. C-12 (v0.138.0): la regla vive en leyendoAhora.
+    const leyendo = leyendoAhora();
+    return activos().reduce((n, p) => n + nuevosSinLeer(p.id, leyendo), 0);   // C-04
 }
 // ---------------------------------------------------------------- archivos
 

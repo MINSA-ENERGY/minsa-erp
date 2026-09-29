@@ -8,7 +8,7 @@
 // la parte local del correo, sin acentos). Se pintan como chip, la propia lleva `is-yo`, e Inicio
 // junta «Te mencionaron». El selector aparece al teclear @ (tambien en la nota de la tarjeta).
 
-import { PUEDE, mencionEnCurso, aliasDe, aliasParaMencion, nombreDe, nombreCorto, sinAcentos, diaDe } from './reglas.js';
+import { PUEDE, mencionEnCurso, aliasDe, aliasParaMencion, nombreDe, nombreCorto, sinAcentos, diaDe, plural } from './reglas.js';
 import { $, L, estado, el, boton, tonoDe, avisar, porId, proyectoAbierto, fechaHora, textoConMenciones, comentariosDe, iconoSvg, TRAZOS, puedeBorrarComentario, borrarComentario, chatVistoHasta, marcarChatVisto, comentariosNuevos, vistosDeComentario, miVistoDe, puedeMarcarVisto, alternarVisto, personasActivas, contadorTexto, fusionarActividad, rotuloDia } from './comun.js';
 
 let alCambiar = () => {};
@@ -52,7 +52,7 @@ export function pintarChat(p) {
     for (const c of cs) {
         const d = c.Cuando ? diaDe(c.Cuando) : '';
         if (d !== dia) { dia = d; hilo.appendChild(el('div', 'dia', c.Cuando ? rotuloDia(c.Cuando) : '—')); anterior = null; }
-        if (!rayaPuesta && nuevos.has(c.id)) { rayaPuesta = true; hilo.appendChild(el('div', 'nuevos', `${nuevos.size} nuevo${nuevos.size === 1 ? '' : 's'} desde tu última visita`)); anterior = null; }
+        if (!rayaPuesta && nuevos.has(c.id)) { rayaPuesta = true; hilo.appendChild(el('div', 'nuevos', `${nuevos.size} ${plural(nuevos.size, 'nuevo')} desde tu última visita`)); anterior = null; }
         const m = mensajeDelHilo(c, anterior, p, yo);
         hilo.appendChild(m);
         anterior = c;
@@ -74,12 +74,13 @@ function mensajeDelHilo(c, anterior, p, yo) {
         // La nota de una tarjeta: el chip la nombra y la abre (la nota vive en la tarjeta; aqui se lee en contexto).
         const t = porId(estado.tareas, c.TareaId);
         // U-21 (v0.114.0): la tarjeta borrada ya no es una caja deshabilitada: texto tenue en la linea del autor.
-        const cabR = cuerpo.querySelector('.cab');
-        if (!t && cabR) { const s = el('span', 'ref-borrada', '· tarjeta borrada'); s.title = 'La tarjeta ya no existe'; cabR.appendChild(s); }
+        // C-17 (v0.138.0): un renglon con TareaId nunca es «seguido» (arriba), asi que la .cab siempre esta; el clic resuelve la
+        // tarjeta por id al momento (regla v0.4.0: el hilo se repinta cada 120 s y el objeto capturado seria el de otra pintada).
+        if (!t) { const s = el('span', 'ref-borrada', '· tarjeta borrada'); s.title = 'La tarjeta ya no existe'; cuerpo.querySelector('.cab').appendChild(s); }
         else {
-        const ref = boton('', 'ref', () => { if (t) abrirTarjeta(t.id); }, { tarjeta: String(c.TareaId) });
-        ref.appendChild(iconoSvg(TRAZOS.tarjeta)); ref.appendChild(el('span', '', t ? t.Title : 'tarjeta borrada')); ref.title = t ? 'Abrir la tarjeta' : 'La tarjeta ya no existe'; ref.disabled = !t;
-        cuerpo.appendChild(ref);
+            const ref = boton('', 'ref', () => { const ahora = porId(estado.tareas, c.TareaId); if (ahora) abrirTarjeta(ahora.id); }, { tarjeta: String(c.TareaId) });
+            ref.appendChild(iconoSvg(TRAZOS.tarjeta)); ref.appendChild(el('span', '', t.Title)); ref.title = 'Abrir la tarjeta';
+            cuerpo.appendChild(ref);
         }
     }
     const texto = el('p', 't'); texto.appendChild(textoConMenciones(c.Title, yo));
@@ -130,7 +131,8 @@ const alFondoDe = h => h.scrollTop + h.clientHeight >= h.scrollHeight - 40;
 /** C-02: el clic resuelve comentario y proyecto por id contra el estado de AHORA; si alguno ya no existe, no hace nada. */
 async function alClic(cid, pid, accion) {
     const c = porId(estado.actividad, cid), p = porId(estado.proyectos, pid);
-    if (c && p && await accion(c, p)) { pintarChat(p); alCambiar(); }
+    // C-11 (v0.138.0): alCambiar (repintar) pinta el frente de AHORA; el repintado previo con el p del clic pintaba el de antes del await.
+    if (c && p && await accion(c, p)) alCambiar();
 }
 /** C-01: llegar al fondo por scroll (leyendo lo que el refresco trajo) es verlo: sube la marca y avisa para que la bandeja lo refleje. */
 function alDesplazarHilo() {
@@ -169,12 +171,15 @@ const contar = () => contadorTexto('chatTexto', 'chatCont', COMENTARIO_MAX, COME
 
 async function enviar(ev) {
     ev.preventDefault();
-    const p = (proyectoChat && porId(estado.proyectos, proyectoChat.id)) || proyectoAbierto(); if (!p) return;   // v0.42.0: el frente que el hilo pinta, no el abierto; C-02: resuelto por id
+    // v0.42.0: el frente que el hilo pinta, no el abierto; C-02: resuelto por id. C-15 (v0.138.0): si ese frente ya no existe no se
+    // cae a proyectoAbierto(), que es el ultimo abierto y no el que se ve: el comentario iria a OTRO frente.
+    const p = proyectoChat ? porId(estado.proyectos, proyectoChat.id) : proyectoAbierto();
+    if (!p) { if (proyectoChat) avisar('Ese frente ya no está: el comentario no se envió.', 'error'); return; }
     if (!PUEDE.tarea(estado.rol)) { avisar('Tu rol es de lectura: no puedes comentar.', 'error'); return; }
     if (p.Estado !== 'activo') { avisar('El proyecto está cerrado.', 'error'); return; }
     if (navigator.onLine === false) { avisar('Sin conexión: el comentario se manda cuando regrese la red (vuelve a intentarlo).', 'ojo'); return; }   // T2: Ctrl+Enter no pasa por pointer-events
     if ($('chatEnviar').disabled) return;   // Ctrl+Enter no respeta `disabled` como el clic (C4)
-    const texto = $('chatTexto').value.trim();
+    const crudo = $('chatTexto').value; const texto = crudo.trim();
     if (!texto) { $('chatTexto').focus(); return; }
     if (texto.length > COMENTARIO_MAX) { avisar(`El comentario no cabe: máximo ${COMENTARIO_MAX} caracteres (es un renglón de la bitácora).`, 'error'); return; }
     $('chatEnviar').disabled = true;
@@ -182,10 +187,13 @@ async function enviar(ev) {
         const r = { Title: texto, Accion: 'comentar', Quien: estado.cuenta.username, Cuando: new Date().toISOString(), ProyectoId: Number(p.id) };
         const n = await estado.cliente.crearRenglon(estado.siteId, L.actividad, r, m => avisar(m, 'ojo'));
         fusionarActividad([n]);   // C-03: un refresco a medio POST ya lo pudo traer; unshift lo duplicaba en el hilo
-        $('chatTexto').value = ''; cerrarSelector($('chatTexto'));
-        pintarChat(p); alFondo();
+        // C-11 (v0.138.0): el cuadro no se bloquea durante el POST; si se siguio tecleando, solo sale lo enviado y lo nuevo se queda.
+        const ta = $('chatTexto'); ta.value = ta.value.startsWith(crudo) ? ta.value.slice(crudo.length).replace(/^\s+/, '') : ta.value; cerrarSelector(ta);
+        // C-11: alCambiar (repintar de app.js) ya pinta el frente que esta en pantalla; el pintarChat(p) previo repintaba el de antes
+        // del await, y si se cambio de frente en medio perdia la raya «nuevos» del que se llego.
         alCambiar();
-        $('chatTexto').focus();
+        if (proyectoChat && proyectoChat.id === p.id) alFondo();
+        ta.focus();
     } catch (e) { avisar('No se pudo enviar: ' + (e && e.message ? e.message : e), 'error'); }
     finally { $('chatEnviar').disabled = false; }
 }

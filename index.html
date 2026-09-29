@@ -240,7 +240,8 @@
           </div>
         </div>
         <div class="msj-der" id="mensajesDer">
-          <button class="mn-btn is-ghost is-sm msj-volver" id="mensajesVolver" type="button">← Bandeja</button>
+          <!-- U-08 (v0.138.0): «←» a secas, en el renglón del título del frente (el nombre va en title/aria-label) -->
+          <button class="mn-btn is-ghost is-sm msj-volver" id="mensajesVolver" type="button" title="Volver a la bandeja" aria-label="Volver a la bandeja">←</button>
           <!-- U-01 (17-sep): la cabecera del hilo nombra el frente (icono de unidad + título, liga a #p/<clave>); la pinta pintarMensajes -->
           <div class="msj-titulo oculto" id="mensajesTitulo"></div>
           <p class="vacio msj-vacio" id="mensajesVacio">Elige un frente para leer su chat.</p>

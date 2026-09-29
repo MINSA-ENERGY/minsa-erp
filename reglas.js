@@ -318,6 +318,8 @@ export function ordenar(tareas) {
 
 /** Minusculas y sin acentos: lo que compara todo buscador de la app (C3, v0.6.0: tambien Proyectos y Mis tareas). */
 export const sinAcentos = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+/** C-18 (v0.138.0): la palabra en singular o plural segun n \u2014 plural(3, 'nuevo') = 'nuevos'. Solo la palabra: la cifra la pone quien llama. */
+export const plural = (n, uno, varios = uno + 's') => n === 1 ? uno : varios;
 
 /**
  * Filtro de tarjetas dentro de un proyecto (F9): por persona, «solo alta», «solo vencidas», «sin
