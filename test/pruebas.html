@@ -266,10 +266,14 @@ const dormir = ms => new Promise(r => setTimeout(r, ms));
 // que pasan de ~100 en 10 s (crbug 1038223), y con tiempo virtual toda la corrida cabe en esos 10 s. Cada irA() de la
 // app y cada irHash() del arnes suman uno; al cruzar el tope, `history.pushState('#p/borrable')` no cambiaba el hash y
 // aplicarHash leia el anterior (#proyectos): la E2E fallaba en un paso que no tenia nada que ver con el ultimo cambio.
-// Remedio: contar y, desde el siguiente esperar(), dormir 10.5 s virtuales cada 90 (un dormir(11000) lo probo).
+// Remedio: contar y dormir 10.5 s virtuales ANTES de la siguiente navegacion del arnes (respirar() dentro de irHash).
+// obs. 614 (28-sep): la pausa vivia al ENTRAR a esperar(), que va despues de la accion y antes de la asercion, y ahi
+// se comia el estado transitorio (un aviso de 4 s); agregar pruebas corria el contador y rompia una prueba ajena.
+// esperar() conserva una red a 95 por si los clics solos (irA de la app) cruzan el tope entre dos irHash.
 let pushes = 0; { const ps = history.pushState.bind(history); history.pushState = (...a) => { pushes++; return ps(...a); }; }
+async function respirar(tope = 80) { if (pushes >= tope) { pushes = 0; await dormir(10500); } }
 async function esperar(fn, que, ms = 8000) {
-    if (pushes >= 90) { pushes = 0; await dormir(10500); }
+    if (pushes >= 95) { pushes = 0; await dormir(10500); }
     const t0 = Date.now();
     while (Date.now() - t0 < ms) { try { const v = fn(); if (v) return v; } catch (_) {} await dormir(25); }
     throw new Error('tiempo agotado esperando: ' + que);
@@ -296,7 +300,7 @@ const actividad = accion => filas('actividad').filter(a => a.fields.Accion === a
 const recargarYEsperar = async () => { clic('btnActualizar'); await esperar(() => !$('btnActualizar').disabled, 'recarga'); };
 // Navegar por URL como lo haria Atras del navegador: pushState + popstate. `location.hash = x` es una
 // navegacion ASINCRONA en Edge headless con tiempo virtual y se reordena (medido 2026-09-11).
-const irHash = h => { history.pushState(null, '', h); window.dispatchEvent(new PopStateEvent('popstate')); };
+const irHash = async h => { await respirar(); history.pushState(null, '', h); window.dispatchEvent(new PopStateEvent('popstate')); };
 
 try {
     // 1. Montar la app real dentro de esta pagina.
@@ -337,7 +341,7 @@ try {
     R.ok('sesión iniciada y rol resuelto', $('quien').textContent.includes(ROL), $('quien').textContent);
     if (gerencia) {
         R.ok('C-05 (entrar, tanda 2): con proy.destino guardado y hash vacío, sesionIniciada aterriza en el destino y lo consume', location.hash === '#proyectos' && visible('p-proyectos') && sessionStorage.getItem('proy.destino') === null, `${location.hash} · destino=${sessionStorage.getItem('proy.destino')}`);
-        irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio tras el destino');
+        await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio tras el destino');
     }
     // Entrar, tanda 1 (v0.87.0). C-01: las 5-6 lecturas en paralelo comparten UN GET /lists; C-03: la bandera de sesion
     // se enciende al final; U-06/C-02: la pista anuncia (role=status) y el boton nacio deshabilitado; U-05: la marca en reposo no lleva .estado.
@@ -359,7 +363,7 @@ try {
         await esperar(() => $('dlgTarea').open, 'deep link al arrancar');
         R.ok('deep link al arrancar: abre el proyecto y la tarjeta', visible('p-proyecto') && $('pTitulo').textContent === 'LAU DEMO' && $('tTitulo').textContent.startsWith('Tarea sembrada'));
         clic('tCerrar'); await esperar(() => !$('dlgTarea').open && location.hash === '#p/lau-demo', 'hash sin tarjeta');
-        irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio por hash');
+        await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio por hash');
     }
     R.ok('pantalla inicial = Inicio', visible('p-inicio') && location.hash === '#inicio', location.hash);
 
@@ -685,13 +689,13 @@ try {
         }
         clic('tCerrar'); await esperar(() => !$('dlgTarea').open && location.hash === `#p/${CLAVE}`, 'hash sin tarjeta');
         // El hash MANDA: Atrás del navegador o una liga pegada en el chat.
-        irHash(`#p/${CLAVE}/t/${t.id}`); await esperar(() => $('dlgTarea').open, 'tarjeta por hash');
+        await irHash(`#p/${CLAVE}/t/${t.id}`); await esperar(() => $('dlgTarea').open, 'tarjeta por hash');
         R.ok('#p/<clave>/t/<id> abre la tarjeta', $('tTitulo').textContent.startsWith('LISTA DE INSUMOS'));
-        irHash(`#p/${CLAVE}/lista`); await esperar(() => !$('dlgTarea').open && !$('tab-lista').classList.contains('oculto'), 'lista por hash');
+        await irHash(`#p/${CLAVE}/lista`); await esperar(() => !$('dlgTarea').open && !$('tab-lista').classList.contains('oculto'), 'lista por hash');
         R.ok('#p/<clave>/lista cierra la tarjeta y cambia la pestaña', document.querySelector('.tab[data-tab="lista"]').classList.contains('is-on') && document.querySelector('.tab[data-tab="lista"]').getAttribute('aria-selected') === 'true');
-        irHash('#mis'); await esperar(() => visible('p-mis'), 'mis por hash');
+        await irHash('#mis'); await esperar(() => visible('p-mis'), 'mis por hash');
         R.ok('#mis navega a Mis tareas', visible('p-mis'));
-        irHash('#p/no-existe'); await esperar(() => visible('p-inicio') && avisoCon('No hay un proyecto'), 'clave desconocida');
+        await irHash('#p/no-existe'); await esperar(() => visible('p-inicio') && avisoCon('No hay un proyecto'), 'clave desconocida');
         R.ok('clave desconocida: aviso y a Inicio, hash corregido', location.hash === '#inicio', location.hash);
         R.ok('Inicio: la nota sale como «anotó: …» en la actividad', $('inicioActividad').textContent.includes('anotó: «Esperando'));
         { const M9 = await import('../comun.js'), a9 = { Quien: YO, Accion: 'editar', Title: 'editó algo' }, antes9 = M9.fraseActividad(a9);   // C-09 (v0.133.0): sin navegar, para no correr el contador de pushState (obs. 614)
@@ -1860,7 +1864,7 @@ try {
             filas('tareas').push(tHechaVieja);
             await recargarYEsperar();
             // Roadmap global
-            irHash('#roadmap'); await esperar(() => visible('p-roadmap'), 'roadmap');
+            await irHash('#roadmap'); await esperar(() => visible('p-roadmap'), 'roadmap');
             R.ok('v0.10.0 (v0.46.0: sin la fila de KPI): #roadmap abre la línea de tiempo con una barra por frente activo, la raya de hoy y el eje de meses', visible('p-roadmap') && !document.getElementById('roadmapKpis') && !document.querySelector('#p-roadmap .mn-kpis') && document.querySelectorAll('#roadmapCaja .g-barra[data-roadmap-barra]').length === filas('proyectos').filter(p => p.fields.Estado === 'activo').length && !!document.querySelector('#roadmapCaja .g-hoy') && document.querySelectorAll('#roadmapCaja .g-meses span').length >= 2);
             R.ok('v0.10.0: la barra del frente lleva su avance adentro y el texto dice cuándo vence', !!document.querySelector(`#roadmapCaja [data-roadmap-barra="${proyectoId}"] .g-pct`) && /vence|venció|sin fin/.test(document.querySelector(`#roadmapCaja [data-roadmap-barra="${proyectoId}"]`).title));   // el texto va adentro o, si la barra es corta, afuera: el title lo trae siempre
             // v0.22.0 (iteracion 4): rombos por tarjeta con fecha, agrupados si se enciman; raya de fin; hoy con etiqueta; meses alternos; leyenda
@@ -1883,10 +1887,10 @@ try {
                 rV.click(); if (TACTIL) { await esperar(() => document.getElementById('gPop'), 'hoja del rombo'); document.querySelector('#gPop .g-pop-it').click(); } await esperar(() => $('dlgTarea').open, 'tarjeta desde el rombo');   // U-04: en tactil pasa por la hoja
                 R.ok('v0.22.0: el rombo suelto abre SU tarjeta', $('tTitulo').textContent === 'Hito hecho el 10 de agosto' && location.hash.endsWith(`/t/${tHechaVieja.id}`));
                 clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada');
-                irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-rombo.is-grupo'), 'roadmap');
+                await irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-rombo.is-grupo'), 'roadmap');
                 document.querySelector(`#roadmapCaja .g-fila:has([data-roadmap-barra="${proyectoId}"]) .g-rombo.is-grupo`).click(); if (TACTIL) { await esperar(() => document.getElementById('gPop'), 'hoja del grupo'); document.querySelector('#gPop [data-pop-frente]').click(); } await esperar(() => visible('tab-roadmap') && location.hash === `#p/${CLAVE}/roadmap`, 'roadmap del frente desde el grupo');
                 R.ok('v0.22.0: el grupo «+N» abre la pestaña Roadmap del frente, donde cada tarjeta tiene su carril', location.hash === `#p/${CLAVE}/roadmap` && visible('tab-roadmap'));
-                irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-rombo'), 'roadmap');
+                await irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-rombo'), 'roadmap');
                 // U-04 (v0.79.0): en tactil el toque sobre un rombo abre la hoja #gPop con lo que decia el title; el «+N» lista sus tarjetas
                 ESTADO.tactil = true;
                 try {
@@ -1900,14 +1904,14 @@ try {
                     rG.click(); await esperar(() => document.getElementById('gPop'), 'hoja del grupo 2');
                     document.querySelector('#gPop [data-pop-frente]').click(); await esperar(() => visible('tab-roadmap') && location.hash === `#p/${CLAVE}/roadmap`, 'roadmap del frente desde la hoja');
                     R.ok('U-04 (v0.79.0): «Ver el roadmap del frente» abre el roadmap del frente y cierra la hoja', location.hash === `#p/${CLAVE}/roadmap` && !document.getElementById('gPop'));
-                    irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-rombo'), 'roadmap');
+                    await irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-rombo'), 'roadmap');
                     const rV2 = [...document.querySelectorAll('#roadmapCaja .g-rombo')].find(r => r.dataset.hito === String(tHechaVieja.id));
                     rV2.click(); await esperar(() => document.getElementById('gPop'), 'hoja del rombo suelto');
                     R.ok('U-04 (v0.79.0): el rombo suelto abre una hoja de UNA fila, sin el botón del frente', document.querySelectorAll('#gPop .g-pop-it').length === 1 && !document.querySelector('#gPop [data-pop-frente]') && document.querySelector('#gPop .g-pop-it b').textContent === 'Hito hecho el 10 de agosto');
                     document.querySelector('#gPop .g-pop-it').click(); await esperar(() => $('dlgTarea').open, 'tarjeta desde la hoja');
                     R.ok('U-04 (v0.79.0): la fila abre SU tarjeta y la hoja se va', $('tTitulo').textContent === 'Hito hecho el 10 de agosto' && !document.getElementById('gPop'));
                     clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada');
-                    irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-rombo'), 'roadmap');
+                    await irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-rombo'), 'roadmap');
                     // C-19: la hoja del rombo toma el foco (U-30), sobrevive a un refresco repintada con los datos nuevos (C-18) y Esc la cierra devolviendo el foco al rombo (U-30)
                     { const sel = `#roadmapCaja .g-fila:has([data-roadmap-barra="${proyectoId}"]) .g-rombo.is-grupo`; document.querySelector(sel).click(); await esperar(() => document.getElementById('gPop'), 'hoja para el refresco');
                       const pop1 = document.getElementById('gPop'); const hito = pop1.dataset.hito;
@@ -1920,7 +1924,7 @@ try {
                 [...document.querySelectorAll('#roadmapCaja .g-rombo')].find(r => r.dataset.hito === String(tHechaVieja.id)).click();
                 if (TACTIL) { await esperar(() => document.getElementById('gPop'), 'hoja por media query'); R.ok('U-04 (v0.79.0): con (hover: none) real —el driver a 390— el rombo abre la hoja sin forzar estado.tactil', !!document.getElementById('gPop') && !$('dlgTarea').open); document.querySelector('#gPop [data-pop-cerrar]').click(); await esperar(() => !document.getElementById('gPop'), 'hoja cerrada'); }
                 else { await esperar(() => $('dlgTarea').open, 'tarjeta directa'); R.ok('U-04 (v0.79.0): sin táctil (escritorio) el rombo sigue abriendo directo, sin hoja', !document.getElementById('gPop') && $('dlgTarea').open); clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada'); }
-                irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-rombo'), 'roadmap');
+                await irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-rombo'), 'roadmap');
                 // U-06 (v0.79.0): bajo 720 px la caja del gantt toma el scroll vertical (max-height) para que .g-cab sticky tenga contra que pegarse
                 R.ok('U-06 (v0.79.0): la hoja de estilo trae, bajo 720 px, .gantt-caja con overflow: auto y max-height en dvh (el sticky top: 0 de la cabecera necesita ese scrollport)', (() => { for (const h of document.styleSheets) { let rs; try { rs = h.cssRules; } catch (e) { continue; } for (const r of rs) if (r.media && /max-width:\s*720px/.test(r.media.mediaText)) for (const q of r.cssRules) if (q.selectorText === '.gantt-caja' && q.style.overflow === 'auto' && /dvh/.test(q.style.maxHeight)) return true; } return false; })() && getComputedStyle(document.querySelector('#roadmapCaja .g-cab')).position === 'sticky' && getComputedStyle(document.querySelector('#roadmapCaja .g-cab')).top === '0px');
             }
@@ -1929,9 +1933,9 @@ try {
             R.ok('v0.26.0: «pantalla completa» fija la tarjeta de la línea de tiempo (is-full), el body pierde el scroll, el botón dice cómo salir y el gantt sigue pintado', $('roadmapLinea').classList.contains('is-full') && document.body.classList.contains('sin-scroll') && $('btnRoadmapFull').getAttribute('aria-pressed') === 'true' && /salir/.test($('btnRoadmapFull').textContent) && document.querySelectorAll('#roadmapCaja .g-barra[data-roadmap-barra]').length >= 1);
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
             R.ok('v0.26.0: Esc sale de pantalla completa y el botón vuelve a «pantalla completa»', !$('roadmapLinea').classList.contains('is-full') && !document.body.classList.contains('sin-scroll') && $('btnRoadmapFull').getAttribute('aria-pressed') === 'false');
-            $('btnRoadmapFull').click(); irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio');
+            $('btnRoadmapFull').click(); await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio');
             R.ok('v0.26.0: cambiar de pantalla también cierra la pantalla completa', !$('roadmapLinea').classList.contains('is-full') && !document.body.classList.contains('sin-scroll'));
-            irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-barra'), 'roadmap');
+            await irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-barra'), 'roadmap');
             R.ok('v0.40.0: la línea de tiempo toma toda la hilera (#p-roadmap > .bandas, sin .dos-columnas) y «Fines de frente próximos» queda DEBAJO de ella', (() => { const l = $('roadmapLinea'), f = $('roadmapHitos').closest('.mn-card'); return !!document.querySelector('#p-roadmap > .bandas') && !document.querySelector('#p-roadmap .dos-columnas') && l.parentElement === f.parentElement && l.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING && Math.abs(l.getBoundingClientRect().width - f.getBoundingClientRect().width) < 2 && f.getBoundingClientRect().top >= l.getBoundingClientRect().bottom; })(), `${$('roadmapLinea').getBoundingClientRect().width} vs ${$('roadmapHitos').closest('.mn-card').getBoundingClientRect().width}`);
             R.ok('v0.40.0: cada frente lleva título y subtítulo «N/N hechas · fin dd/mm» (o «sin fin»), sin porcentaje; U-09 (v0.78.0): bajo 720 px sin «hechas» y la fecha no cede (flex-shrink 0); C-09 (v0.120.0): «hechas» lo esconde el CSS, así que se mira si SE VE, no el texto', (() => { const ps = [...document.querySelectorAll('#roadmapCaja .g-proy')]; return ps.length >= 1 && ps.every(b => b.querySelector('.cuerpo .t') && b.querySelector('.cuerpo .t').textContent.trim() && /^\d+\/\d+( hechas)?\u00a0· (fin \d\d\/\d\d|sin fin)$/.test(b.querySelector('.cuerpo .m').textContent) && (innerWidth <= 720) !== (!!b.querySelector('.cuerpo .m .solo-ancho') && getComputedStyle(b.querySelector('.cuerpo .m .solo-ancho')).display !== 'none') && b.querySelector('.cuerpo .m .f') && getComputedStyle(b.querySelector('.cuerpo .m .f')).flexShrink === '0'); })(), [...document.querySelectorAll('#roadmapCaja .g-proy .m')].map(m => m.textContent).join(' | '));
             // C-03 (v0.78.0): «Fines de frente próximos» y el filtro del rail sobre Roadmap no tenían aserción
@@ -1955,7 +1959,7 @@ try {
               { const b = document.querySelector('#roadmapEscala [data-escala="meses"]'); b.focus(); b.click(); await esperar(() => caja.dataset.escala === 'meses', 'escala meses');
                 R.ok('C-16 (v0.137.0): pulsar una escala deja el foco en el botón nuevo de esa escala (el viejo se rehizo), no en el body', document.activeElement !== b && document.activeElement?.dataset.escala === 'meses', document.activeElement?.tagName); }
               // C-19: una escala guardada que ya no existe (una version vieja, otra app) cae a la del CSS con su boton encendido
-              try { localStorage.setItem('proy.roadmapEscala', 'decadas'); } catch (_) {} ESTADO.roadmapEscala = null; pestana('inicio'); await dormir(30); irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-barra'), 'roadmap con escala vieja');
+              try { localStorage.setItem('proy.roadmapEscala', 'decadas'); } catch (_) {} ESTADO.roadmapEscala = null; pestana('inicio'); await dormir(30); await irHash('#roadmap'); await esperar(() => visible('p-roadmap') && document.querySelector('#roadmapCaja .g-barra'), 'roadmap con escala vieja');
               { const css = getComputedStyle(caja).getPropertyValue('--escala').trim(); const esp = ['semanas', 'meses', 'trimestre'].includes(css) ? css : 'trimestre';
                 R.ok('C-19 (v0.136.0): una escala guardada que ya no existe cae a la del CSS (--escala) y enciende su botón', caja.dataset.escala === esp && document.querySelector(`#roadmapEscala [data-escala="${esp}"]`).getAttribute('aria-pressed') === 'true', `escala=${caja.dataset.escala} css=${css}`); }
               try { if (escAntes) localStorage.setItem('proy.roadmapEscala', escAntes); else localStorage.removeItem('proy.roadmapEscala'); } catch (_) {} }
@@ -2021,7 +2025,7 @@ try {
             R.ok('v0.10.0: con Roadmap abierto no hay filtros de tarjetas', $('filtroTareas').classList.contains('oculto'), `hash=${location.hash} tab=${document.querySelector('.tab.is-on')?.dataset.tab}`);
             R.ok('C-18 (v0.123.0): con Roadmap abierto «Filtrar» tampoco se ve (una sola lista de pestañas con filtro)', $('btnFiltros').classList.contains('oculto'));
             // Calendario
-            irHash('#calendario'); await esperar(() => visible('p-calendario'), 'calendario');
+            await irHash('#calendario'); await esperar(() => visible('p-calendario'), 'calendario');
             const mesHoy = hoyIso.slice(0, 7);
             R.ok('v0.10.0: #calendario abre el mes en curso con 42 celdas, hoy marcado y la tarjeta que vence hoy en su día', visible('p-calendario') && document.querySelectorAll('#calRejilla .cal-dia').length === 42 && !!document.querySelector('#calRejilla .cal-dia.is-hoy') && !!document.querySelector(`#calRejilla .cal-dia.is-hoy [data-cal-t="${tHoy.id}"]`) && $('calTitulo').textContent.endsWith(mesHoy.slice(0, 4)));
             R.ok('v0.10.0: la agenda de celular trae el mismo día', !!document.querySelector(`#calAgenda [data-cal-t="${tHoy.id}"]`));
@@ -2047,16 +2051,16 @@ try {
                 document.querySelector('#filtroMis [data-mis="pronto"]').click(); await dormir(30);
                 const bloques = [...document.querySelectorAll('#misLista > .bloq')];
                 R.ok('C-04 (v0.90.0): «vencen en 7 días» deja solo el bloque «Esta semana» (.is-pronto, data-bloque=semana) con la que vence hoy, su cifra = los renglones = el contador, y el día en ámbar', document.querySelector('#filtroMis .kpi.is-on').dataset.mis === 'pronto' && bloques.length === 1 && bloques[0].dataset.bloque === 'semana' && bloques[0].classList.contains('is-pronto') && !!bloques[0].querySelector(`.tr[data-t="${tHoy.id}"]`) && Number(bloques[0].querySelector('.rot b').textContent) === trs().length && trs().length === Number(document.querySelector('#filtroMis [data-mis="pronto"] b').textContent) && bloques[0].querySelector(`.tr[data-t="${tHoy.id}"]`).classList.contains('is-pronto') && getComputedStyle(bloques[0].querySelector(`.tr[data-t="${tHoy.id}"] .k b`)).color === getComputedStyle(bloques[0].querySelector('.rot b')).color, `bloques=${bloques.map(b => b.dataset.bloque).join(',')} n=${trs().length}`);
-                irHash(`#mis/t/${tHoy.id}`); await esperar(() => $('dlgTarea').open, 'tarjeta por #mis/t');
+                await irHash(`#mis/t/${tHoy.id}`); await esperar(() => $('dlgTarea').open, 'tarjeta por #mis/t');
                 R.ok('C-04 (v0.90.0): #mis/t/<id> abre la tarjeta SOBRE Mis tareas (no en el proyecto) y el hash se queda', $('dlgTarea').open && visible('p-mis') && $('tTitulo').textContent.startsWith(tHoy.fields.Title) && location.hash === `#mis/t/${tHoy.id}`, location.hash);
                 clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada');
                 R.ok('C-04 (v0.90.0): al cerrarla el hash vuelve a #mis y el filtro «pronto» sigue puesto (cerrar no navega)', location.hash === '#mis' && document.querySelector('#filtroMis .kpi.is-on').dataset.mis === 'pronto', location.hash);
                 // U-03: el filtro «vencidas» que pone Inicio («ver en Mis tareas», solo mías) dura esa visita; la pestaña y el hash sin origen vuelven a «abiertas».
                 pestana('inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await dormir(30);
                 R.ok('U-03 (v0.90.0): entrar a Mis tareas por la pestaña vuelve a «abiertas» (el «pronto» de la visita anterior no se queda pegado)', (pestana('mis'), true) && document.querySelector('#filtroMis .kpi.is-on').dataset.mis === 'todas', document.querySelector('#filtroMis .kpi.is-on').dataset.mis);
-                const mod = await import('../comun.js'); mod.estado.filtroMisAlLlegar = 'vencidas'; irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio otra vez'); irHash('#mis'); await esperar(() => visible('p-mis'), 'mis por hash'); await dormir(30);
+                const mod = await import('../comun.js'); mod.estado.filtroMisAlLlegar = 'vencidas'; await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio otra vez'); await irHash('#mis'); await esperar(() => visible('p-mis'), 'mis por hash'); await dormir(30);
                 R.ok('U-03 (v0.90.0): el filtro que deja Inicio (filtroMisAlLlegar) aterriza puesto UNA vez…', document.querySelector('#filtroMis .kpi.is-on').dataset.mis === 'vencidas' && mod.estado.filtroMisAlLlegar === null, document.querySelector('#filtroMis .kpi.is-on').dataset.mis);
-                irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio 3'); irHash('#mis'); await esperar(() => visible('p-mis'), 'mis por hash 2'); await dormir(30);
+                await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio 3'); await irHash('#mis'); await esperar(() => visible('p-mis'), 'mis por hash 2'); await dormir(30);
                 R.ok('U-03 (v0.90.0): …y la visita siguiente por hash sin origen ya entra en «abiertas»', document.querySelector('#filtroMis .kpi.is-on').dataset.mis === 'todas', document.querySelector('#filtroMis .kpi.is-on').dataset.mis);
                 // U-05: una tarjeta SIN asignar que yo cree (createdBy = yo en el arnes) no cuenta como «la que delegué».
                 const tSinDueno = { id: DB.siguienteId++, fields: { Title: 'Sin dueño creada por mí (U-05)', ProyectoId: proyectoId, Columna: 'por-hacer', Asignado: '', Prioridad: 'normal' } }; filas('tareas').push(tSinDueno);
@@ -2073,7 +2077,7 @@ try {
                 R.ok('C-02 (v0.91.0): «las que delegué» lista la tarjeta ajena con AsignadoPor = yo sin renglón alguno en la bitácora', trs().some(r => r.dataset.t === String(tC02.id)) && !filas('actividad').some(a => Number(a.fields.TareaId) === tC02.id), `delegadas=${trs().length}`);
                 document.querySelector('#filtroMis [data-mis="todas"]').click(); await dormir(20);
                 DB.sinAsignadoPor = true; mod.estado.columnasTareas = null; await recargarYEsperar(); pestana('mis'); await esperar(() => visible('p-mis'), 'mis sin columna'); await dormir(30);
-                irHash(`#mis/t/${tC02.id}`); await esperar(() => $('dlgTarea').open, 'tarjeta C-02'); editar('asignado'); poner('ftAsignado', YO); clic('btnGuardarTarea');
+                await irHash(`#mis/t/${tC02.id}`); await esperar(() => $('dlgTarea').open, 'tarjeta C-02'); editar('asignado'); poner('ftAsignado', YO); clic('btnGuardarTarea');
                 await esperar(() => tC02.fields.Asignado === YO, 'reasignada sin columna');
                 R.ok('C-02 (v0.91.0): con la lista SIN la columna (antes de provisionar) el PATCH no lleva AsignadoPor y guarda sin 400; el valor viejo queda como estaba', tC02.fields.Asignado === YO && tC02.fields.AsignadoPor === YO && mod.estado.columnasTareas instanceof Set && !mod.estado.columnasTareas.has('AsignadoPor'), `cols=${mod.estado.columnasTareas && [...mod.estado.columnasTareas].length}`);
                 clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada C-02');
@@ -2083,7 +2087,7 @@ try {
                 await recargarYEsperar();
             }
             // v0.86.0 (tanda 1 de /mejorar-app calendario): C-01 color por estado, U-05 conteo = lo pintado, U-07 aria-pressed + Esc, U-02/U-04 enfoque
-            irHash('#calendario'); await esperar(() => visible('p-calendario'), 'calendario otra vez'); clic('calHoy'); await dormir(30);   // abrir la tarjeta dejo la app en #p/…: volver al calendario con hoy elegido
+            await irHash('#calendario'); await esperar(() => visible('p-calendario'), 'calendario otra vez'); clic('calHoy'); await dormir(30);   // abrir la tarjeta dejo la app en #p/…: volver al calendario con hoy elegido
             { const bHoy = document.querySelector(`#calRejilla [data-cal-t="${tHoy.id}"]`); const idHecha = filas('tareas').find(t => t.fields.Title === 'Hecha esta semana').id; const bHecha = document.querySelector(`#calRejilla [data-cal-t="${idHecha}"]`);
               const vencidas = [...document.querySelectorAll('#calRejilla [data-cal-t]')].filter(b => { const t = filas('tareas').find(x => String(x.id) === b.dataset.calT); return t && t.fields.Columna !== 'hecho' && diasPara(t.fields.Vence) < 0; });
               R.ok('C-01 (v0.86.0): la tarjeta que vence hoy (en curso) va en .is-brand, la hecha de hoy en .is-ok y toda vencida abierta en .is-danger (idle sigue siendo legítimo: «por hacer» en tiempo)', !!bHoy && bHoy.classList.contains('is-brand') && !!bHecha && bHecha.classList.contains('is-ok') && vencidas.every(b => b.classList.contains('is-danger')), `hoy=${bHoy?.className} hecha=${bHecha?.className} vencidas=${vencidas.length}`);
@@ -2126,8 +2130,8 @@ try {
               clic('calHoy'); await dormir(30);   // se deja hoy elegido, que es lo que espera el Esc de abajo
               document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await dormir(30); }
             // Mensajes: entrar al chat fija «visto»; un comentario ajeno posterior cuenta como nuevo en el rail y en la bandeja
-            irHash(`#p/${CLAVE}/chat`); await esperar(() => visible('tab-chat'), 'chat'); await dormir(30);
-            irHash('#mensajes'); await esperar(() => visible('p-mensajes'), 'mensajes');
+            await irHash(`#p/${CLAVE}/chat`); await esperar(() => visible('tab-chat'), 'chat'); await dormir(30);
+            await irHash('#mensajes'); await esperar(() => visible('p-mensajes'), 'mensajes');
             R.ok('v0.10.0: #mensajes lista un renglón por frente, el que tiene chat con su último mensaje y quién lo escribió', visible('p-mensajes') && document.querySelectorAll('#mensajesLista [data-mensajes]').length >= 1 && document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"] .m b`).textContent.length > 1 && $('nMensajes').hidden);
             filas('actividad').push({ id: DB.siguienteId++, fields: { Title: 'mensaje nuevo para la bandeja', Accion: 'comentar', Quien: 'colega@example.invalid', Cuando: new Date(Date.now() + 1000).toISOString(), ProyectoId: proyectoId } });
             await recargarYEsperar(); await dormir(30);
@@ -2157,7 +2161,7 @@ try {
               if (anchoEsc) { const w = $('msj').firstElementChild.getBoundingClientRect().width; R.ok('v0.56.0: plegada, la columna izquierda mide 52 px (antes 280–360)', Math.abs(w - 52) < 2, `${w}px`); }
               const vacio = rail().find(b => b.classList.contains('is-vacio')); if (vacio) { vacio.click(); await dormir(30);
                 R.ok('v0.56.0: un botón del rail cambia de frente (#mensajes/f/<clave>) sin desplegar la bandeja, y el rail repintado lo marca', location.hash.startsWith('#mensajes/f/') && location.hash !== `#mensajes/f/${CLAVE}` && $('msj').classList.contains('is-plegada') && rail().filter(b => b.classList.contains('is-on')).length === 1 && rail().find(b => b.classList.contains('is-on')).classList.contains('is-vacio'), location.hash);
-                irHash(`#mensajes/f/${CLAVE}`); await esperar(() => location.hash === `#mensajes/f/${CLAVE}` && visible('tab-chat'), 'de vuelta al frente LAU'); await dormir(20); }
+                await irHash(`#mensajes/f/${CLAVE}`); await esperar(() => location.hash === `#mensajes/f/${CLAVE}` && visible('tab-chat'), 'de vuelta al frente LAU'); await dormir(20); }
               clic('mensajesDesplegar'); await dormir(20);
               R.ok('v0.56.0: «›» despliega: sin .is-plegada, sin llave en localStorage, y la lista vuelve', !$('msj').classList.contains('is-plegada') && !localStorage.getItem('bandeja') && $('mensajesPlegar').getAttribute('aria-expanded') === 'true' && (!anchoEsc || visible('mensajesLista')));
             }
@@ -2168,15 +2172,14 @@ try {
                 // (el ajeno de arriba lleva Cuando = ahora + 1 s, asi que en el hilo queda DEBAJO del mio: se busca el mio, no el ultimo)
                 R.ok('v0.42.0: enviar desde el hilo de Mensajes crea el comentario en el frente elegido y se pinta como mío', Number(nuevo.ProyectoId) === proyectoId && nuevo.Accion === 'comentar' && [...document.querySelectorAll('#chatHilo .msg.is-mio')].some(m => m.textContent.includes('respuesta desde la bandeja')));
             }
-            if (pushes >= 80) { pushes = 0; await dormir(10500); }   // 27-sep: la pausa anti-throttle va ANTES de la navegacion: dentro de esperar() caia entre la accion y la asercion y el aviso (4 s) ya habia expirado (medido: pushes 89 -> 90)
-            irHash('#mensajes/d/colega'); await esperar(() => visible('p-mensajes') && !visible('mensajesHilo'), 'liga vieja /d/'); await dormir(20);
+            await irHash('#mensajes/d/colega'); await esperar(() => visible('p-mensajes') && !visible('mensajesHilo'), 'liga vieja /d/'); await dormir(20);
             R.ok('v0.43.0: una liga vieja #mensajes/d/<alias> cae a la bandeja de Mensajes (sin hilo, sin ficha) y avisa que lo directo va por Teams', visible('p-mensajes') && !visible('mensajesHilo') && !(await import('../comun.js')).estado.mensajesSel && /Teams/.test($('avisos').textContent));
             poner('mensajesBusca', 'zzz-nada'); await dormir(20);   // no casa con ningún frente: título, clave, último mensaje y quién lo escribió
             R.ok('v0.43.0: el buscador filtra la bandeja (el frente LAU no casa) y despliega «Sin conversación»', !document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"]`) && document.querySelector('#mensajesLista .msj-sec[data-sec="sin"]').open);
             poner('mensajesBusca', ''); await dormir(20);
-            irHash(`#p/${CLAVE}/chat`); await esperar(() => visible('tab-chat') && visible('p-proyecto'), 'chat del proyecto'); await dormir(30);
+            await irHash(`#p/${CLAVE}/chat`); await esperar(() => visible('tab-chat') && visible('p-proyecto'), 'chat del proyecto'); await dormir(30);
             R.ok('v0.42.0: volver a la pestaña Chat del proyecto devuelve #tab-chat a su lugar (dentro de #p-proyecto) con el hilo pintado', $('p-proyecto').contains($('tab-chat')) && document.querySelectorAll('#chatHilo .msg').length > 0);
-            irHash('#mensajes'); await esperar(() => visible('p-mensajes'), 'mensajes'); await dormir(20);
+            await irHash('#mensajes'); await esperar(() => visible('p-mensajes'), 'mensajes'); await dormir(20);
             R.ok('v0.29.1: una insignia del rail con .hidden NO se pinta (la piel le pone display: inline-grid y pisaba el [hidden]: se veía «0»)', ['nMensajes', 'nMis', 'nProyectos'].every(id => !$(id).hidden || getComputedStyle($(id)).display === 'none'), ['nMensajes', 'nMis', 'nProyectos'].map(id => `${id}:${$(id).hidden}/${getComputedStyle($(id)).display}`).join(' '));
             // ---- v0.15.0 (2026-09-13, auditoría como usuario): el mismo canal — marca compartida, ✓ visto, Nuevo para ti, Las que delegué.
             {
@@ -2188,10 +2191,10 @@ try {
                 // «Otro dispositivo»: sin localStorage la marca sigue viniendo del tenant, así que lo ajeno posterior sí es nuevo.
                 localStorage.removeItem(`proy.chatVisto.${proyectoId}`);
                 filas('actividad').push({ id: DB.siguienteId++, fields: { Title: 'desde otro dispositivo', Accion: 'comentar', Quien: 'colega@example.invalid', Cuando: new Date(Date.now() + 2000).toISOString(), ProyectoId: proyectoId } });
-                irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await recargarYEsperar(); await dormir(30);
+                await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await recargarYEsperar(); await dormir(30);
                 R.ok('v0.15.0: sin localStorage (otro dispositivo) la marca compartida cuenta el comentario ajeno como nuevo', mod.comentariosNuevos(proyectoId).length === 1 && !$('nMensajes').hidden && $('nMensajes').textContent === '1');
                 // ✓ visto: en lo ajeno hay botón, en lo propio no; marcar escribe Accion=visto con Title=id del comentario; volver a pulsar lo borra.
-                irHash(`#p/${CLAVE}/chat`); await esperar(() => visible('tab-chat') && document.querySelectorAll('#chatHilo .msg').length > 0, 'chat'); await dormir(40);
+                await irHash(`#p/${CLAVE}/chat`); await esperar(() => visible('tab-chat') && document.querySelectorAll('#chatHilo .msg').length > 0, 'chat'); await dormir(40);
                 const cAjeno = filas('actividad').filter(x => x.fields.Accion === 'comentar' && x.fields.Quien === 'colega@example.invalid' && Number(x.fields.ProyectoId) === proyectoId && !x.fields.TareaId).pop();
                 const cPropio = filas('actividad').filter(x => x.fields.Accion === 'comentar' && x.fields.Quien === YO && Number(x.fields.ProyectoId) === proyectoId && !x.fields.TareaId).pop();
                 const bVisto = document.querySelector(`#chatHilo .msg[data-comentario="${cAjeno.id}"] .visto-btn`);
@@ -2202,14 +2205,14 @@ try {
                 R.ok('v0.15.0: marcar ✓ escribe Accion=visto (Title = id del comentario, ProyectoId, sin TareaId) y enciende el botón; v0.83.0 (U-05): la lista de quién lo vio NO repite al propio lector (solo él lo ha visto: sin lista)', Number(vRow.fields.ProyectoId) === proyectoId && !vRow.fields.TareaId && document.querySelector(`#chatHilo .msg[data-comentario="${cAjeno.id}"] .visto-btn`).classList.contains('is-on') && !document.querySelector(`#chatHilo .msg[data-comentario="${cAjeno.id}"] .vistos .q`));
                 pestana('inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await dormir(30);
                 R.ok('v0.15.0: los ✓ no son actividad: no salen en «Actividad reciente» ni cuentan en el chat', ![...document.querySelectorAll('#inicioActividad .it')].some(x => /visto/.test(x.textContent)) && mod.comentariosDe(proyectoId).every(c => c.Accion === 'comentar'));
-                irHash(`#p/${CLAVE}/chat`); await esperar(() => visible('tab-chat') && !!document.querySelector(`#chatHilo .msg[data-comentario="${cAjeno.id}"] .visto-btn.is-on`), 'chat con visto'); await dormir(30);
+                await irHash(`#p/${CLAVE}/chat`); await esperar(() => visible('tab-chat') && !!document.querySelector(`#chatHilo .msg[data-comentario="${cAjeno.id}"] .visto-btn.is-on`), 'chat con visto'); await dormir(30);
                 document.querySelector(`#chatHilo .msg[data-comentario="${cAjeno.id}"] .visto-btn`).click();
                 await esperar(() => !filas('actividad').some(x => x.fields.Accion === 'visto' && x.fields.Title === String(cAjeno.id)), 'visto borrado'); await dormir(30);
                 R.ok('v0.15.0: volver a pulsar quita el visto (se borra el renglón) y apaga el botón', !document.querySelector(`#chatHilo .msg[data-comentario="${cAjeno.id}"] .visto-btn.is-on`));
                 // Nuevo para ti: otro me asigna una tarjeta → sale en Inicio con «te asignó»; al volver, la marca ya subió y desaparece.
                 const tMia = filas('tareas').find(t => t.fields.Asignado === YO && t.fields.Columna !== 'hecho' && Number(t.fields.ProyectoId) === proyectoId);
                 filas('actividad').push({ id: DB.siguienteId++, fields: { Title: `asignó «${tMia.fields.Title}» a Persona de Prueba`, Accion: 'editar-tarea', Quien: 'jefa@example.invalid', Cuando: new Date(Date.now() + 3000).toISOString(), ProyectoId: proyectoId, TareaId: tMia.id } });
-                irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await recargarYEsperar(); await dormir(30);
+                await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await recargarYEsperar(); await dormir(30);
                 // v0.21.0: «Nuevo para ti» es un grupo de la cola «Hoy» (decision de Carlos, 13-sep), con su conteo en el encabezado.
                 R.ok('v0.15.0 → v0.21.0: el grupo «Nuevo para ti» de la cola trae la tarjeta que otro me asignó, con quién y «te asignó», y la cuenta', !!document.querySelector('#inicioHoy [data-grupo="nuevo"]') && [...document.querySelectorAll('#inicioHoy .hoy-r[data-nuevo="asignada"]')].some(r => r.textContent.includes('te asignó') && r.textContent.includes('Jefa')) && document.querySelector('#inicioHoy [data-grupo="nuevo"] .n').textContent === String(document.querySelectorAll('#inicioHoy .hoy-r[data-nuevo]').length));
                 // v0.72.0 (C-04): la misma asignacion ajena, en «Actividad reciente»: es-nuevo con la etiqueta «tuya»; lo mio sin clase; lo ajeno anterior atenuado (es-visto).
@@ -2220,13 +2223,13 @@ try {
                 R.ok('v0.15.0: el renglón abre la tarjeta', $('dlgTarea').open && $('tTitulo').textContent === tMia.fields.Title);
                 clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada');
                 await esperar(() => { try { return !!JSON.parse(miRol().fields.Visto || '{}').inicio; } catch (_) { return false; } }, 'Visto.inicio compartido');
-                irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await dormir(40);
+                await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await dormir(40);
                 R.ok('v0.15.0: la marca de Inicio sube (compartida en PROY_Roles) y al volver ya no hay nada nuevo', !!JSON.parse(miRol().fields.Visto).inicio && !document.querySelector('#inicioHoy [data-grupo="nuevo"]'));
                 R.ok('v0.72.0 (C-04): al volver con la marca subida ningun renglon de «Actividad reciente» es es-nuevo ni es-visto (sin nada nuevo la tarjeta no se atenua)', document.querySelectorAll('#inicioActividad .it').length > 0 && !document.querySelector('#inicioActividad .es-nuevo') && !document.querySelector('#inicioActividad .es-visto'));
                 // v0.72.0 (C-04): un comentario ajeno POSTERIOR a la marca (sin tarjeta: no entra a «Nuevo para ti», la marca no sube) es el unico es-nuevo,
                 // y con el, lo ajeno anterior que se pinta se atenua (es-visto) mientras lo mio sigue sin clase.
                 { const cPost = { id: DB.siguienteId++, fields: { Title: 'comentario ajeno posterior a la marca', Accion: 'comentar', Quien: 'colega@example.invalid', Cuando: new Date(Date.now() + 6000).toISOString(), ProyectoId: proyectoId } }; filas('actividad').push(cPost);
-                  pestana('proyectos'); await dormir(20); irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await recargarYEsperar(); pestana('inicio'); await dormir(40);
+                  pestana('proyectos'); await dormir(20); await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await recargarYEsperar(); pestana('inicio'); await dormir(40);
                   const its = [...document.querySelectorAll('#inicioActividad .it')]; const deYo = it => it.querySelector('.q').textContent.startsWith('Persona');
                   const nuevos = its.filter(it => it.classList.contains('es-nuevo')), ajenosViejos = its.filter(it => !deYo(it) && !it.classList.contains('es-nuevo'));
                   R.ok('v0.72.0 (C-04): el comentario ajeno posterior es el UNICO es-nuevo, todo lo ajeno anterior pintado va es-visto (hay al menos uno) y lo mio sin clase', nuevos.length === 1 && nuevos[0].textContent.includes('posterior a la marca') && ajenosViejos.length > 0 && ajenosViejos.every(it => it.classList.contains('es-visto')) && its.filter(deYo).every(it => !it.classList.contains('es-nuevo') && !it.classList.contains('es-visto')), its.map(it => `${it.querySelector('.q').textContent}:${[...it.classList].filter(c => c.startsWith('es-')).join('/') || '-'}`).join(' | '));
@@ -2267,7 +2270,7 @@ try {
                 document.querySelector('#filtroMis [data-mis="todas"]').click(); await dormir(20);
             }
             // Archivos
-            irHash('#archivos'); await esperar(() => visible('p-archivos'), 'archivos');
+            await irHash('#archivos'); await esperar(() => visible('p-archivos'), 'archivos');
             const nLigas = filas('ligas').length;
             R.ok('v0.10.0: #archivos lista todas las ligas de todos los frentes, agrupadas por proyecto, con su icono', visible('p-archivos') && document.querySelectorAll('#archivosLista [data-archivo]').length === nLigas && document.querySelectorAll('#archivosLista tr.raiz .ir-docs').length >= 1 && document.querySelectorAll('#archivosLista .fico').length === nLigas, `${nLigas} ligas`);
             R.ok('v0.17.0 (v0.45.0: sin columna «Tarjeta» — 5 encabezados, «Abrir tarjeta» en el menú «⋯»): #archivos es la misma tabla, sin las 4 cifras de arriba (v0.46.0) y con el menú «⋯» sin Quitar', document.querySelectorAll('#archivosLista .dtabla thead th').length === 5 && !document.querySelector('#archivosLista th[data-sort="tarjeta"]') && !document.querySelector('#archivosLista td.c-tarjeta') && !document.getElementById('archivosKpis') && !document.querySelector('#p-archivos .mn-kpis') && document.querySelectorAll('#archivosLista .fila-menu [data-abrir-tarjeta]').length === filas('ligas').filter(l => l.fields.TareaId).length && !document.querySelector('#archivosLista [data-quitar]') && !!document.querySelector('#archivosLista .fila-menu'));
@@ -2356,7 +2359,7 @@ try {
                 abrirT.click(); await esperar(() => visible('p-proyecto') && location.hash.includes('/t/'), 'tarjeta desde archivos'); await dormir(30);
                 R.ok('C-04 (v0.85.0): «Abrir tarjeta» del menu «⋯» abre #p/<clave>/t/<id> (C-02: resuelto por id al clic)', location.hash === `#p/${pT.fields.Clave}/t/${tid}`, location.hash); }
               else { R.ok('C-04 (v0.85.0): «Abrir tarjeta» — no aplica, ninguna liga de este rol cuelga de una tarjeta', filas('ligas').every(l => !l.fields.TareaId)); document.querySelector('#archivosLista tr.raiz .ir-docs').click(); await esperar(() => visible('tab-docs'), 'docs'); }
-              irHash('#archivos'); await esperar(() => visible('p-archivos'), 'archivos de vuelta'); await dormir(30);
+              await irHash('#archivos'); await esperar(() => visible('p-archivos'), 'archivos de vuelta'); await dormir(30);
               R.ok('C-04 (v0.85.0): volver a #archivos conserva las carpetas abiertas (la sesion recuerda, v0.51.0)', S().size === nAbiertas && ocultas() === 0 && [...document.querySelectorAll('#archivosLista tr.raiz')].every(r => !r.classList.contains('is-plegada')), `abiertas=${S().size}/${nAbiertas}`);
               const irD = document.querySelector('#archivosLista .fila-menu [data-ir-docs]'); const pD = filas('proyectos').find(p => p.id === Number(irD.dataset.irDocs));
               irD.click(); await esperar(() => visible('tab-docs'), 'docs desde el menu'); await dormir(30);
@@ -2366,11 +2369,11 @@ try {
                 if (bib) { mod.estado.sitiosUnidad = {}; const antesN = DB.llamadas.filter(c => c.startsWith('GET /sites/') && c.endsWith(bib.sitio)).length; docs.pintarDocs(pA); docs.pintarDocs(pA); await dormir(80);
                   R.ok('C-08 (v0.85.0): dos pintarDocs concurrentes con la cache vacia piden el sitio de la biblioteca UNA sola vez', DB.llamadas.filter(c => c.startsWith('GET /sites/') && c.endsWith(bib.sitio)).length === antesN + 1, `+${DB.llamadas.filter(c => c.startsWith('GET /sites/') && c.endsWith(bib.sitio)).length - antesN}`); }
                 else R.ok('C-08 (v0.85.0): no aplica — el proyecto abierto no tiene biblioteca', true); }
-              irHash('#archivos'); await esperar(() => visible('p-archivos'), 'archivos'); await dormir(30); }
+              await irHash('#archivos'); await esperar(() => visible('p-archivos'), 'archivos'); await dormir(30); }
             document.querySelector('#archivosLista tr.raiz .ir-docs').click(); await esperar(() => visible('tab-docs'), 'docs desde archivos');
             R.ok('v0.10.0 (v0.36.0: el boton «Documentos» de la raiz): el proyecto abre sus Documentos', visible('tab-docs') && location.hash.endsWith('/docs'));
             // Reportes
-            irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes');
+            await irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes');
             const activosN = filas('proyectos').filter(p => p.fields.Estado === 'activo').length;
             R.ok('v0.10.0 (v0.46.0: sin los 5 KPI): #reportes trae el anillo global, una barra por proyecto activo, la carga por persona y 8 semanas de hechas', visible('p-reportes') && !document.getElementById('reportesKpis') && !document.querySelector('#p-reportes .mn-kpis') && !!document.querySelector('#repGlobal svg.anillo') && document.querySelectorAll('#repProyectos [data-rep-p]').length === activosN && document.querySelectorAll('#repPersonas [data-rep-q]').length >= 1 && document.querySelectorAll('#repSemanas .col-s').length === 8);
             R.ok('v0.10.0: la hecha de esta semana cuenta en la última columna y la vencida sale en «Vencidas por proyecto»', Number(document.querySelector('#repSemanas .col-s:last-child b').textContent) >= 1 && document.querySelectorAll('#repVencidas [data-rep-v]').length === filas('tareas').filter(t => t.fields.Columna !== 'hecho' && t.fields.Vence && diasPara(t.fields.Vence) < 0).length);
@@ -2378,17 +2381,17 @@ try {
             document.querySelector(`#repProyectos [data-rep-p="${proyectoId}"]`).click(); await esperar(() => visible('p-proyecto'), 'proyecto desde reportes');
             R.ok('v0.10.0: la fila del reporte abre el proyecto', visible('p-proyecto') && location.hash === `#p/${CLAVE}`);
             // el filtro del rail aplica a Reportes sin saltar a Proyectos (el de Roadmap se afirma arriba, C-03 v0.78.0)
-            irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes');
+            await irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes');
             // C-02 (reportes, v0.89.0): lo que Reportes pinta y nadie tocaba — la vencida abre su tarjeta, la carga cuadra por dueño,
             // la actividad tiene renglones, el subtitulo de semanas suma las columnas, e Imprimir imprime. Y U-01/U-02/U-04/U-06 de la misma tanda.
             { const activo = t => filas('proyectos').some(p => p.id === Number(t.fields.ProyectoId) && p.fields.Estado === 'activo');
               // una vencida MIA sembrada solo para este bloque (gerencia llega aqui sin ninguna); se retira al final para no mover las cuentas de abajo
               const tVenc = { id: DB.siguienteId++, fields: { Title: 'Vencida para Reportes', ProyectoId: proyectoId, Columna: 'en-curso', Asignado: YO, Prioridad: 'normal', Vence: new Date(Date.now() - 3 * 86400000).toISOString() } };
               const pVacio = { id: DB.siguienteId++, fields: { Title: 'Frente vacío para Reportes', Clave: 'rep-vacio', Equipo: 'CALYTEK', Estado: 'activo' } }; filas('proyectos').push(pVacio);   // U-06: un frente activo sin tarjetas (colaborador no trae ninguno)
-              filas('tareas').push(tVenc); await recargarYEsperar(); irHash('#reportes'); await esperar(() => visible('p-reportes') && document.querySelector(`#repVencidas [data-rep-v="${tVenc.id}"]`), 'reportes con la vencida sembrada');
+              filas('tareas').push(tVenc); await recargarYEsperar(); await irHash('#reportes'); await esperar(() => visible('p-reportes') && document.querySelector(`#repVencidas [data-rep-v="${tVenc.id}"]`), 'reportes con la vencida sembrada');
               const v1 = document.querySelector(`#repVencidas [data-rep-v="${tVenc.id}"]`); v1.click(); await esperar(() => $('dlgTarea').open, 'tarjeta desde Vencidas');
               R.ok('C-02 (reportes, v0.89.0): la vencida de «Vencidas por proyecto» abre su tarjeta y el hash lleva /t/<id>', $('dlgTarea').open && location.hash.endsWith(`/t/${tVenc.id}`) && $('tTitulo').textContent === 'Vencida para Reportes', location.hash);
-              clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada'); irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes otra vez');
+              clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada'); await irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes otra vez');
               const misVenc = filas('tareas').filter(t => t.fields.Columna !== 'hecho' && t.fields.Vence && diasPara(t.fields.Vence) < 0 && String(t.fields.Asignado || '').toLowerCase() === YO.toLowerCase() && activo(t)).length;
               const misAb = filas('tareas').filter(t => t.fields.Columna !== 'hecho' && String(t.fields.Asignado || '').toLowerCase() === YO.toLowerCase() && activo(t)).length;
               const filaYo = document.querySelector(`#repPersonas [data-rep-q="${YO.toLowerCase()}"]`);
@@ -2421,7 +2424,7 @@ try {
               // U-10 (v0.129.0): la leyenda de cubetas al pie de «Avance por proyecto», con nombre y cifra
               R.ok('U-10 (v0.129.0): «Avance por proyecto» trae al pie la leyenda de cubetas (Hecho, Por hacer…) con sus cifras', document.querySelectorAll('#repProyectosLeyenda .leyenda > span').length >= 2 && /Hecho/.test($('repProyectosLeyenda').textContent) && /Por hacer/.test($('repProyectosLeyenda').textContent), $('repProyectosLeyenda').textContent);
               // U-11 (v0.129.0): un frente con fin vencido lleva su meta en rojo
-              { const pV = { id: DB.siguienteId++, fields: { Title: 'Frente vencido para Reportes', Clave: 'rep-vencido', Equipo: 'CALYTEK', Estado: 'activo', Vence: '2026-09-01T18:00:00Z' } }; filas('proyectos').push(pV); await recargarYEsperar(); irHash('#reportes'); await esperar(() => document.querySelector(`#repProyectos [data-rep-p="${pV.id}"]`), 'frente vencido');
+              { const pV = { id: DB.siguienteId++, fields: { Title: 'Frente vencido para Reportes', Clave: 'rep-vencido', Equipo: 'CALYTEK', Estado: 'activo', Vence: '2026-09-01T18:00:00Z' } }; filas('proyectos').push(pV); await recargarYEsperar(); await irHash('#reportes'); await esperar(() => document.querySelector(`#repProyectos [data-rep-p="${pV.id}"]`), 'frente vencido');
                 const m = document.querySelector(`#repProyectos [data-rep-p="${pV.id}"] .eti .m`);
                 R.ok('U-11 (v0.129.0): la meta «venció…» de un frente vencido va en rojo (is-danger); la de uno en tiempo no', m.classList.contains('is-danger') && /venció/.test(m.textContent) && !document.querySelector(`#repProyectos [data-rep-p="${proyectoId}"] .eti .m`).classList.contains('is-danger'), m.textContent);
                 filas('proyectos').splice(filas('proyectos').indexOf(pV), 1); }
@@ -2439,16 +2442,16 @@ try {
                 const s0 = sumaSemanas(), h0 = hechasYo();
                 const pC = { id: DB.siguienteId++, fields: { Title: 'Frente cerrado para Reportes', Clave: 'rep-cerrado', Equipo: 'CALYTEK', Estado: 'cerrado' } }; filas('proyectos').push(pC);
                 const hoyIso = new Date().toISOString(); const tC = { id: DB.siguienteId++, fields: { Title: 'Hecha en frente cerrado', ProyectoId: pC.id, Columna: 'hecho', Asignado: YO, HechoPor: YO, HechoEl: hoyIso, Desde: hoyIso } }; filas('tareas').push(tC);
-                await recargarYEsperar(); irHash('#reportes'); await esperar(() => visible('p-reportes') && sumaSemanas() === s0 + 1, 'semanas con la hecha del cerrado');
+                await recargarYEsperar(); await irHash('#reportes'); await esperar(() => visible('p-reportes') && sumaSemanas() === s0 + 1, 'semanas con la hecha del cerrado');
                 R.ok('C-05 (v0.129.0): la hecha de un frente CERRADO suma en «Hechas por semana» y en «N hechas» de su dueño, y el frente no sale en Avance', sumaSemanas() === s0 + 1 && hechasYo() === h0 + 1 && !document.querySelector(`#repProyectos [data-rep-p="${pC.id}"]`), `semanas ${s0}->${sumaSemanas()} · hechas ${h0}->${hechasYo()}`);
-                filas('tareas').splice(filas('tareas').indexOf(tC), 1); filas('proyectos').splice(filas('proyectos').indexOf(pC), 1); await recargarYEsperar(); irHash('#reportes'); await esperar(() => visible('p-reportes') && sumaSemanas() === s0, 'semanas sin el cerrado'); }
+                filas('tareas').splice(filas('tareas').indexOf(tC), 1); filas('proyectos').splice(filas('proyectos').indexOf(pC), 1); await recargarYEsperar(); await irHash('#reportes'); await esperar(() => visible('p-reportes') && sumaSemanas() === s0, 'semanas sin el cerrado'); }
               // U-12 (v0.129.0): «Sin dueño» de Carga por persona es botón y lleva al tablero filtrado sin dueño
               { const tSD = { id: DB.siguienteId++, fields: { Title: 'Sin dueño para Reportes', ProyectoId: filas('proyectos').find(p => p.fields.Clave === CLAVE).id, Columna: 'por-hacer', Desde: new Date().toISOString() } }; filas('tareas').push(tSD);
-                await recargarYEsperar(); irHash('#reportes'); await esperar(() => document.querySelector('#repPersonas button[data-abre="sd"]'), 'fila sin dueño');
+                await recargarYEsperar(); await irHash('#reportes'); await esperar(() => document.querySelector('#repPersonas button[data-abre="sd"]'), 'fila sin dueño');
                 const b = document.querySelector('#repPersonas button[data-abre="sd"]'); const nBot = document.querySelectorAll('#repPersonas button.rep-fila:not([data-abre^="pe:"])').length;   // R-02 (v0.131.0): las personas tambien son boton; aqui se cuentan los demas
                 b.click(); await esperar(() => visible('p-proyecto') && ESTADO.filtroTareas.sinDueno, 'tablero sin dueño');
                 R.ok('U-12 (v0.129.0): la fila «Sin dueño» es el único botón de la carga que no es de una persona y abre el tablero con el filtro Sin dueño', nBot === 1 && visible('p-proyecto') && ESTADO.filtroTareas.sinDueno === true && ESTADO.tab === 'tablero', `botones=${nBot} hash=${location.hash}`);
-                ESTADO.filtroTareas.sinDueno = false; filas('tareas').splice(filas('tareas').indexOf(tSD), 1); irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes tras sin dueño'); }
+                ESTADO.filtroTareas.sinDueno = false; filas('tareas').splice(filas('tareas').indexOf(tSD), 1); await irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes tras sin dueño'); }
               // R-02 (v0.131.0): tocar a una persona en Carga abre sus abiertas por frente, vencidas primero; cada renglon abre su tarjeta
               { const yo = YO.toLowerCase(); const fila = document.querySelector(`#repPersonas button[data-abre="pe:${yo}"]`);
                 R.ok('R-02 (v0.131.0): la fila de una persona con abiertas es botón con la llave pe:<correo>', !!fila, [...document.querySelectorAll('#repPersonas [data-abre]')].map(x => x.dataset.abre).join());
@@ -2463,13 +2466,13 @@ try {
                     R.ok('R-02 (v0.131.0): los frentes con vencidas van primero, dentro de cada uno las vencidas encabezan en rojo, y la vencida sembrada está', venc(its[0]) && ordenOk && its.some(x => x.dataset.abre === `t:${tVenc.id}` && venc(x)), its.map(x => x.dataset.abre + (venc(x) ? '!' : '')).join()); }
                   its.find(x => x.dataset.abre === `t:${tVenc.id}`).click(); await esperar(() => !$('dlgPersona').open && $('dlgTarea').open, 'tarjeta desde la persona');
                   R.ok('R-02 (v0.131.0): tocar una fila cierra el diálogo y abre esa tarjeta', !$('dlgPersona').open && $('dlgTarea').open && location.hash.endsWith('/t/' + tVenc.id), location.hash);
-                  clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrar tarjeta'); irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes tras la tarjeta');
+                  clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrar tarjeta'); await irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes tras la tarjeta');
                   document.querySelector(`#repPersonas button[data-abre="pe:${yo}"]`).click(); await esperar(() => $('dlgPersona').open, 'dialogo 2');
                   clic('peCerrar'); await esperar(() => !$('dlgPersona').open, 'cerrar persona');
                   R.ok('R-02 (v0.131.0): «Cerrar» cierra el diálogo y deja Reportes', !$('dlgPersona').open && visible('p-reportes'));
                 }
               }
-              filas('tareas').splice(filas('tareas').indexOf(tVenc), 1); filas('proyectos').splice(filas('proyectos').indexOf(pVacio), 1); await recargarYEsperar(); irHash('#reportes'); await esperar(() => visible('p-reportes') && !document.querySelector(`#repVencidas [data-rep-v="${tVenc.id}"]`) && !document.querySelector(`#repProyectos [data-rep-p="${pVacio.id}"]`), 'vencida y frente sembrados retirados');
+              filas('tareas').splice(filas('tareas').indexOf(tVenc), 1); filas('proyectos').splice(filas('proyectos').indexOf(pVacio), 1); await recargarYEsperar(); await irHash('#reportes'); await esperar(() => visible('p-reportes') && !document.querySelector(`#repVencidas [data-rep-v="${tVenc.id}"]`) && !document.querySelector(`#repProyectos [data-rep-p="${pVacio.id}"]`), 'vencida y frente sembrados retirados');
             }
             document.querySelector('#railEquipos [data-equipo="PITEPEC"]').click(); await dormir(30);
             R.ok('v0.10.0: el filtro por equipo del rail se queda en Reportes y lo vacía si no hay frentes de ese equipo', visible('p-reportes') && document.querySelectorAll('#repProyectos [data-rep-p]').length === 0 && $('reportesSub').textContent.includes('PITEPEC'));
@@ -2506,7 +2509,7 @@ try {
                 poner('npTitulo', 'Borrable'); poner('npClave', 'borrable'); poner('npEquipo', 'PITEPEC'); clic('npGuardar');
                 await esperar(() => filas('proyectos').some(x => x.fields.Clave === 'borrable'), 'proyecto de prueba creado');
                 const pb = filas('proyectos').find(x => x.fields.Clave === 'borrable');
-                irHash('#p/borrable'); await esperar(() => visible('p-proyecto') && $('pTitulo').textContent === 'BORRABLE', 'abierto');
+                await irHash('#p/borrable'); await esperar(() => visible('p-proyecto') && $('pTitulo').textContent === 'BORRABLE', 'abierto');
                 // v0.29.0 (M5): el titulo es un selector con TODOS los activos (el abierto marcado); elegir otro cambia de proyecto en la
                 // misma pestaña; y la cabecera se contrae/despliega con #btnCabecera y lo recuerda en localStorage `cabecera`.
                 $('selProyecto').open = true; await dormir(30);   // C-23 (v0.123.0): la lista del selector se pinta al abrirlo
@@ -2524,7 +2527,7 @@ try {
                   const otro = ops.find(o => !o.classList.contains('is-on')); $('selProyecto').open = true; otro.click(); await dormir(60);
                   const mod = await import('../comun.js');
                   R.ok('v0.29.0: elegir otro proyecto en el selector lo abre en la MISMA pestaña (Documentos) y cierra la lista', String(mod.proyectoAbierto().id) === otro.dataset.proyecto && mod.estado.tab === 'docs' && visible('tab-docs') && !$('selProyecto').open && location.hash.startsWith('#p/') && location.hash.endsWith('/docs'));
-                  irHash('#p/borrable'); await esperar(() => $('pTitulo').textContent === 'BORRABLE', 'de vuelta');
+                  await irHash('#p/borrable'); await esperar(() => $('pTitulo').textContent === 'BORRABLE', 'de vuelta');
                   const antes = $('proyectoCab').classList.contains('contraida'); clic('btnCabecera'); await dormir(30);
                   let guardado = null; try { guardado = localStorage.getItem('cabecera'); } catch (_) {}
                   R.ok('v0.29.0: #btnCabecera contrae la cabecera (descripción y resumen ocultos), declara aria-expanded y lo recuerda', $('proyectoCab').classList.contains('contraida') === !antes && $('btnCabecera').getAttribute('aria-expanded') === (antes ? 'true' : 'false') && (antes ? guardado === null : guardado === 'contraida') && (antes || getComputedStyle($('pDesc')).display === 'none'));
@@ -2667,22 +2670,22 @@ try {
         R.ok('A2 (lectura): Equipo trae tabla y fichas con la misma gente', document.querySelectorAll('#eqFichas .eq-ficha').length === document.querySelectorAll('#eqLista tr').length);
         clic('eqCerrar');
         // v0.10.0 (lectura): las cinco pantallas nuevas se ven y no ofrecen nada que escriba.
-        irHash('#roadmap'); await esperar(() => visible('p-roadmap'), 'roadmap');
+        await irHash('#roadmap'); await esperar(() => visible('p-roadmap'), 'roadmap');
         R.ok('v0.10.0 (lectura): Roadmap se ve con su barra', document.querySelectorAll('#roadmapCaja .g-barra[data-roadmap-barra]').length === 1);
-        irHash(`#p/${CLAVE}/roadmap`); await esperar(() => visible('tab-roadmap'), 'roadmap del proyecto');
+        await irHash(`#p/${CLAVE}/roadmap`); await esperar(() => visible('tab-roadmap'), 'roadmap del proyecto');
         R.ok('v0.10.0 (lectura): la pestaña Roadmap del proyecto dibuja la tarjeta sembrada (vencida, en rojo)', !!document.querySelector('#tab-roadmap .g-barra[data-roadmap].is-danger'));
-        irHash('#calendario'); await esperar(() => visible('p-calendario'), 'calendario');
-        irHash('#mensajes'); await esperar(() => visible('p-mensajes'), 'mensajes');
+        await irHash('#calendario'); await esperar(() => visible('p-calendario'), 'calendario');
+        await irHash('#mensajes'); await esperar(() => visible('p-mensajes'), 'mensajes');
         R.ok('v0.10.0 (lectura): Mensajes lista el frente con su último mensaje', document.querySelectorAll('#mensajesLista [data-mensajes]').length === 1 && $('mensajesLista').textContent.includes('comentario'));
-        irHash('#archivos'); await esperar(() => visible('p-archivos'), 'archivos');
-        irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes');
+        await irHash('#archivos'); await esperar(() => visible('p-archivos'), 'archivos');
+        await irHash('#reportes'); await esperar(() => visible('p-reportes'), 'reportes');
         R.ok('v0.10.0 (lectura): Reportes cuenta 1 vencida y ninguna pantalla nueva trae botones de escritura', document.querySelectorAll('#repVencidas [data-rep-v]').length === 1 && !document.querySelector('#p-roadmap [data-enlace], #p-archivos [data-quitar], #p-archivos select[data-tarjeta-de]'));
         pestana('inicio'); await dormir(30);
     }
     // ---- R-05 (v0.128.0): estado DECLARADO del frente en el Resumen. Lo pone gerencia o el Responsable (colaborador); lectura solo lo ve.
     {
         const p = filas('proyectos').find(x => x.fields.Clave === CLAVE), respAntes = p.fields.Responsable;
-        const resumen = async que => { irHash(`#p/${CLAVE}/resumen`); await esperar(() => $('p-proyecto').classList.contains('ver-resumen'), que); await dormir(20); };
+        const resumen = async que => { await irHash(`#p/${CLAVE}/resumen`); await esperar(() => $('p-proyecto').classList.contains('ver-resumen'), que); await dormir(20); };
         const nuevaSesion = async () => { ESTADO.columnasProyectos = null; await recargarYEsperar(); };
         // Sin la columna en el tenant: la tarjeta no existe y la app carga igual.
         DB.sinSalud = true; await nuevaSesion(); await resumen('resumen sin Salud');
@@ -2735,7 +2738,7 @@ try {
         {
             const slDe = id => document.querySelector(`#repProyectos [data-rep-p="${id}"] .eti .sl`);
             const otro = filas('proyectos').find(x => x.fields.Estado === 'activo' && x.id !== p.id && !x.fields.Salud);
-            const reportes = async que => { irHash('#reportes'); await esperar(() => visible('p-reportes') && slDe(p.id), que); };
+            const reportes = async que => { await irHash('#reportes'); await esperar(() => visible('p-reportes') && slDe(p.id), que); };
             const hace3 = new Date(Date.now() - 3 * 864e5).toISOString(), hace20 = new Date(Date.now() - 20 * 864e5).toISOString();
             p.fields.Salud = 'en-riesgo'; p.fields.SaludNota = 'Falta la firma del representante legal'; p.fields.SaludPor = 'jefa@example.invalid'; p.fields.SaludEl = hace3;
             await recargarYEsperar(); await reportes('reportes con salud');
@@ -2744,7 +2747,7 @@ try {
               R.ok(`R-01 (${ROL}): un frente sin declarar dice «sin estado» en gris`, !otro || (slDe(otro.id) && slDe(otro.id).textContent === 'sin estado' && slDe(otro.id).classList.contains('sin')), otro ? slDe(otro.id)?.textContent : 'sin otro frente'); }
             p.fields.Salud = 'en-tiempo'; p.fields.SaludEl = hace20; await recargarYEsperar(); await reportes('reportes salud vieja');
             R.ok(`R-01 (${ROL}): pasados 14 días el estado queda en gris tenue («vieja») y dice «hace 20 d»`, slDe(p.id).classList.contains('vieja') && /hace 20 d$/.test(slDe(p.id).textContent) && !!slDe(p.id).querySelector('b.is-ok'), slDe(p.id).textContent);
-            DB.sinSalud = true; await nuevaSesion(); irHash('#reportes'); await esperar(() => visible('p-reportes') && document.querySelector(`#repProyectos [data-rep-p="${p.id}"]`), 'reportes sin Salud');
+            DB.sinSalud = true; await nuevaSesion(); await irHash('#reportes'); await esperar(() => visible('p-reportes') && document.querySelector(`#repProyectos [data-rep-p="${p.id}"]`), 'reportes sin Salud');
             R.ok(`R-01 (${ROL}): sin la columna Salud en el tenant, Avance por proyecto queda como antes (ninguna línea de estado)`, !document.querySelector('#repProyectos .eti .sl'));
             DB.sinSalud = false; await nuevaSesion();
         }
@@ -2761,12 +2764,12 @@ try {
             cap().push({ id: DB.siguienteId++, fields: { Title: 'Partida sembrada de prueba', ProyectoId: pid, Tipo: 'necesidad', Monto: 1234, Estado: 'estimado' } });
             const nAntes = leidasCapital(); await recargarYEsperar();
             R.ok(`${ROL} (v0.100.0): sin «Capital» en el rail ni en el menú «···», y PROY_Capital ni se lee`, $('railCapital').classList.contains('oculto') && $('irCapitalMovil').classList.contains('oculto') && leidasCapital() === nAntes && ESTADO.capital.length === 0, `leidas=${leidasCapital() - nAntes}`);
-            irHash('#capital'); await esperar(() => visible('p-inicio'), 'capital negado');
+            await irHash('#capital'); await esperar(() => visible('p-inicio'), 'capital negado');
             R.ok(`${ROL} (v0.100.0): una liga pegada a #capital cae a Inicio con aviso`, visible('p-inicio') && !visible('p-capital') && !!avisoCon('solo para gerencia'), location.hash);
-            irHash(`#p/${CLAVE}/resumen`); await esperar(() => $('p-proyecto').classList.contains('ver-resumen'), 'resumen');
+            await irHash(`#p/${CLAVE}/resumen`); await esperar(() => $('p-proyecto').classList.contains('ver-resumen'), 'resumen');
             R.ok(`${ROL} (v0.100.0): el Resumen del proyecto no trae la tarjeta de Capital`, $('pCapital').classList.contains('oculto'));
             // C-14 (v0.114.0): una liga pegada a la pestaña Capital del proyecto cae al tablero con la pestaña oculta.
-            irHash(`#p/${CLAVE}/capital`); await esperar(() => !$('tab-tablero').classList.contains('oculto'), 'capital del proyecto negado');
+            await irHash(`#p/${CLAVE}/capital`); await esperar(() => !$('tab-tablero').classList.contains('oculto'), 'capital del proyecto negado');
             R.ok(`${ROL} (C-14, v0.114.0): #p/<clave>/capital sin permiso cae al Tablero y la pestaña Capital queda oculta`, !$('tab-tablero').classList.contains('oculto') && $('tab-capital').classList.contains('oculto') && $('tabCapital').classList.contains('oculto'), location.hash);
             DB.listas.capital.items = [];
             pestana('inicio'); await dormir(30);
@@ -2799,7 +2802,7 @@ try {
             R.ok('cálculo (v0.100.0): Necesario $12,500.50 (con $2,500.50 ya pagado) · Cubierto $4,000.00 · Falta $8,500.50', kpi('necesario') === '$12,500.50' && kpi('cubierto') === '$4,000.00' && kpi('falta') === '$8,500.50' && kpi('n') === '3' && document.querySelector('#capitalKpis [data-kpi="n"]').textContent.includes('$2,500.50 ya pagado'), [kpi('necesario'), kpi('cubierto'), kpi('falta')].join(' | '));
             R.ok('mes (v0.100.0): corte por mes — octubre (necesidad $10,000.00, fondeo $4,000.00) y «Sin fecha» al final', [...document.querySelectorAll('#capitalMeses tr.mes')].map(r => r.dataset.mes).join(',') === '2026-10,sin-fecha' && document.querySelector('#capitalMeses tr[data-mes="2026-10"]').textContent.includes('$10,000.00') && document.querySelector('#capitalMeses tr[data-mes="2026-10"]').textContent.includes('$4,000.00'));
             // v0.102.0: la pestaña Capital DENTRO del proyecto — las mismas 3 partidas, el mismo Falta, y «Nueva partida» con el proyecto puesto
-            irHash('#p/' + CLAVE + '/capital'); await esperar(() => !$('tab-capital').classList.contains('oculto'), 'pestaña capital del proyecto');
+            await irHash('#p/' + CLAVE + '/capital'); await esperar(() => !$('tab-capital').classList.contains('oculto'), 'pestaña capital del proyecto');
             R.ok('pestaña Capital (v0.102.0): visible para gerencia, con las 3 partidas del frente y Falta $8,500.50', !$('tabCapital').classList.contains('oculto') && document.querySelectorAll('#pcapTabla tr.partida').length === 3 && document.querySelector('#pcapTotal [data-kpi="falta"] b').textContent === '$8,500.50', document.querySelectorAll('#pcapTabla tr.partida').length + ' partidas');
             R.ok('pestaña Capital (v0.103.0): sin botón propio; el de la barra dice «Nueva partida»', !$('btnNuevaPartidaProy') && $('btnNuevaTarea').textContent === 'Nueva partida', $('btnNuevaTarea').textContent);
             R.ok('C-13 (v0.114.0): en Capital «Nueva partida» se habilita por puedeVerCapital + lista, no por la regla de tarea', !$('btnNuevaTarea').disabled);
@@ -2916,7 +2919,7 @@ try {
             R.ok('C-03 (v0.117.0): clic en el nombre del frente abre ese proyecto', ESTADO.proyectoAbiertoId === pid && location.hash.startsWith(`#p/${CLAVE}`), location.hash);
             pestana('capital'); await esperar(() => visible('p-capital'), 'capital tras abrir el frente');
             // Resumen del proyecto → Capital filtrado
-            irHash(`#p/${CLAVE}/resumen`); await esperar(() => $('p-proyecto').classList.contains('ver-resumen'), 'resumen');
+            await irHash(`#p/${CLAVE}/resumen`); await esperar(() => $('p-proyecto').classList.contains('ver-resumen'), 'resumen');
             R.ok('resumen (v0.100.0): la tarjeta «Capital de trabajo» del proyecto dice Falta $10,500.50', !$('pCapital').classList.contains('oculto') && $('pCapitalKv').textContent.includes('Falta$10,500.50') && $('pCapitalIr').textContent === 'Ver las 3 partidas', $('pCapitalKv').textContent);
             clic('pCapitalIr'); await esperar(() => visible('p-capital'), 'capital desde el resumen');
             R.ok('resumen (v0.100.0): «Ver las partidas» abre Capital filtrado por ese proyecto (#capital/f/<clave>)', ESTADO.filtroCapital === pid && $('capitalProyecto').value === String(pid) && location.hash === `#capital/f/${CLAVE}` && document.querySelectorAll('#capitalTabla tr.partida').length === 3, location.hash);
@@ -2924,7 +2927,7 @@ try {
             document.querySelector(`#capitalTabla tr[data-partida="${x1.id}"] .partida-t`).click(); await esperar(() => $('dlgPartida').open, 'borrar');
             clic('cpBorrar'); await confirmar(); await esperar(() => !cap().some(x => x.id === x1.id) && !$('dlgPartida').open, 'partida borrada');
             R.ok('borrar (v0.101.0; U-04 v0.116.0): confirma, borra el renglón y el Falta dice «sobra $1,499.50» en verde (queda fondeo de sobra)', !cap().some(x => x.id === x1.id) && kpi('falta') === 'sobra $1,499.50' && !!document.querySelector('#capitalKpis [data-kpi="falta"] b.is-ok') && document.querySelector('#capitalKpis [data-kpi="n"]').textContent.includes('$1,499.50 de sobra') && !!avisoCon('borrada'), kpi('falta'));
-            irHash(`#p/${CLAVE}/resumen`); await esperar(() => $('p-proyecto').classList.contains('ver-resumen'), 'resumen con sobra');
+            await irHash(`#p/${CLAVE}/resumen`); await esperar(() => $('p-proyecto').classList.contains('ver-resumen'), 'resumen con sobra');
             R.ok('U-04 (v0.116.0): con fondeo de sobra, la tarjeta del Resumen del proyecto dice «Sobra $1,499.50», no «Falta $0.00»', $('pCapitalKv').textContent.includes('Sobra$1,499.50') && !$('pCapitalKv').textContent.includes('Falta'), $('pCapitalKv').textContent);
             pestana('capital'); await esperar(() => visible('p-capital'), 'capital tras la tarjeta');   // la prueba de «lista ausente» lee la seccion
             R.ok('bitácora (v0.100.0): Capital no escribe en PROY_Actividad (su choice Accion no tiene opción para esto)', !filas('actividad').some(a => /partida/i.test(a.fields.Title || '')));
@@ -2934,7 +2937,7 @@ try {
             R.ok('lista ausente (v0.100.0): aviso «Falta crear la lista PROY_Capital», sin tabla ni botón y sin error de carga', !$('capitalFalta').classList.contains('oculto') && $('capitalFalta').textContent.startsWith('Falta crear la lista PROY_Capital (ver README, «Al publicar v0.100.0»)') && $('capitalCuerpo').classList.contains('oculto') && $('btnNuevaPartida').classList.contains('oculto') && !avisoCon('No se pudieron releer') && ESTADO.capitalLista === false, $('capitalFalta').textContent);
             const gl = DB.llamadas.filter(c => c.startsWith('GET /sites/sitio-falso/lists?')).length; await recargarYEsperar(); await dormir(30);
             R.ok('lista ausente (v0.100.0): ningún GET a items de PROY_Capital (ningún 404) y la segunda recarga ya no pregunta por la lista', leidasCapital() === nL && DB.llamadas.filter(c => c.startsWith('GET /sites/sitio-falso/lists?')).length === gl, `items=${leidasCapital() - nL}`);
-            irHash(`#p/${CLAVE}/resumen`); await esperar(() => $('p-proyecto').classList.contains('ver-resumen'), 'resumen sin lista');
+            await irHash(`#p/${CLAVE}/resumen`); await esperar(() => $('p-proyecto').classList.contains('ver-resumen'), 'resumen sin lista');
             R.ok('lista ausente (v0.100.0): el Resumen del proyecto no pinta la tarjeta de Capital y el tablero sigue cargado', $('pCapital').classList.contains('oculto') && ESTADO.tareas.length > 0);
             DB.listas.capital = guardada; ESTADO.cliente = null; ESTADO.capitalLista = null; await recargarYEsperar();
             R.ok('lista ausente (v0.100.0): al aparecer la lista (sesión nueva) vuelve a leerse', ESTADO.capitalLista === true);
