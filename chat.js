@@ -50,14 +50,24 @@ export function pintarChat(p) {
     const nuevos = hiloEstado.nuevos || new Set();   // fijado al entrar: lo que llegue durante el refresco no se suma a «tu ultima visita»
     hilo.textContent = '';
     if (!cs.length) hilo.appendChild(el('p', 'vacio', puedeComentarEn(p) ? 'Nadie ha escrito todavía. Aquí va lo que el equipo necesita leer del frente; con @nombre avisas a alguien.' : 'Nadie ha escrito todavía.'));
-    let dia = null; let anterior = null; let rayaPuesta = false;
+    // U-10 (v0.140.0): primero se decide el acomodo (rayas y «seguido») y despues se pinta, porque el «¿visto?» va solo en el
+    // ULTIMO mensaje de cada rafaga y eso depende del mensaje de despues.
+    const filas = []; let dia = null; let anterior = null; let rayaPuesta = false;
     for (const c of cs) {
         const d = c.Cuando ? diaDe(c.Cuando) : '';
-        if (d !== dia) { dia = d; hilo.appendChild(el('div', 'dia', c.Cuando ? rotuloDia(c.Cuando) : '—')); anterior = null; }
-        if (!rayaPuesta && nuevos.has(c.id)) { rayaPuesta = true; hilo.appendChild(el('div', 'nuevos', `${nuevos.size} ${plural(nuevos.size, 'nuevo')} desde tu última visita`)); anterior = null; }
-        const m = mensajeDelHilo(c, anterior, p, yo);
-        hilo.appendChild(m);
+        const nuevoDia = d !== dia; if (nuevoDia) { dia = d; anterior = null; }
+        const raya = !rayaPuesta && nuevos.has(c.id); if (raya) { rayaPuesta = true; anterior = null; }
+        filas.push({ c, nuevoDia, raya, seguido: esSeguido(c, anterior) });
         anterior = c;
+    }
+    let rafaga = [];
+    for (const [i, f] of filas.entries()) {
+        const { c } = f;
+        if (f.nuevoDia) hilo.appendChild(el('div', 'dia', c.Cuando ? rotuloDia(c.Cuando) : '—'));
+        if (f.raya) hilo.appendChild(el('div', 'nuevos', `${nuevos.size} ${plural(nuevos.size, 'nuevo')} desde tu última visita`));
+        rafaga = f.seguido ? [...rafaga, c.id] : [c.id];
+        const ultimaDeRafaga = !(filas[i + 1] && filas[i + 1].seguido);
+        hilo.appendChild(mensajeDelHilo(c, f.seguido, p, yo, ultimaDeRafaga ? rafaga : null));
     }
     // R-04: si la bandeja pidio un comentario de ESTE frente, no se aterriza al fondo (ni se marca visto lo que queda abajo:
     // lo sube el scroll al llegar, C-01) y el hilo se abre en ese mensaje, resaltado un momento.
@@ -86,11 +96,15 @@ function pintarBajar(contar) {
     b.textContent = n ? `↓ ${n} ${plural(n, 'nuevo')}` : '↓';
     b.title = n ? `Bajar a lo último · ${n} ${plural(n, 'mensaje nuevo', 'mensajes nuevos')}` : 'Bajar a lo último'; b.setAttribute('aria-label', b.title);
 }
-/** C-22 (v0.123.0): un mensaje del hilo —burbuja, liga a la tarjeta, texto, vistos y borrar—; pintarChat solo recorre y pone las rayas. */
-function mensajeDelHilo(c, anterior, p, yo) {
+/** Mensajes seguidos de la misma persona (en el mismo dia, sin raya ni tarjeta de por medio) se agrupan: sin nombre. */
+const esSeguido = (c, anterior) => !!anterior && String(anterior.Quien || '').toLowerCase() === String(c.Quien || '').toLowerCase() && !c.TareaId && !anterior.TareaId;
+/**
+ * C-22 (v0.123.0): un mensaje del hilo —burbuja, liga a la tarjeta, texto, vistos y borrar—; pintarChat solo recorre y pone las rayas.
+ * U-10 (v0.140.0): `rafaga` = los ids de la rafaga que este mensaje CIERRA (el mismo solo, si no hay rafaga), o null si no la cierra:
+ * entonces no lleva «¿visto?» (sigue diciendo quien ya lo vio).
+ */
+function mensajeDelHilo(c, seguido, p, yo, rafaga) {
     const quien = String(c.Quien || '').toLowerCase();
-    // Mensajes seguidos de la misma persona (en el mismo dia, y sin tarjeta de por medio) se agrupan: sin nombre.
-    const seguido = anterior && String(anterior.Quien || '').toLowerCase() === quien && !c.TareaId && !anterior.TareaId;
     const m = el('div', 'msg' + (quien === yo ? ' is-mio' : '') + (seguido ? ' is-seguido' : '')); m.dataset.comentario = String(c.id);
     if (quien) m.dataset.tono = String(tonoDe(quien));   // v0.14.0: burbuja del color de la persona
     // v0.49.0 (Carlos, 15-sep; artifact C8meacEE, opcion B): sin avatar en el hilo — el nombre ya va en la cabecera
@@ -118,11 +132,14 @@ function mensajeDelHilo(c, anterior, p, yo) {
     // capturado seria el de una pintada vieja). U-05: la lista de quien lo vio nombra a los DEMAS; el propio ya lo dice el chip.
     const vs = vistosDeComentario(c); const mio = miVistoDe(c);
     const otros = mio ? vs.filter(a => a.id !== mio.id) : vs;
-    if (vs.length || puedeMarcarVisto(c, p)) {
+    const conBoton = !!rafaga && puedeMarcarVisto(c, p);
+    if (vs.length || conBoton) {
         const fila = el('div', 'vistos');
-        if (puedeMarcarVisto(c, p)) {
-            const b = boton(mio ? '✓ visto' : '¿visto?', 'visto-btn' + (mio ? ' is-on' : ''), () => alClic(c.id, p.id, alternarVisto), { visto: String(c.id) });   // U-07 (17-sep): el no pulsado lleva palabra (en tactil no hay title)
-            b.title = mio ? 'Quitar tu visto' : 'Marcar como visto'; b.setAttribute('aria-pressed', mio ? 'true' : 'false'); fila.appendChild(b);
+        if (conBoton) {
+            // U-10: la rafaga esta vista si su ULTIMO mensaje (este) lleva mi visto —la viste hasta ahi—; el boton marca o quita la rafaga entera.
+            const todos = !!mio;
+            const b = boton(todos ? '✓ visto' : '¿visto?', 'visto-btn' + (todos ? ' is-on' : ''), () => alClicRafaga(rafaga, p.id), { visto: String(c.id) });   // U-07 (17-sep): el no pulsado lleva palabra (en tactil no hay title)
+            b.title = todos ? 'Quitar tu visto' : rafaga.length > 1 ? `Marcar como vistos (${rafaga.length} mensajes)` : 'Marcar como visto'; b.setAttribute('aria-pressed', todos ? 'true' : 'false'); fila.appendChild(b);
         }
         if (otros.length) { const q = el('span', 'q', '✓ ' + otros.map(a => nombreCorto(a.Quien, estado.roles)).join(', ')); q.title = otros.map(a => `${nombreDe(a.Quien, estado.roles)} · ${fechaHora(a.Cuando)}`).join(' · '); fila.appendChild(q); }
         cuerpo.appendChild(fila);
@@ -160,6 +177,15 @@ async function alClic(cid, pid, accion) {
     const c = porId(estado.actividad, cid), p = porId(estado.proyectos, pid);
     // C-11 (v0.138.0): alCambiar (repintar) pinta el frente de AHORA; el repintado previo con el p del clic pintaba el de antes del await.
     if (c && p && await accion(c, p)) alCambiar();
+}
+/** U-10 (v0.140.0): el «¿visto?» de una rafaga — por id, como alClic; si el ultimo lleva mi visto se quitan todos, si no se marcan los que falten. Un repintado al final. */
+async function alClicRafaga(ids, pid) {
+    const p = porId(estado.proyectos, pid); if (!p) return;
+    const cs = ids.map(id => porId(estado.actividad, id)).filter(Boolean); if (!cs.length) return;
+    const todos = !!miVistoDe(cs[cs.length - 1]);
+    let hubo = false;
+    for (const c of cs) if (!!miVistoDe(c) === todos) { if (!await alternarVisto(c, p)) break; hubo = true; }   // el primer fallo ya avisó: no se insiste
+    if (hubo) alCambiar();
 }
 /** C-01: llegar al fondo por scroll (leyendo lo que el refresco trajo) es verlo: sube la marca y avisa para que la bandeja lo refleje. */
 function alDesplazarHilo() {

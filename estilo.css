@@ -1348,7 +1348,7 @@ body.sin-scroll { overflow: hidden; }
 .cal-detalle .cal-it { font-size: .8rem; padding: 6px 8px; min-height: 36px; }
 .cal-agenda { display: none; }
 /* ---- mensajes: bandeja + hilo (v0.42.0, artifact 17j5wESZ). Dos columnas: la bandeja (secciones plegables) y lo elegido.
-   En ≤ 900 (tableta y celular) se ve UNA columna a la vez: la bandeja, o el hilo/ficha con «← Bandeja» arriba. */
+   En ≤ 900 (tableta y celular) se ve UNA columna a la vez: la bandeja, o el hilo/ficha con «←» (la flecha sola desde v0.138.0) arriba. */
 .msj { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
 .msj-izq { display: grid; gap: var(--sp-2); min-width: 0; }
 .msj-izq .buscador { height: var(--control-h-sm); padding: 0 var(--sp-3); border: 1px solid var(--border-default); border-radius: var(--r-sm); background: var(--surface-card); color: var(--text-body); font: inherit; font-size: .85rem; width: 100%; }

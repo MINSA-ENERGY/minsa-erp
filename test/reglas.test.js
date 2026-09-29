@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { ordenarLigas, direccionInicial, nombreHumano, nombreDeLiga, rolDe, PUEDE, diasPara, slug, validarClave, tareasDe, avance, proximos, estadoVence, claseVence, fraseVence, semaforo, vencidasEn, sinMovimiento, diasQuieta, rotuloQuieta, pisoNuevo, marcaFiable, ordenar, camposDeMovimiento, iniciales, nombreDe, nombreCorto, COLUMNAS, COLUMNAS_DEFAULT, columnasDe, normalizarColumnas, COLORES, colorValido, nombreColumnaEn, claseDeColumna, categoriaDe, enProceso, avanceGlobal, segmentosDe, segmentosGlobales, tituloSegmentos, partesEnProceso, filtrarTareas, ordenarLista, reordenar, validarUrl, urlParaLiga, urlCortaDeGuid, resumenLargos, textosLargos, sinDueno, ordenarProyectos, filtrarProyectos, activosDe, proyectosVisibles, extensionDe, tipoArchivo, aliasDe, aliasParaMencion, trozosConMenciones, mencionesEn, mencionEnCurso, diaDe, sumarDias, diasEntre, diaSemana, lunesDe, mesSumar, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, hrefSeguro, desdeHaceDias, nuevoParaMi, delegadas, sellarAsignadoPor, misAbiertas, porVence, vistosDe, leerVisto, fundirVisto, gruposHoy, saludoDe, hitosDe, acomodarHitos } from '../reglas.js';
 
+import { plural } from '../reglas.js';
 import { CAPITAL_ESTADOS, CAPITAL_CATEGORIAS, montoDe, formatoMXN, leerMonto, validarPartida, resumenCapital, capitalPorProyecto, totalCapital, capitalPorMes, ordenarPartidas, partidaVencida } from '../reglas.js';
 
 const HOY = new Date('2026-09-11T18:00:00Z');
@@ -406,5 +407,12 @@ ok('S-12 (v0.96.0): marcaFiable topa la marca en ahora + 5 min: un Cuando del fu
     ok('abiertasDePersona: quien vacio = sin dueño; nadie = []', abiertasDePersona(ts, '', orden, 7, hoy).map(x => x.tareas.map(t => t.id).join()).join() === '50' && abiertasDePersona(ts, 'nadie@x', orden, 7, hoy).length === 0); }
   ok('lineaSalud: sin declarar = null; sin SaludEl o con fecha rota, sin sello y nunca vieja', lineaSalud({}, hoy) === null && lineaSalud({ Salud: 'atrasado' }, hoy).hace === '' && !lineaSalud({ Salud: 'atrasado', SaludEl: 'ayer' }, hoy).vieja);
 }
+
+// v0.138.0: plural(n, uno, varios) — el helper de los cinco «nuevo/nuevos» (bandeja, rail, insignia, raya, titulo de la pestaña).
+assert.equal(plural(1, 'nuevo'), 'nuevo'); n++;
+assert.equal(plural(0, 'nuevo'), 'nuevos'); n++;
+assert.equal(plural(3, 'nuevo'), 'nuevos'); n++;
+assert.equal(plural(2, 'conversación', 'conversaciones'), 'conversaciones'); n++;
+assert.equal(plural(1, 'mensaje nuevo', 'mensajes nuevos'), 'mensaje nuevo'); n++;
 
 console.log(`reglas: ok (${n} comprobaciones)`);

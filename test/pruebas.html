@@ -110,6 +110,8 @@
         DB.llamadas.push(`${metodo} ${ruta}`);
         const f = DB.fallas.find(x => x.metodo === metodo && ruta.includes(x.incluye) && x.veces > 0);
         if (f) { f.veces--; return error(f.status, `falla inyectada (${f.incluye})`); }
+        // C-16 (v0.140.0): retener UNA llamada hasta que la prueba suelte la promesa — el POST «a medio viaje».
+        if (DB.retener && DB.retener.metodo === metodo && ruta.includes(DB.retener.incluye)) { const r = DB.retener; DB.retener = null; await r.espera; }
 
         let m;
         if ((m = /^\/sites\/([^/]+):(\/[^?]+)$/.exec(ruta)) && metodo === 'GET') {
@@ -1208,6 +1210,18 @@ try {
               else R.ok('U-06 (v0.82.0): arriba de 720 el hilo no lleva --hilo-alto (manda el CSS)', alto === '' && getComputedStyle(h).maxHeight !== '40vh', `--hilo-alto «${alto}»`); }
             // U-07: el botón de visto no pulsado lleva palabra («¿visto?»); el pulsado sigue «✓ visto».
             { const vb = document.querySelector('#chatHilo .visto-btn:not(.is-on)'); R.ok('U-07: el botón de visto sin pulsar dice «¿visto?» (no un ✓ mudo)', !escribe || (!!vb && vb.textContent === '¿visto?'), vb && vb.textContent); }
+            // U-10 (v0.140.0): tres mensajes de Colega seguidos (en un día propio, hace 35 días) son una ráfaga: un solo «¿visto?», en el
+            // último, y pulsarlo marca (y quita) la ráfaga entera. Se siembran aquí y se retiran al final, con sus vistos.
+            if (escribe) { const base = Date.now() - 3600000 * 24 * 35, ids = [];
+              for (let k = 0; k < 3; k++) { ids.push(String(DB.siguienteId)); filas('actividad').push({ id: DB.siguienteId++, fields: { Title: `ráfaga U-10 #${k + 1}`, Accion: 'comentar', Quien: 'colega@example.invalid', Cuando: new Date(base + k * 60000).toISOString(), ProyectoId: proyectoId } }); }
+              await recargarYEsperar(); await dormir(40);
+              const msg = id => document.querySelector(`#chatHilo .msg[data-comentario="${id}"]`), vistoDe = id => filas('actividad').some(a => a.fields.Accion === 'visto' && a.fields.Title === id && a.fields.Quien === YO);
+              R.ok('U-10 (v0.140.0): en una ráfaga ajena solo el ÚLTIMO mensaje lleva «¿visto?» y los otros dos siguen agrupados', ids.every(id => !!msg(id)) && !msg(ids[0]).querySelector('.visto-btn') && !msg(ids[1]).querySelector('.visto-btn') && !!msg(ids[2]).querySelector('.visto-btn') && msg(ids[1]).classList.contains('is-seguido') && msg(ids[2]).classList.contains('is-seguido'), ids.map(id => msg(id) ? msg(id).className + (msg(id).querySelector('.visto-btn') ? '[v]' : '') : 'falta').join(' / '));
+              msg(ids[2]).querySelector('.visto-btn').click(); await esperar(() => ids.every(vistoDe), 'visto de la ráfaga'); await dormir(30);
+              R.ok('U-10 (v0.140.0): el «¿visto?» marca los 3 mensajes de la ráfaga y queda encendido', ids.every(vistoDe) && !!msg(ids[2]).querySelector('.visto-btn.is-on'));
+              msg(ids[2]).querySelector('.visto-btn').click(); await esperar(() => !ids.some(vistoDe), 'visto de la ráfaga quitado'); await dormir(30);
+              R.ok('U-10 (v0.140.0): volver a pulsar quita el visto de TODA la ráfaga', !ids.some(vistoDe) && !msg(ids[2]).querySelector('.visto-btn.is-on'));
+              DB.listas.actividad.items = filas('actividad').filter(a => !ids.includes(String(a.id)) && !(a.fields.Accion === 'visto' && ids.includes(a.fields.Title))); await recargarYEsperar(); await dormir(30); }
             { const h = $('chatHilo'); const ids = new Set(h._sembrados || []); DB.listas.actividad.items = filas('actividad').filter(a => !ids.has(a.id)); await recargarYEsperar(); await dormir(30); }
             tab('tablero'); await dormir(30);
         }
@@ -1685,6 +1699,13 @@ try {
             poner('chatTexto', 'segundo mensaje'); $('chatTexto').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }));
             await esperar(() => document.querySelectorAll('#chatHilo .msg').length === notasAntes + 2, 'Ctrl+Enter');
             R.ok('v0.8.0: Ctrl+Enter envía y dos míos seguidos se agrupan (el segundo sin avatar ni cabecera)', [...document.querySelectorAll('#chatHilo .msg')].pop().classList.contains('is-seguido') && !document.querySelector('#chatHilo .msg:last-child .cab'));
+            // C-16 (v0.140.0) / C-11 (v0.138.0): con el POST retenido se sigue tecleando; al volver, sale solo lo enviado y lo nuevo se queda.
+            { let soltar; DB.retener = { metodo: 'POST', incluye: 'lista-actividad/items', espera: new Promise(r => { soltar = r; }) };
+              poner('chatTexto', 'enviado a medio POST'); clic('chatEnviar'); await dormir(20);
+              $('chatTexto').value = 'enviado a medio POST y esto se tecleó después'; soltar();
+              await esperar(() => document.querySelectorAll('#chatHilo .msg').length === notasAntes + 3, 'POST soltado'); notasAntes++;
+              R.ok('C-16 / C-11 (v0.138.0): lo tecleado mientras viajaba el POST se queda en el cuadro y solo sale lo enviado', filas('actividad').filter(a => a.fields.Accion === 'comentar').pop().fields.Title === 'enviado a medio POST' && $('chatTexto').value === 'y esto se tecleó después', JSON.stringify($('chatTexto').value));
+              poner('chatTexto', ''); }
             clic('chatArroba'); await dormir(30);
             R.ok('v0.8.0: el botón «@» escribe la arroba y abre el selector con toda la gente', $('chatTexto').value === '@' && !$('chatSelector').classList.contains('oculto') && document.querySelectorAll('#chatSelector button').length >= 2);
             $('chatTexto').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })); await dormir(10);
@@ -2150,8 +2171,8 @@ try {
             R.ok('v0.138.0 (C-12/C-13): el frente que se lee no cuenta como nuevo en NINGÚN lugar: su renglón sin is-nuevo ni insignia, y el subtítulo dice lo mismo que la insignia del rail', (() => { const r = document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"]`); return !r.classList.contains('is-nuevo') && !r.querySelector('.mn-rail-hot') && $('mensajesSub').textContent.includes('nada nuevo') && $('nMensajes').hidden; })(), $('mensajesSub').textContent);
             R.ok('v0.138.0 (U-08): con el hilo abierto en ≤ 900 px la cabecera de la pantalla se esconde y «←» comparte renglón con el título del frente; en escritorio la cabecera sigue', (() => { const cab = document.querySelector('#p-mensajes > .cabecera'); if (!matchMedia('(max-width: 900px)').matches) return cab.offsetParent !== null; const v = $('mensajesVolver').getBoundingClientRect(), t = $('mensajesTitulo').getBoundingClientRect(); return cab.offsetParent === null && Math.abs((v.top + v.bottom) / 2 - (t.top + t.bottom) / 2) < 12; })(), `${innerWidth}px`);
             R.ok('v0.83.0 (C-09): el #chatHilo ya no lleva su estado en dataset/expandos (vive en chat.js)', !$('chatHilo').dataset.proyecto && !$('chatHilo').dataset.pintado && $('chatHilo')._nuevos === undefined && $('chatTexto')._selector === undefined);
-            clic('mensajesVolver'); await esperar(() => location.hash === '#mensajes' && !visible('mensajesHilo'), '← Bandeja'); await dormir(20);
-            R.ok('v0.84.0 (C-05): «← Bandeja» vuelve a #mensajes, esconde el hilo y la cabecera, y ningún renglón queda marcado', location.hash === '#mensajes' && !visible('mensajesHilo') && !visible('mensajesTitulo') && !document.querySelector('#mensajesLista .msg-proy.is-on'));
+            clic('mensajesVolver'); await esperar(() => location.hash === '#mensajes' && !visible('mensajesHilo'), '← (volver a la bandeja)'); await dormir(20);
+            R.ok('v0.84.0 (C-05): «←» (volver a la bandeja) vuelve a #mensajes, esconde el hilo y la cabecera, y ningún renglón queda marcado', location.hash === '#mensajes' && !visible('mensajesHilo') && !visible('mensajesTitulo') && !document.querySelector('#mensajesLista .msg-proy.is-on'));
             document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"]`).click(); await esperar(() => visible('tab-chat') && location.hash === `#mensajes/f/${CLAVE}`, 'hilo de vuelta'); await dormir(30);
             R.ok('v0.43.0: la bandeja va en dos secciones —Frentes · Sin conversación (plegada)—; Personas salió (solo chat por frente)', [...document.querySelectorAll('#mensajesLista .msj-sec')].map(d => d.dataset.sec).join(',') === 'frentes,sin' && !document.querySelector('#mensajesLista .msj-sec[data-sec="sin"]').open && !document.querySelector('#mensajesLista [data-persona]') && !$('mensajesFicha'));
             // v0.49.0 (Carlos, 15-sep; artifact C8meacEE, opcion B): ni la bandeja ni el hilo llevan avatar — el renglon conserva el icono chico de la unidad en el titulo y el preview nombra a quien escribio.
@@ -2178,9 +2199,31 @@ try {
                 const nuevo = filas('actividad')[filas('actividad').length - 1].fields;
                 // (el ajeno de arriba lleva Cuando = ahora + 1 s, asi que en el hilo queda DEBAJO del mio: se busca el mio, no el ultimo)
                 R.ok('v0.42.0: enviar desde el hilo de Mensajes crea el comentario en el frente elegido y se pinta como mío', Number(nuevo.ProyectoId) === proyectoId && nuevo.Accion === 'comentar' && [...document.querySelectorAll('#chatHilo .msg.is-mio')].some(m => m.textContent.includes('respuesta desde la bandeja')));
+                // C-16 (v0.140.0) / C-15 (v0.138.0): si el frente del hilo ya no existe, avisa y NO envía (antes caía al último proyecto abierto).
+                { const mod = await import('../comun.js'); const antes = mod.estado.proyectos, n0 = filas('actividad').length;
+                  mod.estado.proyectos = antes.filter(x => x.id !== proyectoId); poner('chatTexto', 'no debe salir'); clic('chatEnviar'); await dormir(40);
+                  R.ok('C-16 / C-15 (v0.138.0): con el frente del hilo borrado, Enviar avisa y no crea renglón', filas('actividad').length === n0 && !!avisoCon('Ese frente ya no está'), `${filas('actividad').length - n0} renglones nuevos`);
+                  mod.estado.proyectos = antes; poner('chatTexto', ''); }
+                // C-16 (v0.140.0) / C-11: un «¿visto?» cuyo POST termina DESPUÉS de cambiar de frente repinta el frente de ahora, no el de antes.
+                { const vb = document.querySelector('#chatHilo .visto-btn:not(.is-on)'), otro = filas('proyectos').find(x => x.fields.Estado === 'activo' && x.id !== proyectoId), id0 = DB.siguienteId;
+                  if (vb && otro) { let soltar; DB.retener = { metodo: 'POST', incluye: 'lista-actividad/items', espera: new Promise(r => { soltar = r; }) };
+                    // (el try/finally suelta el POST retenido aunque algo truene antes: si no, la app se queda con un visto a medio viaje)
+                    try { vb.click(); await dormir(20); await irHash(`#mensajes/f/${otro.fields.Clave}`); await esperar(() => location.hash === `#mensajes/f/${otro.fields.Clave}` && visible('tab-chat'), 'otro frente'); await dormir(30); }
+                    finally { soltar(); DB.retener = null; }
+                    await esperar(() => filas('actividad').some(a => a.id >= id0 && a.fields.Accion === 'visto'), 'visto soltado'); await dormir(60);
+                    R.ok('C-16 / C-11 (v0.138.0): el visto que termina tras cambiar de frente deja pintado el frente de AHORA', $('mensajesTitulo').textContent.includes(otro.fields.Title) && ![...document.querySelectorAll('#chatHilo .msg')].some(m => m.textContent.includes('mensaje nuevo para la bandeja')), $('mensajesTitulo').textContent);
+                    DB.listas.actividad.items = filas('actividad').filter(a => !(a.id >= id0 && a.fields.Accion === 'visto')); await irHash(`#mensajes/f/${CLAVE}`); await esperar(() => location.hash === `#mensajes/f/${CLAVE}` && visible('tab-chat'), 'de vuelta al frente'); await recargarYEsperar(); await dormir(30); }
+                  else if (!vb) R.ok('C-16: el hilo del frente trae un «¿visto?» sin pulsar', false); }   // sin otro frente activo (colaborador) no aplica
             }
             await irHash('#mensajes/d/colega'); await esperar(() => visible('p-mensajes') && !visible('mensajesHilo'), 'liga vieja /d/'); await dormir(20);
             R.ok('v0.43.0: una liga vieja #mensajes/d/<alias> cae a la bandeja de Mensajes (sin hilo, sin ficha) y avisa que lo directo va por Teams', visible('p-mensajes') && !visible('mensajesHilo') && !(await import('../comun.js')).estado.mensajesSel && /Teams/.test($('avisos').textContent));
+            // C-16 (v0.140.0) / C-13 (v0.138.0): un frente CERRADO con un comentario sin leer no descuadra el subtítulo contra la insignia.
+            { const pC = { id: DB.siguienteId++, fields: { Title: 'Frente cerrado con chat (C-16)', Clave: 'c16-cerrado', Equipo: 'CALYTEK', Estado: 'cerrado' } }; filas('proyectos').push(pC);
+              const cC = { id: DB.siguienteId++, fields: { Title: 'comentario sin leer en un cerrado', Accion: 'comentar', Quien: 'colega@example.invalid', Cuando: new Date(Date.now() + 5000).toISOString(), ProyectoId: pC.id } }; filas('actividad').push(cC);
+              await recargarYEsperar(); await dormir(40);
+              const nIns = $('nMensajes').hidden ? 0 : Number($('nMensajes').textContent), mS = /(\d+) mensajes? nuevos?/.exec($('mensajesSub').textContent), nSub = mS ? Number(mS[1]) : 0;
+              R.ok('C-16 / C-13 (v0.138.0): con un frente CERRADO que tiene un comentario sin leer, el subtítulo de la bandeja y la insignia del rail dicen lo mismo', nIns === nSub, `insignia ${nIns} · subtítulo «${$('mensajesSub').textContent}»`);
+              DB.listas.actividad.items = filas('actividad').filter(a => a.id !== cC.id); DB.listas.proyectos.items = filas('proyectos').filter(x => x.id !== pC.id); await recargarYEsperar(); await dormir(30); }
             poner('mensajesBusca', 'zzz-nada'); await dormir(200);   // no casa con ningún frente: título, clave, ningún mensaje ni quién lo escribió (C-14, v0.138.0: la lista se pinta con retardo de 120 ms)
             R.ok('v0.43.0: el buscador filtra la bandeja (el frente LAU no casa) y despliega «Sin conversación»', !document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"]`) && document.querySelector('#mensajesLista .msj-sec[data-sec="sin"]').open);
             if (filas('actividad').some(r => r.fields.Title === 'respuesta desde la bandeja')) {
@@ -2219,6 +2262,9 @@ try {
                 const cPropio = filas('actividad').filter(x => x.fields.Accion === 'comentar' && x.fields.Quien === YO && Number(x.fields.ProyectoId) === proyectoId && !x.fields.TareaId).pop();
                 const bVisto = document.querySelector(`#chatHilo .msg[data-comentario="${cAjeno.id}"] .visto-btn`);
                 R.ok('v0.15.0: el mensaje ajeno trae el botón ✓ y el propio no', !!bVisto && !document.querySelector(`#chatHilo .msg[data-comentario="${cPropio.id}"] .visto-btn`));
+                // U-10 (v0.140.0): «mensaje nuevo para la bandeja» y «desde otro dispositivo» son de Colega, seguidos: una ráfaga con UN solo «¿visto?», en el último.
+                const mAjeno = document.querySelector(`#chatHilo .msg[data-comentario="${cAjeno.id}"]`), mPrevio = mAjeno && mAjeno.previousElementSibling;
+                R.ok('U-10 (v0.140.0): ningún mensaje seguido de un .is-seguido lleva «¿visto?» (la raya «nuevos» corta la ráfaga: aquí el ajeno va solo)', ![...document.querySelectorAll('#chatHilo .msg')].some(m => m.querySelector('.visto-btn') && m.nextElementSibling && m.nextElementSibling.classList.contains('is-seguido')), `${mAjeno.className} · previo ${mPrevio && mPrevio.className}`);
                 bVisto.click(); await esperar(() => filas('actividad').some(x => x.fields.Accion === 'visto' && x.fields.Title === String(cAjeno.id) && x.fields.Quien === YO), 'renglón visto');
                 await dormir(40);
                 const vRow = filas('actividad').find(x => x.fields.Accion === 'visto' && x.fields.Title === String(cAjeno.id));

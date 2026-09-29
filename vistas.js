@@ -507,7 +507,7 @@ export function engancharCalendario() {
  * v0.43.0 (Carlos, 15-sep): SOLO chat por frente. La seccion Personas y la ficha con la liga a Teams (v0.42.0) salieron:
  * casi no se usaban, y un chat 1:1 en la app no seria privado (la bitacora PROY_Actividad la lee todo el equipo).
  * El estado vive en estado.mensajesSel = {t:'f', k: clave}; el hash lo refleja (#mensajes/f/<clave>).
- * En celular (≤ 900) se ve una columna a la vez y «← Bandeja» regresa.
+ * En celular (≤ 900) se ve una columna a la vez y «←» regresa (v0.138.0: la flecha sola, en el renglón del título).
  */
 let casaChat = null;   // donde vive #tab-chat en index.html (la pestana del proyecto), para devolverlo
 function alojarChat(host) {

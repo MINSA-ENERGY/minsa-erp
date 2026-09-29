@@ -1348,7 +1348,7 @@ $('btnPlegar').addEventListener('click', () => fijarRail(false));
 // ---------------------------------------------------------------- bandeja de Mensajes plegable (v0.56.0)
 // Carlos, 15-sep (artifact MHCmeJw5, opción C): la bandeja se pliega a 52 px de iconos por frente (#mensajesRail) y el
 // hilo crece; «‹» pliega, «›» despliega. localStorage `bandeja` = 'plegada' (sin llave = abierta). El CSS solo la aplica
-// por encima de 900 px: en tableta y celular sigue «bandeja O hilo» con «← Bandeja».
+// por encima de 900 px: en tableta y celular sigue «bandeja O hilo» con «←» (v0.138.0: la flecha sola; «Volver a la bandeja» en title/aria-label).
 function aplicarBandeja(plegada) {
     $('msj').classList.toggle('is-plegada', plegada);
     $('mensajesPlegar').setAttribute('aria-expanded', plegada ? 'false' : 'true');
