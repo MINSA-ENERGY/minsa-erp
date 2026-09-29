@@ -185,7 +185,7 @@
         </div>
         <div class="apilado lateral"><!-- v0.30.0: solo visible con #p-proyecto.ver-resumen (pestaña Resumen), en todo ancho -->
           <!-- R-05 (v0.128.0): el estado DECLARADO del frente (project update de Linear); solo si PROY_Proyectos ya trae la columna Salud -->
-          <section class="mn-card salud oculto" id="pSalud"><h2>Estado del frente <button class="mn-btn is-ghost is-sm ver-toda" id="btnSalud" type="button">Actualizar</button></h2><p class="salud-linea" id="pSaludLinea"></p><p class="mn-help salud-sello" id="pSaludSello"></p></section>
+          <section class="mn-card salud oculto" id="pSalud"><h2>Estado del frente <button class="mn-btn is-ghost is-sm ver-toda" id="btnSalud" type="button">Declarar</button></h2><p class="salud-linea" id="pSaludLinea"></p><p class="mn-help salud-sello" id="pSaludSello"></p></section>
           <section class="mn-card avance"><h2>Avance</h2><div class="avance-anillo" id="pAnillo"></div><div class="kv" id="pAvance"></div></section>
           <!-- v0.100.0: el capital del frente (solo gerencia); el boton lleva a la seccion Capital filtrada por este proyecto -->
           <section class="mn-card capital-resumen oculto" id="pCapital"><h2>Capital de trabajo</h2><div class="kv" id="pCapitalKv"></div><button class="mn-btn is-ghost is-sm" id="pCapitalIr" type="button">Ver las partidas</button></section>
@@ -323,6 +323,7 @@
       <div class="t-desc-caja" id="tDescCaja"><p class="t-desc" id="tDesc"></p></div>
       <div id="tDeny" class="deny oculto"></div>
       <p id="tSoloLectura" class="mn-help solo-lectura oculto">Solo lectura · la mueve su asignado o cualquier colaborador.</p>
+      <button class="mn-btn is-ghost is-sm ir-docs" id="tIrDocs" type="button">Documentos</button><!-- U-43 (v0.141.0): bajo 900 px la columna de Documentos queda al fondo; este boton lleva ahi (solo se ve apilado) -->
       <div class="mn-label">Notas<span class="n" id="tNotasN"></span></div>
       <div class="notas" id="tNotasLista"></div>
       <form id="formNota" class="nota-forma" novalidate>

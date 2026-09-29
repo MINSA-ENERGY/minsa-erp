@@ -8,7 +8,7 @@
 
 import { CONFIG } from './config.js';
 import { sellarAsignadoPor, PUEDE, ordenar, tareasDe, diasQuieta, rotuloQuieta, camposDeMovimiento, nombreDe, nombreCorto, diasPara, estadoVence, semaforo, vencidasEn, filtrarTareas, ordenarLista, reordenar, sinAcentos, columnasDe, normalizarColumnas, nombreColumnaEn, claseDeColumna, HECHO, MAX_COLUMNAS, MAX_NOMBRE_COLUMNA, COLORES, colorValido, hrefSeguro, delegadas, misAbiertas, porVence, claseVence } from './reglas.js';
-import { $, L, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, el, boton, chip, chipVence, avisar, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaHora, aIsoDia, diaInput, fechaInput, atajosFecha, opciones, limpiar, porId, proyectoAbierto, registrarActividad, hashDe, fijarHash, irAHash, ligaDeTarjeta, notasDe, aplicarVivo, agregarSinDuplicar, fusionarActividad, pedirRelectura, equipoDe, iconoEquipo, iconoArchivo, textoConMenciones, insignia, TRAZOS, iconoSvg, puedeBorrarComentario, borrarComentario, columnasDeTarea, notasPorTarea, ligasPorTarea, buzonPorTarea, mesDia, personasActivas, contadorTexto, mayusculasEnVivo } from './comun.js';
+import { $, L, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, el, boton, chip, chipVence, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, fechaHora, aIsoDia, diaInput, fechaInput, atajosFecha, opciones, limpiar, porId, proyectoAbierto, registrarActividad, hashDe, fijarHash, irAHash, ligaDeTarjeta, notasDe, aplicarVivo, agregarSinDuplicar, fusionarActividad, pedirRelectura, equipoDe, iconoEquipo, iconoArchivo, textoConMenciones, insignia, TRAZOS, iconoSvg, puedeBorrarComentario, borrarComentario, columnasDeTarea, notasPorTarea, ligasPorTarea, buzonPorTarea, mesDia, personasActivas, contadorTexto, mayusculasEnVivo } from './comun.js';
 import { abrirPartida } from './capital.js';   // v0.103.0: «Nueva partida» desde la pestaña Capital del proyecto
 import { abrirLigar, abrirSubir, abrirEnlace, quitarLiga, puedeLigarEn, puedeEnlazarEn } from './docs.js';
 import { esConflicto } from './graph.js';
@@ -130,7 +130,7 @@ export function tarjeta(t, conProyecto = false) {
         v.classList.add('vence');   // .vence: lo unico que el compacto no esconde
         // Compacto: el chip pierde el año y el verbo («12/09», «hoy»): el color del chip y el filete ya dicen si
         // venció — con «venció 12/09/2026» entero el titulo quedaba en cuatro letras a 1366 (medido, revisor).
-        if (compacto) { enTitle.push(v.textContent); v.textContent = v.textContent.replace(/\/\d{4}$/, '').replace(/^venci[oó] |^vence /, ''); }
+        if (compacto) { enTitle.push(v.textContent); v.textContent = v.textContent.replace(/ \d{4}$/, '').replace(/^venci[oó] |^vence /, ''); }   // U-40: la fecha ya es «12 sep [2027]»
         f.appendChild(v);
     }
     // v0.13.1: indices por tarjeta calculados una vez por pintada (antes cada tarjeta recorria toda la actividad y todas las ligas).
@@ -580,7 +580,7 @@ function pintarPropiedadesFicha(t, puedeEditar) {
     // Vence: el semaforo de la fecha (vencio / hoy / pronto) tine el texto; sin fecha, «Poner fecha» en gris tenue; hecha, la fecha a secas.
     const ev = estadoVence(t, CONFIG.vencePronto);   // null en «hecho»: ya no vence
     const vence = el('span', !t.Vence ? 'default' : ev === 'danger' ? 'is-danger' : ev === 'warn' ? 'is-warn' : '',
-        !t.Vence ? (puedeEditar ? 'Poner fecha' : 'Sin fecha') : ev === 'danger' ? `venció ${fechaCorta(t.Vence)}` : ev === 'warn' && diasPara(t.Vence) === 0 ? 'hoy' : fechaCorta(t.Vence));
+        !t.Vence ? (puedeEditar ? 'Poner fecha' : 'Sin fecha') : ev === 'danger' ? `venció ${fechaVence(t.Vence)}` : ev === 'warn' && diasPara(t.Vence) === 0 ? 'hoy' : fechaVence(t.Vence));   // U-40 (v0.141.0): «26 sep», como la Lista
     const celdaVence = renglon('Vence', vence, 'vence', 'vence');
     // v0.69.0 (A2): «en N d» al lado de la fecha, fuera del boton (el data-chip sigue diciendo solo la fecha); vencida u hoy ya lo dicen.
     if (t.Vence && ev !== 'danger' && diasPara(t.Vence) > 0) celdaVence.appendChild(el('span', 'rel mn-mono', `en ${diasPara(t.Vence)} d`));
@@ -734,6 +734,7 @@ function pintarDocsDeTarjeta(t, p) {
     const c = $('tDocs'); c.textContent = '';
     const ligas = estado.ligas.filter(l => Number(l.TareaId) === t.id);
     $('tDocsN').textContent = ligas.length ? String(ligas.length) : '';   // v0.24.0: «Documentos · 2»
+    $('tIrDocs').textContent = ligas.length ? `Documentos · ${ligas.length} ↓` : 'Documentos ↓';   // U-43 (v0.141.0)
     const puede = puedeLigarEn(p);
     for (const l of ligas) {
         const lId = l.id;
@@ -866,7 +867,7 @@ async function conflicto(t) {
     const estabaAbierta = $('dlgTarea').open;
     await pedirRelectura();
     const fresca = porId(estado.tareas, t.id);
-    if (estabaAbierta && fresca) abrirTarjeta(t.id);   // abrir limpia los avisos: el aviso va DESPUES, dentro del dialogo
+    if (estabaAbierta && fresca) reabrirFicha(t.id);   // abrir limpia los avisos: el aviso va DESPUES, dentro del dialogo
     avisar(fresca ? `Alguien cambió «${fresca.Title.slice(0, 60)}» hace un momento: se releyó. Revisa y vuelve a intentarlo.` : 'Esa tarjeta ya no existe: alguien la borró hace un momento.', 'ojo');
 }
 
@@ -904,6 +905,8 @@ async function moverTarea(id, columna) {
 /** F11: Subir / Bajar. Renumera lo que cambie (reordenar()); cada cambio es un PATCH con If-Match. */
 /** C-02/C-04: vuelve a pintar la ficha de la tarjeta abierta con el objeto VIVO de estado.tareas (tras una relectura) sin tocar la nota. */
 export function repintarFicha() { const t = tarjetaAbiertaObj(); if (t && $('dlgTarea').open) pintarFicha(t); }
+/** C-35 (v0.141.0): tras una relectura, la ficha de ESA tarjeta ya abierta se repinta —la nota a medio escribir se queda—; si no, se abre. */
+function reabrirFicha(id) { if (tarjetaAbiertaId() === id) { limpiarAvisos(); repintarFicha(); } else abrirTarjeta(id); }
 async function reordenarTarea(id, delta) {
     const t = porId(estado.tareas, id); if (!t) return;
     if (!PUEDE.mover(estado.rol)) { avisar('Tu rol es de lectura: no puedes reordenar.', 'error'); return; }
@@ -924,7 +927,7 @@ async function reordenarTarea(id, delta) {
     } catch (e) {
         if (esConflicto(e)) { await conflicto(t); return; }
         // Los PATCH van en serie: si fallo el segundo, el primero ya aplico. Se relee para no quedar a medias.
-        await pedirRelectura(); if (porId(estado.tareas, t.id)) abrirTarjeta(t.id);
+        await pedirRelectura(); if (porId(estado.tareas, t.id)) reabrirFicha(t.id);
         avisar('No se pudo reordenar: ' + (e && e.message ? e.message : e), 'error');
     }
 }
@@ -995,6 +998,7 @@ async function borrarTarea() {
 // ---------------------------------------------------------------- nueva tarea
 
 $('ntTitulo').addEventListener('input', () => mayusculasEnVivo($('ntTitulo')));   // v0.106.0
+$('tIrDocs').addEventListener('click', () => $('tDocs').closest('aside').scrollIntoView({ block: 'start', behavior: 'smooth' }));   // U-43 (v0.141.0)
 
 export function abrirNuevaTarea() {
     const p = proyectoAbierto(); if (!p) return;

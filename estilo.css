@@ -2260,3 +2260,15 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 .g-barra.is-danger { box-shadow: inset 0 0 0 1px var(--status-danger-fg); } .g-txt.g-fuera.is-danger { color: var(--status-danger-fg); font-weight: 600; }   /* U-27 (roadmap): la vencida con el contorno de su muestra en la leyenda y su texto de afuera en rojo */
 .g-rombo-txt.is-grupo.is-izq { transform: translateX(-100%); padding: 0 8px 0 2px; }   /* U-24 (roadmap): el «+N» de un grupo pegado al fin va a la izquierda del rombo */
 .g-leyenda .fin { font-family: var(--font-ui); }   /* U-29 (roadmap): la frase de la leyenda en la letra de texto; en mono sumaba tres renglones a 390 */
+/* ==== v0.141.0 (2026-09-29): tanda 1 de /mejorar-app proyectos proyecto (U-43 · U-45 · U-46 · U-47) ==== */
+/* U-43: bajo 900 px la columna de Documentos cae al fondo de la ficha, debajo de Notas y Anotar; un boton arriba de Notas lleva ahi. */
+.ir-docs { display: none; }
+@media (max-width: 900px) { .t-main > .ir-docs { display: inline-flex; margin-bottom: var(--sp-2); } }
+/* U-45: en celular las pastillas que ordenan la Lista miden 36 px de alto (antes ~26); th.col-p sigue oculta (mas especifica). */
+@media (max-width: 720px) { .tabla th { min-height: 36px; display: inline-flex; align-items: center; } }
+/* U-46: la tarjeta entera del documento abre la liga (liga estirada); la X de Quitar queda encima. Sin href (direccion externa) no se estira. */
+.t-side .tdoc { position: relative; }
+.t-side .tdoc a[href]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.t-side .tdoc .quitar { position: relative; z-index: 1; }
+/* U-47: en el selector el frente abierto va con su nombre completo (la cabecera lo corta a dos renglones en celular). */
+.sel-lista button.is-on .t { white-space: normal; overflow-wrap: anywhere; }

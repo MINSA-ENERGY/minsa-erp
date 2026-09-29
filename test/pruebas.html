@@ -819,8 +819,8 @@ try {
           document.querySelector('#densidad [data-densidad="comodo"]').click(); await dormir(30);
           R.ok('v0.20.0: en Cómodo el conmutador se ve en el tablero, sin clase en el tablero, y la leyenda dice la ventana de CONFIG', !$('densidad').classList.contains('oculto') && document.querySelector('#densidad [data-densidad="comodo"]').getAttribute('aria-pressed') === 'true' && !$('tableroCols').classList.contains('is-compacto') && $('leyendaPronto').textContent === 'hoy o en 3 días');
           document.querySelector('#densidad [data-densidad="compacto"]').click(); await dormir(30);
-          R.ok('v0.20.0: Compacto pone la clase en el tablero, marca el botón, lo guarda en localStorage y el title trae el título, quién, la fecha entera y la prioridad', $('tableroCols').classList.contains('is-compacto') && document.querySelector('#densidad [data-densidad="compacto"]').getAttribute('aria-pressed') === 'true' && localStorage.getItem('densidad') === 'compacto' && /^Semáforo vencida · Persona · venció \d\d\/\d\d\/\d{4}$/.test(tj(0).title) && /^Semáforo pronto · Prioridad alta · Persona · vence \d\d\/\d\d\/\d{4}$/.test(tj(1).title), tj(1).title);
-          R.ok('v0.20.0: en Compacto el chip de fecha pierde año y verbo; todo lo demás de la línea de abajo se esconde (sin avatar desde v0.61.0)', /^\d\d\/\d\d$/.test(tj(0).querySelector('.vence').textContent) && /^\d\d\/\d\d$/.test(tj(1).querySelector('.vence').textContent) && [...document.querySelectorAll('#tableroCols .tarjeta .f > *')].every(x => x.classList.contains('vence') ? getComputedStyle(x).display !== 'none' : getComputedStyle(x).display === 'none') && document.querySelectorAll('#tableroCols .tarjeta .f > .nom').length >= 4, tj(0).querySelector('.vence').textContent);
+          R.ok('v0.20.0: Compacto pone la clase en el tablero, marca el botón, lo guarda en localStorage y el title trae el título, quién, la fecha (U-40, v0.141.0: «26 sep») y la prioridad', $('tableroCols').classList.contains('is-compacto') && document.querySelector('#densidad [data-densidad="compacto"]').getAttribute('aria-pressed') === 'true' && localStorage.getItem('densidad') === 'compacto' && /^Semáforo vencida · Persona · venció \d{1,2}\s[a-z]{3}( \d{4})?$/.test(tj(0).title) && /^Semáforo pronto · Prioridad alta · Persona · vence \d{1,2}\s[a-z]{3}( \d{4})?$/.test(tj(1).title), tj(1).title);
+          R.ok('v0.20.0: en Compacto el chip de fecha pierde año y verbo; todo lo demás de la línea de abajo se esconde (sin avatar desde v0.61.0); U-40 (v0.141.0): la fecha es «26 sep»', /^\d{1,2}\s[a-z]{3}$/.test(tj(0).querySelector('.vence').textContent) && /^\d{1,2}\s[a-z]{3}$/.test(tj(1).querySelector('.vence').textContent) && [...document.querySelectorAll('#tableroCols .tarjeta .f > *')].every(x => x.classList.contains('vence') ? getComputedStyle(x).display !== 'none' : getComputedStyle(x).display === 'none') && document.querySelectorAll('#tableroCols .tarjeta .f > .nom').length >= 4, tj(0).querySelector('.vence').textContent);
           R.ok('v0.20.0: en Compacto la tarjeta mide al menos 36 px (objetivo táctil)', [...document.querySelectorAll('#tableroCols .tarjeta')].every(x => x.getBoundingClientRect().height >= 36 || x.offsetParent === null));
           tab('lista'); await dormir(30);
           R.ok('v0.20.0: el conmutador solo se ve en el tablero', $('densidad').classList.contains('oculto'));
@@ -1145,7 +1145,12 @@ try {
                 editar('prioridad'); $('ftPrioridadSeg').querySelector(`[data-prio="${otraPrio}"]`).click(); clic('btnGuardarTarea'); await esperar(() => t.fields.Prioridad === otraPrio, 'prioridad guardada'); await dormir(30);
                 R.ok('C-04: guardar la prioridad re-pinta la ficha y la nota a medio escribir sigue ahí', $('tNota').value === 'nota a medio escribir' && $('dlgTarea').open);
                 editar('prioridad'); $('ftPrioridadSeg').querySelector(`[data-prio="${prioC4}"]`).click(); clic('btnGuardarTarea'); await esperar(() => t.fields.Prioridad === prioC4, 'prioridad de vuelta'); await dormir(30);
-                if ($('tOrden').querySelector('[data-orden="bajar"]') && !$('tOrden').querySelector('[data-orden="bajar"]').disabled) { $('tOrden').querySelector('[data-orden="bajar"]').click(); await esperar(() => avisoCon('un lugar'), 'reordenada'); await dormir(30); R.ok('C-04: Subir/Bajar tampoco borra la nota', $('tNota').value === 'nota a medio escribir'); $('tOrden').querySelector('[data-orden="subir"]').click(); await esperar(() => avisoCon('Subida'), 'de vuelta'); }
+                if ($('tOrden').querySelector('[data-orden="bajar"]') && !$('tOrden').querySelector('[data-orden="bajar"]').disabled) { $('tOrden').querySelector('[data-orden="bajar"]').click(); await esperar(() => avisoCon('un lugar'), 'reordenada'); await dormir(30); R.ok('C-04: Subir/Bajar tampoco borra la nota', $('tNota').value === 'nota a medio escribir'); $('tOrden').querySelector('[data-orden="subir"]').click(); await esperar(() => avisoCon('Subida'), 'de vuelta');
+                    // C-35/C-37 (v0.141.0): un fallo (no 412) al reordenar relee y avisa, y la nota a medio escribir se queda (antes abrirTarjeta la vaciaba).
+                    await dormir(30); DB.fallas.push({ metodo: 'PATCH', incluye: `/items/${t.id}/fields`, status: 403, veces: 1 });
+                    $('tOrden').querySelector('[data-orden="bajar"]').click(); await esperar(() => avisoCon('No se pudo reordenar'), 'reordenar falla'); await dormir(30);
+                    R.ok('C-35/C-37 (v0.141.0): un fallo al reordenar avisa, relee y la nota a medio escribir sigue ahí', !!avisoCon('No se pudo reordenar') && $('dlgTarea').open && $('tNota').value === 'nota a medio escribir', $('tNota').value);
+                    DB.fallas = DB.fallas.filter(f => !(f.incluye === `/items/${t.id}/fields` && f.status === 403)); }
                 const nC4 = actividad('comentar').length; clic('tAnotar'); await esperar(() => actividad('comentar').length === nC4 + 1, 'nota guardada');
                 R.ok('C-04: guardar la nota sí vacía el cuadro', $('tNota').value === '');
                 poner('tNota', 'otra a medias'); clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada');
@@ -1221,6 +1226,10 @@ try {
               R.ok('U-10 (v0.140.0): el «¿visto?» marca los 3 mensajes de la ráfaga y queda encendido', ids.every(vistoDe) && !!msg(ids[2]).querySelector('.visto-btn.is-on'));
               msg(ids[2]).querySelector('.visto-btn').click(); await esperar(() => !ids.some(vistoDe), 'visto de la ráfaga quitado'); await dormir(30);
               R.ok('U-10 (v0.140.0): volver a pulsar quita el visto de TODA la ráfaga', !ids.some(vistoDe) && !msg(ids[2]).querySelector('.visto-btn.is-on'));
+              // C-36/C-37 (v0.141.0): un doble toque mientras guarda no duplica: queda UN renglón visto por mensaje.
+              { const vb = msg(ids[2]).querySelector('.visto-btn'); vb.click(); vb.click(); await esperar(() => ids.every(vistoDe), 'visto doble toque'); await dormir(80);
+                const cuantos = id => filas('actividad').filter(a => a.fields.Accion === 'visto' && a.fields.Title === id && a.fields.Quien === YO).length;
+                R.ok('C-36/C-37 (v0.141.0): dos toques seguidos en «¿visto?» dejan UN visto por mensaje de la ráfaga', ids.every(id => cuantos(id) === 1), ids.map(cuantos).join(',')); }
               DB.listas.actividad.items = filas('actividad').filter(a => !ids.includes(String(a.id)) && !(a.fields.Accion === 'visto' && ids.includes(a.fields.Title))); await recargarYEsperar(); await dormir(30); }
             { const h = $('chatHilo'); const ids = new Set(h._sembrados || []); DB.listas.actividad.items = filas('actividad').filter(a => !ids.has(a.id)); await recargarYEsperar(); await dormir(30); }
             tab('tablero'); await dormir(30);
@@ -1230,8 +1239,12 @@ try {
         const itT = filas('tareas').find(x => x.id === t.id); itT.etag = (itT.etag || 1) + 1; itT.fields.Descripcion = 'Descripción cambiada por alguien más';
         const ifMatchAntes = DB.ifMatch;
         document.querySelector(`.tarjeta[data-t="${t.id}"]`).click(); await esperar(() => $('dlgTarea').open, 'tarjeta');
+        R.ok('U-43 (v0.141.0): el botón «Documentos ↓» arriba de Notas solo se ve con la ficha apilada (900 px o menos)', /^Documentos( · \d+)? ↓$/.test($('tIrDocs').textContent) && getComputedStyle($('tIrDocs')).display === (innerWidth <= 900 ? 'inline-flex' : 'none'), `${$('tIrDocs').textContent} · ${getComputedStyle($('tIrDocs')).display} · ${innerWidth}`);
+        poner('tNota', 'nota a medias C-35');
         document.querySelector('#tMover button[data-move="hecho"]').click();
         await esperar(() => avisoCon('Alguien cambió'), '412 avisado');
+        R.ok('C-35/C-37 (v0.141.0): el 412 con la ficha abierta relee y la nota a medio escribir sigue ahí', $('tNota').value === 'nota a medias C-35', $('tNota').value);
+        poner('tNota', '');
         R.ok('412: el PATCH llevó If-Match, no se pisó el cambio ajeno y la tarjeta se reabrió con lo nuevo', DB.ifMatch > ifMatchAntes && t.fields.Columna === 'en-curso' && $('dlgTarea').open && $('tDesc').textContent.includes('Descripción cambiada por alguien más'), $('tDesc').textContent.slice(0, 120));   // v0.24.0: la descripción es tDesc
         R.ok('v0.24.0: la tarjeta releída dice «Último cambio» (lastModifiedDateTime ≠ createdDateTime) en el frente', $('tKv').textContent.includes('Último cambio') && !$('tKv').textContent.includes('Descripción'), $('tKv').textContent.slice(-90));
         clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada');
@@ -2758,7 +2771,9 @@ try {
         R.ok(`R-05 (${ROL}): sin la columna Salud en PROY_Proyectos, la tarjeta «Estado del frente» no aparece y el resto carga`, $('pSalud').classList.contains('oculto') && ESTADO.columnasProyectos instanceof Set && !ESTADO.columnasProyectos.has('Salud') && ESTADO.tareas.length > 0);
         DB.sinSalud = false; await nuevaSesion(); await resumen('resumen con Salud');
         const puedeYo = gerencia;   // colaborador aun NO es responsable (el sembrado es jefa@)
-        R.ok(`R-05 (${ROL}): con la columna, la tarjeta va ARRIBA de Avance, dice «Nadie lo ha declarado todavía.» y ${puedeYo ? 'ofrece' : 'NO ofrece'} «Actualizar»`, !$('pSalud').classList.contains('oculto') && $('pSalud').nextElementSibling.classList.contains('avance') && $('pSaludLinea').textContent === 'Nadie lo ha declarado todavía.' && $('btnSalud').hidden === !puedeYo, `hidden=${$('btnSalud').hidden}`);
+        R.ok(`R-05 (${ROL}): con la columna, la tarjeta va ARRIBA de Avance, dice «Nadie lo ha declarado todavía.» y ${puedeYo ? 'ofrece' : 'NO ofrece'} «Actualizar»`, !$('pSalud').classList.contains('oculto') && $('pSalud').nextElementSibling.classList.contains('avance') && $('pSaludLinea').textContent === 'Nadie lo ha declarado todavía.' && $('btnSalud').hidden === !puedeYo && $('btnSalud').textContent === 'Declarar', `hidden=${$('btnSalud').hidden} · ${$('btnSalud').textContent}`);
+        { const its = [...document.querySelectorAll('#pVence .it')];
+          R.ok(`U-44/U-40 (${ROL}, v0.141.0): Próximos vencimientos encabeza con la tarjeta, quien la tiene va debajo y la fecha es corta («26 sep», sin dd/mm/aaaa)`, its.length > 0 && its.every(it => ESTADO.tareas.some(x => x.Title === it.querySelector('.q').textContent) && !!it.querySelector('.f') && !/\d\/\d{4}/.test(it.querySelector('.d').textContent)), its.map(it => it.textContent).join(' | ')); }
         if (!puedeYo) {
             // Forzar el botón no abre nada: la guarda está en la función, no solo en el botón.
             $('btnSalud').hidden = false; clic('btnSalud'); await dormir(40);
@@ -2774,8 +2789,9 @@ try {
             clic('slGuardar'); await esperar(() => !$('dlgSalud').open && p.fields.Salud === 'en-riesgo', 'salud guardada');
             R.ok(`R-05 (${ROL}): Guardar escribe Salud, la nota recortada, SaludPor = quien y SaludEl`, p.fields.Salud === 'en-riesgo' && p.fields.SaludNota === 'Falta la firma del representante legal' && p.fields.SaludPor === YO && !!p.fields.SaludEl, JSON.stringify(p.fields));
             R.ok(`R-05 (${ROL}): la tarjeta dice «En riesgo · Falta la firma…» con el ámbar de la casa y el sello «Persona de Prueba · fecha»`, $('pSaludLinea').textContent === 'En riesgo · Falta la firma del representante legal' && !!$('pSaludLinea').querySelector('b.is-warn') && $('pSaludSello').textContent.startsWith('Persona de Prueba · '), `${$('pSaludLinea').textContent} | ${$('pSaludSello').textContent}`);
+            R.ok(`U-37 (${ROL}): ya declarado, el botón dice «Cambiar» (no «Actualizar», que es releer los datos)`, $('btnSalud').textContent === 'Cambiar', $('btnSalud').textContent);
             await esperar(() => filas('actividad').length > nAct, 'bitácora salud');
-            R.ok(`R-05 (${ROL}): queda en la actividad como «marcó … en riesgo: nota» (Accion editar-proyecto)`, filas('actividad').slice(nAct).some(a => a.fields.Accion === 'editar-proyecto' && /marcó .* en riesgo: Falta la firma/.test(a.fields.Title)), filas('actividad').slice(nAct).map(a => a.fields.Title).join(' | '));
+            R.ok(`R-05/U-48 (${ROL}): queda en la actividad como «marcó el frente en riesgo · nota», sin el nombre del proyecto (Accion editar-proyecto)`, filas('actividad').slice(nAct).some(a => a.fields.Accion === 'editar-proyecto' && a.fields.Title === 'marcó el frente en riesgo · Falta la firma del representante legal'), filas('actividad').slice(nAct).map(a => a.fields.Title).join(' | '));
             // Guardar sin cambios no escribe.
             { const ifm = DB.ifMatch; clic('btnSalud'); await esperar(() => $('dlgSalud').open, 'dlgSalud 2');
               R.ok(`R-05 (${ROL}): al reabrir, el diálogo trae lo declarado`, $('slSalud').value === 'en-riesgo' && $('slNota').value === 'Falta la firma del representante legal');

@@ -20,8 +20,8 @@ const COMENTARIO_MAX = 250, COMENTARIO_AVISO = 200;
 // v0.42.0: el hilo sabe de que proyecto es. Antes `enviar` leia proyectoAbierto(), que era siempre el mismo
 // porque el chat solo vivia en la pestana del proyecto; en Mensajes el #tab-chat se aloja junto a la bandeja y pinta
 // el frente elegido AHI, que no es el abierto. La ultima pintada fija el destino; salirDelChat lo suelta.
-let proyectoChat = null;
-export const proyectoDelChat = () => proyectoChat;
+// C-41 (v0.141.0): solo el ID (como C-11): un objeto guardado se queda viejo tras un refresco; `proyectoDelChat` no tenia llamadores.
+let proyectoChatId = null;
 // C-09 (mensajes, 17-sep): el estado de «entre al chat» (que proyecto pinta el hilo, si ya se pinto, la raya de nuevos) vive
 // aqui y no como expandos/dataset del #chatHilo, que alojarChat mueve entre padres. El selector de @ igual: un WeakMap por textarea.
 const hiloEstado = { proyecto: null, pintado: false, nuevos: null, ultimo: null, irA: null };   // ultimo: el Cuando del comentario mas nuevo pintado
@@ -37,7 +37,7 @@ export const puedeComentarEn = p => PUEDE.tarea(estado.rol) && !!p && p.Estado =
 
 export function pintarChat(p) {
     const hilo = $('chatHilo');
-    proyectoChat = p;
+    proyectoChatId = p.id;
     const yo = estado.cuenta.username.toLowerCase();
     const cs = comentariosDe(p.id);
     // El refresco automatico (120 s) repinta el hilo: si la persona estaba leyendo arriba, se queda donde
@@ -88,11 +88,11 @@ function llevarA(cid) {
  */
 function pintarBajar(contar) {
     const h = $('chatHilo'), b = $('chatBajar'); if (!b) return;
-    const esconder = !proyectoChat || alFondoDe(h);
+    const esconder = proyectoChatId === null || alFondoDe(h);
     if (!contar && esconder === b.classList.contains('oculto')) return;
     b.classList.toggle('oculto', esconder);
     if (esconder) return;
-    const n = proyectoChat ? comentariosNuevos(proyectoChat.id).length : 0;
+    const n = proyectoChatId !== null ? comentariosNuevos(proyectoChatId).length : 0;
     b.textContent = n ? `↓ ${n} ${plural(n, 'nuevo')}` : '↓';
     b.title = n ? `Bajar a lo último · ${n} ${plural(n, 'mensaje nuevo', 'mensajes nuevos')}` : 'Bajar a lo último'; b.setAttribute('aria-label', b.title);
 }
@@ -190,9 +190,9 @@ async function alClicRafaga(ids, pid) {
 /** C-01: llegar al fondo por scroll (leyendo lo que el refresco trajo) es verlo: sube la marca y avisa para que la bandeja lo refleje. */
 function alDesplazarHilo() {
     pintarBajar(false);   // R-03
-    const u = hiloEstado.ultimo; if (!proyectoChat || !u || !alFondoDe($('chatHilo'))) return;
-    if (!(u > chatVistoHasta(proyectoChat.id))) return;   // ya visto: nada que subir (y nada que ordenar por cada evento de scroll)
-    marcarChatVisto(proyectoChat.id, u); alCambiar();
+    const u = hiloEstado.ultimo; if (proyectoChatId === null || !u || !alFondoDe($('chatHilo'))) return;
+    if (!(u > chatVistoHasta(proyectoChatId))) return;   // ya visto: nada que subir (y nada que ordenar por cada evento de scroll)
+    marcarChatVisto(proyectoChatId, u); alCambiar();
 }
 // U-06 (mejorar-app proyecto, 17-sep): en celular el hilo media 40vh fijos y quedaban ~100 px vacios bajo «Enviar» (el hueco
 // que .chat reserva al FAB, que en el chat no existe, mas lo que sobraba del viewport). Ahora el hilo toma lo que queda del
@@ -215,7 +215,7 @@ function ajustarHilo() {
 window.addEventListener('resize', ajustarHilo);
 
 /** v0.9.0: app.js lo llama cuando el chat deja de estar en pantalla; la proxima pintada cuenta como «entrar». */
-export function salirDelChat() { proyectoChat = null; hiloEstado.proyecto = null; hiloEstado.pintado = false; hiloEstado.nuevos = null; }
+export function salirDelChat() { proyectoChatId = null; hiloEstado.proyecto = null; hiloEstado.pintado = false; hiloEstado.nuevos = null; }
 /** Tras enviar, siempre al fondo (es mi mensaje). */
 function alFondo() { const h = $('chatHilo'); h.scrollTop = h.scrollHeight; }
 
@@ -227,8 +227,8 @@ async function enviar(ev) {
     ev.preventDefault();
     // v0.42.0: el frente que el hilo pinta, no el abierto; C-02: resuelto por id. C-15 (v0.138.0): si ese frente ya no existe no se
     // cae a proyectoAbierto(), que es el ultimo abierto y no el que se ve: el comentario iria a OTRO frente.
-    const p = proyectoChat ? porId(estado.proyectos, proyectoChat.id) : proyectoAbierto();
-    if (!p) { if (proyectoChat) avisar('Ese frente ya no está: el comentario no se envió.', 'error'); return; }
+    const p = proyectoChatId !== null ? porId(estado.proyectos, proyectoChatId) : proyectoAbierto();
+    if (!p) { if (proyectoChatId !== null) avisar('Ese frente ya no está: el comentario no se envió.', 'error'); return; }
     if (!PUEDE.tarea(estado.rol)) { avisar('Tu rol es de lectura: no puedes comentar.', 'error'); return; }
     if (p.Estado !== 'activo') { avisar('El proyecto está cerrado.', 'error'); return; }
     if (navigator.onLine === false) { avisar('Sin conexión: el comentario se manda cuando regrese la red (vuelve a intentarlo).', 'ojo'); return; }   // T2: Ctrl+Enter no pasa por pointer-events
@@ -246,7 +246,7 @@ async function enviar(ev) {
         // C-11: alCambiar (repintar de app.js) ya pinta el frente que esta en pantalla; el pintarChat(p) previo repintaba el de antes
         // del await, y si se cambio de frente en medio perdia la raya «nuevos» del que se llego.
         alCambiar();
-        if (proyectoChat && proyectoChat.id === p.id) alFondo();
+        if (proyectoChatId === p.id) alFondo();
         ta.focus();
     } catch (e) { avisar('No se pudo enviar: ' + (e && e.message ? e.message : e), 'error'); }
     finally { $('chatEnviar').disabled = false; }

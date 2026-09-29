@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.140.0';
+export const VERSION = '0.141.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -404,6 +404,12 @@ const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'o
  *  que quedo escrito. */
 /** v0.25.0: la fecha como hoja de calendario —{ mes: 'oct', dia: 31 }— en el dia de Mexico (diaDe); null sin fecha. */
 export function mesDia(iso) { const s = diaInput(diaDe(iso) || iso); if (!s) return null; return { mes: MESES[+s.slice(5, 7) - 1], dia: +s.slice(8, 10) }; }
+/** U-40 (v0.141.0): «26 sep», como la columna Vence de la Lista; el año solo si no es el año en curso. */
+export function fechaVence(iso) {
+    const s = diaInput(diaDe(iso) || iso); if (!s) return fechaCorta(iso);
+    const md = mesDia(s), a = s.slice(0, 4);
+    return `${md.dia} ${md.mes}` + (+a !== new Date().getFullYear() ? ` ${a}` : '');   // espacio duro: la celda Vence de la ficha partia «26 / sep»
+}
 export function fechaLegible(iso) {
     const s = diaInput(iso); if (!s) return '';
     const d = new Date(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10), 12));
@@ -445,13 +451,17 @@ export function atajosFecha(idInput, idCaja, finDelFrente) {
     pintar();
 }
 /** Chip de vencimiento de una tarea (vencida / vence pronto / vence), o null. */
-export function chipVence(t) {
+/** U-40/C-42 (v0.141.0): la frase del vencimiento sin armar el chip, con la fecha corta de la Lista; null sin fecha o hecha. */
+export function textoVence(t) {
     const e = estadoVence(t, CONFIG.vencePronto);
     if (!e) return null;
-    const d = diasPara(t.Vence);
-    if (e === 'danger') return chip(`venció ${fechaCorta(t.Vence)}`, 'danger');
-    if (e === 'warn') return chip(d === 0 ? 'vence hoy' : `vence ${fechaCorta(t.Vence)}`, 'warn');
-    return chip(`vence ${fechaCorta(t.Vence)}`);
+    const f = fechaVence(t.Vence);
+    return e === 'danger' ? `venció ${f}` : e === 'warn' && diasPara(t.Vence) === 0 ? 'vence hoy' : `vence ${f}`;
+}
+export function chipVence(t) {
+    const s = textoVence(t); if (!s) return null;
+    const e = estadoVence(t, CONFIG.vencePronto);
+    return chip(s, e === 'idle' ? undefined : e);
 }
 
 // ---------------------------------------------------------------- bitacora
@@ -780,8 +790,11 @@ export const vistoCompartidoApagado = () => vistoApagado;
 export const vistosDeComentario = c => vistosDe(estado.actividad, c && c.id);
 export function miVistoDe(c) { const yo = String(estado.cuenta && estado.cuenta.username || '').toLowerCase(); return vistosDeComentario(c).find(a => String(a.Quien || '').toLowerCase() === yo) || null; }
 export const puedeMarcarVisto = (c, p) => !!c && !!p && p.Estado === 'activo' && PUEDE.tarea(estado.rol) && String(c.Quien || '').toLowerCase() !== String(estado.cuenta && estado.cuenta.username || '').toLowerCase();
+const vistoEnVuelo = new Set();   // C-36 (v0.141.0): ids de comentario con una escritura de visto en curso
 export async function alternarVisto(c, p) {
     if (!puedeMarcarVisto(c, p)) { avisar('Tu rol es de lectura o el proyecto está cerrado: no puedes marcar visto.', 'error'); return false; }
+    if (vistoEnVuelo.has(c.id)) return true;   // un doble toque no escribe dos «visto»: la escritura en curso ya decide
+    vistoEnVuelo.add(c.id);
     const mio = miVistoDe(c);
     try {
         if (mio) { await estado.cliente.borrarRenglon(estado.siteId, L.actividad, mio.id, m => avisar(m, 'ojo')); estado.actividad = estado.actividad.filter(a => a.id !== mio.id); }
@@ -791,6 +804,7 @@ export async function alternarVisto(c, p) {
         }
         return true;
     } catch (e) { avisar('No se pudo marcar: ' + (e && e.message ? e.message : e), 'error'); return false; }
+    finally { vistoEnVuelo.delete(c.id); }
 }
 export function comentariosNuevos(pid, desde = chatVistoHasta(pid)) {
     if (!desde) return [];

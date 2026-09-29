@@ -15,7 +15,7 @@
 import { CONFIG } from './config.js';
 import { crearCliente, esConflicto } from './graph.js';
 import { rolDe, PUEDE, nombreCorto, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, misAbiertas as misAbiertasDe, HECHO, plural } from './reglas.js';
-import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, chipVence, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas } from './comun.js';
+import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, textoVence, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas } from './comun.js';
 import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambiarTareas, abrirTarjeta, tarjetaAbiertaId, repintarFicha, pintarFiltroTareas, pintarBotonFiltros, abrirNuevaTarea } from './tablero.js';
 import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
 import { pintarChat, engancharChat, alCambiarChat, fijarAbrirTarjeta, salirDelChat } from './chat.js';
@@ -503,16 +503,16 @@ function pintarFichas(cont, proyectos) {
 /** Un renglon de mini lista (2026-09-12): cabecera = quien + cuando; debajo la frase a todo el ancho;
  *  debajo el proyecto en una linea. `texto` NO trae el nombre (lo pone la cabecera); si `texto` ES el
  *  nombre completo (lista Equipo), la cabecera lo lleva entero y no hay frase. */
-/** U-18 (v0.114.0): la misma frase que el chip de la tarjeta («venció dd/mm/aaaa» · «vence hoy» · «vence dd/mm/aaaa»). */
-function fraseVenceTarjeta(t) { const c = chipVence(t); return c ? c.textContent : fechaCorta(t.Vence); }
-function itemMini(quien, texto, sub, derecha, claseDerecha, abre) {
+/** U-18 (v0.114.0): la misma frase que el chip de la tarjeta; C-42 (v0.141.0): sin armar el chip para leerle el texto. */
+function fraseVenceTarjeta(t) { return textoVence(t) || fechaVence(t.Vence); }
+function itemMini(quien, texto, sub, derecha, claseDerecha, abre, rotulo) {   // C-43 (v0.141.0): `rotulo` sustituye el nombre de la cabecera
     // C9 (v0.6.0): con `abre` el renglon es un boton que lleva a la tarjeta (antes era texto que habia que buscar).
     // C-11 (v0.95.0): `abre` es una LLAVE (llaveTarea / llaveEvento) que resuelve el delegado de abajo al clic; antes un closure por renglon.
     const it = el(abre ? 'button' : 'div', 'it' + (abre ? ' clic' : ''));
     if (abre) { it.type = 'button'; it.dataset.abre = abre; it.title = 'Abrir la tarjeta'; }
     const c = el('div');
     const nombre = nombreDe(quien, estado.roles), esNombre = texto === nombre;
-    const cab = el('div', 'cab'); cab.appendChild(el('span', 'q', esNombre ? nombre : nombreCorto(quien, estado.roles)));
+    const cab = el('div', 'cab'); cab.appendChild(el('span', 'q', rotulo || (esNombre ? nombre : nombreCorto(quien, estado.roles))));
     cab.appendChild(el('span', 'd' + (claseDerecha ? ' is-' + claseDerecha : ''), derecha || '')); c.appendChild(cab);
     if (!esNombre) c.appendChild(fraseMarcada(texto));
     if (sub) { const w = el('div', 'w', sub); w.title = sub; c.appendChild(w); }
@@ -1054,10 +1054,10 @@ function pintarLateralProyecto(p, ts, a) {
     // data-abre); las abiertas sin dueño van en su renglon «Sin asignar», asi Quiénes suma lo mismo que el tablero; y el singular concuerda.
     const abiertas = n => `${n} abierta${n === 1 ? '' : 's'}`;
     for (const k of quienes) { const it = itemMini(k, nombreDe(k, estado.roles), abiertas(abiertasDe.get(k)), '', '', `q:${k}`); it.title = 'Ver sus tarjetas en el tablero'; q.appendChild(it); }
-    if (sinDuenoAbiertas) { const it = itemMini('', '—', abiertas(sinDuenoAbiertas), '', '', 'q:'); it.querySelector('.q').textContent = 'Sin asignar'; it.title = 'Ver las tarjetas sin dueño en el tablero'; q.appendChild(it); }
+    if (sinDuenoAbiertas) { const it = itemMini('', '—', abiertas(sinDuenoAbiertas), '', '', 'q:', 'Sin asignar'); it.title = 'Ver las tarjetas sin dueño en el tablero'; q.appendChild(it); }
     if (!quienes.length && !sinDuenoAbiertas) q.appendChild(el('p', 'vacio', 'Nadie asignado todavía.'));
     const v = $('pVence'); v.textContent = '';
-    for (const { tarea: t, dias } of proximos(ts, 5)) v.appendChild(itemMini(t.Asignado, t.Title, '', fraseVenceTarjeta(t), claseVence(dias, CONFIG.vencePronto, null), llaveTarea(t)));   // C9
+    for (const { tarea: t, dias } of proximos(ts, 5)) v.appendChild(itemMini('', t.Asignado ? nombreDe(t.Asignado, estado.roles) : 'sin dueño', '', fraseVenceTarjeta(t), claseVence(dias, CONFIG.vencePronto, null), llaveTarea(t), t.Title));   // C9; U-44 (v0.141.0): la tarjeta encabeza y quien la tiene va debajo, como Vencidas de Reportes
     if (!v.childNodes.length) v.appendChild(el('p', 'vacio', 'Nada por vencer.'));
     const act = $('pActividad'); act.textContent = '';
     const deP = actividadVisible().filter(x => Number(x.ProyectoId) === p.id);   // v0.11.0: sin movimientos
@@ -1212,6 +1212,7 @@ function pintarSaludProyecto(p) {
     else linea.appendChild(el('span', 'vacio', 'Nadie lo ha declarado todavía.'));
     $('pSaludSello').textContent = s && s.por ? `${nombreDe(s.por, estado.roles)} · ${fechaCorta(s.el)}` : '';
     $('btnSalud').hidden = !puedeSalud(p);
+    $('btnSalud').textContent = s ? 'Cambiar' : 'Declarar';   // U-37 (v0.141.0): «Actualizar» ya es el boton que relee los datos
 }
 let slAlAbrir = '';
 const slValores = () => JSON.stringify([$('slSalud').value, $('slNota').value.trim()]);
@@ -1242,7 +1243,7 @@ async function guardarSalud(ev) {
     } finally { $('slGuardar').disabled = false; }
     cerrarDialogo('dlgSalud');
     avisar(`Estado del frente: ${salud.nombre.toLowerCase()}.`, 'ok'); repintar();
-    await registrarActividad('editar-proyecto', `marcó «${p.Title.slice(0, 60)}» ${salud.nombre.toLowerCase()}${nota ? ': ' + nota : ''}`, p.id, null); repintar();
+    await registrarActividad('editar-proyecto', `marcó el frente ${salud.nombre.toLowerCase()}${nota ? ' · ' + nota : ''}`, p.id, null); repintar();   // U-48 (v0.141.0): sin el nombre del proyecto, que el renglon ya lleva donde hace falta (Inicio)
 }
 const guardaSalud = { sucio: () => slValores() !== slAlAbrir, intentar: async () => { const { ok } = await confirmar({ titulo: '¿Descartar los cambios?', ok: 'Descartar', texto: 'El estado que escribiste no se ha guardado.' }); if (ok) cerrarDialogo('dlgSalud'); } };
 fijarGuarda('dlgSalud', guardaSalud);
