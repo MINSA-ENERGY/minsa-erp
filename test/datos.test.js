@@ -14,7 +14,7 @@ const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ESTE = 'test/datos.test.js';
 const rastreados = execSync('git ls-files', { cwd: raiz, encoding: 'utf8' })
     .split(/\r?\n/).filter(Boolean)
-    .filter(f => /\.(js|json|html|css|md|yml|svg|txt)$/.test(f) && f !== ESTE && !f.startsWith('vendor/'));
+    .filter(f => !/\.(png|jpe?g|gif|webp|ico|woff2?|ttf|otf|pdf|zip)$/i.test(f) && f !== ESTE && !f.startsWith('vendor/'));   // S-30 (v0.160.0): todo lo rastreado salvo binarios — antes una lista cerrada de extensiones dejaba fuera test/e2e.ps1 y cualquier .ps1/.py/.mjs nuevo
 assert.ok(rastreados.length > 10, 'git ls-files no devolvio archivos');
 
 const fijas = [
