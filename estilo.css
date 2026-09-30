@@ -413,7 +413,7 @@ button.cab.grupo-proy { cursor: pointer; } button.cab.grupo-proy:hover { filter:
 .doc .t .mn-chip { margin-right: var(--sp-1); vertical-align: middle; }
 /* U11: imprimir = lo que hay en pantalla, sin cromo. Ctrl+P o el boton «Imprimir». */
 @media print {
-  .mn-rail, .barra-movil, .sync, #avisos, #sinRed, .tabs, .tabs-fila, .filtros, .col-tabs, .proyecto-cab .acciones, .cab-plegar, .sel-lista, .sel-proyecto > summary svg, .lateral, .col .mas, .ver-toda, .pie, .tema, .docs-acciones { display: none !important; }
+  .mn-rail, .barra-movil, .sync, #avisos, #sinRed, #sesionCaduca, .tabs, .tabs-fila, .filtros, .col-tabs, .proyecto-cab .acciones, .cab-plegar, .sel-lista, .sel-proyecto > summary svg, .lateral, .col .mas, .ver-toda, .pie, .tema, .docs-acciones { display: none !important; }
   body { background: #fff; color: #000; }
   .contenido { padding: 0; }
   .mn-shell { display: block; }
@@ -438,6 +438,7 @@ button.cab.grupo-proy { cursor: pointer; } button.cab.grupo-proy:hover { filter:
 .mensaje .accion { border: 1px solid currentColor; background: transparent; color: inherit; font: inherit; font-size: .8rem; font-weight: 600; border-radius: var(--r-sm); padding: 0 var(--sp-2); min-height: 28px; cursor: pointer; white-space: nowrap; }
 /* T2: sin red se ve, no se guarda. La banda va arriba del contenido; el cuerpo lleva .sin-red y apaga lo que escribe. */
 .sin-red-banda { background: var(--status-warn-bg); color: var(--status-warn-fg); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); font-size: .85rem; font-weight: 600; margin-bottom: var(--sp-3); }
+.sesion-caduca { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }   /* C-08 (v0.159.0) */
 .sin-red .mn-btn.is-primary, .sin-red #tMover button, .sin-red #tOrden button, .sin-red #btnCubetas, .sin-red #tAnotar, .sin-red [data-quitar], .sin-red [data-buscar], .sin-red [data-ligar], .sin-red [data-subir], .sin-red [data-enlace], .sin-red [data-tarjeta-de], .sin-red #btnCerrarProyecto, .sin-red #btnReabrirProyecto, .sin-red #btnEditarProyecto, .sin-red #btnLigar, .sin-red #btnSubir, .sin-red #btnEnlace { opacity: .5; pointer-events: none; }
 @media (max-width: 720px) { #avisos { bottom: calc(var(--sp-7) + 16px + env(safe-area-inset-bottom)); } }
 .dlg-avisos:empty { display: none; }
@@ -453,7 +454,7 @@ button.cab.grupo-proy { cursor: pointer; } button.cab.grupo-proy:hover { filter:
    en adelante son dos columnas: lockup grande a la izquierda, texto y boton a la derecha, brillo detras del lockup. */
 body:has(#pantallaEntrar:not(.oculto)) { background: #04123d; overflow: hidden; height: 100dvh; }
 body:has(#pantallaEntrar:not(.oculto)) .contenido { padding: 0; display: flex; flex-direction: column; height: 100dvh; }   /* U-02 (v0.87.0): la entrada llena lo que queda debajo de cualquier banda, sin empujar la pista fuera */
-.sin-red .entrada .mn-btn.is-primary { opacity: 1; pointer-events: auto; }   /* U-01 (v0.87.0): sin red el boton de entrar sigue vivo; lo dice la pista */
+.sin-red .entrada .mn-btn.is-primary:not(:disabled) { opacity: 1; pointer-events: auto; }   /* U-09 (v0.159.0): apagado se pinta apagado aun sin red */   /* U-01 (v0.87.0): sin red el boton de entrar sigue vivo; lo dice la pista */
 body:has(#pantallaEntrar:not(.oculto)) .app { grid-template-columns: 1fr; }   /* con el rail oculto pero sin .sin-sesion (el arnés de capturas) el contenido caía en la pista de 232 px */
 body:has(#pantallaEntrar:not(.oculto)) #pie { display: none; }
 .entrada { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; background: #04123d; color: #f2f6ff; overflow: hidden; }

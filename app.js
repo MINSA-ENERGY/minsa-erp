@@ -48,16 +48,18 @@ function prepararMsal() {
     return msalListo ??= (async () => { await pca.initialize(); return pca.handleRedirectPromise(); })().catch(e => { msalListo = null; throw e; });   // si falla, el siguiente clic lo reintenta
 }
 const PISTA_MARCA = 'MINSA · Proyectos';
+const PISTA_SIN_RED = 'Sin conexión: hace falta red para entrar.', PISTA_FALLO = 'No se pudo entrar. Vuelve a intentarlo.';
 function pistaEntrada(texto) { const p = $('textoEntrar'); p.textContent = texto; p.classList.toggle('estado', texto !== PISTA_MARCA); }   // U-05: un ESTADO se pinta legible; la marca, chica
 // U-04 / C-03 (v0.87.0): los dos catch (entrar, arrancar) dejaban la entrada en estados distintos — el de arrancar
 // no tocaba la pista («Abriendo el sitio…» se quedaba) — y ninguno deshacia siteId. Una sola salida: boton vivo,
 // pista con el error y el mensaje como llega (README v0.77.0: los mensajes de MSAL no se traducen, el codigo va en el link).
 function fallaEntrada(e, prefijo) {
+    if (pideInteraccion(e)) return;   // C-11 (v0.159.0): la sesion caducada ya se fue por acquireTokenRedirect; pintar el error y encender el boton contradecia a la pagina que se esta yendo
     estado.siteId = null; estado.sesion = false;
     const motivo = e && e.message ? e.message : String(e);
     avisar(prefijo + ': ' + motivo, 'error');
     $('btnEntrar').disabled = false;
-    pistaEntrada(navigator.onLine === false ? 'Sin conexión: hace falta red para entrar.' : 'No se pudo entrar. Vuelve a intentarlo.');
+    pistaEntrada(navigator.onLine === false ? PISTA_SIN_RED : PISTA_FALLO);
 }
 async function entrar() {
     $('btnEntrar').disabled = true;
@@ -80,6 +82,7 @@ async function arrancar() {
     ondaAlPulsar();   // v0.30.0 (B5): la onda de todo .mn-btn, antes de la entrada (el boton de entrar tambien la lleva)
     try {
         const respuesta = await prepararMsal();
+        if (respuesta && respuesta.account) pca.setActiveAccount(respuesta.account);   // C-09 (v0.159.0): la cuenta que acaba de volver del login, no la primera del cache
         if (respuesta || pca.getAllAccounts().length > 0) {
             pistaEntrada('Entrando…');
             await sesionIniciada();
@@ -109,16 +112,27 @@ function pideInteraccion(e) {
 // C-04 (v0.87.0): un solo redirect por sesion caducada. cargarTodo lanza 5-6 peticiones en paralelo y cada una
 // pide el token: sin candado eran N avisos y N acquireTokenRedirect. La primera crea la promesa, las demas la esperan.
 let reentrando = null;
+function reentrar() {
+    if (!reentrando) {
+        $('sesionCaduca').classList.add('oculto');
+        avisar('La sesión caducó: volviendo a entrar…', 'ojo');
+        guardarDestino();   // U-03
+        reentrando = pca.acquireTokenRedirect({ scopes: CONFIG.scopes, account: estado.cuenta }).finally(() => { reentrando = null; });
+    }
+    return reentrando;
+}
+// C-08 (v0.159.0): con algo a medio escribir (un dialogo de edicion abierto, el chat o la nota con texto) el redirect
+// lo tiraba sin aviso. Ahi no se redirige: la banda #sesionCaduca lo dice y su boton entra cuando la persona quiera,
+// y la peticion falla con un error marcado para que el cliente no la mande con el token viejo.
 async function tokenOReentrar() {
     try { return await token(); }
     catch (e) {
         if (pideInteraccion(e)) {
-            if (!reentrando) {
-                avisar('La sesión caducó: volviendo a entrar…', 'ojo');
-                guardarDestino();   // U-03
-                reentrando = pca.acquireTokenRedirect({ scopes: CONFIG.scopes, account: estado.cuenta }).finally(() => { reentrando = null; });
+            if (!reentrando && hayBorrador()) {
+                $('sesionCaduca').classList.remove('oculto');
+                throw Object.assign(new Error('La sesión caducó; lo que escribiste sigue aquí.'), { sesionCaducada: true });
             }
-            await reentrando;
+            await reentrar();
         }
         throw e;
     }
@@ -132,7 +146,7 @@ async function tokenOReentrar() {
 async function refrescarCliente() {
     let ultimo = await tokenOReentrar();
     if (estado.cliente) return;
-    estado.cliente = crearCliente(CONFIG.graph, async () => { try { ultimo = await tokenOReentrar(); } catch (_) { /* se queda el ultimo */ } return ultimo; });
+    estado.cliente = crearCliente(CONFIG.graph, async () => { try { ultimo = await tokenOReentrar(); } catch (e) { if (e && e.sesionCaducada) throw e; /* si no, se queda el ultimo */ } return ultimo; });
 }
 /* A5 (2026-09-12): el correo + rol en un solo span se partia a media palabra («gerenci / a»).
    Ahora: nombre en negrita, correo en el title. v0.48.0: el rol es un ROTULO DE DATOS (`.rol`, mono y
@@ -161,7 +175,7 @@ setInterval(() => { if (estado.sesion) pintarSync(recargando); }, 15000);
 // C-03 (v0.87.0): si cargarTodo falla, siteId se deshace y `sesion` nunca se enciende — antes quedaba puesto
 // y los timers releian y repintaban detras de la pantalla de entrada.
 async function sesionIniciada() {
-    estado.cuenta = pca.getAllAccounts()[0];
+    estado.cuenta = pca.getActiveAccount() || pca.getAllAccounts()[0];   // C-09 (v0.159.0)
     await refrescarCliente();
     ponerQuien(estado.cuenta.username);
     pistaEntrada('Abriendo el sitio Administración…');
@@ -257,7 +271,7 @@ async function recargar() {
         // intento y se retiro en la revision de v0.4.0 por esas dos razones.
         const y = window.scrollY; repintar(); window.scrollTo({ top: y });
         repintarFicha();   // C-02 (17-sep): la ficha abierta se re-pinta con el objeto VIVO (cargarTodo reemplazo estado.tareas)
-    } catch (e) { avisar('No se pudieron releer las listas: ' + (e && e.message ? e.message : e), 'error'); }
+    } catch (e) { if (!(e && e.sesionCaducada)) avisar('No se pudieron releer las listas: ' + (e && e.message ? e.message : e), 'error'); }   // C-08: con la sesion caducada lo dice la banda; el timer no apila un aviso cada 120 s
     finally { recargando = false; $('btnActualizar').disabled = false; pintarSync(); }
 }
 // Refresco automatico mientras la app esta a la vista; nunca borra un dialogo de EDICION abierto.
@@ -265,6 +279,7 @@ async function recargar() {
 // ellos abiertos se sigue releyendo, y al cerrarlos se relee si ya pasaron 60 s (la regla de visibilitychange).
 const DLG_EDICION = ['dlgTarea', 'dlgNuevaTarea', 'dlgProyecto', 'dlgSalud', 'dlgCubetas', 'dlgLigar', 'dlgSubir', 'dlgEnlace', 'dlgPartida', 'dlg'];
 const editando = () => DLG_EDICION.some(id => $(id).open);
+const hayBorrador = () => editando() || ['chatTexto', 'tNota'].some(id => $(id).value.trim() !== '');   // C-08 (v0.159.0): #chatTexto no vive en ningun dialogo
 const rancio = () => estado.sesion && Date.now() - estado.cargadoEl > 60000;
 if (CONFIG.refrescoMs > 0 && new URLSearchParams(location.search).get('refresco') !== '0') {
     setInterval(() => { if (estado.sesion && document.visibilityState === 'visible' && !editando()) recargar(); }, CONFIG.refrescoMs);
@@ -286,9 +301,12 @@ function pintarRed() {
     const sin = navigator.onLine === false;
     $('sinRed').classList.toggle('oculto', !sin || !estado.sesion);
     document.body.classList.toggle('sin-red', sin);
-    if (!estado.sesion && !$('btnEntrar').disabled) pistaEntrada(sin ? 'Sin conexión: hace falta red para entrar.' : PISTA_MARCA);
+    if (!estado.sesion && !$('btnEntrar').disabled && $('textoEntrar').textContent !== PISTA_FALLO) pistaEntrada(sin ? PISTA_SIN_RED : PISTA_MARCA);   // C-12 (v0.159.0): el motivo de un fallo no lo borra un parpadeo de la red
 }
 window.addEventListener('offline', pintarRed);
+// U-08 (v0.159.0): volver con Atras desde login.microsoftonline.com restaura la pagina de la bfcache con el boton apagado y «Entrando…».
+window.addEventListener('pageshow', ev => { if (ev.persisted && !estado.sesion && !reentrando) { $('btnEntrar').disabled = false; pistaEntrada(PISTA_MARCA); pintarRed(); } });
+$('btnSesionCaduca').addEventListener('click', () => { reentrar().catch(e => avisar('No se pudo volver a entrar: ' + (e && e.message ? e.message : e), 'error')); });
 window.addEventListener('online', () => { pintarRed(); if (estado.sesion && !editando()) recargar(); });   // C-02: la misma guarda que el timer y visibilitychange
 pintarRed();
 

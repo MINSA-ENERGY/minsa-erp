@@ -37,11 +37,14 @@
 (function () {
     const params = new URLSearchParams(location.search);
     const cuenta = { username: params.get('quien') || (params.get('rol') || 'gerencia') + '@example.invalid', homeAccountId: 'x' };
+    const otra = { username: "otra@example.invalid", homeAccountId: "y" };
     class PublicClientApplication {
         constructor(cfg) { this.cfg = cfg; }
         async initialize() {}
-        async handleRedirectPromise() { return null; }
-        getAllAccounts() { return [cuenta]; }
+        async handleRedirectPromise() { return { account: cuenta }; }   // C-09 (v0.159.0): vuelve del login con ESTA cuenta...
+        getAllAccounts() { return [otra, cuenta]; }   // ...y el cache trae otra primero: sin setActiveAccount la sesion quedaba a su nombre
+        setActiveAccount(a) { this.activa = a; }
+        getActiveAccount() { return this.activa || null; }
         async acquireTokenSilent() { return { accessToken: 'token-falso' }; }
         async loginRedirect() { window.__PRUEBAS.log('nota', 'loginRedirect llamado'); }
         async logoutRedirect() { window.__PRUEBAS.log('nota', 'logoutRedirect llamado'); }
@@ -2859,6 +2862,85 @@ try {
               pcaFalso.PublicClientApplication.prototype.getAllAccounts = cuentasOrig; pcaFalso.PublicClientApplication.prototype.loginRedirect = loginOrig;
               sessionStorage.removeItem('proy.destino'); history.replaceState(null, '', '#inicio'); $('btnEntrar').disabled = true;
           } }
+        // Entrar, tanda de v0.159.0. C-08: con algo a medio escribir la sesion caducada NO redirige: la banda lo dice, la
+        // peticion falla (no sale con el token viejo) y lo escrito se queda; el boton de la banda es el que entra.
+        { let nRedir = 0;
+          try {
+              pcaFalso.PublicClientApplication.prototype.acquireTokenSilent = async () => { throw new pcaFalso.InteractionRequiredAuthError('interaction_required'); };
+              pcaFalso.PublicClientApplication.prototype.acquireTokenRedirect = async () => { nRedir++; };
+              $('chatTexto').value = 'borrador a medias';
+              const nPet = DB.llamadas.length;
+              const r = await Promise.allSettled([ESTADO.cliente.renglones(ESTADO.siteId, 'PROY_Proyectos')]);
+              R.ok('C-08: sesión caducada con texto en el chat → sin redirect, banda visible, la petición falla sin salir y el texto sigue', nRedir === 0 && !$('sesionCaduca').classList.contains('oculto') && r[0].status === 'rejected' && DB.llamadas.length === nPet && $('chatTexto').value === 'borrador a medias', `redirects=${nRedir} banda=${!$('sesionCaduca').classList.contains('oculto')} ${r[0].status} peticiones=+${DB.llamadas.length - nPet}`);
+              clic('btnSesionCaduca'); await esperar(() => nRedir === 1, 'redirect desde la banda');
+              R.ok('C-08: «Volver a entrar» de la banda lanza un acquireTokenRedirect y oculta la banda', nRedir === 1 && $('sesionCaduca').classList.contains('oculto'), `redirects=${nRedir}`);
+              $('chatTexto').value = ''; await dormir(30);
+              await Promise.allSettled([ESTADO.cliente.renglones(ESTADO.siteId, 'PROY_Proyectos')]);
+              R.ok('C-08: sin nada escrito, la sesión caducada sigue yendo directo al login', nRedir === 2 && $('sesionCaduca').classList.contains('oculto'), `redirects=${nRedir}`);
+          } finally {
+              pcaFalso.PublicClientApplication.prototype.acquireTokenSilent = silentOrig; pcaFalso.PublicClientApplication.prototype.acquireTokenRedirect = redirOrig;
+              $('chatTexto').value = ''; $('sesionCaduca').classList.add('oculto'); document.getElementById("avisos").replaceChildren(); history.replaceState(null, '', '#inicio');
+          } }
+        // C-10 / C-12 / C-11 / U-08: la salida de error de la entrada (fallaEntrada), que el parpadeo de la red no la borre,
+        // que un error de sesion caducada no la pinte, y que volver de la bfcache reencienda el boton.
+        { const cuentasOrig = pcaFalso.PublicClientApplication.prototype.getAllAccounts, loginOrig = pcaFalso.PublicClientApplication.prototype.loginRedirect;
+          const siteOrig = ESTADO.siteId;
+          try {
+              pcaFalso.PublicClientApplication.prototype.getAllAccounts = () => [];
+              pcaFalso.PublicClientApplication.prototype.loginRedirect = async () => { throw new Error('falla de prueba'); };
+              $('btnEntrar').disabled = false; clic('btnEntrar');
+              await esperar(() => !$('btnEntrar').disabled, 'fallaEntrada');
+              R.ok('C-10: si loginRedirect falla → aviso con el motivo, sesión apagada, siteId deshecho, botón vivo y pista de error', !!avisoCon('No se pudo entrar: falla de prueba') && ESTADO.sesion === false && ESTADO.siteId === null && $('textoEntrar').textContent === 'No se pudo entrar. Vuelve a intentarlo.' && $('textoEntrar').classList.contains('estado'), `sesion=${ESTADO.sesion} siteId=${ESTADO.siteId} pista=«${$('textoEntrar').textContent}»`);
+              window.dispatchEvent(new Event('online')); await dormir(30);
+              R.ok('C-12: un evento online no borra el motivo del fallo de entrada', $('textoEntrar').textContent === 'No se pudo entrar. Vuelve a intentarlo.', $('textoEntrar').textContent);
+              pcaFalso.PublicClientApplication.prototype.loginRedirect = async () => { throw new pcaFalso.InteractionRequiredAuthError('interaction_required'); };
+              document.getElementById("avisos").replaceChildren(); $('btnEntrar').disabled = false; clic('btnEntrar'); await dormir(80);
+              R.ok('C-11: un error de sesión caducada no pinta «No se pudo entrar» ni reenciende el botón (la página ya se va al login)', !avisoCon('No se pudo entrar') && $('btnEntrar').disabled === true && $('textoEntrar').textContent === 'Entrando…', `pista=«${$('textoEntrar').textContent}» boton=${$('btnEntrar').disabled}`);
+              window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })); await dormir(30);
+              R.ok('U-08: volver de la bfcache sin sesión reenciende el botón y regresa la pista a la marca', $('btnEntrar').disabled === false && $('textoEntrar').textContent === 'MINSA · Proyectos', `boton=${$('btnEntrar').disabled} pista=«${$('textoEntrar').textContent}»`);
+          } finally {
+              pcaFalso.PublicClientApplication.prototype.getAllAccounts = cuentasOrig; pcaFalso.PublicClientApplication.prototype.loginRedirect = loginOrig;
+              ESTADO.sesion = true; ESTADO.siteId = siteOrig; $('btnEntrar').disabled = true; document.getElementById("avisos").replaceChildren();
+          } }
+        // C-08 (revisor de v0.159.0): las otras dos ramas de hayBorrador (la nota de la tarjeta y un dialogo de edicion abierto),
+        // y que recargar con la sesion caducada no apile «No se pudieron releer» encima de la banda.
+        { let nRedir = 0; const { confirmar: conf } = await import('../comun.js');
+          try {
+              pcaFalso.PublicClientApplication.prototype.acquireTokenSilent = async () => { throw new pcaFalso.InteractionRequiredAuthError('interaction_required'); };
+              pcaFalso.PublicClientApplication.prototype.acquireTokenRedirect = async () => { nRedir++; };
+              $('tNota').value = 'nota a medias';
+              const r1 = await Promise.allSettled([ESTADO.cliente.renglones(ESTADO.siteId, 'PROY_Proyectos')]);
+              const conNota = nRedir === 0 && r1[0].status === 'rejected' && !$('sesionCaduca').classList.contains('oculto');
+              $('tNota').value = ''; $('sesionCaduca').classList.add('oculto');
+              const pDlg = conf({ titulo: 'EDICION' }); await esperar(() => $('dlg').open, 'dialogo de edicion');
+              const r2 = await Promise.allSettled([ESTADO.cliente.renglones(ESTADO.siteId, 'PROY_Proyectos')]);
+              const conDlg = nRedir === 0 && r2[0].status === 'rejected' && !$('sesionCaduca').classList.contains('oculto');
+              clic('dlgCancelar'); await pDlg; await dormir(60);
+              R.ok('C-08: la nota de la tarjeta con texto y un diálogo de edición abierto también detienen el redirect y muestran la banda', conNota && conDlg, `nota=${conNota} dialogo=${conDlg} redirects=${nRedir}`);
+              $('chatTexto').value = 'borrador'; document.getElementById("avisos").replaceChildren();
+              clic('btnActualizar'); await esperar(() => !$('btnActualizar').disabled, 'recargar con sesion caducada'); await dormir(30);
+              R.ok('C-08: recargar con la sesión caducada y algo escrito no apila «No se pudieron releer» (lo dice la banda)', !avisoCon('No se pudieron releer') && nRedir === 0 && !$('sesionCaduca').classList.contains('oculto'), `redirects=${nRedir}`);
+          } finally {
+              pcaFalso.PublicClientApplication.prototype.acquireTokenSilent = silentOrig; pcaFalso.PublicClientApplication.prototype.acquireTokenRedirect = redirOrig;
+              $('tNota').value = ''; $('chatTexto').value = ''; $('sesionCaduca').classList.add('oculto'); document.getElementById("avisos").replaceChildren();
+          } }
+        // C-10 (revisor de v0.159.0): el camino de la propuesta — el GET del sitio falla dentro de sesionIniciada — y que el
+        // segundo clic de «Entrar» si entra (sesionIniciada completa otra vez y deja la sesion como estaba).
+        { const hashAntes = location.hash;
+          try {
+              DB.fallas.push({ metodo: 'GET', incluye: ':/sites/', status: 403, veces: 1 });
+              $('btnEntrar').disabled = false; clic('btnEntrar');
+              await esperar(() => !$('btnEntrar').disabled, 'fallaEntrada por el sitio');
+              R.ok('C-10: si el GET del sitio falla en sesionIniciada → aviso con el motivo, sesión apagada, siteId null, botón vivo y pista de error', !!avisoCon('No se pudo entrar') && ESTADO.sesion === false && ESTADO.siteId === null && $('textoEntrar').textContent === 'No se pudo entrar. Vuelve a intentarlo.', `sesion=${ESTADO.sesion} siteId=${ESTADO.siteId} pista=«${$('textoEntrar').textContent}»`);
+              document.getElementById("avisos").replaceChildren(); clic('btnEntrar');
+              await esperar(() => ESTADO.sesion === true, 'segundo clic');
+              R.ok('C-10: el segundo clic de «Entrar» sí entra: sesión encendida y siteId puesto', ESTADO.sesion === true && !!ESTADO.siteId, `siteId=${ESTADO.siteId}`);
+          } finally {
+              DB.fallas = DB.fallas.filter(f => f.incluye !== ':/sites/'); $('btnEntrar').disabled = true; document.getElementById("avisos").replaceChildren();
+              if (location.hash !== hashAntes) history.replaceState(null, '', hashAntes);
+          } }
+        // C-09: la cuenta que vuelve del redirect queda como activa y sesionIniciada la prefiere a la primera del cache.
+        R.ok("C-09: con otra cuenta primero en el cache, la sesión es la que volvió del redirect (setActiveAccount)", ESTADO.cuenta === window.__CUENTA && ESTADO.cuenta.username !== "otra@example.invalid", ESTADO.cuenta && ESTADO.cuenta.username);
         // 27-sep: dos confirmaciones seguidas — el «close» de la primera llega en otra tarea y no debe cerrar la segunda (carrera real, 2 de 9 corridas).
         { const { confirmar: conf } = await import('../comun.js'); const p1 = conf({ titulo: 'PRIMERA' }); await esperar(() => $('dlg').open, 'primera'); clic('dlgOk'); const p2 = conf({ titulo: 'SEGUNDA' }); await dormir(60);
           R.ok('confirmar: el «close» atrasado de la confirmación anterior no cierra la nueva', $('dlg').open && $('dlgTitulo').textContent === 'SEGUNDA' && (await p1).ok === true);
