@@ -446,13 +446,16 @@ export function pintarCalendario() {
         for (const c of celdas) {
             const a = (c.enMes && agenda.get(c.dia)) || { tareas: [], fines: [] };   // U-05 (v0.86.0): los dias de fuera del mes no pintan; la agenda del celular y el subtitulo nunca los contaron. Revertir = quitar `c.enMes &&`
             const celda = el('div', 'cal-dia' + (c.enMes ? '' : ' is-fuera') + (c.dia === hoy ? ' is-hoy' : '') + (a.tareas.length + a.fines.length ? ' con' : '')); celda.dataset.dia = c.dia;
-            celda.appendChild(el('span', 'num', String(diaNum(c.dia))));
+            // U-12 (v0.155.0): el BOTON es el numero del dia, no la celda (antes role=button con botones adentro: control anidado y 42 paradas de Tab).
+            // Los dias de fuera del mes no entran al Tab. La celda sigue respondiendo al clic en su hueco (delegado de engancharCalendario).
+            const num = el('button', 'num', String(diaNum(c.dia))); num.type = 'button'; num.dataset.dia = c.dia; if (!c.enMes) num.tabIndex = -1;
+            num.setAttribute('aria-pressed', String(estado.calDia === c.dia)); celda.appendChild(num);   // U-07 (v0.86.0): el lector de pantalla sabe cual dia esta abierto
             const tope = 3;
             for (const p of a.fines) celda.appendChild(itemFin(p));
             for (const t of a.tareas.slice(0, tope)) celda.appendChild(itemTarea(t, false));
             if (a.tareas.length > tope) { const mas = el('button', 'cal-mas', `+${a.tareas.length - tope} más`); mas.type = 'button'; celda.appendChild(mas); }
-            celda.tabIndex = 0; celda.setAttribute('role', 'button'); celda.setAttribute('aria-label', `${diaNum(c.dia)} de ${mesLargo(c.dia)}${a.tareas.length ? ` · ${a.tareas.length} ${a.tareas.length === 1 ? 'tarjeta' : 'tarjetas'}` : ''}${a.fines.length ? ' · fin de frente' : ''}`);
-            celda.setAttribute('aria-pressed', String(estado.calDia === c.dia)); if (estado.calDia === c.dia) celda.classList.add('is-elegido');   // U-07 (v0.86.0): el lector de pantalla sabe cual dia esta abierto
+            num.setAttribute('aria-label', `${diaNum(c.dia)} de ${mesLargo(c.dia)}${a.tareas.length ? ` · ${a.tareas.length} ${a.tareas.length === 1 ? 'tarjeta' : 'tarjetas'}` : ''}${a.fines.length ? ' · fin de frente' : ''}`);
+            if (estado.calDia === c.dia) celda.classList.add('is-elegido');
             g.appendChild(celda);
         }
     });
@@ -523,9 +526,8 @@ export function engancharCalendario() {
         if (abrirItem(e)) return;
         const celda = e.target.closest('.cal-dia'); if (!celda) return;
         if (e.target.closest('.cal-mas')) elegirDia(celda.dataset.dia, false);   // «+N más» elige ese dia, nunca lo suelta
-        else if (e.target === celda || e.target.classList.contains('num')) elegirDia(celda.dataset.dia);
+        else if (e.target === celda || e.target.classList.contains('num')) elegirDia(celda.dataset.dia);   // U-12 (v0.155.0): Enter/Espacio los da el <button> del numero, sin keydown propio
     });
-    $('calRejilla').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('cal-dia')) { e.preventDefault(); elegirDia(e.target.dataset.dia); } });
     // U-07 (v0.86.0): Esc suelta el dia elegido (antes habia que volver a la celda y repetir Enter); no toca un <dialog> abierto, que ya tiene su Esc
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && estado.pestana === 'calendario' && estado.calDia && !document.querySelector('dialog[open]')) { estado.calDia = null; pintarCalendario(); } });
 }

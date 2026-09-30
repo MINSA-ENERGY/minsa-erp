@@ -1328,9 +1328,9 @@ body.sin-scroll { overflow: hidden; }
 .cal-dow { background: var(--surface-sunken); padding: var(--sp-1) var(--sp-2); font-size: .72rem; text-transform: uppercase; letter-spacing: .09em; font-weight: 600; color: var(--text-muted); }   /* U-17 (v0.154.0): antes .66rem en text-faint */
 .cal-dia { background: var(--surface-card); min-height: 96px; padding: var(--sp-1); display: grid; align-content: start; gap: 2px; min-width: 0; cursor: pointer; }
 .cal-dia:hover { background: var(--surface-hover); }
-.cal-dia:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: -2px; }
+.cal-dia .num:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }   /* U-12 (v0.155.0): el foco vive en el numero, no en la celda */
 .cal-dia.is-fuera { background: var(--surface-page); } .cal-dia.is-fuera .num { color: var(--text-faint); }
-.cal-dia .num { font-family: var(--font-data); font-size: .72rem; color: var(--text-muted); justify-self: end; width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 50%; }
+.cal-dia .num { font-family: var(--font-data); font-size: .72rem; color: var(--text-muted); justify-self: end; width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 50%; border: 0; padding: 0; background: none; cursor: pointer; }
 .cal-dia.is-hoy .num { background: var(--brand-primary); color: var(--text-on-brand); font-weight: 700; }
 .cal-dia.is-elegido { outline: 2px solid var(--brand-primary); outline-offset: -2px; }
 .cal-it { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; padding: 2px 6px; border: 0; border-left: 3px solid var(--status-idle-solid); border-radius: 3px; background: var(--status-idle-bg); color: var(--status-idle-fg); font: inherit; font-size: .72rem; font-weight: 600; text-align: left; cursor: pointer; }
