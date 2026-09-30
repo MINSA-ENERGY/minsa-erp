@@ -15,7 +15,7 @@
 // acorta con `urlParaLiga` y ningun texto sale hacia Graph sin pasar por `textosLargos`.
 
 import { CONFIG } from './config.js';
-import { PUEDE, tareasDe, slug, fechaMexico, nombreDe, validarUrl, urlParaLiga, urlCortaDeGuid, resumenLargos, textosLargos, TEXTO_MAX, hrefSeguro, filtrarLigas, tipoArchivo, ordenarLigas, direccionInicial, nombreDeLiga, columnasDe, nombreColumnaEn, claseDeColumna, colorValido, HECHO, TIPOS_LIGA } from './reglas.js';
+import { PUEDE, tareasDe, slug, fechaMexico, nombreDe, validarUrl, urlParaLiga, urlCortaDeGuid, resumenLargos, textosLargos, TEXTO_MAX, hrefSeguro, filtrarLigas, tipoArchivo, ordenarLigas, direccionInicial, nombreDeLiga, columnasDe, nombreColumnaEn, claseDeColumna, colorValido, HECHO, TIPOS_LIGA, plural } from './reglas.js';
 import { construirManifiesto, validarManifiesto, bytesDelManifiesto, nombreCarpetaLote, NOMBRE_MANIFIESTO, rutaRecibo, validarRecibo } from './lote.js';
 import { $, L, VERSION, estado, el, boton, chip, iconoArchivo, iconoSvg, avisar, abrirDialogo, cerrarDialogo, confirmar, opciones, limpiar, porId, proyectoAbierto, registrarActividad, equipoDe, fechaCorta, fechaHora, aplicarVivo, agregarSinDuplicar, pedirRelectura, irAHash, chipVence, conRetardo } from './comun.js';
 import { esConflicto } from './graph.js';
@@ -228,7 +228,7 @@ export function filaGrupo(tareaId, titulo, n, { icono = null, alClic = null, tit
     if (tarea) { const color = colorValido(tarea.Color); if (color) cab.dataset.tono = color; else cab.classList.add('is-' + claseDeColumna(tarea.Columna, columnas)); }
     cab.appendChild(el('span', 'grupo', titulo));
     if (tarea) { cab.appendChild(el('span', 'cubeta-de', nombreColumnaEn(tarea.Columna, columnas))); const v = chipVence(tarea); if (v) cab.appendChild(v); }
-    cab.appendChild(el('span', 'n', alPlegar ? `${n} doc${n === 1 ? '' : 's'}` : String(n)));   // U-26 (v0.123.0): en el arbol la cifra dice que cuenta
+    cab.appendChild(el('span', 'n', alPlegar ? `${n} ${plural(n, 'doc')}` : String(n)));   // U-26 (v0.123.0): en el arbol la cifra dice que cuenta
     td.appendChild(cab); tr.appendChild(td);
     return tr;
 }

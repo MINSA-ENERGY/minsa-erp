@@ -324,7 +324,7 @@ function pintarRoadmapCuerpo() {
     // El filtro por equipo del rail aplica PAREJO: filas e hitos (el revisor vio cifras globales con «2 frentes de CALYTEK» arriba).
     const ps = ordenarProyectos(visibles());   // C-03: la regla del rail vive en reglas.js
     const n = ps.length, frentes = n === 1 ? '1 frente' : `${n} frentes`;   // U-08 (v0.78.0): plural real, y lo que es la barra lo dice la leyenda, no dos veces
-    $('roadmapSub').textContent = estado.filtroEquipo ? `${frentes} de ${nombreEquipoFiltrado()}; quita el filtro en el rail para ver todos.` : `${frentes} activo${n === 1 ? '' : 's'}, del que vence antes al que vence después.`;
+    $('roadmapSub').textContent = estado.filtroEquipo ? `${frentes} de ${nombreEquipoFiltrado()}; quita el filtro en el rail para ver todos.` : `${frentes} ${plural(n, 'activo')}, del que vence antes al que vence después.`;
     const tsDe = new Map(ps.map(p => [p.id, tareasDe(p, estado.tareas)]));   // C-06 (v0.78.0): las tarjetas de cada frente se filtran UNA vez (antes tres: hitos, fila e hito de fin)
     const caja = $('roadmapCaja'); const previo = lugarPrevio('global', caja); caja.textContent = ''; caja.dataset.anchoPintado = String(caja.clientWidth);   // C-01 (v0.78.0): el umbral de agrupado sale de este ancho; si cambia, se repinta. C-07 (v0.120.0): el scroll se lee antes de vaciar
     const ley = $('roadmapLeyenda'); ley.textContent = ''; ley.classList.toggle('oculto', !ps.length);
@@ -770,7 +770,7 @@ function etiRep(titulo, meta, icono, claseMeta = '') {
 // R-03 (v0.132.0): junto a la barra de hechas (`n`), una delgada gris con las nuevas (`nuevas`); las dos contra el mismo maximo
 function columnas(cont, series, textoDe) {
     const max = Math.max(1, ...series.map(s => Math.max(s.n, s.nuevas)));
-    const dice = s => `${textoDe(s)}: ${s.n} hecha${s.n === 1 ? '' : 's'} · ${s.nuevas} nueva${s.nuevas === 1 ? '' : 's'}`;
+    const dice = s => `${textoDe(s)}: ${s.n} ${plural(s.n, 'hecha')} · ${s.nuevas} ${plural(s.nuevas, 'nueva')}`;
     const g = el('div', 'rep-cols'); g.setAttribute('role', 'img'); g.setAttribute('aria-label', series.map(dice).join(' · '));
     for (const s of series) {
         const c = el('div', 'col-s'); c.title = dice(s);
@@ -858,7 +858,7 @@ export function pintarCargaPersona() {
     const grupos = abiertasDePersona(estado.tareas.filter(t => ids.has(Number(t.ProyectoId))), personaCarga, ordenarProyectos(ps), CONFIG.vencePronto);
     const n = grupos.reduce((s, g) => s + g.tareas.length, 0), nv = grupos.reduce((s, g) => s + g.vencidas, 0);
     $('peTitulo').textContent = personaCarga ? nombreDe(personaCarga, estado.roles) : 'Sin dueño';
-    $('peSub').textContent = n ? `${n} abierta${n === 1 ? '' : 's'}${nv ? `, ${nv} vencida${nv === 1 ? '' : 's'}` : ''}${estado.filtroEquipo ? ` en ${nombreEquipoFiltrado()}` : ''}.` : 'Ya no tiene tarjetas abiertas.';
+    $('peSub').textContent = n ? `${n} ${plural(n, 'abierta')}${nv ? `, ${nv} ${plural(nv, 'vencida')}` : ''}${estado.filtroEquipo ? ` en ${nombreEquipoFiltrado()}` : ''}.` : 'Ya no tiene tarjetas abiertas.';
     const l = $('peLista'); l.textContent = '';
     for (const g of grupos) {
         l.appendChild(el('div', 'rep-grupo', `${g.p.Title} · ${g.tareas.length}`));
@@ -876,7 +876,7 @@ function pintarSemanas(todas) {
     const semanas = hechasPorSemana(todas, 8); columnas(hs, semanas, s => `${+s.desde.slice(8, 10)} ${MESES_CORTOS[+s.desde.slice(5, 7) - 1]}`);
     const totalSem = semanas.reduce((n, s) => n + s.n, 0), nuevas = semanas.reduce((n, s) => n + s.nuevas, 0), dif = nuevas - totalSem;
     const hechas = totalSem ? `${totalSem} tarjeta${totalSem === 1 ? ' hecha' : 's hechas'} en 8 semanas · ${(totalSem / 8).toFixed(1)} por semana.` : 'Ninguna tarjeta con fecha de hecho en las últimas 8 semanas.';
-    const rumbo = !nuevas && !totalSem ? '' : ` ${nuevas} nueva${nuevas === 1 ? '' : 's'}: ${dif > 0 ? `el pendiente creció en ${dif}` : dif < 0 ? `el pendiente bajó en ${-dif}` : 'el pendiente se mantuvo'}.`;
+    const rumbo = !nuevas && !totalSem ? '' : ` ${nuevas} ${plural(nuevas, 'nueva')}: ${dif > 0 ? `el pendiente creció en ${dif}` : dif < 0 ? `el pendiente bajó en ${-dif}` : 'el pendiente se mantuvo'}.`;
     $('repSemanasSub').textContent = hechas + rumbo;
 }
 /** Actividad por persona (30 dias), del registro de actividad de los frentes visibles. */
@@ -914,7 +914,7 @@ export function pintarReportes() {
     const venc = todas.filter(t => estadoVence(t, CONFIG.vencePronto) === 'danger');   // C-10 (v0.129.0): estadoVence ya descarta las hechas
     // U-13 / C-06 (v0.129.0): plural concordado, y la fecha es la de la ultima lectura (estado.cargadoEl), no la del reloj: sin red, lo impreso decia hoy sobre datos viejos
     const nP = ps.length, nT = todas.length;
-    $('reportesSub').textContent = `${nP} frente${nP === 1 ? ' activo' : 's activos'}${estado.filtroEquipo ? ` de ${nombreEquipoFiltrado()}` : ''} · ${nT} tarjeta${nT === 1 ? '' : 's'} · leído de las listas el ${fechaHora(new Date(estado.cargadoEl || Date.now()).toISOString())}.`;
+    $('reportesSub').textContent = `${nP} frente${nP === 1 ? ' activo' : 's activos'}${estado.filtroEquipo ? ` de ${nombreEquipoFiltrado()}` : ''} · ${nT} ${plural(nT, 'tarjeta')} · leído de las listas el ${fechaHora(new Date(estado.cargadoEl || Date.now()).toISOString())}.`;
     // v0.46.0 (Carlos, 15-sep): los 5 KPI de arriba (proyectos activos · abiertas · hechas · vencidas · sin dueño) SALIERON.
     // C-07 (v0.129.0): el refresco de 120 s recrea las filas; se anota la fila con foco y se le devuelve al terminar (antes caia al body). Desde C-16 lo hace conservarFoco (comun.js), abajo.
     const orden = ordenarProyectos(ps);   // C-03 (18-sep): cinco bloques, cada uno su funcion; el calculo comun se queda aqui

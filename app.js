@@ -410,8 +410,8 @@ function pintarInsignias() {
     const n = activos().length; $('nProyectos').textContent = String(n); $('nProyectos').hidden = n === 0;
     // D5: el lector de pantalla leia «Mis tareas 1» sin decir que el 1 son vencidas.
     const nombrar = (id, texto) => { $(id).setAttribute('aria-label', texto); $(id).title = texto; };
-    nombrar('nMis', `${vencidas} vencida${vencidas === 1 ? '' : 's'}`);
-    nombrar('nProyectos', `${n} activo${n === 1 ? '' : 's'}`);
+    nombrar('nMis', `${vencidas} ${plural(vencidas, 'vencida')}`);
+    nombrar('nProyectos', `${n} ${plural(n, 'activo')}`);
     // v0.10.0: mensajes nuevos desde tu ultima visita (v0.9.0, por dispositivo), sumados sobre los frentes activos.
     const nm = mensajesNuevos(); $('nMensajes').textContent = String(nm); $('nMensajes').hidden = nm === 0;
     nombrar('nMensajes', `${nm} ${plural(nm, 'mensaje')} ${plural(nm, 'nuevo')}`);
@@ -492,7 +492,7 @@ function fichaProyecto(p, ts) {
     else st.appendChild(el('small', 'sin', 'sin tarjetas'));   // U-07 (16-sep): «0 · 0 · 0» parecia tres cifras con significado
     r.appendChild(st);
     // U-10 (mejorar-app proyectos, 24-sep): el lector de pantalla leia los spans pegados («sep18…1abiertas0vencidas») y no decia si ya vencio
-    const pl = (k, s) => `${k} ${s}${k === 1 ? '' : 's'}`; const cifras = ts.length ? `${pl(a.total - a.hechas, 'abierta')}, ${pl(venc, 'vencida')}, ${pl(a.hechas, 'hecha')}` : 'sin tarjetas';
+    const pl = (k, s) => `${k} ${plural(k, s)}`; const cifras = ts.length ? `${pl(a.total - a.hechas, 'abierta')}, ${pl(venc, 'vencida')}, ${pl(a.hechas, 'hecha')}` : 'sin tarjetas';
     r.setAttribute('aria-label', `${p.Title}, ${tt.lastChild.textContent}. ${cal.title}. ${cifras}.`);
     return r;   // el clic lo atiende UN listener delegado (C-05, abajo); antes cada ficha registraba el suyo capturando `p`
 }
@@ -667,7 +667,7 @@ function pintarInicio() {
     const vivos = activos(), nAct = vivos.length;   // C-07 (mejorar-app, 16-sep): activos() se filtraba cuatro veces por pintado
     $('inicioSaludo').textContent = `${saludoDe(ahora)}, ${yo.split(' ')[0]}`;   // C-09 (v0.133.0): el saludo NO pasa por nombreCorto, a proposito: a uno mismo no hay a quien confundir
     // U-08: el rol va en su propio span; en celular la barra de arriba ya lo dice junto al logo y .rol-sub se oculta (estilo.css)
-    const sub = $('inicioSub'); sub.textContent = `${fechaLarga(ahora)} · ${nAct} frente${nAct === 1 ? '' : 's'} activo${nAct === 1 ? '' : 's'}`; sub.appendChild(el('span', 'rol-sub', ` · ${estado.rol}`));
+    const sub = $('inicioSub'); sub.textContent = `${fechaLarga(ahora)} · ${nAct} ${plural(nAct, 'frente')} ${plural(nAct, 'activo')}`; sub.appendChild(el('span', 'rol-sub', ` · ${estado.rol}`));
     const abiertas = abiertasInicio(vivos);   // C-11 (v0.95.0): la misma cuenta que el conmutador y «Sin dueño» repiten al clic
     // v0.41.0 (Carlos, 14-sep): la fila de KPI (mías abiertas · vencen en 7 d · vencidas · sin dueño · sin movimiento) SALIO
     // de Inicio. Lo mio vive en Mis tareas (y el rojo del rail), lo global en la cola y en Reportes; «sin movimiento» en su tarjeta.
@@ -903,7 +903,7 @@ function abrirEquipo() {
         const ch = el('span', 'ch');
         ch.appendChild(chip(r.Rol || 'lectura', r.Rol === 'gerencia' ? 'info' : null));
         if (r.Activo === false) ch.appendChild(chip('inactiva', 'danger'));
-        ch.appendChild(el('span', '', `${abiertas} abierta${abiertas === 1 ? '' : 's'}`));
+        ch.appendChild(el('span', '', `${abiertas} ${plural(abiertas, 'abierta')}`));
         fa.appendChild(ch);
         fa.appendChild(el('span', 'c', correo));
         fi.appendChild(fa);
@@ -996,7 +996,7 @@ function pintarCabeceraProyecto(p, ts, a) {
     const faltan = ts.filter(t => t.Columna !== HECHO).length;
     // v0.12.0: el boton ya no cuenta («· faltan N» salio del titulo); la cuenta va en su title y en la confirmacion.
     $('btnCerrarProyecto').textContent = p.Estado !== 'activo' ? 'Cerrado' : 'Cerrar proyecto';
-    $('btnCerrarProyecto').title = p.Estado !== 'activo' ? '' : faltan ? `Falta${faltan === 1 ? '' : 'n'} ${faltan} tarjeta${faltan === 1 ? '' : 's'} por terminar` : 'Todas las tarjetas están hechas';
+    $('btnCerrarProyecto').title = p.Estado !== 'activo' ? '' : faltan ? `${plural(faltan, 'Falta', 'Faltan')} ${faltan} ${plural(faltan, 'tarjeta')} por terminar` : 'Todas las tarjetas están hechas';
     // F6: un cerrado se reabre (solo gerencia); el boton solo existe en ese estado.
     $('btnReabrirProyecto').classList.toggle('oculto', !(PUEDE.proyecto(estado.rol) && p.Estado === 'cerrado'));
     $('btnEliminarProyecto').classList.toggle('oculto', !PUEDE.borrar(estado.rol));   // v0.13.0: solo gerencia, en cualquier estado
@@ -1075,7 +1075,7 @@ function pintarLateralProyecto(p, ts, a) {
     const quienes = [...abiertasDe.keys()];
     // U-27 / U-28 (v0.123.0): cada renglon abre el Tablero filtrado por esa persona (llave «q:<correo>», la resuelve el delegado de
     // data-abre); las abiertas sin dueño van en su renglon «Sin asignar», asi Quiénes suma lo mismo que el tablero; y el singular concuerda.
-    const abiertas = n => `${n} abierta${n === 1 ? '' : 's'}`;
+    const abiertas = n => `${n} ${plural(n, 'abierta')}`;
     for (const k of quienes) { const it = itemMini(k, nombreDe(k, estado.roles), abiertas(abiertasDe.get(k)), '', '', `q:${k}`); it.title = 'Ver sus tarjetas en el tablero'; q.appendChild(it); }
     if (sinDuenoAbiertas) { const it = itemMini('', '—', abiertas(sinDuenoAbiertas), '', '', 'q:', 'Sin asignar'); it.title = 'Ver las tarjetas sin dueño en el tablero'; q.appendChild(it); }
     if (!quienes.length && !sinDuenoAbiertas) q.appendChild(el('p', 'vacio', 'Nadie asignado todavía.'));
@@ -1275,7 +1275,7 @@ async function cerrarProyecto() {
     const p = proyectoAbierto(); if (!p) return;
     if (!PUEDE.proyecto(estado.rol)) { avisar('Solo gerencia cierra proyectos.', 'error'); return; }
     const faltan = tareasDe(p, estado.tareas).filter(t => t.Columna !== HECHO).length;
-    const { ok } = await confirmar({ titulo: 'Cerrar el proyecto', ok: 'Cerrar', texto: `«${p.Title}» pasa a cerrado con tu sello. Sale de Inicio; sus tarjetas quedan como registro y nada se borra.${faltan ? ` Ojo: queda${faltan === 1 ? '' : 'n'} ${faltan} tarjeta${faltan === 1 ? '' : 's'} sin terminar.` : ''}` });
+    const { ok } = await confirmar({ titulo: 'Cerrar el proyecto', ok: 'Cerrar', texto: `«${p.Title}» pasa a cerrado con tu sello. Sale de Inicio; sus tarjetas quedan como registro y nada se borra.${faltan ? ` Ojo: ${plural(faltan, 'queda', 'quedan')} ${faltan} ${plural(faltan, 'tarjeta')} sin terminar.` : ''}` });
     if (!ok) return;
     const campos = { Estado: 'cerrado', CerradoPor: estado.cuenta.username, CerradoEl: new Date().toISOString() };
     try {
@@ -1313,7 +1313,7 @@ async function eliminarProyecto() {
     const p = proyectoAbierto(); if (!p) return;
     if (!PUEDE.borrar(estado.rol)) { avisar('Solo gerencia elimina proyectos.', 'error'); return; }
     const tareas = tareasDe(p, estado.tareas); const ligas = estado.ligas.filter(l => Number(l.ProyectoId) === p.id);
-    const { ok } = await confirmar({ titulo: 'Eliminar el proyecto', ok: 'Eliminar', texto: `«${p.Title}» se borra con sus ${tareas.length} tarjeta${tareas.length === 1 ? '' : 's'} y ${ligas.length} liga${ligas.length === 1 ? '' : 's'} a documentos. Los archivos de la biblioteca no se tocan y la actividad queda como registro. No se puede deshacer desde la app: los renglones van a la papelera del sitio.` });
+    const { ok } = await confirmar({ titulo: 'Eliminar el proyecto', ok: 'Eliminar', texto: `«${p.Title}» se borra con sus ${tareas.length} ${plural(tareas.length, 'tarjeta')} y ${ligas.length} ${plural(ligas.length, 'liga')} a documentos. Los archivos de la biblioteca no se tocan y la actividad queda como registro. No se puede deshacer desde la app: los renglones van a la papelera del sitio.` });
     if (!ok) return;
     const titulo = p.Title;
     try {
@@ -1328,7 +1328,7 @@ async function eliminarProyecto() {
         estado.proyectos = estado.proyectos.filter(x => x.id !== p.id);
         estado.proyectoAbiertoId = null; $('accMenu').open = false;
         irA('proyectos'); avisar(`Proyecto «${titulo}» eliminado.`, 'ok'); repintar();
-        await registrarActividad('borrar-proyecto', `eliminó el proyecto «${titulo.slice(0, 80)}»${tareas.length ? ` con ${tareas.length} tarjeta${tareas.length === 1 ? '' : 's'}` : ''}`, p.id, null); repintar();
+        await registrarActividad('borrar-proyecto', `eliminó el proyecto «${titulo.slice(0, 80)}»${tareas.length ? ` con ${tareas.length} ${plural(tareas.length, 'tarjeta')}` : ''}`, p.id, null); repintar();
     } catch (e) { avisar('No se pudo eliminar: ' + (e && e.message ? e.message : e), 'error'); repintar(); }
 }
 
@@ -1399,7 +1399,7 @@ function pintarSelectorProyecto(p) {
         const ts = tareasDe(q, estado.tareas); const abiertas = ts.filter(t => t.Columna !== HECHO).length, vencidas = vencidasEn(ts);
         const b = el('button', q.id === p.id ? 'is-on' : ''); b.type = 'button'; b.setAttribute('role', 'option'); b.setAttribute('aria-selected', q.id === p.id ? 'true' : 'false'); b.dataset.proyecto = String(q.id);
         b.appendChild(iconoEquipo(equipoDe(q), 'sm')); b.appendChild(el('span', 't', q.Title));
-        const n = el('span', 'n' + (vencidas ? ' is-danger' : ''), q.Estado !== 'activo' ? 'cerrado' : `${abiertas} abierta${abiertas === 1 ? '' : 's'}${vencidas ? ` · ${vencidas} vencida${vencidas === 1 ? '' : 's'}` : ''}`); b.appendChild(n);
+        const n = el('span', 'n' + (vencidas ? ' is-danger' : ''), q.Estado !== 'activo' ? 'cerrado' : `${abiertas} ${plural(abiertas, 'abierta')}${vencidas ? ` · ${vencidas} ${plural(vencidas, 'vencida')}` : ''}`); b.appendChild(n);
         // C-10 (v0.114.0): se resuelve por id AL CLIC (regla v0.4.0); una relectura en medio reemplaza estado.proyectos.
         b.addEventListener('click', () => {
             $('selProyecto').open = false;

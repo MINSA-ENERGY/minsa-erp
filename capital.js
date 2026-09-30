@@ -5,7 +5,7 @@
 // Sin bitacora en PROY_Actividad: su choice `Accion` no tiene opcion para esto y la actividad la lee todo el equipo.
 
 import { esConflicto } from './graph.js';
-import { PUEDE, CAPITAL_CATEGORIAS, CAPITAL_TIPOS, formatoMXN, leerMonto, validarPartida, resumenCapital, capitalPorProyecto, totalCapital, capitalPorMes, ordenarPartidas, ordenarProyectos, activosDe, diaDe, partidaVencida } from './reglas.js';
+import { PUEDE, CAPITAL_CATEGORIAS, CAPITAL_TIPOS, formatoMXN, leerMonto, validarPartida, resumenCapital, capitalPorProyecto, totalCapital, capitalPorMes, ordenarPartidas, ordenarProyectos, activosDe, diaDe, partidaVencida, plural } from './reglas.js';
 import { $, L, estado, el, avisar, abrirDialogo, cerrarDialogo, confirmar, fijarGuarda, opciones, porId, aplicarVivo, agregarSinDuplicar, pedirRelectura, fechaCorta, aIsoDia, diaInput, fechaInput, limpiar, equipoDe, iconoEquipo, iconoSvg, fijarHash, hashDe, mayusculasEnVivo } from './comun.js';
 
 let repintar = () => {};
@@ -274,7 +274,7 @@ export function pintarCapitalProyecto(p) {
         par('Necesario', formatoMXN(r.necesario)); par('Cubierto', formatoMXN(r.cubierto));
         if (r.pagado) par('Ya pagado', formatoMXN(r.pagado));
     }
-    $('pCapitalIr').textContent = r.n ? `Ver las ${r.n} partida${r.n === 1 ? '' : 's'}` : 'Agregar una partida';
+    $('pCapitalIr').textContent = r.n ? `Ver las ${r.n} ${plural(r.n, 'partida')}` : 'Agregar una partida';
     $('pCapitalIr').dataset.clave = p.Clave || '';
 }
 
