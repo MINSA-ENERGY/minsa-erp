@@ -406,7 +406,7 @@ export function enfocarCal() {
     const det = $('calDetalle');
     if (det.offsetParent) { det.scrollIntoView({ block: 'nearest' }); return; }
     const ag = $('calAgenda'); if (!ag.offsetParent) return;
-    const bloque = ag.querySelector('.cal-ag.is-hoy') || ag.querySelector('.cal-ag:not(.is-pasado)');
+    const bloque = ag.querySelector('.cal-ag.is-hoy') || ag.querySelector('.cal-ag:not(.is-pasado):not(.is-vencidas)') || ag.querySelector('.cal-ag');   // R-02 (v0.158.0): el bloque de vencidas no es «el primero por venir»
     if (bloque) bloque.scrollIntoView({ block: 'start' });
 }
 // U-10 (v0.154.0): lo abierto que vence en los proximos CONFIG.semaforoDias (el mismo corte que el filete de la tarjeta) va en ambar;
@@ -478,15 +478,35 @@ export function pintarCalendario() {
     const ag = $('calAgenda');
     conservarFoco(ag, FOCO_CAL, () => {
         ag.textContent = '';
-        for (const c of enMes) {
-            const a = agenda.get(c.dia); if (!a) continue;
-            const abiertas = c.dia < hoy && (a.fines.length || a.tareas.some(t => estadoVence(t) === 'danger'));   // U-08 (v0.154.0): el dia pasado con vencidas NO se atenua
-            const bloque = el('section', 'cal-ag' + (c.dia === hoy ? ' is-hoy' : '') + (c.dia < hoy ? ' is-pasado' : '') + (abiertas ? ' con-vencidas' : ''));
-            bloque.appendChild(el('h3', '', `${diaCorto(c.dia)} ${diaNum(c.dia)}`));
+        const bloqueDia = (dia, a) => {
+            const abiertas = dia < hoy && (a.fines.length || a.tareas.some(t => estadoVence(t) === 'danger'));   // U-08 (v0.154.0): el dia pasado con vencidas NO se atenua
+            const bloque = el('section', 'cal-ag' + (dia === hoy ? ' is-hoy' : '') + (dia < hoy ? ' is-pasado' : '') + (abiertas ? ' con-vencidas' : '')); bloque.dataset.dia = dia;
+            bloque.appendChild(el('h3', '', `${diaCorto(dia)} ${diaNum(dia)}`));
             for (const p of a.fines) bloque.appendChild(itemFin(p)); for (const t of a.tareas) bloque.appendChild(itemTarea(t, true));
-            ag.appendChild(bloque);
+            return bloque;
+        };
+        if (mes === hoy.slice(0, 7)) {
+            // R-02 (v0.158.0): arriba, todo lo abierto cuya fecha ya paso —de cualquier mes— en un solo bloque, como el Overdue de Todoist;
+            // los dias pasados salen de la agenda (siguen en la rejilla). Solo TARJETAS: un fin de frente pasado no pide nada aqui (la propuesta lo cita como ruido).
+            const vT = [...agenda.keys()].filter(d => d < hoy).sort().flatMap(d => agenda.get(d).tareas.filter(t => estadoVence(t) === 'danger'));
+            if (vT.length) {
+                const b = el('section', 'cal-ag is-vencidas'); b.appendChild(el('h3', '', `Vencidas · ${vT.length}`));
+                for (const t of vT) b.appendChild(itemTarea(t, true));
+                ag.appendChild(b);
+            }
+            // R-01 (v0.158.0): de hoy en adelante, de corrido aunque cambie el mes (como el Upcoming de Todoist), con el mes como separador.
+            // Las flechas siguen mandando: en otro mes la agenda es la de ese mes, como antes.
+            const hasta = sumarDias(hoy, CONFIG.calAgendaDias);
+            for (let d = hoy; d <= hasta; d = sumarDias(d, 1)) {
+                const a = agenda.get(d); if (!a) continue;
+                if (d.slice(0, 7) !== mes && !ag.querySelector(`.cal-ag-mes[data-mes="${d.slice(0, 7)}"]`)) { const s = el('h2', 'cal-ag-mes', nombreMes(d.slice(0, 7))); s.dataset.mes = d.slice(0, 7); ag.appendChild(s); }
+                ag.appendChild(bloqueDia(d, a));
+            }
+            if (!ag.querySelector('.cal-ag[data-dia]')) ag.appendChild(el('p', 'vacio', `Nada vence en los próximos ${CONFIG.calAgendaDias} días.`));   // tambien con vencidas arriba
+        } else {
+            for (const c of enMes) { const a = agenda.get(c.dia); if (a) ag.appendChild(bloqueDia(c.dia, a)); }
+            if (!ag.childNodes.length) ag.appendChild(el('p', 'vacio', 'Nada vence este mes.'));
         }
-        if (!ag.childNodes.length) ag.appendChild(el('p', 'vacio', 'Nada vence este mes.'));
     });
     const ley = $('calLeyenda');
     if (!ley.childNodes.length) for (const [cls, texto] of LEYENDA_CAL) ley.appendChild(muestraLeyenda('g-barra-mini', cls, texto));   // U-11 (v0.154.0): fija, se arma una vez

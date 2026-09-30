@@ -89,6 +89,9 @@ export const CONFIG = {
     vencePronto: 7,
     // v0.20.0: el filete izquierdo de la tarjeta se pone ambar si vence hoy o en estos dias (rojo si ya vencio).
     semaforoDias: 3,
+    // R-01 (v0.158.0): en el mes en curso la agenda del celular corre de hoy a hoy + estos dias, de corrido aunque cambie el mes.
+    // 31 y no 30: desde el dia 1 de un mes de 31 dias, el 1 del mes siguiente siempre entra.
+    calAgendaDias: 31,
     // «Te mencionaron» en Inicio: comentarios del chat que nombran a la persona en estos ultimos dias (v0.8.0). No hay
     // «leido»: la lista se vacia sola con el tiempo.
     mencionesDias: 14,

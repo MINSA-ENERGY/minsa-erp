@@ -1516,6 +1516,8 @@ body.sin-scroll { overflow: hidden; }
   .cal-ag { display: grid; gap: 4px; padding: var(--sp-2) var(--sp-3); background: var(--surface-card); border: 1px solid var(--border-hairline); border-radius: var(--r-md); }
   .cal-ag h3 { margin: 0 0 2px; font-family: var(--font-display); font-size: .8rem; font-weight: 600; color: var(--text-muted); text-transform: capitalize; }
   .cal-ag.is-hoy { border-color: var(--brand-primary); } .cal-ag.is-hoy h3 { color: var(--brand-primary); }
+  .cal-ag.is-vencidas { border-color: var(--status-danger-solid); } .cal-ag.is-vencidas h3 { color: var(--status-danger-fg); }   /* R-02 (v0.158.0) */
+  .cal-ag-mes { margin: var(--sp-3) 0 0; font-family: var(--font-display); font-size: .9rem; font-weight: 600; color: var(--text-strong); text-transform: capitalize; }   /* R-01 (v0.158.0): separador cuando la agenda cruza de mes */
   .cal-ag.is-pasado:not(.con-vencidas) { opacity: .75; }   /* U-08 (v0.154.0): el dia pasado con vencidas o un fin de frente no se atenua */
   .cal-ag .cal-it { font-size: .8rem; padding: 6px 8px; min-height: 40px; flex-wrap: wrap; }
   /* U-03 (v0.86.0): a 390 el titulo se cortaba a ~25 caracteres y el proyecto a «LAU ASEA-03-001 (Lic…» (nowrap + elipsis en dos columnas). Titulo hasta 2 lineas; el proyecto como segundo renglon tenue completo. */
