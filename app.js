@@ -608,6 +608,13 @@ function itemActividad(a, conProyecto, extra) {
     }
     return it;
 }
+/** C-23 (v0.145.0): mi correo en minusculas, con UNA guarda (antes tres calculos: dos sin guarda y uno con ella). */
+function miCorreo() { return String(estado.cuenta && estado.cuenta.username || '').toLowerCase(); }
+/** C-19 (v0.145.0): las claves con que conservarFoco reconoce, tras repintar Inicio, el control que tenia el foco: el conmutador
+ *  (data-hoy), un renglon que abre algo (data-abre), un encabezado o un «+N más» (data-ir) y lo que el orden no alcanza (data-t). */
+const FOCO_INICIO = ['hoy', 'abre', 'ir', 't'];
+/** C-21 (v0.145.0): nuevo para ti y menciones del ultimo pintado de Inicio; el conmutador «solo mías» no los recalcula (no dependen de el). */
+let eventosInicio = null;
 /**
  * v0.63.0: la tarjeta «Actividad reciente» de Inicio (artifact BL8t8H9H, B + G). Los renglones van cortados por DIA («Hoy · 6»,
  * «Ayer · 4», «lun 14 sep · 3»), y lo que OTROS hicieron desde tu ultima visita va con punto azul y texto fuerte (es-nuevo);
@@ -618,14 +625,14 @@ function itemActividad(a, conProyecto, extra) {
  * renglones que se pintan: en celular decia «Hoy · 3» con 8 movimientos porque `lista` ya venia recortada al tope.
  */
 function pintarActividadInicio(cont, lista, todas = lista) {
-    const yo = String(estado.cuenta && estado.cuenta.username || '').toLowerCase();
+    const yo = miCorreo();   // C-23 (v0.145.0): la misma guarda que la cola
+    const deOtro = a => String(a.Quien || '').toLowerCase() !== yo;   // C-23: antes nacia despues de su primer uso y la comparacion se escribia tres veces
     const desde = pisoNuevo(estado.nuevosInicio.desde);   // C-10 (v0.94.0): sin marca, los ultimos 3 dias — el mismo piso de «Nuevo para ti»
     let ajenoMasNuevo = '';   // C-10: lo ajeno mas reciente que SE PINTO; pintarInicio sube la marca con el
-    for (const a of lista) if (String(a.Quien || '').toLowerCase() !== yo && String(a.Cuando || '') > ajenoMasNuevo) ajenoMasNuevo = String(a.Cuando);
+    for (const a of lista) if (deOtro(a) && String(a.Cuando || '') > ajenoMasNuevo) ajenoMasNuevo = String(a.Cuando);
     const hoy = diaDe(new Date()), ayer = sumarDias(hoy, -1);
     const rotulo = d => d === hoy ? 'Hoy' : d === ayer ? 'Ayer' : fechaLegible(d);
     const porDia = new Map(); for (const a of todas) { const d = diaDe(a.Cuando) || '?'; porDia.set(d, (porDia.get(d) || 0) + 1); }
-    const deOtro = a => String(a.Quien || '').toLowerCase() !== yo;
     const esNuevo = a => deOtro(a) && String(a.Cuando || '') > desde;
     const hayNuevos = lista.some(esNuevo);   // sin nada nuevo la tarjeta no se atenua entera (la pega del corte G para quien entra a cada rato)
     let diaPintado = null;
@@ -634,7 +641,7 @@ function pintarActividadInicio(cont, lista, todas = lista) {
         if (d !== diaPintado) { const h = el('div', 'dia'); h.appendChild(el('span', '', rotulo(d))); h.appendChild(el('b', '', String(porDia.get(d)))); cont.appendChild(h); diaPintado = d; }
         const nuevo = esNuevo(a), visto = hayNuevos && deOtro(a) && !nuevo;
         const t = a.TareaId ? porId(estado.tareas, a.TareaId) : null;
-        const tuya = !!t && String(t.Asignado || '').toLowerCase() === yo && String(a.Quien || '').toLowerCase() !== yo;
+        const tuya = !!t && String(t.Asignado || '').toLowerCase() === yo && deOtro(a);
         cont.appendChild(itemActividad(a, true, { nuevo, visto, tuya }));
     }
     return ajenoMasNuevo;
@@ -674,11 +681,23 @@ function pintarInicio() {
     // C-05 (mejorar-app, 16-sep): el piso de «Nuevo para ti» se congela AQUI, al entrar, y la marca de visto sube AQUI — antes eran
     // efectos colaterales de pintarCola (que se repinta con cada clic de «solo mías») y pintarActividadInicio dependia de ese orden.
     if (!estado.nuevosInicio) estado.nuevosInicio = { desde: inicioVistoHasta() };
-    const nuevos = pintarCola(abiertas);
-    pintarSinMovimiento(abiertas, ahora);   // C-09 · U-12 (v0.94.0): despues de la cola, porque excluye lo que ella ya pinto
+    eventosInicio = eventosCola();   // C-21 (v0.145.0): nuevo para ti y menciones una vez por pintado; el conmutador los reutiliza
+    // C-19 (v0.145.0): la cola, «Sin movimiento» y la actividad se recrean en cada refresco de 120 s; el foco vuelve a su equivalente.
+    const { nuevos, ajenoVisto } = conservarFoco($('p-inicio'), FOCO_INICIO, () => {
+        const cola = pintarCola(abiertas, eventosInicio);
+        pintarSinMovimiento(abiertas, cola.enCola, ahora);   // C-09 · U-12 (v0.94.0): excluye lo que la cola pinto; C-18 (v0.145.0): se lo pasa ella, no el DOM
+        return { nuevos: cola.nuevos, ajenoVisto: pintarActividadDeInicio() };
+    });
     const lp = $('inicioProyectos');
     conservarFoco(lp, ['open'], () => pintarFichas(lp, ordenarProyectos(vivos)));   // C10 · v0.25.0: los mismos renglones que en Proyectos; C-11 (29-sep): el refresco no tira el foco
     if (!vivos.length) lp.appendChild(el('p', 'vacio', PUEDE.proyecto(estado.rol) ? 'Sin proyectos activos: crea el primero en Proyectos.' : 'Sin proyectos activos todavía.'));
+    // C-10 (v0.94.0): la marca de visto sube con lo ajeno mas reciente que se vio (Nuevo para ti O la actividad); antes solo con
+    // «Nuevo para ti», y un comentario ajeno en otro frente seguia con punto azul visita tras visita.
+    const hasta = [nuevos.length ? String(nuevos[0].a.Cuando || '') : '', ajenoVisto].sort().pop();
+    if (hasta) marcarInicioVisto(hasta);
+}
+/** «Actividad reciente» de Inicio. Devuelve lo ajeno mas reciente que se pinto (C-10). C-19: salio de pintarInicio para ir dentro de conservarFoco. */
+function pintarActividadDeInicio() {
     // C9: tambien estos renglones abren su tarjeta (el revisor vio la inconsistencia con la actividad).
     // v0.39.0: «Fines de frente» (v0.21.0) salio con la lateral — la hoja de calendario de cada ficha ya trae fecha y semaforo.
     const act = $('inicioActividad'); act.textContent = '';
@@ -689,22 +708,19 @@ function pintarInicio() {
     const ajenoVisto = pintarActividadInicio(act, visible.slice(0, tope), visible);   // C9 · v0.63.0: por dia, con icono y nuevo/visto; U-06: el corte cuenta sobre `visible`
     if (!visible.length) act.appendChild(el('p', 'vacio', 'Sin actividad todavía.'));
     $('btnActividadInicio').hidden = visible.length <= tope;
-    // C-10 (v0.94.0): la marca de visto sube con lo ajeno mas reciente que se vio (Nuevo para ti O la actividad); antes solo con
-    // «Nuevo para ti», y un comentario ajeno en otro frente seguia con punto azul visita tras visita.
-    const hasta = [nuevos.length ? String(nuevos[0].a.Cuando || '') : '', ajenoVisto].sort().pop();
-    if (hasta) marcarInicioVisto(hasta);
+    return ajenoVisto;
 }
 /**
  * C-09 · U-12 (v0.94.0): «Sin movimiento» lista las quietas que la cola NO pinto (ahi ya las marca el sufijo «sin movimiento N d»;
  * antes la misma tarjeta salia dos veces), la mas quieta primero (antes en orden de id: una de 14 d desplazaba a una de 20 d),
  * hasta TOPE_COLA, y el total en el h2. La llaman pintarInicio y el conmutador «solo mías», que cambia lo que la cola pinta.
  */
-function pintarSinMovimiento(abiertas, ahora = new Date()) {
-    const enCola = new Set([...document.querySelectorAll('#inicioHoy .hoy-r[data-t]')].map(r => Number(r.dataset.t)));
+function pintarSinMovimiento(abiertas, enCola, ahora = new Date()) {   // C-18 (v0.145.0): `enCola` = los ids que pintarCola pinto; antes se leian del DOM
     const quietas = abiertas.map(t => ({ t, n: diasQuieta(t, CONFIG.sinMovimientoDias, ahora, columnasDeTarea) }))
         .filter(x => x.n !== null && !enCola.has(Number(x.t.id))).sort((a, b) => b.n - a.n || a.t.id - b.t.id);
     const sm = $('inicioSinMov'); sm.textContent = '';
-    for (const { t, n } of quietas.slice(0, TOPE_COLA)) { const it = itemMini(t.Asignado, t.Title, tituloFrenteDe(t), `${n} d`, 'warn', llaveTarea(t)); it.dataset.t = String(t.id); sm.appendChild(it); }
+    // U-14 (v0.145.0): la tarjeta encabeza y quien la tiene va debajo, como U-44 en el Resumen; sin dueño lo dice (antes cabecera vacia)
+    for (const { t, n } of quietas.slice(0, TOPE_COLA)) { const it = itemMini('', t.Asignado ? nombreDe(t.Asignado, estado.roles) : 'sin dueño', tituloFrenteDe(t), `${n} d`, 'warn', llaveTarea(t), t.Title); it.dataset.t = String(t.id); sm.appendChild(it); }
     $('nSinMov').textContent = quietas.length ? String(quietas.length) : '';
     $('cardSinMov').classList.toggle('oculto', quietas.length === 0);
 }
@@ -741,31 +757,45 @@ function renglonCola(estadoCls, titulo, sub, k, abre, datos) {
     for (const [kk, v] of Object.entries(datos || {})) r.dataset[kk] = v;
     return r;
 }
-/** El encabezado de un grupo («Vencidas · 3»); con `alClic` es boton. Devuelve el elemento ya colgado de `lista`. */
-function grupoCola(lista, clave, texto, n, cls, alClic) {
-    const h = el(alClic ? 'button' : 'div', 'hoy-g' + (cls ? ' is-' + cls : '')); if (alClic) { h.type = 'button'; h.addEventListener('click', alClic); }
+/** El encabezado de un grupo («Vencidas · 3»); con `ir` (una llave de IR_COLA) es boton. Devuelve el elemento ya colgado de `lista`.
+ *  C-22 (v0.145.0): el destino es una llave data-ir que resuelve el delegado al clic, como data-abre en los renglones (antes un closure por boton).
+ *  U-17 (v0.145.0): el rotulo sin boton es encabezado de nivel 3 para el lector de pantalla (la cola se recorre por grupos); el de
+ *  «Sin dueño» sigue siendo boton, a proposito: un boton no puede llevar role=heading y envolverlo rompe el .hoy-g + .hoy-r del estilo. */
+function grupoCola(lista, clave, texto, n, cls, ir) {
+    const h = el(ir ? 'button' : 'div', 'hoy-g' + (cls ? ' is-' + cls : ''));
+    if (ir) { h.type = 'button'; h.dataset.ir = ir; } else { h.setAttribute('role', 'heading'); h.setAttribute('aria-level', '3'); }
     h.dataset.grupo = clave; h.appendChild(el('span', '', texto)); h.appendChild(el('b', 'n', String(n))); lista.appendChild(h);
     return h;
 }
 /** Datos del subtitulo de una tarjeta: «sin movimiento N d» (CONFIG.sinMovimientoDias) y «💬 N» con sus notas.
  *  C-01 (mejorar-app, 16-sep): las notas de la TARJETA son notasDe(tareaId); comentariosDe(id) filtra por PROYECTO. */
-function extraCola(t, ahora = new Date()) {
-    const q = diasQuieta(t, CONFIG.sinMovimientoDias, ahora, columnasDeTarea), n = notasDe(t.id).length;   // C-15 (v0.94.0)
+function extraCola(t, ahora = new Date(), nNotas = null) {   // C-21 (v0.145.0): `nNotas` (Map TareaId → notas) lo cuenta la cola UNA vez por pintado
+    const q = diasQuieta(t, CONFIG.sinMovimientoDias, ahora, columnasDeTarea), n = nNotas ? nNotas.get(Number(t.id)) || 0 : notasDe(t.id).length;   // C-15 (v0.94.0)
     return [q !== null ? rotuloQuieta(q) : '', n ? `💬 ${n}` : ''].filter(Boolean);
 }
 /** El renglon de una tarjeta. U-04: el subtitulo ya NO repite la fecha —la columna `.k` la trae y el grupo dice vencida/hoy/semana—
  *  y asi el nombre del frente cabe a 390 px. U-10 (v0.94.0): los datos van ANTES del frente, que se repite renglon tras renglon:
  *  a 390 px el «…» se come el nombre repetido y no el dato que distingue. `datos` extra (p. ej. sinDueno) se suman al data-t. */
-const renglonTarea = (t, cls, datos) => renglonCola(cls, t.Title, [...extraCola(t), tituloFrenteDe(t)].filter(Boolean).join(' · '), kFecha(t.Vence), llaveTarea(t), { t: String(t.id), ...datos });
+const renglonTarea = (t, cls, datos, ctx = {}) => renglonCola(cls, t.Title, [ctx.motivo, ...extraCola(t, undefined, ctx.nNotas), tituloFrenteDe(t)].filter(Boolean).join(' · '), kFecha(t.Vence), llaveTarea(t), { t: String(t.id), ...datos });   // U-16 (v0.145.0): `ctx.motivo` («nuevo · Jefa te asignó») va primero
 /** El renglon de un evento de la bitacora (nuevo para ti / te mencionaron): quien (nombre de pila) y el frente en el subtitulo. */
 const renglonEvento = (a, titulo, datos, pid = a.ProyectoId) => { const p = porId(estado.proyectos, pid); return renglonCola('info', titulo, `${nombreCorto(a.Quien, estado.roles)}${p ? ' · ' + p.Title : ''}`, kHora(a.Cuando), llaveEvento(a, pid), datos); };
 /** Los grupos por fecha se recortan a TOPE_COLA renglones con un «+N más» que lleva a donde estan todas (Mis tareas, Reportes o Calendario). */
 const TOPE_COLA = 6, TOPE_NUEVOS = 8;
-function masCola(lista, n, texto, ir) { const b = el('button', 'hoy-mas'); b.type = 'button'; b.textContent = `+${n} más · ${texto} →`; b.addEventListener('click', ir); lista.appendChild(b); return b; }
-/** Un grupo por fecha entero: encabezado, hasta TOPE_COLA tarjetas y el «+N más». `arr` viene de gruposHoy ({ tarea, dias }). */
-function pintarGrupoCola(lista, clave, texto, arr, cls, textoMas, ir) {
+function masCola(lista, n, texto, ir) { const b = el('button', 'hoy-mas'); b.type = 'button'; b.textContent = `+${n} más · ${texto} →`; b.dataset.ir = ir; lista.appendChild(b); return b; }   // C-22: `ir` es llave de IR_COLA
+/** C-22 (v0.145.0): a donde llevan los encabezados y los «+N más» de la cola, resuelto AL CLIC contra el estado vivo. La llave es
+ *  «destino[:grupo]»: el grupo la hace UNICA en la pantalla, porque conservarFoco devuelve el foco al primer nodo con la misma llave. */
+const IR_COLA = {
+    vencidas: () => { if (estado.hoySoloMias) { estado.filtroMisAlLlegar = 'vencidas'; irA('mis'); } else irA('reportes'); },
+    calendario: () => irA('calendario'),
+    actividad: () => abrirActividad(null),
+    'sin-dueno': () => irASinDueno(),
+};
+document.addEventListener('click', ev => { const b = ev.target.closest && ev.target.closest('#inicioHoy [data-ir]'); const ir = b && IR_COLA[b.dataset.ir.split(':')[0]]; if (ir) ir(); });
+/** Un grupo por fecha entero: encabezado, hasta TOPE_COLA tarjetas y el «+N más». `arr` viene de gruposHoy ({ tarea, dias }).
+ *  `ctx` = { nNotas, motivos }: las notas contadas una vez y el aviso «nuevo» que absorbe cada tarjeta (U-16). */
+function pintarGrupoCola(lista, clave, texto, arr, cls, textoMas, ir, ctx = {}) {
     grupoCola(lista, clave, texto, arr.length, cls);
-    for (const { tarea: t } of arr.slice(0, TOPE_COLA)) lista.appendChild(renglonTarea(t, cls));
+    for (const { tarea: t } of arr.slice(0, TOPE_COLA)) { const m = ctx.motivos && ctx.motivos.get(Number(t.id)); lista.appendChild(renglonTarea(t, cls, m ? { motivo: m.tipo } : {}, { nNotas: ctx.nNotas, motivo: m && m.texto })); }
     if (arr.length > TOPE_COLA) masCola(lista, arr.length - TOPE_COLA, textoMas, ir);
 }
 /** Las tarjetas abiertas de los frentes activos: lo que miran la cola «Hoy», «Sin movimiento» y el salto de «Sin dueño».
@@ -779,7 +809,8 @@ function pintarFiltroCola() {
     const fil = $('hoyFiltro'); fil.textContent = '';
     for (const [texto, mias] of [['todo el frente', false], ['solo mías', true]]) {
         // U-12: lo que la cola deja de pintar vuelve a «Sin movimiento». C-11 (v0.95.0): con las abiertas de AHORA, no las del pintado
-        const b = boton(texto, !!estado.hoySoloMias === mias ? 'is-on' : '', () => { estado.hoySoloMias = mias; const ab = abiertasInicio(); pintarCola(ab); pintarSinMovimiento(ab); }, { hoy: mias ? 'mias' : 'todo' });
+        // C-18/C-19/C-21 (v0.145.0): la cola dice que pinto, el foco vuelve al boton equivalente y nuevo para ti / menciones no se recalculan
+        const b = boton(texto, !!estado.hoySoloMias === mias ? 'is-on' : '', () => { estado.hoySoloMias = mias; const ab = abiertasInicio(); conservarFoco($('p-inicio'), FOCO_INICIO, () => pintarSinMovimiento(ab, pintarCola(ab, eventosInicio).enCola)); }, { hoy: mias ? 'mias' : 'todo' });
         b.setAttribute('aria-pressed', String(!!estado.hoySoloMias === mias)); fil.appendChild(b);
     }
 }
@@ -790,54 +821,73 @@ function pintarFiltroCola() {
  * abajo (antes eran dos tarjetas y salia en las dos, a proposito; en una sola cola seria un renglon duplicado). El piso de
  * «Nuevo para ti» se congela al ENTRAR (la marca sube al pintar sin vaciar la lista) y sale al cambiar de pantalla.
  * Los grupos por fecha obedecen al conmutador «todo el frente / solo mías» (estado.hoySoloMias, la sesion); «sin dueño»
- * es de nadie y sale siempre; «nuevo para ti» y «te mencionaron» son mios por definicion. Devuelve `nuevos` (C-05): quien
+ * es de nadie y sale siempre; «nuevo para ti» y «te mencionaron» son mios por definicion. Devuelve { nuevos, enCola } (C-05 · C-18): quien
  * llama decide si sube la marca de visto — pintarInicio si, el conmutador «solo mías» no.
  * v0.39.0: la cola va en DOS mitades (#inicioUrgente | #inicioResto) dentro de #inicioHoy. Izquierda: vencidas · hoy y mañana ·
  * sin dueño. Derecha: nuevo para ti · te mencionaron · esta semana. C-02: las piezas viven arriba; aqui solo el orden.
  */
-function pintarCola(abiertas) {
+/** C-21 (v0.145.0): «Nuevo para ti» y «Te mencionaron» —lo que no depende del conmutador—, calculados una vez por pintado de Inicio.
+ *  Una mencion que ya salio como nueva NO se repite abajo. */
+function eventosCola() {
+    const nuevos = nuevoParaMi(estado.actividad, estado.tareas, estado.roles, estado.cuenta.username, estado.nuevosInicio.desde);
+    const yaNuevos = new Set(nuevos.map(x => Number(x.a.id)));
+    return { nuevos, menciones: mencionesA(estado.cuenta.username).filter(a => !yaNuevos.has(Number(a.id))) };
+}
+function pintarCola(abiertas, eventos) {   // `eventos` = el de eventosCola() del ultimo pintado de Inicio; sin el, se calcula
     const urgente = $('inicioUrgente'), resto = $('inicioResto'); urgente.textContent = ''; resto.textContent = '';
-    const yoCorreo = estado.cuenta.username.toLowerCase();
+    const yoCorreo = miCorreo();   // C-23 (v0.145.0)
     pintarFiltroCola();
     // Las sin dueño NO entran a los grupos por fecha (tienen el suyo): cada tarjeta sale UNA vez y el total la cuenta una vez (revisor, 13-sep).
     const conDueno = abiertas.filter(t => String(t.Asignado || '').trim());
     const base = estado.hoySoloMias ? conDueno.filter(t => String(t.Asignado || '').toLowerCase() === yoCorreo) : conDueno;
     const g = gruposHoy(base, new Date(), CONFIG.vencePronto);
-    const nuevos = nuevoParaMi(estado.actividad, estado.tareas, estado.roles, estado.cuenta.username, estado.nuevosInicio.desde);
-    const yaNuevos = new Set(nuevos.map(x => Number(x.a.id)));
-    const menciones = mencionesA(estado.cuenta.username).filter(a => !yaNuevos.has(Number(a.id)));
+    const { nuevos, menciones } = eventos || eventosCola();
     const huerfanas = sinDueno(abiertas);
+    // C-21 (v0.145.0): las notas por tarjeta se cuentan UNA vez; antes notasDe filtraba y ordenaba toda la actividad por renglon.
+    const nNotas = new Map(); for (const a of estado.actividad) if (a.Accion === 'comentar' && a.TareaId) nNotas.set(Number(a.TareaId), (nNotas.get(Number(a.TareaId)) || 0) + 1);
+    // U-16 (v0.145.0; el «reason label» de GitHub, R-01): un aviso «te asignó» / «cambió tu tarjeta» sobre una tarjeta que ya se PINTA en
+    // un grupo por fecha no sale aparte en «Nuevo para ti»: va como motivo en el subtitulo de ese renglon y el total la cuenta una vez.
+    // Las notas y menciones siguen como evento: su texto es lo nuevo. El mas reciente gana (nuevos viene del mas nuevo al mas viejo).
+    const pintadasFecha = new Set([g.vencidas, g.hoy, g.semana].flatMap(arr => arr.slice(0, TOPE_COLA).map(x => Number(x.tarea.id))));
+    const motivos = new Map();
+    for (const x of nuevos) if ((x.tipo === 'asignada' || x.tipo === 'cambio') && x.tarea && pintadasFecha.has(Number(x.tarea.id)) && !motivos.has(Number(x.tarea.id)))
+        motivos.set(Number(x.tarea.id), { tipo: x.tipo, a: x.a, texto: `nuevo · ${nombreCorto(x.a.Quien, estado.roles)} ${VERBO_NUEVO[x.tipo]}` });
+    const nuevosAparte = nuevos.filter(x => !((x.tipo === 'asignada' || x.tipo === 'cambio') && x.tarea && motivos.has(Number(x.tarea.id))));   // todos los de esa tarjeta: el renglon ya la trae
+    const ctx = { nNotas, motivos };
     // Izquierda: vencidas · hoy y mañana · sin dueño.
-    if (g.vencidas.length) pintarGrupoCola(urgente, 'vencidas', 'Vencidas', g.vencidas, 'danger', estado.hoySoloMias ? 'ver en Mis tareas' : 'ver en Reportes', () => { if (estado.hoySoloMias) { estado.filtroMisAlLlegar = 'vencidas'; irA('mis'); } else irA('reportes'); });
-    if (g.hoy.length) pintarGrupoCola(urgente, 'hoy', 'Hoy y mañana', g.hoy, 'warn', 'ver en el Calendario', () => irA('calendario'));
+    if (g.vencidas.length) pintarGrupoCola(urgente, 'vencidas', 'Vencidas', g.vencidas, 'danger', estado.hoySoloMias ? 'ver en Mis tareas' : 'ver en Reportes', 'vencidas', ctx);
+    if (g.hoy.length) pintarGrupoCola(urgente, 'hoy', 'Hoy y mañana', g.hoy, 'warn', 'ver en el Calendario', 'calendario:hoy', ctx);
     // C7 (v0.6.0): las tarjetas sin dueño no salen en Mis tareas de NADIE. El grupo solo existe si hay alguna; su encabezado
     // aterriza en el proyecto que mas tiene con el filtro «sin dueño» puesto (el mismo salto que tenia el KPI).
     if (huerfanas.length) {
-        grupoCola(urgente, 'sin-dueno', 'Sin dueño', huerfanas.length, 'warn', irASinDueno).dataset.kpi = 'sin-dueno';
-        for (const t of huerfanas.slice(0, TOPE_COLA)) urgente.appendChild(renglonTarea(t, 'warn', { sinDueno: '1' }));   // U-04: ni «sin dueño ·» (lo dice el grupo) ni la fecha (la columna)
+        grupoCola(urgente, 'sin-dueno', 'Sin dueño', huerfanas.length, 'warn', 'sin-dueno').dataset.kpi = 'sin-dueno';
+        for (const t of huerfanas.slice(0, TOPE_COLA)) urgente.appendChild(renglonTarea(t, 'warn', { sinDueno: '1' }, { nNotas }));   // U-04: ni «sin dueño ·» (lo dice el grupo) ni la fecha (la columna)
     }
     // Derecha: nuevo para ti · te mencionaron · esta semana.
-    if (nuevos.length) {
-        grupoCola(resto, 'nuevo', 'Nuevo para ti', nuevos.length, 'info');
-        for (const x of nuevos.slice(0, TOPE_NUEVOS)) {
+    if (nuevosAparte.length) {
+        grupoCola(resto, 'nuevo', 'Nuevo para ti', nuevosAparte.length, 'info');
+        for (const x of nuevosAparte.slice(0, TOPE_NUEVOS)) {
             const que = x.tipo === 'mencion' || x.tipo === 'nota' ? x.a.Title : x.tarea ? x.tarea.Title : x.a.Title;
             resto.appendChild(renglonEvento(x.a, `${VERBO_NUEVO[x.tipo]}: «${que}»`, { nuevo: x.tipo }, x.a.ProyectoId || (x.tarea && x.tarea.ProyectoId)));
         }
         // U-09 (v0.94.0): la visita sube la marca hasta el aviso mas reciente, asi que lo que no cabe necesita salida — antes el noveno desaparecia sin leerse
-        if (nuevos.length > TOPE_NUEVOS) masCola(resto, nuevos.length - TOPE_NUEVOS, 'ver en Toda la actividad', () => abrirActividad(null));
+        if (nuevosAparte.length > TOPE_NUEVOS) masCola(resto, nuevosAparte.length - TOPE_NUEVOS, 'ver en Toda la actividad', 'actividad:nuevo');
     }
     if (menciones.length) {
         grupoCola(resto, 'mencion', 'Te mencionaron', menciones.length, 'info');
         for (const a of menciones.slice(0, TOPE_COLA)) resto.appendChild(renglonEvento(a, `«${a.Title}»`, { mencion: String(a.id) }));
-        if (menciones.length > TOPE_COLA) masCola(resto, menciones.length - TOPE_COLA, 'ver en Toda la actividad', () => abrirActividad(null));   // U-09
+        if (menciones.length > TOPE_COLA) masCola(resto, menciones.length - TOPE_COLA, 'ver en Toda la actividad', 'actividad:mencion');   // U-09
     }
-    if (g.semana.length) pintarGrupoCola(resto, 'semana', 'Esta semana', g.semana, null, 'ver en el Calendario', () => irA('calendario'));
-    const total = g.vencidas.length + g.hoy.length + huerfanas.length + nuevos.length + menciones.length + g.semana.length;
+    if (g.semana.length) pintarGrupoCola(resto, 'semana', 'Esta semana', g.semana, null, 'ver en el Calendario', 'calendario:semana', ctx);
+    const total = g.vencidas.length + g.hoy.length + huerfanas.length + nuevosAparte.length + menciones.length + g.semana.length;
     $('nHoy').textContent = total ? String(total) : '';
     // Cada mitad vacia lo dice en su lugar; el «solo mías» sigue mandando en el texto de la izquierda.
     if (!urgente.children.length) urgente.appendChild(el('p', 'vacio', estado.hoySoloMias ? 'Nada urgente de lo tuyo: ni vencidas ni para hoy.' : 'Nada urgente: ni vencidas ni para hoy, y todo tiene dueño.'));
     if (!resto.children.length) resto.appendChild(el('p', 'vacio', estado.hoySoloMias ? 'Nada nuevo para ti ni tuyo por vencer esta semana.' : 'Nada nuevo para ti ni por vencer esta semana.'));
-    return nuevos;
+    // C-18 (v0.145.0): los ids de tarjeta que se pintaron van a «Sin movimiento», que ya no lee el DOM. `nuevos` entero (con los
+    // absorbidos) sube la marca de visto: el motivo en el renglon TAMBIEN se vio.
+    const enCola = new Set([...pintadasFecha, ...huerfanas.slice(0, TOPE_COLA).map(t => Number(t.id))]);
+    return { nuevos, enCola };
 }
 /** El salto de «sin dueño» (C7): al proyecto que mas tiene, con el filtro «sin dueño» puesto ENTERO — si ese proyecto ya
  *  estaba abierto, fijarProyectoAbierto no lo limpia y un «quien» previo se combinaria dejando el tablero vacio (revisor, 12-sep).
@@ -1465,6 +1515,7 @@ $('accMenu').querySelector('.acciones').addEventListener('click', e => { if (e.t
 // menu «···» hacia arriba (Actualizar y el tema se quedan a la vista). Se cierra al elegir y al tocar fuera.
 document.addEventListener('click', e => { const m = $('menuRail'); if (m.open && !m.contains(e.target)) m.open = false; });
 $('menuRail').querySelector('.menu-caja').addEventListener('click', () => { $('menuRail').open = false; });
+$('menuRail').addEventListener('keydown', e => { if (e.key === 'Escape' && $('menuRail').open) { $('menuRail').open = false; $('menuRail').querySelector('summary').focus(); } });   // U-15 (v0.145.0): Esc cierra, como selProyecto
 // C3: buscador en Proyectos y en Mis tareas (misma normalizacion que el del tablero).
 $('filtroEquipoMovil').addEventListener('change', () => { estado.filtroEquipo = $('filtroEquipoMovil').value || null; repintar(); });
 $('textoProyectos').addEventListener('input', () => { estado.textoProyectos = $('textoProyectos').value; if (estado.pestana === 'proyectos') pintarProyectos(); });
