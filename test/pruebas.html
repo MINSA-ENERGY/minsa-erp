@@ -2516,6 +2516,31 @@ try {
                   R.ok('C-08 (v0.85.0): dos pintarDocs concurrentes con la cache vacia piden el sitio de la biblioteca UNA sola vez', DB.llamadas.filter(c => c.startsWith('GET /sites/') && c.endsWith(bib.sitio)).length === antesN + 1, `+${DB.llamadas.filter(c => c.startsWith('GET /sites/') && c.endsWith(bib.sitio)).length - antesN}`); }
                 else R.ok('C-08 (v0.85.0): no aplica — el proyecto abierto no tiene biblioteca', true); }
               await irHash('#archivos'); await esperar(() => visible('p-archivos'), 'archivos'); await dormir(30); }
+            // C-11 (mejorar-app archivos, v0.150.0): lo que la tanda 1 (v0.149.0) cambio sin prueba propia — C-09 (foco y menu «⋯» tras
+            // repintar, que es lo que hace el refresco de 120 s), C-10 (la liga huerfana) y el orden por Estado. El «Documentos» de la raiz
+            // ya se pulsa siempre abajo (U-08), no solo en la rama sin tarjetas.
+            { const mod = await import('../comun.js'); const vistas = await import('../vistas.js');
+              clic('archivosAbrirTodo'); await dormir(30);
+              const m1 = document.querySelector('#archivosLista tr.doc:not([hidden]) .fila-menu');
+              if (m1) { const lid = m1.closest('tr').dataset.liga; m1.open = true; await dormir(30); m1.querySelector('summary').focus();
+                vistas.pintarArchivos(); await dormir(30);
+                const m2 = document.querySelector(`#archivosLista tr[data-liga="${lid}"] .fila-menu`);
+                R.ok('C-09 (v0.149.0): tras repintar Archivos el menu «⋯» que estaba abierto sigue abierto en su renglon NUEVO y el foco vuelve a su «⋯»', !!m2 && m2 !== m1 && m2.open && document.activeElement === m2.querySelector('summary'), `nuevo=${m2 !== m1} · open=${!!m2 && m2.open} · foco=${document.activeElement && document.activeElement.tagName}`);
+                if (m2) m2.open = false; await dormir(10); }
+              const c1 = document.querySelector('#archivosLista tr:not([hidden]) button.cab.nodo[data-nodo]');
+              if (c1) { const kn = c1.dataset.nodo; c1.focus(); vistas.pintarArchivos(); await dormir(20);
+                R.ok('C-09 (v0.149.0): el foco en una carpeta del arbol vuelve a ESA carpeta tras repintar (data-nodo), no al body', document.activeElement !== c1 && !!document.activeElement.dataset && document.activeElement.dataset.nodo === kn, `${document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.nodo : '-'} vs ${kn}`); }
+              const ch = document.querySelector('#archivosTipo [data-tipo="enlace"]'); ch.focus(); ch.click(); await dormir(20);
+              R.ok('C-09 (v0.149.0): pulsar un chip de tipo deja el foco en ese chip (recreado), no en el body', document.activeElement !== ch && !!document.activeElement.dataset && document.activeElement.dataset.tipo === 'enlace' && document.activeElement.isConnected);
+              document.querySelector('#archivosTipo [data-tipo="todos"]').click(); await dormir(20);
+              const huerfana = { id: 987654, Title: 'zz-huerfana-C10.pdf', ProyectoId: 999998, Tipo: 'archivado', Ruta: '04_SGI/zz-huerfana-C10.pdf', Unidad: 'CALYTEK' };
+              mod.estado.ligas.push(huerfana); vistas.pintarArchivos(); await dormir(20);
+              const subSinH = $('archivosSub').textContent; poner('textoArchivos', 'zz-huerfana-C10'); await dormir(30);
+              R.ok('C-10 (v0.149.0): una liga de un proyecto que ya no existe no cuenta en el subtitulo, y un filtro que solo la encuentra dice «Nada con ese filtro» (antes: tabla vacia sin aviso)', new RegExp(`^${nLigas} documentos? ligados? en todos los frentes$`).test(subSinH) && $('archivosLista').textContent.includes('Nada con ese filtro') && !document.querySelector('#archivosLista table'), subSinH);
+              poner('textoArchivos', ''); mod.estado.ligas.splice(mod.estado.ligas.indexOf(huerfana), 1); vistas.pintarArchivos(); await dormir(20);
+              const thE = document.querySelector('#archivosLista th[data-sort="estado"]'); thE.focus(); const focoPre = `${document.activeElement === thE}/${thE.isConnected}/${thE.tabIndex}`; thE.click(); await dormir(30);
+              R.ok('C-11 (v0.150.0): #archivos ordena por Estado (aria-sort en su encabezado) y el foco queda en ese encabezado recreado', !!document.querySelector('#archivosLista th[data-sort="estado"][aria-sort]') && (!document.querySelector('#archivosLista th[data-sort="estado"]').getClientRects().length || (document.activeElement !== thE && !!document.activeElement.dataset && document.activeElement.dataset.sort === 'estado')), `aria-sort=${!!document.querySelector('#archivosLista th[data-sort="estado"][aria-sort]')} · th visible=${!!document.querySelector('#archivosLista th[data-sort="estado"]').getClientRects().length} · foco=${document.activeElement && document.activeElement.tagName}.${document.activeElement && document.activeElement.className} · ancho=${innerWidth} · pre=${focoPre}`);   // con fichas apiladas (panel < 720, la E2E a 750) el thead va display:none y no toma foco; el th conserva su display computado, por eso getClientRects
+              document.querySelector('#archivosLista th[data-sort="del"]').click(); await dormir(30); }
             { const bD = document.querySelector('#archivosLista tr.raiz .ir-docs'); R.ok('U-08 (v0.149.0): el boton «Documentos» de la raiz se VE en Archivos (la regla de U-43 lo apagaba y el .click() lo pulsaba igual)', getComputedStyle(bD).display !== 'none' && bD.getBoundingClientRect().width > 0, getComputedStyle(bD).display); }
             document.querySelector('#archivosLista tr.raiz .ir-docs').click(); await esperar(() => visible('tab-docs'), 'docs desde archivos');
             R.ok('v0.10.0 (v0.36.0: el boton «Documentos» de la raiz): el proyecto abre sus Documentos', visible('tab-docs') && location.hash.endsWith('/docs'));
