@@ -254,7 +254,7 @@
 
 <script type="module">
 import { diasPara, diaDe } from '../reglas.js';
-import { estado as ESTADO } from '../comun.js';   // U-04 (v0.79.0): forzar «tactil» (headless no cambia de viewport)
+import { estado as ESTADO, llaveVisto, llaveVistoInicio, olvidarVistosLocales } from '../comun.js';   // U-04 (v0.79.0): forzar «tactil» (headless no cambia de viewport)
 import { abrirLigar, abrirSubir, abrirEnlace } from '../docs.js';   // v0.102.0: Docs ya no trae los tres botones; la E2E abre los mismos dialogos por la funcion
 const R = window.__PRUEBAS;
 const TACTIL = matchMedia('(hover: none)').matches;   // U-04 (v0.79.0): a 390 el driver emula touch y el rombo abre la hoja, no la tarjeta
@@ -1808,7 +1808,7 @@ try {
                 const a = document.querySelector('#chatHilo .msg:last-child .enlace');
                 R.ok('v0.9.0: la URL del comentario es un enlace en pestaña nueva sin opener, sin el punto final', a.href === 'https://minsaenergy.sharepoint.com/sites/x/oficio.pdf' && a.target === '_blank' && /noopener/.test(a.rel) && a.textContent === 'https://minsaenergy.sharepoint.com/sites/x/oficio.pdf' && document.querySelector('#chatHilo .msg:last-child .t').textContent.endsWith('. gracias'));
                 // «Nuevos desde tu última visita»: la marca de visto quedó en lo último; un comentario ajeno posterior es nuevo al volver.
-                const vistoAntes = localStorage.getItem(`proy.chatVisto.${proyectoId}`);
+                const vistoAntes = localStorage.getItem(llaveVisto(proyectoId));
                 R.ok('v0.9.0: al ver el chat se guarda hasta dónde se leyó (localStorage)', !!vistoAntes && vistoAntes === filas('actividad').filter(x => x.fields.Accion === 'comentar' && Number(x.fields.ProyectoId) === proyectoId).map(x => x.fields.Cuando).sort().pop());
                 tab('tablero'); await dormir(30);
                 filas('actividad').push({ id: DB.siguienteId++, fields: { Title: 'llegó el oficio', Accion: 'comentar', Quien: 'colega@example.invalid', Cuando: new Date(Date.now() + 1000).toISOString(), ProyectoId: proyectoId } });
@@ -2362,7 +2362,7 @@ try {
                 await esperar(() => { try { return JSON.parse(miRol().fields.Visto || '{}').chat[String(proyectoId)] === ultimoAjeno; } catch (_) { return false; } }, 'Visto compartido en PROY_Roles');
                 R.ok('v0.15.0: leer el chat escribe la marca en MI renglón de PROY_Roles (Visto.chat[pid]), agrupada tras 1.5 s', JSON.parse(miRol().fields.Visto).chat[String(proyectoId)] === ultimoAjeno && filas('roles').filter(r => r.fields.Visto).length === 1);
                 // «Otro dispositivo»: sin localStorage la marca sigue viniendo del tenant, así que lo ajeno posterior sí es nuevo.
-                localStorage.removeItem(`proy.chatVisto.${proyectoId}`);
+                localStorage.removeItem(llaveVisto(proyectoId));
                 filas('actividad').push({ id: DB.siguienteId++, fields: { Title: 'desde otro dispositivo', Accion: 'comentar', Quien: 'colega@example.invalid', Cuando: new Date(Date.now() + 2000).toISOString(), ProyectoId: proyectoId } });
                 await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await recargarYEsperar(); await dormir(30);
                 R.ok('v0.15.0: sin localStorage (otro dispositivo) la marca compartida cuenta el comentario ajeno como nuevo', mod.comentariosNuevos(proyectoId).length === 1 && !$('nMensajes').hidden && $('nMensajes').textContent === '1');
@@ -2418,20 +2418,23 @@ try {
                   R.ok('v0.94.0 (C-10): en la segunda visita el comentario ajeno sin tarjeta ya no es es-nuevo y la marca llego a su Cuando', !document.querySelector('#inicioActividad .es-nuevo') && mod.inicioVistoHasta() >= cPost.fields.Cuando, `marca=${mod.inicioVistoHasta()} cPost=${cPost.fields.Cuando}`);
                   DB.listas.actividad.items = filas('actividad').filter(a => a.id !== cPost.id); await recargarYEsperar(); }
                 // C-14 (v0.94.0): sin marca (localStorage y Visto vacios) el punto azul usa el piso de 3 dias, como «Nuevo para ti»: lo ajeno de hace 5 d no es nuevo.
-                { const actAntes = DB.listas.actividad.items, vistoAntes = miRol().fields.Visto, localAntes = localStorage.getItem('proy.inicioVisto');
+                { const actAntes = DB.listas.actividad.items, vistoAntes = miRol().fields.Visto, localAntes = localStorage.getItem(llaveVistoInicio());
                   const C = (dias, txt) => ({ id: DB.siguienteId++, fields: { Title: txt, Accion: 'comentar', Quien: 'colega@example.invalid', Cuando: new Date(Date.now() - dias * 864e5).toISOString(), ProyectoId: proyectoId } });
-                  DB.listas.actividad.items = [C(5, 'ajeno de hace cinco dias'), C(1, 'ajeno de ayer')]; miRol().fields.Visto = '{}'; localStorage.removeItem('proy.inicioVisto');
+                  DB.listas.actividad.items = [C(5, 'ajeno de hace cinco dias'), C(1, 'ajeno de ayer')]; miRol().fields.Visto = '{}'; localStorage.removeItem(llaveVistoInicio());
                   pestana('proyectos'); await dormir(20); await recargarYEsperar(); pestana('inicio'); await dormir(40);
                   const azules = [...document.querySelectorAll('#inicioActividad .es-nuevo')].map(it => it.textContent);
                   R.ok('v0.94.0 (C-14): sin marca, lo ajeno de ayer es es-nuevo y lo de hace 5 dias no (piso de 3 dias)', azules.length === 1 && azules[0].includes('ajeno de ayer') && (matchMedia('(max-width: 720px)').matches || [...document.querySelectorAll('#inicioActividad .it')].some(it => it.textContent.includes('cinco dias') && !it.classList.contains('es-nuevo'))), azules.join(' | '));
-                  DB.listas.actividad.items = actAntes; miRol().fields.Visto = vistoAntes; if (localAntes) localStorage.setItem('proy.inicioVisto', localAntes); await recargarYEsperar(); }
+                  DB.listas.actividad.items = actAntes; miRol().fields.Visto = vistoAntes; if (localAntes) localStorage.setItem(llaveVistoInicio(), localAntes); await recargarYEsperar(); }
                 // v0.73.0 (S-04): un 403 PERMANENTE al escribir Visto (Miembros en solo lectura sobre PROY_Roles, la guarda contra subirse
                 // de rol) apaga la escritura compartida en esta carga: la segunda marca ya no manda PATCH y la marca sigue por dispositivo.
                 { const idRol = miRol().id; const patches = () => DB.llamadas.filter(l => l.startsWith('PATCH') && l.includes(`/items/${idRol}/fields`)).length;
                   DB.fallas.push({ metodo: 'PATCH', incluye: `/items/${idRol}/fields`, status: 403, veces: 99 });
                   const antes = patches(); mod.marcarInicioVisto(new Date(Date.now() + 7000).toISOString()); const escribio = await mod.guardarVisto(); const tras1 = patches();
                   mod.marcarInicioVisto(new Date(Date.now() + 8000).toISOString()); await mod.guardarVisto(); const tras2 = patches();
-                  R.ok('v0.73.0 (S-04): un 403 al escribir Visto apaga la escritura compartida (1 PATCH, no 2) y la marca sigue en localStorage', escribio === false && mod.vistoCompartidoApagado() && tras1 === antes + 1 && tras2 === tras1 && localStorage.getItem('proy.inicioVisto') > '', `patches ${antes}/${tras1}/${tras2} apagado=${mod.vistoCompartidoApagado()}`);
+                  { const k = llaveVistoInicio(), kChat = llaveVisto(proyectoId); localStorage.setItem('proy.chatVisto.' + proyectoId, 'x'); localStorage.setItem('proy.inicioVisto', 'x'); localStorage.setItem('proy.chatVisto.otra@example.invalid.' + proyectoId, 'y'); const guardado = [localStorage.getItem(k), localStorage.getItem(kChat)];
+                  R.ok('S-27 (v0.156.0): las marcas de visto llevan la cuenta en la llave, y olvidarVistosLocales (lo llama salir) borra las de esta cuenta y las viejas sin cuenta, no las de otra', k.includes(String(ESTADO.cuenta.username).toLowerCase()) && kChat.startsWith('proy.chatVisto.' + String(ESTADO.cuenta.username).toLowerCase() + '.') && (olvidarVistosLocales(), localStorage.getItem(k) === null && localStorage.getItem(kChat) === null && localStorage.getItem('proy.chatVisto.' + proyectoId) === null && localStorage.getItem('proy.inicioVisto') === null && localStorage.getItem('proy.chatVisto.otra@example.invalid.' + proyectoId) === 'y'), `${k} ${kChat}`);
+                  localStorage.removeItem('proy.chatVisto.otra@example.invalid.' + proyectoId); if (guardado[0]) localStorage.setItem(k, guardado[0]); if (guardado[1]) localStorage.setItem(kChat, guardado[1]); }
+                  R.ok('v0.73.0 (S-04): un 403 al escribir Visto apaga la escritura compartida (1 PATCH, no 2) y la marca sigue en localStorage', escribio === false && mod.vistoCompartidoApagado() && tras1 === antes + 1 && tras2 === tras1 && localStorage.getItem(llaveVistoInicio()) > '', `patches ${antes}/${tras1}/${tras2} apagado=${mod.vistoCompartidoApagado()}`);
                   DB.fallas = DB.fallas.filter(f => !(f.status === 403 && f.incluye === `/items/${idRol}/fields`)); }
                 // U-09 (v0.94.0): con 9 avisos nuevos la cola pinta 8 y un «+1 más» que abre Toda la actividad (la visita sube la marca: sin salida el noveno se perdia).
                 { const base = Math.max(Date.now(), Date.parse(mod.inicioVistoHasta() || 0)) + 60000; const avisos = []; const tSinFecha = { id: DB.siguienteId++, fields: { Title: 'Mía sin fecha (U-09)', ProyectoId: proyectoId, Columna: 'por-hacer', Asignado: YO, Prioridad: 'normal' } }; filas('tareas').push(tSinFecha); for (let i = 1; i <= 9; i++) avisos.push({ id: DB.siguienteId++, fields: { Title: `cambió la tarjeta (aviso ${i})`, Accion: 'editar-tarea', Quien: 'jefa@example.invalid', Cuando: new Date(base + i * 1000).toISOString(), ProyectoId: proyectoId, TareaId: tSinFecha.id } });   // U-16 (v0.145.0): sobre una tarjeta SIN fecha, que la cola no pinta: sobre tMia los 9 avisos irian como motivo de su renglon

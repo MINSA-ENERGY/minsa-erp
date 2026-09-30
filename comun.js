@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.155.0';
+export const VERSION = '0.156.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -737,8 +737,21 @@ export async function borrarComentario(c, p) {
  * despues de esa marca es «nuevo» (punto en la pestana Chat, raya en el hilo). Sin la marca (primera
  * vez, o el navegador no guarda) nada es nuevo: mejor callar que gritar todo.
  */
-const LLAVE_VISTO = pid => `proy.chatVisto.${pid}`;
-const LLAVE_VISTO_INICIO = 'proy.inicioVisto';
+// S-27 (v0.156.0): la llave lleva la CUENTA. Antes `proy.chatVisto.<pid>` a secas: en un equipo compartido la segunda persona heredaba
+// lo que leyo la primera y no veia como nuevo lo que le escribian. Las llaves viejas se ignoran (sin marca nada es nuevo) y salir() las borra.
+const cuentaVisto = () => String(estado.cuenta && estado.cuenta.username || '').toLowerCase();
+export const llaveVisto = pid => `proy.chatVisto.${cuentaVisto()}.${pid}`;
+export const llaveVistoInicio = () => `proy.inicioVisto.${cuentaVisto()}`;
+const LLAVE_VISTO = llaveVisto, LLAVE_VISTO_INICIO = llaveVistoInicio;
+/** S-27: al salir, borra de este dispositivo las marcas de visto de la cuenta que sale y las viejas sin cuenta (anteriores a v0.156.0). */
+export function olvidarVistosLocales() {
+    try {
+        const yo = `proy.chatVisto.${cuentaVisto()}.`, yoInicio = llaveVistoInicio();
+        const borrar = k => (k.startsWith(yo) && /^\d+$/.test(k.slice(yo.length))) || k === yoInicio ||   // solo digitos tras el prefijo: a@x.com no borra las de a@x.com.mx
+            /^proy\.chatVisto\.\d+$/.test(k) || k === 'proy.inicioVisto';
+        for (const k of Object.keys(localStorage)) if (borrar(k)) localStorage.removeItem(k);
+    } catch (_) {}
+}
 const leerLocal = k => { try { return localStorage.getItem(k) || ''; } catch (_) { return ''; } };
 let vistoLocalVersion = 0;   // C-04: cada escritura local invalida el indice de nuevos por proyecto
 const guardarLocal = (k, v) => { vistoLocalVersion++; try { localStorage.setItem(k, v); } catch (_) {} };
@@ -755,10 +768,10 @@ if (typeof window !== 'undefined') window.addEventListener('storage', e => { if 
 export const miRenglonRol = () => { const yo = String(estado.cuenta && estado.cuenta.username || '').toLowerCase(); return (estado.roles || []).find(r => String(r.Title || '').toLowerCase() === yo) || null; };
 const vistoCompartido = () => { const r = miRenglonRol(); return leerVisto(r && r.Visto); };
 export function chatVistoHasta(pid) { const local = leerLocal(LLAVE_VISTO(pid)); const c = vistoCompartido().chat[String(pid)] || ''; return c > local ? c : local; }
-export function inicioVistoHasta() { const local = leerLocal(LLAVE_VISTO_INICIO); const c = vistoCompartido().inicio; return c > local ? c : local; }
+export function inicioVistoHasta() { const local = leerLocal(LLAVE_VISTO_INICIO()); const c = vistoCompartido().inicio; return c > local ? c : local; }
 // S-12 (24-sep): la marca nunca sube por encima de la hora actual (un Cuando del futuro la dejaba arriba para siempre)
 export function marcarChatVisto(pid, iso) { iso = iso && marcaFiable(iso); if (!iso || !(iso > chatVistoHasta(pid))) return; guardarLocal(LLAVE_VISTO(pid), iso); encolarVisto({ chat: { [String(pid)]: iso } }); }
-export function marcarInicioVisto(iso) { iso = iso && marcaFiable(iso); if (!iso || !(iso > inicioVistoHasta())) return; guardarLocal(LLAVE_VISTO_INICIO, iso); encolarVisto({ inicio: iso }); }
+export function marcarInicioVisto(iso) { iso = iso && marcaFiable(iso); if (!iso || !(iso > inicioVistoHasta())) return; guardarLocal(LLAVE_VISTO_INICIO(), iso); encolarVisto({ inicio: iso }); }
 let vistoPendiente = null, vistoTimer = 0, vistoApagado = false;
 function encolarVisto(cambio) { vistoPendiente = fundirVisto(vistoPendiente || {}, cambio); clearTimeout(vistoTimer); vistoTimer = setTimeout(guardarVisto, 1500); }
 /** Manda al tenant lo encolado (app.js lo llama tambien al ocultarse la pagina). Devuelve true si escribio. */
