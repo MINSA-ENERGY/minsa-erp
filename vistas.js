@@ -7,7 +7,7 @@
 
 import { CONFIG } from './config.js';
 import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona, HECHO, plural } from './reglas.js';
-import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, comentariosDe, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo, conservarFoco } from './comun.js';
+import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, comentariosDe, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo, conservarFoco, filtroArchivosVacio } from './comun.js';
 import { pintarChat, irAlComentario } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
 import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';   // v0.17.0: la misma tabla que Docs del proyecto; v0.18.0: y el mismo orden; v0.36.0: y el mismo arbol
 
@@ -659,10 +659,24 @@ export function mensajesNuevos() {
  * proyecto y buscador; agrupadas por proyecto. Cada nombre abre el archivo; el proyecto abre sus
  * Documentos (donde se liga, se quita y se reasigna: aqui solo se encuentra).
  */
+// C-09 (mejorar-app archivos, 30-sep): el refresco de 120 s y cada caret, chip u orden recrean el arbol entero; conservarFoco devuelve
+// el foco al control con la misma llave, y el menu «⋯» que estaba abierto se reabre en su renglon nuevo.
+const FOCO_ARCHIVOS = ['nodo', 'irRaiz', 'tipo', 'sort', 'menu', 'copiar', 'abrirTarjeta', 'irDocs', 'filtro'];
 export function pintarArchivos() {
+    const abierto = document.querySelector('#archivosLista .fila-menu[open]'); const ligaAbierta = abierto ? abierto.closest('tr').dataset.liga : null;
+    conservarFoco($('p-archivos'), FOCO_ARCHIVOS, () => {
+        pintarArchivosCuerpo();
+        const d = ligaAbierta ? document.querySelector(`#archivosLista tr[data-liga="${CSS.escape(ligaAbierta)}"]:not([hidden]) .fila-menu`) : null; if (d) d.open = true;
+    });
+}
+/** C-12 (30-sep): el boton «Documentos» de la raiz resuelve el proyecto por id AL CLIC, como el del menu «⋯» (C-02). */
+function irDocsDe(id) { const q = porId(estado.proyectos, id); if (q) irAHash(`#p/${q.Clave}/docs`); else avisar('Ese proyecto ya no está.', 'ojo'); }
+function pintarArchivosCuerpo() {
     const f = estado.filtroArchivos;
+    // C-10 (30-sep): una liga cuyo proyecto ya no esta (borrado en serie, o desde SharePoint) ni cuenta ni se filtra: el universo es lo que se pinta.
+    const vivos = new Set(estado.proyectos.map(p => p.id)); const todas = estado.ligas.filter(l => vivos.has(Number(l.ProyectoId)));
     // C-06 (mejorar-app archivos, 17-sep): totales por proyecto sobre TODAS las ligas, una vez; alimenta el select, C-01 y cada raiz.
-    const totalPorP = new Map(); for (const l of estado.ligas) { const k = Number(l.ProyectoId); totalPorP.set(k, (totalPorP.get(k) || 0) + 1); }
+    const totalPorP = new Map(); for (const l of todas) { const k = Number(l.ProyectoId); totalPorP.set(k, (totalPorP.get(k) || 0) + 1); }
     // C-01: el proyecto filtrado perdio su ultima liga (se quito desde Docs): el filtro se suelta ANTES de filtrar — no queda un select
     // en blanco filtrando por un id que ya no aparece en pantalla.
     if (f.proyectoId && !totalPorP.has(Number(f.proyectoId))) f.proyectoId = null;
@@ -673,11 +687,11 @@ export function pintarArchivos() {
     for (const [k, texto] of TIPOS_LIGA) {   // C-05: la misma tupla que Docs del proyecto
         const on = f.tipo === k; const b = boton(texto, on ? 'is-on' : '', () => { f.tipo = k; pintarArchivos(); }, { tipo: k || 'todos' }); b.setAttribute('aria-pressed', on ? 'true' : 'false'); chips.appendChild(b);
     }
-    const ligas = ordenarDocs(filtrarLigas(estado.ligas, f), estado.ordenArchivos);   // v0.18.0: por la columna elegida, dentro de cada proyecto
+    const ligas = ordenarDocs(filtrarLigas(todas, f), estado.ordenArchivos);   // v0.18.0: por la columna elegida, dentro de cada proyecto
     const buscando = !!f.texto.trim(), filtrando = buscando || !!f.tipo || !!f.proyectoId;
     // U-05 (17-sep): solo la cifra, con plural real y el proyecto si esta filtrado; la instruccion de ligar/quitar (tres renglones en
     // celular, en cada visita) va al title del subtitulo y al vacio, donde hace falta.
-    const n = estado.ligas.length, pf = f.proyectoId ? porId(estado.proyectos, f.proyectoId) : null;
+    const n = todas.length, pf = f.proyectoId ? porId(estado.proyectos, f.proyectoId) : null;
     $('archivosSub').textContent = filtrando ? `${ligas.length} de ${n} ${n === 1 ? 'documento' : 'documentos'}${pf ? ' · ' + pf.Title : ''}` : `${n} ${n === 1 ? 'documento ligado' : 'documentos ligados'} en todos los frentes`;
     $('archivosSub').title = 'Para ligar, quitar o cambiar de tarjeta, entra a Documentos del proyecto.';
     // v0.17.0 traia cuatro cifras arriba (total, archivados, en el buzon, enlaces); v0.46.0 (Carlos, 15-sep): SALIERON.
@@ -686,7 +700,7 @@ export function pintarArchivos() {
     if (!ligas.length) {
         const v = el('p', 'vacio', n ? 'Nada con ese filtro. ' : 'Ningún documento ligado todavía. Para ligar, entra a Documentos del proyecto.');
         // U-03: el mismo «× limpiar» del tablero — suelta los tres filtros (proyecto, tipo, texto) de una vez.
-        if (n) v.appendChild(boton('× limpiar', 'mn-btn is-ghost is-sm', () => { estado.filtroArchivos = { proyectoId: null, tipo: null, texto: '' }; $('textoArchivos').value = ''; pintarArchivos(); }, { filtro: 'limpiar' }));
+        if (n) v.appendChild(boton('× limpiar', 'mn-btn is-ghost is-sm', () => { estado.filtroArchivos = filtroArchivosVacio(); $('textoArchivos').value = ''; pintarArchivos(); }, { filtro: 'limpiar' }));
         cont.appendChild(v); return;
     }
     // v0.17.0: una sola tabla (la de Docs del proyecto). v0.36.0 (Carlos, 14-sep): y el MISMO ARBOL de expediente que Docs
@@ -705,7 +719,7 @@ export function pintarArchivos() {
     const llaves = [];
     for (const p of ordenarProyectos(estado.proyectos.filter(p => porP.has(p.id)))) {
         const kp = `p${p.id}`; const total = totalPorP.get(p.id); llaves.push(kp);   // C-06
-        tb.appendChild(filaRaiz(p.Title, porP.get(p.id).length, total, { icono: iconoEquipo(equipoDe(p), 'sm'), plegada: plegada(kp), alPlegar: () => alPlegar(kp), alAbrir: () => irAHash(`#p/${p.Clave}/docs`), sinTarjeta: true }));
+        tb.appendChild(filaRaiz(p.Title, porP.get(p.id).length, total, { icono: iconoEquipo(equipoDe(p), 'sm'), plegada: plegada(kp), alPlegar: () => alPlegar(kp), alAbrir: () => irDocsDe(p.id), llave: kp, sinTarjeta: true }));   // C-12: por id al clic; C-09: la llave del caret
         const r = filasDeExpediente(tb, p, porP.get(p.id), { llave: k => `${kp}/${k ? 't' + k : 0}`, plegada, alPlegar, ocultas: plegada(kp), sinTarjeta: true, doc: () => ({ p, enArchivos: true, alTarjeta: irTarjetaId }) });   // C-02: por id al clic
         for (const k of r.llaves) llaves.push(`${kp}/${k ? 't' + k : 0}`);
     }

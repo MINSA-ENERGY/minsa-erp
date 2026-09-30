@@ -5,12 +5,14 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.148.0';
+export const VERSION = '0.149.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
  *  sinDueno) y vivia literal en cinco sitios de tres modulos. `extra` va encima (irASinDueno: { sinDueno: true }). */
 export const filtroVacio = (extra = {}) => ({ quien: [], alta: false, vencidas: false, sinDueno: false, texto: '', ...extra });
+/** C-14 (mejorar-app archivos, 30-sep): el filtro vacio de Archivos en UN lugar — el estado inicial y «× limpiar» lo escribian literal. */
+export const filtroArchivosVacio = () => ({ proyectoId: null, tipo: null, texto: '' });
 /** Deja el filtro de tarjetas vacio (con `extra` encima) y vacia el buscador que lo refleja. */
 /** C-18 (v0.123.0): las pestañas del proyecto que filtran tarjetas, en UN lugar — la barra (app.js) y el boton «Filtrar» (tablero.js)
  *  llevaban cada uno su lista de las que NO filtran y se separaron: Roadmap enseñaba «Filtrar · N» sin barra que abrir. */
@@ -49,7 +51,7 @@ export const estado = {
     densidad: 'comodo',                     // v0.20.0: 'comodo' | 'compacto' — tablero a una linea por tarjeta; se recuerda por dispositivo (localStorage)
     // v0.10.0: mes del calendario (YYYY-MM) y dia elegido; filtro de Archivos
     mesCal: null, calDia: null,
-    filtroArchivos: { proyectoId: null, tipo: null, texto: '' },
+    filtroArchivos: filtroArchivosVacio(),
     cargadoEl: 0,
     // Sitios de bibliotecas de unidad ya resueltos: clave -> { id, motivo }
     sitiosUnidad: {},

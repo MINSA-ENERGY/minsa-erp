@@ -215,7 +215,7 @@ export function tablaDocs({ orden = null, alOrdenar = null, sinTarjeta = false }
  * Renglon de grupo: la lengüeta de v0.16.0 (icono + `.grupo` con el titulo + conteo) sobre un <tr class="pest">.
  * Con `icono` (un nodo) y `alClic` es la cabecera de un PROYECTO en #archivos: la lengüeta es un boton .grupo-proy.
  */
-export function filaGrupo(tareaId, titulo, n, { icono = null, alClic = null, title = '', tarea = null, columnas = null, plegada = false, alPlegar = null, oculta = false, sinTarjeta = false } = {}) {
+export function filaGrupo(tareaId, titulo, n, { icono = null, alClic = null, title = '', tarea = null, columnas = null, plegada = false, alPlegar = null, oculta = false, sinTarjeta = false, llave = null } = {}) {
     const tr = el('tr', 'pest' + (tareaId ? '' : ' is-proyecto') + (plegada ? ' is-plegada' : '')); if (tareaId) tr.dataset.tarjeta = String(tareaId);
     if (oculta) tr.hidden = true;   // v0.36.0: su raiz (#archivos) esta plegada
     const td = el('td'); td.colSpan = columnasDocs(sinTarjeta).length;
@@ -229,6 +229,7 @@ export function filaGrupo(tareaId, titulo, n, { icono = null, alClic = null, tit
     cab.appendChild(el('span', 'grupo', titulo));
     if (tarea) { cab.appendChild(el('span', 'cubeta-de', nombreColumnaEn(tarea.Columna, columnas))); const v = chipVence(tarea); if (v) cab.appendChild(v); }
     cab.appendChild(el('span', 'n', alPlegar ? `${n} ${plural(n, 'doc')}` : String(n)));   // U-26 (v0.123.0): en el arbol la cifra dice que cuenta
+    if (alPlegar && llave != null) cab.dataset.nodo = String(llave);   // C-09 (30-sep): la llave con que conservarFoco reconoce la carpeta tras repintar
     td.appendChild(cab); tr.appendChild(td);
     return tr;
 }
@@ -246,15 +247,16 @@ export function filasDeExpediente(tb, p, ligas, { llave = k => k, plegada, alPle
     const columnas = columnasDe(p);
     const delProyecto = ligas.filter(l => !l.TareaId);
     const cerrada = k => plegada(llave(k));
-    if (delProyecto.length) { tb.appendChild(filaGrupo(null, 'Del proyecto', delProyecto.length, { plegada: cerrada(0), alPlegar: () => alPlegar(llave(0)), oculta: ocultas, sinTarjeta })); for (const l of delProyecto) tb.appendChild(filaDoc(l, { ...doc(l), oculta: ocultas || cerrada(0), sinTarjeta })); }
+    if (delProyecto.length) { tb.appendChild(filaGrupo(null, 'Del proyecto', delProyecto.length, { plegada: cerrada(0), alPlegar: () => alPlegar(llave(0)), oculta: ocultas, sinTarjeta, llave: llave(0) })); for (const l of delProyecto) tb.appendChild(filaDoc(l, { ...doc(l), oculta: ocultas || cerrada(0), sinTarjeta })); }
     const porTarjeta = new Map();
     for (const l of ligas.filter(l => l.TareaId)) { const k = Number(l.TareaId); if (!porTarjeta.has(k)) porTarjeta.set(k, []); porTarjeta.get(k).push(l); }
-    const tarjetas = [...porTarjeta.keys()].sort((a, b) => { const ta = porId(estado.tareas, a), tb2 = porId(estado.tareas, b); return String(ta ? ta.Title : '').localeCompare(String(tb2 ? tb2.Title : '')) || a - b; });
+    const tareaDe = new Map([...porTarjeta.keys()].map(k => [k, porId(estado.tareas, k)]));   // C-13 (30-sep): cada tarjeta se resuelve UNA vez, no dos por comparacion
+    const tarjetas = [...porTarjeta.keys()].sort((a, b) => { const ta = tareaDe.get(a), tb2 = tareaDe.get(b); return String(ta ? ta.Title : '').localeCompare(String(tb2 ? tb2.Title : '')) || a - b; });
     // v0.35.0 (Carlos, 14-sep; artifact 2Kb1WRx5, opcion B de seis): la carpeta y sus hojas forman un BLOQUE TINTADO con el
     // color de la tarjeta (tr.bloque + data-tono o is-p/c/r/h en el <tr>, que el CSS lee como --tono). Sustituye la cebra
     // is-par de v0.34.0: la banda separaba renglones sin decir de que tarjeta eran. «Del proyecto» y vacias no llevan tinte.
     const enBloque = (tr, t) => { if (!t) return tr; tr.classList.add('bloque'); const color = colorValido(t.Color); if (color) tr.dataset.tono = color; else tr.classList.add('is-' + claseDeColumna(t.Columna, columnas)); return tr; };
-    for (const k of tarjetas) { const tt = porId(estado.tareas, k); tb.appendChild(enBloque(filaGrupo(k, tt ? tt.Title : `Tarjeta #${k}`, porTarjeta.get(k).length, { tarea: tt, columnas, plegada: cerrada(k), alPlegar: () => alPlegar(llave(k)), oculta: ocultas, sinTarjeta }), tt)); for (const l of porTarjeta.get(k)) tb.appendChild(enBloque(filaDoc(l, { ...doc(l), oculta: ocultas || cerrada(k), sinTarjeta }), tt)); }
+    for (const k of tarjetas) { const tt = tareaDe.get(k); tb.appendChild(enBloque(filaGrupo(k, tt ? tt.Title : `Tarjeta #${k}`, porTarjeta.get(k).length, { tarea: tt, columnas, plegada: cerrada(k), alPlegar: () => alPlegar(llave(k)), oculta: ocultas, sinTarjeta, llave: llave(k) }), tt)); for (const l of porTarjeta.get(k)) tb.appendChild(enBloque(filaDoc(l, { ...doc(l), oculta: ocultas || cerrada(k), sinTarjeta }), tt)); }
     return { llaves: [...(delProyecto.length ? [0] : []), ...tarjetas] };
 }
 
@@ -263,13 +265,13 @@ export function filasDeExpediente(tb, p, ligas, { llave = k => k, plegada, alPle
  * v0.36.0: con `alPlegar` es un NODO plegable (#archivos: una raiz por proyecto) con caret, el icono del equipo si viene, y
  * un boton aparte «Documentos» (`.ir-docs`, `alAbrir`) que abre la pestaña Documentos del proyecto.
  */
-export function filaRaiz(titulo, n, total, { icono = null, plegada = false, alPlegar = null, alAbrir = null, sinTarjeta = false } = {}) {
+export function filaRaiz(titulo, n, total, { icono = null, plegada = false, alPlegar = null, alAbrir = null, sinTarjeta = false, llave = null } = {}) {
     const tr = el('tr', 'raiz' + (plegada ? ' is-plegada' : '')); const td = el('td'); td.colSpan = columnasDocs(sinTarjeta).length;
-    const cab = alPlegar ? el('button', 'cab nodo') : el('div', 'cab');
+    const cab = alPlegar ? el('button', 'cab nodo') : el('div', 'cab'); if (alPlegar && llave != null) cab.dataset.nodo = String(llave);   // C-09 (30-sep)
     if (alPlegar) { cab.type = 'button'; cab.setAttribute('aria-expanded', plegada ? 'false' : 'true'); cab.title = plegada ? 'Desplegar' : 'Plegar'; cab.addEventListener('click', alPlegar); cab.appendChild(iconoSvg(TRAZOS_CARET, 'caret')); }
     cab.appendChild(iconoSvg(TRAZOS_CARPETA, 'carpeta')); if (icono) cab.appendChild(icono); cab.appendChild(el('span', 'grupo-raiz', titulo));
     cab.appendChild(el('span', 'n', n === total ? `${total} ${total === 1 ? 'documento' : 'documentos'}` : `${n} de ${total}`));
-    if (alAbrir) { const fila = el('div', 'raiz-fila'); fila.appendChild(cab); const b = boton('Documentos', 'mn-btn is-ghost is-sm ir-docs', alAbrir); b.title = 'Abrir Documentos del proyecto'; fila.appendChild(b); td.appendChild(fila); } else td.appendChild(cab);
+    if (alAbrir) { const fila = el('div', 'raiz-fila'); fila.appendChild(cab); const b = boton('Documentos', 'mn-btn is-ghost is-sm ir-docs', alAbrir); b.title = 'Abrir Documentos del proyecto'; if (llave != null) b.dataset.irRaiz = String(llave); fila.appendChild(b); td.appendChild(fila); } else td.appendChild(cab);
     tr.appendChild(td); return tr;
 }
 /** v0.33.0: el nodo «N tarjetas abiertas sin documentos». Plegado por default: en estado.abiertasDocs la llave -1 significa ABIERTO (v0.52.0: como todas). */
@@ -367,7 +369,7 @@ export function filaDoc(l, { p = null, puede = false, enArchivos = false, alTarj
     if (mover) acciones.push(mover);   // v0.55.0: antes de Quitar, que es lo destructivo
     if (puede) acciones.push(boton('Quitar', 'mn-btn is-ghost is-sm is-peligro', () => { const lv = porId(estado.ligas, l.id); if (!lv) { avisar('Esa liga ya no está.', 'ojo'); alCambiar(); return; } quitarLiga(lv); }, { quitar: String(l.id) }));
     if (acciones.length) {
-        const d = el('details', 'fila-menu'); const s = el('summary', 'mn-btn is-ghost is-sm is-icono', '⋯'); s.setAttribute('aria-label', 'Acciones del documento'); s.title = 'Acciones'; d.appendChild(s);
+        const d = el('details', 'fila-menu'); const s = el('summary', 'mn-btn is-ghost is-sm is-icono', '⋯'); s.setAttribute('aria-label', 'Acciones del documento'); s.title = 'Acciones'; s.dataset.menu = String(l.id); d.appendChild(s);   // C-09: llave de conservarFoco
         const m = el('div', 'menu'); for (const a of acciones) m.appendChild(a); d.appendChild(m); tdA.appendChild(d);
         d.addEventListener('toggle', () => { d.classList.remove('is-arriba'); if (!d.open) return; for (const o of document.querySelectorAll('.fila-menu[open]')) if (o !== d) o.open = false; if (!cabeAbajo(m)) d.classList.add('is-arriba'); });   // U-02: se mide sin la clase y se voltea si no cabe
     }

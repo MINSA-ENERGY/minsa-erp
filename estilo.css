@@ -2267,7 +2267,7 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 .g-leyenda .fin { font-family: var(--font-ui); }   /* U-29 (roadmap): la frase de la leyenda en la letra de texto; en mono sumaba tres renglones a 390 */
 /* ==== v0.141.0 (2026-09-29): tanda 1 de /mejorar-app proyectos proyecto (U-43 · U-45 · U-46 · U-47) ==== */
 /* U-43: bajo 900 px la columna de Documentos cae al fondo de la ficha, debajo de Notas y Anotar; un boton arriba de Notas lleva ahi. */
-.ir-docs { display: none; }
+.t-main > .ir-docs { display: none; }   /* U-08 (v0.149.0): acotada a la ficha — global apagaba tambien el «Documentos» de cada raiz en Archivos */
 @media (max-width: 900px) { .t-main > .ir-docs { display: inline-flex; margin-bottom: var(--sp-2); } }
 /* U-45: en celular las pastillas que ordenan la Lista miden 36 px de alto (antes ~26); th.col-p sigue oculta (mas especifica). */
 @media (max-width: 720px) { .tabla th { min-height: 36px; display: inline-flex; align-items: center; } }
@@ -2275,6 +2275,18 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 .t-side .tdoc { position: relative; }
 .t-side .tdoc a[href]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
 .t-side .tdoc .quitar { position: relative; z-index: 1; }
+/* ==== v0.149.0 (2026-09-30): tanda 1 de /mejorar-app proyectos archivos (U-08 arriba · U-09 · U-10 · U-11) ==== */
+/* U-09: en celular el buscador de Archivos va primero y Abrir/Plegar todo al final, pegado al arbol. */
+@media (max-width: 720px) { .archivos-filtros .buscador { order: -1; flex-basis: 100%; } .archivos-filtros .arbol-todo { order: 9; } }
+/* U-10: en ficha apilada la tarjeta entera del documento abre el archivo (liga estirada, como U-46); el «⋯» queda encima. Sin href no se estira. */
+@container (max-width: 720px) {
+  #p-archivos .dtabla tr.doc { position: relative; }
+  #p-archivos .is-arbol tr.doc td.c-nombre { position: static; }
+  #p-archivos .dtabla tr.doc .c-nombre .t a[href]::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-md); }
+  #p-archivos .dtabla tr.doc .c-acc { position: relative; z-index: 1; }
+}
+/* U-11: el nombre del proyecto envuelve junto al caret, la carpeta y el equipo (el acomodo de U-26), en vez de saltar de renglon. */
+@media (max-width: 720px) { .is-arbol tr.raiz .cab.nodo .grupo-raiz { flex: 1 1 calc(100% - 5rem); min-width: 0; text-align: left; } }
 /* U-47: en el selector el frente abierto va con su nombre completo (la cabecera lo corta a dos renglones en celular). */
 .sel-lista button.is-on .t { white-space: normal; overflow-wrap: anywhere; }
 /* U-17 (mejorar-app proyectos, 29-sep): el frente vencido (o por vencer) pinta tambien el DIA de la hoja con el color del semaforo;

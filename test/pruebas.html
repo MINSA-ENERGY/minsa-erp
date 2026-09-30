@@ -2516,6 +2516,7 @@ try {
                   R.ok('C-08 (v0.85.0): dos pintarDocs concurrentes con la cache vacia piden el sitio de la biblioteca UNA sola vez', DB.llamadas.filter(c => c.startsWith('GET /sites/') && c.endsWith(bib.sitio)).length === antesN + 1, `+${DB.llamadas.filter(c => c.startsWith('GET /sites/') && c.endsWith(bib.sitio)).length - antesN}`); }
                 else R.ok('C-08 (v0.85.0): no aplica — el proyecto abierto no tiene biblioteca', true); }
               await irHash('#archivos'); await esperar(() => visible('p-archivos'), 'archivos'); await dormir(30); }
+            { const bD = document.querySelector('#archivosLista tr.raiz .ir-docs'); R.ok('U-08 (v0.149.0): el boton «Documentos» de la raiz se VE en Archivos (la regla de U-43 lo apagaba y el .click() lo pulsaba igual)', getComputedStyle(bD).display !== 'none' && bD.getBoundingClientRect().width > 0, getComputedStyle(bD).display); }
             document.querySelector('#archivosLista tr.raiz .ir-docs').click(); await esperar(() => visible('tab-docs'), 'docs desde archivos');
             R.ok('v0.10.0 (v0.36.0: el boton «Documentos» de la raiz): el proyecto abre sus Documentos', visible('tab-docs') && location.hash.endsWith('/docs'));
             // Reportes
