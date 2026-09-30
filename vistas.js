@@ -2,7 +2,7 @@
 // 12-sep, «Product Roadmap»): Roadmap (por frente y global), Calendario, Mensajes, Archivos y Reportes.
 // Todo se DERIVA de las cinco listas que ya existen (no hay esquema nuevo): el roadmap usa
 // Desde/_creado -> Vence/HechoEl, el calendario Vence, Mensajes los renglones «comentar», Archivos
-// PROY_Ligas y Reportes lo que avance() y estadoVence() ya calculan. Nada de innerHTML (CSP); los
+// PROY_Ligas y Reportes lo que avance() y estadoVence() ya calculan. Nada de innerHTML (lo vigila test/sw.test.js); los
 // graficos son SVG por DOM o cajas con ancho en %.
 
 import { CONFIG } from './config.js';

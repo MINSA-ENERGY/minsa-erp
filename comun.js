@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.151.0';
+export const VERSION = '0.152.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -578,7 +578,7 @@ export function contadorTexto(idInput, idCont, max, aviso) {
 export function equipoDe(p) { return CONFIG.equipos.find(e => e.clave === (p && p.Equipo)) || { clave: p && p.Equipo, nombre: (p && p.Equipo) || 'Sin equipo', unidad: null, rama: null, color: 'var(--status-idle-solid)', icono: ['M12 8v4M12 16h.01', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z'] }; }
 /**
  * v0.7.0: el equipo se ve por su ICONO + COLOR, no por su nombre (Carlos, 2026-09-12). Un <span class="eqi">
- * con el SVG armado por DOM (createElementNS: la CSP prohibe innerHTML y aqui no se usa en ningun lado), el
+ * con el SVG armado por DOM (createElementNS: la casa prohibe innerHTML —lo vigila test/sw.test.js desde v0.152.0; la CSP todavia no, S-24— y aqui no se usa), el
  * color del equipo en `--c` y el nombre en `title` y `aria-label`, que es donde vive para el lector de pantalla.
  * `tam`: 'sm' (24 px, listas densas) · '' (30 px) · 'lg' (40 px, cabecera del proyecto).
  */
@@ -626,7 +626,7 @@ export function insignia(trazos, n, titulo, clase = '') {
  * El icono de un documento en lugar de su extension escrita («.docx», «.pdf»): hoja con la esquina
  * doblada y, adentro, la marca del tipo — el color hace el trabajo (PDF rojo, Word azul, Excel verde,
  * PowerPoint naranja, imagen, correo, plano, comprimido); el lote del buzon es una carpeta y el enlace
- * una cadena. Todo por DOM (CSP sin innerHTML). `title` y `aria-label` llevan el tipo escrito; la
+ * una cadena. Todo por DOM (sin innerHTML: lo vigila test/sw.test.js). `title` y `aria-label` llevan el tipo escrito; la
  * extension sigue viva en el nombre del archivo y en la ruta.
  */
 const HOJA = 'M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z';

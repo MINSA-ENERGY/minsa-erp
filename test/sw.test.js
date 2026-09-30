@@ -64,4 +64,29 @@ for (const css of ['estilo.css', 'minsa-ui.css']) for (const [, u] of readFileSy
   assert.ok(sw.includes(`'./${u}'`), `sw.js precarga ${u} (lo pide ${css})`);
 // S-26 (v0.151.0): el decodeURIComponent de la ruta va en try y contesta 400.
 { const srv = readFileSync(join(raiz, 'servidor-local.js'), 'utf8'); assert.ok(/try \{ rel = decodeURIComponent\(/.test(srv) && srv.includes('res.writeHead(400'), 'servidor-local.js: un % mal formado contesta 400, no tumba el proceso'); }
+// S-24, mitad segura (v0.152.0, OK de Carlos 30-sep): cero sumideros de HTML o de script en los modulos de la app. Los datos (titulos,
+// comentarios, nombres de documento) los escriben diez personas; pintarlos como HTML seria un XSS con su sesion. Hoy todo va por
+// textContent y nodos: esta guarda lo vuelve obligatorio. La otra mitad (Trusted Types en la CSP) espera prueba con login real.
+// Se barre el archivo ENTERO sin comentarios (no por linea: una asignacion partida en dos lineas tambien cuenta); los comentarios se
+// blanquean con espacios del mismo largo para que el numero de linea siga cuadrando, y un // precedido de «:» (https://) no es comentario.
+const sinComentarios = t => t.replace(/\/\*[\s\S]*?\*\//g, c => c.replace(/[^\n]/g, ' ')).replace(/(^|[^:\\])(\/\/.*)$/gm, (x, a, c) => a + ' '.repeat(c.length));
+const SUMIDEROS = new RegExp([
+  String.raw`(?:\.|\[\s*['"\`])(?:inner|outer)HTML(?:['"\`]\s*\])?\s*(?:\+|\|\||&&|\?\?)?=(?!=)`,   // asignacion, tambien por corchetes, += ||= ??=
+  String.raw`\b(?:inner|outer)HTML['"\`]?\s*:`,                                                     // Object.assign(el, { innerHTML: x })
+  String.raw`\binsertAdjacentHTML\b`, String.raw`\bdocument\s*(?:\.|\[\s*['"\`])write`, String.raw`\bcreateContextualFragment\b`,
+  String.raw`\bsetHTML(?:Unsafe)?\b`, String.raw`\.srcdoc\s*=(?!=)`, String.raw`\bsetAttribute\(\s*['"\`](?:srcdoc|on\w+)`,
+  String.raw`\bparseFromString\([^)]*text\/html`, String.raw`\beval\s*\(`, String.raw`\bnew\s+Function\s*\(`,
+].join('|'), 'g');
+const sumiderosEn = t => [...sinComentarios(t).matchAll(SUMIDEROS)].map(m => ({ linea: t.slice(0, m.index).split('\n').length, uso: m[0].trim() }));
+for (const m of [...modulos, 'sw.js']) {
+  const hay = sumiderosEn(readFileSync(join(raiz, m), 'utf8'));
+  assert.equal(hay.length, 0, `${m}: sumidero de HTML/script en ${hay.map(h => `linea ${h.linea} (${h.uso})`).join(', ')} — arma el DOM con el()/textContent`);
+}
+// control: casa el uso (tambien los huecos que cazo el revisor-entregable de v0.152.0) y no el comentario ni la lectura
+for (const [txt, n] of [['x.innerHTML = t', 1], ['x.innerHTML += t', 1], ["x['innerHTML'] = t", 1], ['x.outerHTML ||= t', 1], ['Object.assign(x, { innerHTML: t })', 1],
+    ['x.innerHTML\n  = t', 1], ['n.insertAdjacentHTML("beforeend", t)', 1], ['document.write(t)', 1], ["document['write'](t)", 1], ['f.srcdoc = t', 1],
+    ["x.setAttribute('onclick', t)", 1], ["new DOMParser().parseFromString(t, 'text/html')", 1], ['eval(t)', 1], ['new Function(t)', 1],
+    ["const u = 'https://a.example/c'; x.innerHTML = t", 1],
+    ['// nada de innerHTML = x (todo textContent)', 0], ['/* x.innerHTML = t */ const a = 1', 0], ['if (x.innerHTML == t) {}', 0], ['x.textContent = t', 0], ["x.setAttribute('aria-label', t)", 0]])
+  assert.equal(sumiderosEn(txt).length, n, `sumideros contra ${JSON.stringify(txt)}`);
 console.log('sw: ok');
