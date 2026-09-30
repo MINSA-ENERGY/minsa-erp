@@ -1556,7 +1556,10 @@ $('btnImprimir').addEventListener('click', () => window.print());
 $('shell').classList.add('sin-sesion');
 
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').then(reg => reg.update && reg.update()).catch(() => {});
+    // S-24 (v0.153.0): la CSP exige Trusted Types y register() ya no acepta una cadena; «minsa-sw» es la UNICA politica que la CSP
+    // permite crear, y solo deja pasar './sw.js'. Sin politica el SW no se registraba (medido: «TrustedScriptURL … blocked»).
+    const politicaSw = window.trustedTypes && trustedTypes.createPolicy ? trustedTypes.createPolicy('minsa-sw', { createScriptURL: u => { if (u !== './sw.js') throw new TypeError('minsa-sw: solo ./sw.js'); return u; } }) : null;
+    navigator.serviceWorker.register(politicaSw ? politicaSw.createScriptURL('./sw.js') : './sw.js').then(reg => reg.update && reg.update()).catch(() => {});
     let recargado = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => { if (recargado || !navigator.serviceWorker.controller) return; recargado = true; if (!estado.sesion) window.location.reload(); });
 }

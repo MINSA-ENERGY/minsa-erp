@@ -82,6 +82,13 @@ for (const m of [...modulos, 'sw.js']) {
   const hay = sumiderosEn(readFileSync(join(raiz, m), 'utf8'));
   assert.equal(hay.length, 0, `${m}: sumidero de HTML/script en ${hay.map(h => `linea ${h.linea} (${h.uso})`).join(', ')} — arma el DOM con el()/textContent`);
 }
+// S-24 (v0.153.0): la CSP de index.html exige Trusted Types y nombra UNA politica, la misma que crea app.js para registrar el SW;
+// si alguien cambia el nombre en un lado, el SW deja de registrarse en silencio.
+{ const csp = /http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(readFileSync(join(raiz, 'index.html'), 'utf8'));
+  const app = readFileSync(join(raiz, 'app.js'), 'utf8'); const pol = /trustedTypes\.createPolicy\('([^']+)'/.exec(app);
+  assert.ok(csp && /require-trusted-types-for 'script'/.test(csp[1]), "index.html: la CSP exige require-trusted-types-for 'script'");
+  assert.ok(pol && new RegExp(`trusted-types ${pol[1]}(;|\\s|$)`).test(csp[1]), `index.html: trusted-types nombra la politica de app.js (${pol && pol[1]})`);
+  assert.ok(/register\(politicaSw \? politicaSw\.createScriptURL\('\.\/sw\.js'\)/.test(app), 'app.js registra el SW con la politica'); }
 // control: casa el uso (tambien los huecos que cazo el revisor-entregable de v0.152.0) y no el comentario ni la lectura
 for (const [txt, n] of [['x.innerHTML = t', 1], ['x.innerHTML += t', 1], ["x['innerHTML'] = t", 1], ['x.outerHTML ||= t', 1], ['Object.assign(x, { innerHTML: t })', 1],
     ['x.innerHTML\n  = t', 1], ['n.insertAdjacentHTML("beforeend", t)', 1], ['document.write(t)', 1], ["document['write'](t)", 1], ['f.srcdoc = t', 1],

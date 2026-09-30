@@ -16,7 +16,9 @@
   frame-src https://login.microsoftonline.com;
   form-action 'none';
   base-uri 'none';
-  object-src 'none'">
+  object-src 'none';
+  require-trusted-types-for 'script';
+  trusted-types minsa-sw">
 <title>MINSA Proyectos</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./iconos/icono-192.png">
