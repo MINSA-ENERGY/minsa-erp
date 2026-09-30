@@ -912,6 +912,22 @@ try {
           p0.Vence = new Date(Date.now() + 60 * 864e5).toISOString(); pestana('mis'); await dormir(30); pestana('proyectos'); await dormir(30);
           { const r = document.querySelector(`#listaProyectos .pficha[data-open="${proyectoId}"]`); R.ok('C-12: un frente lejano lleva is-info', !!r && r.classList.contains('is-info'), r ? r.className : 'sin renglón'); }
           p0.Vence = venceAntes; }
+        // R-01 (mejorar-app proyectos, 29-sep): la cifra roja de vencidas abre el frente con el filtro «vencidas»; R-04: «/» lleva al buscador
+        { const mod = await import('../comun.js');
+          // sin vencidas a esta altura (gerencia ya cerro las suyas), se vence una tarjeta abierta del frente y se repone al final
+          const tv = mod.estado.tareas.find(t => Number(t.ProyectoId) === proyectoId && t.Columna !== 'hecho'); const venceTv = tv && tv.Vence;
+          if (tv) tv.Vence = new Date(Date.now() - 2 * 864e5).toISOString();
+          pestana('mis'); await dormir(30); pestana('proyectos'); await dormir(30);
+          const v = document.querySelector(`#listaProyectos .pficha[data-open="${proyectoId}"] [data-venc]`);
+          R.ok('R-01: la cifra de vencidas (> 0) lleva data-venc y title', !!v && v.title === 'Ver solo las vencidas', v ? v.outerHTML.slice(0, 80) : 'sin cifra marcada');
+          if (v) { v.querySelector('b').click(); await esperar(() => visible('p-proyecto'), 'proyecto por vencidas');
+            R.ok('R-01: abre el frente en el Tablero con SOLO el filtro «vencidas»', mod.estado.proyectoAbiertoId === proyectoId && mod.estado.tab === 'tablero' && mod.estado.filtroTareas.vencidas === true && !mod.estado.filtroTareas.quien.length, JSON.stringify(mod.estado.filtroTareas));
+            mod.limpiarFiltroTareas(); }
+          if (tv) tv.Vence = venceTv;
+          pestana('proyectos'); await dormir(30); document.activeElement && document.activeElement.blur();
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true })); await dormir(10);
+          R.ok('R-04: en Proyectos la tecla / pone el foco en el buscador', document.activeElement === $('textoProyectos'), document.activeElement ? document.activeElement.id || document.activeElement.tagName : 'nada');
+          $('textoProyectos').blur(); }
         // C10: la lista de proyectos se ordena por fin del frente (sin fecha al final) y luego por nombre.
         { const idsC10 = []; for (const [nombre, vence] of [['Zeta sin fecha', undefined], ['Alfa mismo día', '2026-10-31T18:00:00Z'], ['Antes que todos', '2026-09-20T18:00:00Z']]) { const id = DB.siguienteId++; idsC10.push(id); filas('proyectos').push({ id, fields: { Title: nombre, Clave: 'c10-' + id, Equipo: 'CALYTEK', Estado: 'activo', Vence: vence } }); }
           await recargarYEsperar(); pestana('proyectos'); await esperar(() => document.querySelectorAll('#listaProyectos .pficha').length === 4, '4 proyectos');

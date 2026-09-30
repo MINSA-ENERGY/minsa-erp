@@ -481,8 +481,14 @@ function fichaProyecto(p, ts) {
     tt.appendChild(el('span', 'uni', eq.rama && eq.rama !== eq.nombre ? `${eq.rama} · ${eq.nombre}` : eq.nombre)); cab.appendChild(tt); r.appendChild(cab);   // U-03 (16-sep): la rama Administración se llama como su unidad; no se repite
     // las tres cifras; «abiertas» = todo lo que no esta en la cubeta que cierra (avance: categoria hecho)
     const st = el('span', 'stats'); const venc = vencidasEn(ts);
-    const cifra = (n, rot, cls) => { const s = el('span'); s.appendChild(el('b', cls || '', String(n))); s.appendChild(el('small', '', rot)); st.appendChild(s); };
-    if (ts.length) { cifra(a.total - a.hechas, 'abiertas'); cifra(venc, 'vencidas', venc ? 'bad' : ''); cifra(a.hechas, 'hechas'); }
+    const cifra = (n, rot, cls) => { const s = el('span'); s.appendChild(el('b', cls || '', String(n))); s.appendChild(el('small', '', rot)); st.appendChild(s); return s; };
+    if (ts.length) {
+        cifra(a.total - a.hechas, 'abiertas');
+        // R-01 (mejorar-app proyectos, 29-sep; como el clic en un segmento de Linear Insights): la cifra roja abre el frente filtrado a sus vencidas.
+        // No es un boton propio (no cabe un boton dentro de button.pficha): el delegado de abajo lee [data-venc]; con teclado la ficha abre entera, como antes.
+        const v = cifra(venc, 'vencidas', venc ? 'bad' : ''); if (venc) { v.dataset.venc = '1'; v.title = 'Ver solo las vencidas'; }
+        cifra(a.hechas, 'hechas');
+    }
     else st.appendChild(el('small', 'sin', 'sin tarjetas'));   // U-07 (16-sep): «0 · 0 · 0» parecia tres cifras con significado
     r.appendChild(st);
     // U-10 (mejorar-app proyectos, 24-sep): el lector de pantalla leia los spans pegados («sep18…1abiertas0vencidas») y no decia si ya vencio
@@ -491,7 +497,7 @@ function fichaProyecto(p, ts) {
     return r;   // el clic lo atiende UN listener delegado (C-05, abajo); antes cada ficha registraba el suyo capturando `p`
 }
 // C-05 (mejorar-app, 16-sep): las fichas se rehacen en cada repintado y en cada tecla del buscador; el id ya viaja en data-open.
-document.addEventListener('click', ev => { const f = ev.target.closest('.pficha[data-open]'); if (f) abrirProyecto(f.dataset.open); });
+document.addEventListener('click', ev => { const f = ev.target.closest('.pficha[data-open]'); if (f) abrirProyecto(f.dataset.open, ev.target.closest('[data-venc]') ? { vencidas: true } : null); });
 /** Las tareas repartidas por proyecto (C-07, 16-sep: una vez por pintada, no una por ficha). */
 function tareasPorProyecto() {
     const porP = new Map(); for (const t of estado.tareas) { const k = Number(t.ProyectoId); if (!porP.has(k)) porP.set(k, []); porP.get(k).push(t); }
@@ -959,9 +965,10 @@ function pintarProyectosAhora() {
 // U-19: el summary de un plegable vacio no lo abre
 $('sumCerrados').addEventListener('click', ev => { if (ev.currentTarget.parentElement.classList.contains('is-vacio')) ev.preventDefault(); });
 
-function abrirProyecto(id) {
+function abrirProyecto(id, filtro = null) {
     const p = porId(estado.proyectos, id); if (!p) return;
-    fijarProyectoAbierto(p); estado.tab = 'tablero';
+    fijarProyectoAbierto(p); if (filtro) limpiarFiltroTareas(filtro);   // R-01: el filtro va ENTERO y despues de fijar (C-13), como irASinDueno
+    estado.tab = 'tablero';
     irA('proyecto');
 }
 /** C-12 (v0.115.0): el proyecto se pinta en tres partes; el clic de pestaña solo repinta pintarPestanas y «Filtrar» solo pintarFiltrosProyecto. */
@@ -1461,6 +1468,12 @@ $('menuRail').querySelector('.menu-caja').addEventListener('click', () => { $('m
 // C3: buscador en Proyectos y en Mis tareas (misma normalizacion que el del tablero).
 $('filtroEquipoMovil').addEventListener('change', () => { estado.filtroEquipo = $('filtroEquipoMovil').value || null; repintar(); });
 $('textoProyectos').addEventListener('input', () => { estado.textoProyectos = $('textoProyectos').value; if (estado.pestana === 'proyectos') pintarProyectos(); });
+// R-04 (mejorar-app proyectos, 29-sep; el «/» de GitHub): en Proyectos la tecla / lleva al buscador, salvo escribiendo en otro campo o con un dialogo abierto.
+document.addEventListener('keydown', ev => {
+    if (ev.key !== '/' || ev.ctrlKey || ev.metaKey || ev.altKey || estado.pestana !== 'proyectos' || document.querySelector('dialog[open]')) return;
+    const a = document.activeElement; if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return;
+    ev.preventDefault(); $('textoProyectos').focus();
+});
 $('textoMis').addEventListener('input', () => { estado.textoMis = $('textoMis').value; if (estado.pestana === 'mis') pintarMisTareas(); });
 $('btnNuevoProyecto').addEventListener('click', () => abrirFormaProyecto(null));
 $('btnEditarProyecto').addEventListener('click', () => abrirFormaProyecto(proyectoAbierto()));

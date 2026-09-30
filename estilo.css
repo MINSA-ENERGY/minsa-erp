@@ -2281,3 +2281,5 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 .cerrados.is-vacio > summary { cursor: default; } .cerrados.is-vacio > summary::before { content: none; }
 /* U-20 (29-sep): a 1366 las cifras quedaban a ~800 px del titulo; en escritorio la lista de Proyectos se acota a 60 rem. */
 @media (min-width: 721px) { #p-proyectos > .buscador, #p-proyectos > .lista, #p-proyectos > .cerrados { max-width: 60rem; } }
+/* R-01 (29-sep): la cifra roja de vencidas abre el frente filtrado; se subraya al pasar para decir que es su propio destino. */
+.pficha .stats [data-venc] { cursor: pointer; } .pficha .stats [data-venc]:hover b { text-decoration: underline; text-underline-offset: 3px; }
