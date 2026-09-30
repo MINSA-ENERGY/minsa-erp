@@ -728,7 +728,7 @@ try {
         R.ok('rail: CALYTEK trae su contador y ningún equipo está marcado', document.querySelector('#railEquipos [data-equipo="CALYTEK"] .n').textContent === '1' && !document.querySelector('#railEquipos button.is-on'));
         document.querySelector('#railEquipos [data-equipo="PITEPEC"]').click(); await dormir(30);
         R.ok('rail: el equipo elegido queda marcado y filtra Proyectos', document.querySelector('#railEquipos button.is-on').dataset.equipo === 'PITEPEC' && !!document.querySelector('#listaProyectos .vacio'));
-        R.ok('U-09 (v0.96.0): el subtítulo de Proyectos dice que la lista está filtrada («Solo X · N de M») y trae el botón para quitarlo', /^Solo PITEPEC · \d+ de \d+ activos/.test($('proyectosSub').textContent) && !!$('proyectosSub').querySelector('[data-todos]'), $('proyectosSub').textContent);
+        R.ok('U-09 (v0.96.0): el subtítulo de Proyectos dice que la lista está filtrada («Solo X · N de M») y trae el botón para quitarlo', /^Solo PITEPEC · \d+ de \d+ activos?(Ver|$)/.test($('proyectosSub').textContent) && !!$('proyectosSub').querySelector('[data-todos]'), $('proyectosSub').textContent);
         if (gerencia) {   // U-03 (v0.74.0): con el rail en PITEPEC, Nuevo proyecto propone PITEPEC, no el primero del catálogo
             clic('btnNuevoProyecto'); await esperar(() => $('dlgProyecto').open, 'diálogo con filtro');
             R.ok('U-03 (v0.74.0): el diálogo propone el equipo filtrado', $('npEquipo').value === 'PITEPEC', $('npEquipo').value);
@@ -737,6 +737,17 @@ try {
         // U-06 (v0.74.0): el vacío con filtro ofrece «Ver todos los equipos», y funciona.
         { const b = document.querySelector('#listaProyectos .vacio [data-todos]'); R.ok('U-06 (v0.74.0): el vacío con filtro trae el botón para volver a todos', !!b); if (b) { b.click(); await dormir(30); } }
         R.ok('U-06 (v0.74.0): el botón quita el filtro y vuelven las fichas', !document.querySelector('#railEquipos button.is-on') && !!document.querySelector('#listaProyectos .pficha') && !document.querySelector('#listaProyectos .vacio'));
+        // C-12 (mejorar-app proyectos, 29-sep): el «Ver todos» del SUBTITULO tambien quita el filtro (antes solo se afirmaba que existia)
+        document.querySelector('#railEquipos [data-equipo="CALYTEK"]').click(); await dormir(30);
+        // U-16 (29-sep): con texto el subtitulo nombra la busqueda y cuenta contra los activos del equipo
+        { const q = $('textoProyectos'); q.value = 'LAU'; q.dispatchEvent(new Event('input', { bubbles: true })); await dormir(30);
+          R.ok('U-16: con equipo y texto el subtítulo dice «Solo CALYTEK · N de sus M activos con «LAU»»', /^Solo CALYTEK · \d+ de sus \d+ activos? con «LAU»/.test($('proyectosSub').textContent), $('proyectosSub').textContent);
+          q.value = ''; q.dispatchEvent(new Event('input', { bubbles: true })); await dormir(30); }
+        { const b = $('proyectosSub').querySelector('[data-todos]'); R.ok('C-12: con CALYTEK filtrado el subtítulo trae «Ver todos»', !!b, $('proyectosSub').textContent); if (b) { b.click(); await dormir(30); } }
+        R.ok('C-12: el «Ver todos» del subtítulo quita el filtro', !document.querySelector('#railEquipos button.is-on') && !$('proyectosSub').querySelector('[data-todos]'), $('proyectosSub').textContent);
+        // U-19 (29-sep): sin cerrados el summary lo dice y el plegable no se abre
+        if (!document.querySelector('#listaCerrados .pficha')) { $('sumCerrados').click(); await dormir(30); R.ok('U-19: sin cerrados el summary dice «Sin proyectos cerrados» y un clic no abre el plegable', $('sumCerrados').textContent === 'Sin proyectos cerrados' && !document.querySelector('details.cerrados').open, `${$('sumCerrados').textContent} · open=${document.querySelector('details.cerrados').open}`); }
+        else R.ok('U-19: con cerrados el summary los cuenta y el plegable no está marcado vacío', /^Proyectos cerrados · \d+$/.test($('sumCerrados').textContent) && !document.querySelector('details.cerrados').classList.contains('is-vacio'), $('sumCerrados').textContent);
         document.querySelector('#railEquipos [data-equipo="PITEPEC"]').click(); await dormir(30);   // se repone el filtro para el paso siguiente
         document.querySelector('#railEquipos [data-equipo="PITEPEC"]').click(); await dormir(30);
         R.ok('rail: el segundo clic quita el filtro', !document.querySelector('#railEquipos button.is-on') && !!document.querySelector('#listaProyectos .pficha'));
@@ -894,6 +905,12 @@ try {
           pestana('proyectos'); await dormir(30);
           { const r = document.querySelector(`#listaProyectos .pficha[data-open="${proyectoId}"]`); const diaEsp = String(+new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', day: '2-digit' }).format(new Date(p0.Vence))); R.ok('C8 / v0.25.0: el renglón de Proyectos lleva la hoja de calendario con el día del fin y el mes en ámbar (clase is-warn), sin chip ni reloj', !!r && r.classList.contains('is-warn') && r.querySelector('.cal .dia').textContent === diaEsp && !r.querySelector('[data-reloj]') && !r.querySelector('.dias'), r ? `${r.className} · ${r.querySelector('.cal') ? r.querySelector('.cal').textContent : ''}` : 'sin renglón'); }
           { const r = document.querySelector(`#listaProyectos .pficha[data-open="${proyectoId}"]`); const c = r && r.querySelector('.cal').getBoundingClientRect(), d = r && r.querySelector('.cal .dia').getBoundingClientRect(); R.ok('v0.57.1: el día de la hoja de calendario CABE dentro de la hoja (el 15-sep la regla suelta `.dia` de la agenda lo empujaba fuera de los 56 px y el texto seguía ahí — textContent no lo veía)', !!r && d.left >= c.left - 1 && d.right <= c.right + 1 && d.width > 0 && d.width <= c.width + 1, r ? `cal ${Math.round(c.left)}-${Math.round(c.right)} · dia ${Math.round(d.left)}-${Math.round(d.right)}` : 'sin renglón'); }
+          // C-12 (mejorar-app proyectos, 29-sep): la ficha lleva is-danger vencida e is-info lejana; U-17: vencida, el DIA va del color del mes
+          p0.Vence = new Date(Date.now() - 3 * 864e5).toISOString(); pestana('mis'); await dormir(30); pestana('proyectos'); await dormir(30);
+          { const r = document.querySelector(`#listaProyectos .pficha[data-open="${proyectoId}"]`); const cm = r && getComputedStyle(r.querySelector('.cal .mes')).color, cd = r && getComputedStyle(r.querySelector('.cal .dia')).color;
+            R.ok('C-12 / U-17: un frente vencido lleva is-danger y el día de la hoja va del mismo color que el mes', !!r && r.classList.contains('is-danger') && cm === cd, r ? `${r.className} · mes ${cm} · dia ${cd}` : 'sin renglón'); }
+          p0.Vence = new Date(Date.now() + 60 * 864e5).toISOString(); pestana('mis'); await dormir(30); pestana('proyectos'); await dormir(30);
+          { const r = document.querySelector(`#listaProyectos .pficha[data-open="${proyectoId}"]`); R.ok('C-12: un frente lejano lleva is-info', !!r && r.classList.contains('is-info'), r ? r.className : 'sin renglón'); }
           p0.Vence = venceAntes; }
         // C10: la lista de proyectos se ordena por fin del frente (sin fecha al final) y luego por nombre.
         { const idsC10 = []; for (const [nombre, vence] of [['Zeta sin fecha', undefined], ['Alfa mismo día', '2026-10-31T18:00:00Z'], ['Antes que todos', '2026-09-20T18:00:00Z']]) { const id = DB.siguienteId++; idsC10.push(id); filas('proyectos').push({ id, fields: { Title: nombre, Clave: 'c10-' + id, Equipo: 'CALYTEK', Estado: 'activo', Vence: vence } }); }

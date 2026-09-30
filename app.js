@@ -15,7 +15,7 @@
 import { CONFIG } from './config.js';
 import { crearCliente, esConflicto } from './graph.js';
 import { rolDe, PUEDE, nombreCorto, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, misAbiertas as misAbiertasDe, HECHO, plural } from './reglas.js';
-import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, textoVence, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas } from './comun.js';
+import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, textoVence, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas, conservarFoco } from './comun.js';
 import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambiarTareas, abrirTarjeta, tarjetaAbiertaId, repintarFicha, pintarFiltroTareas, pintarBotonFiltros, abrirNuevaTarea } from './tablero.js';
 import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
 import { pintarChat, engancharChat, alCambiarChat, fijarAbrirTarjeta, salirDelChat } from './chat.js';
@@ -492,13 +492,18 @@ function fichaProyecto(p, ts) {
 }
 // C-05 (mejorar-app, 16-sep): las fichas se rehacen en cada repintado y en cada tecla del buscador; el id ya viaja en data-open.
 document.addEventListener('click', ev => { const f = ev.target.closest('.pficha[data-open]'); if (f) abrirProyecto(f.dataset.open); });
+/** Las tareas repartidas por proyecto (C-07, 16-sep: una vez por pintada, no una por ficha). */
+function tareasPorProyecto() {
+    const porP = new Map(); for (const t of estado.tareas) { const k = Number(t.ProyectoId); if (!porP.has(k)) porP.set(k, []); porP.get(k).push(t); }
+    return porP;
+}
 /** Pinta `proyectos` (ya ordenados, C10) en `cont` como renglones. Deja `cont` vacio si no hay proyectos.
- *  C-07 (mejorar-app, 16-sep): las tareas se reparten por proyecto UNA vez aqui; antes cada ficha recorria todas (O(P·T)). */
-function pintarFichas(cont, proyectos) {
+ *  C-15 (mejorar-app proyectos, 29-sep): quien pinta dos listas en la misma pasada arma `porP` una vez y lo pasa. */
+function pintarFichas(cont, proyectos, porP = null) {
     cont.textContent = '';
     if (!proyectos.length) return;
-    const porP = new Map(); for (const t of estado.tareas) { const k = Number(t.ProyectoId); if (!porP.has(k)) porP.set(k, []); porP.get(k).push(t); }
-    const g = el('div', 'fichas'); for (const p of proyectos) g.appendChild(fichaProyecto(p, porP.get(Number(p.id)) || [])); cont.appendChild(g);
+    const tp = porP || tareasPorProyecto();
+    const g = el('div', 'fichas'); for (const p of proyectos) g.appendChild(fichaProyecto(p, tp.get(Number(p.id)) || [])); cont.appendChild(g);
 }
 /** Un renglon de mini lista (2026-09-12): cabecera = quien + cuando; debajo la frase a todo el ancho;
  *  debajo el proyecto en una linea. `texto` NO trae el nombre (lo pone la cabecera); si `texto` ES el
@@ -666,7 +671,7 @@ function pintarInicio() {
     const nuevos = pintarCola(abiertas);
     pintarSinMovimiento(abiertas, ahora);   // C-09 · U-12 (v0.94.0): despues de la cola, porque excluye lo que ella ya pinto
     const lp = $('inicioProyectos');
-    pintarFichas(lp, ordenarProyectos(vivos));   // C10 · v0.25.0: los mismos renglones «calendario de mes» que en Proyectos
+    conservarFoco(lp, ['open'], () => pintarFichas(lp, ordenarProyectos(vivos)));   // C10 · v0.25.0: los mismos renglones que en Proyectos; C-11 (29-sep): el refresco no tira el foco
     if (!vivos.length) lp.appendChild(el('p', 'vacio', PUEDE.proyecto(estado.rol) ? 'Sin proyectos activos: crea el primero en Proyectos.' : 'Sin proyectos activos todavía.'));
     // C9: tambien estos renglones abren su tarjeta (el revisor vio la inconsistencia con la actividad).
     // v0.39.0: «Fines de frente» (v0.21.0) salio con la lateral — la hoja de calendario de cada ficha ya trae fecha y semaforo.
@@ -910,7 +915,12 @@ function abrirEquipo() {
 
 // ---------------------------------------------------------------- Proyectos
 
-function pintarProyectos() {
+// C-11 (mejorar-app proyectos, 29-sep): el refresco de 120 s y cada escritura recrean las fichas; conservarFoco devuelve el foco del
+// teclado a la misma ficha o al mismo «Ver todos» (antes caia al body, como en Roadmap y Reportes antes de C-07/C-16).
+function pintarProyectos() { conservarFoco($('p-proyectos'), ['open', 'todos'], pintarProyectosAhora); }
+// C-14 (29-sep): el boton que quita el filtro de equipo se escribia dos veces con el mismo handler.
+const botonVerTodos = rotulo => boton(rotulo, 'mn-btn is-ghost is-sm', () => { estado.filtroEquipo = null; repintar(); }, { todos: '1' });
+function pintarProyectosAhora() {
     $('btnNuevoProyecto').disabled = !PUEDE.proyecto(estado.rol);
     $('btnNuevoProyecto').title = PUEDE.proyecto(estado.rol) ? '' : 'Solo gerencia crea proyectos';
     $('btnNuevoProyecto').hidden = !PUEDE.proyecto(estado.rol);   // U-05 (16-sep): en celular el title no existe y el boton gris no explicaba nada; quien no puede crear no lo ve
@@ -920,12 +930,15 @@ function pintarProyectos() {
     const filtro = ps => filtrarProyectos(proyectosVisibles(ps, estado.filtroEquipo, false), estado.textoProyectos);   // C-03: la regla del rail vive en reglas.js
     const l = $('listaProyectos');
     const act = ordenarProyectos(filtrarProyectos(visibles(), estado.textoProyectos));   // C10: vence antes primero, sin fecha al final, empate por nombre
-    pintarFichas(l, act);   // v0.25.0: renglones planos por fin del frente; el filtro de equipo viene del rail
+    const porP = tareasPorProyecto();   // C-15: una sola pasada para activos y cerrados
+    pintarFichas(l, act, porP);   // v0.25.0: renglones planos por fin del frente; el filtro de equipo viene del rail
     // U-09 / U-11 (mejorar-app proyectos, 24-sep): el subtitulo dice si la lista esta filtrada (como Roadmap y Calendario) y cabe en un renglon
     const sub = $('proyectosSub');
     if (estado.filtroEquipo) {
-        sub.textContent = `Solo ${nombreEquipoFiltrado()} · ${act.length} de ${filtrarProyectos(activos(), estado.textoProyectos).length} activos`;
-        sub.appendChild(boton('Ver todos', 'mn-btn is-ghost is-sm', () => { estado.filtroEquipo = null; repintar(); }, { todos: '1' }));
+        // U-16 (29-sep): con texto, el subtitulo nombra la busqueda y el total ya NO se filtra por ella («1 de 1» hacia creer que el equipo tenia un frente)
+        const txt = (estado.textoProyectos || '').trim(), tot = activos().length, delEq = visibles().length;   // con texto se cuenta contra los del equipo, sin texto contra todos (U-09)
+        sub.textContent = txt ? `Solo ${nombreEquipoFiltrado()} · ${act.length} de sus ${delEq} ${plural(delEq, 'activo')} con «${txt}»` : `Solo ${nombreEquipoFiltrado()} · ${act.length} de ${tot} ${plural(tot, 'activo')}`;
+        sub.appendChild(botonVerTodos('Ver todos'));
     } else sub.textContent = 'Frentes activos, del que vence antes al que vence después.';
     const c = $('listaCerrados');
     const cer = filtro(estado.proyectos.filter(p => p.Estado === 'cerrado')).sort((a, b) => String(b.CerradoEl || '').localeCompare(String(a.CerradoEl || '')));
@@ -934,14 +947,17 @@ function pintarProyectos() {
         const soloCerrados = estado.textoProyectos && cer.length;
         const v = el('p', 'vacio', soloCerrados ? `Ningún proyecto activo con ese texto; ${cer.length === 1 ? 'hay 1 cerrado' : `hay ${cer.length} cerrados`} abajo.` : estado.textoProyectos ? 'Ningún proyecto con ese texto.' : estado.filtroEquipo ? `Sin proyectos activos de ${nombreEquipoFiltrado()}. ` : 'Sin proyectos activos.');
         // U-06 (16-sep): con el filtro de equipo puesto, el vacio ofrece volver a todos (antes solo re-pulsando el mismo equipo en el rail).
-        if (estado.filtroEquipo && !estado.textoProyectos) v.appendChild(boton('Ver todos los equipos', 'mn-btn is-ghost is-sm', () => { estado.filtroEquipo = null; repintar(); }, { todos: '1' }));
+        if (estado.filtroEquipo && !estado.textoProyectos) v.appendChild(botonVerTodos('Ver todos los equipos'));
         l.appendChild(v);
         if (soloCerrados) c.parentElement.open = true;
     }
-    $('sumCerrados').textContent = cer.length ? `Proyectos cerrados · ${cer.length}` : 'Proyectos cerrados';   // U-02: el conteo siempre que haya cerrados (con texto, los que casan)
-    pintarFichas(c, cer);   // van por fecha de cierre; la hoja de calendario ensena el dia del cierre
-    if (!cer.length) c.appendChild(el('p', 'vacio', 'Ninguno cerrado.'));
+    // U-19 (29-sep): sin cerrados el summary lo dice y el plegable no se abre (antes pedia un toque para leer «Ninguno cerrado.»)
+    $('sumCerrados').textContent = cer.length ? `Proyectos cerrados · ${cer.length}` : estado.textoProyectos ? 'Ningún cerrado con ese texto' : 'Sin proyectos cerrados';   // U-02: el conteo siempre que haya cerrados (con texto, los que casan)
+    c.parentElement.classList.toggle('is-vacio', !cer.length); if (!cer.length) c.parentElement.open = false;
+    pintarFichas(c, cer, porP);   // van por fecha de cierre; la hoja de calendario ensena el dia del cierre
 }
+// U-19: el summary de un plegable vacio no lo abre
+$('sumCerrados').addEventListener('click', ev => { if (ev.currentTarget.parentElement.classList.contains('is-vacio')) ev.preventDefault(); });
 
 function abrirProyecto(id) {
     const p = porId(estado.proyectos, id); if (!p) return;

@@ -147,6 +147,8 @@ ok('sinDueno(): abiertas sin asignado, las hechas fuera', sinDueno(conHuerfana).
 const proys = [{ id: 1, Title: 'Zeta', Vence: '2026-10-31T18:00:00Z' }, { id: 2, Title: 'Sin fecha' }, { id: 3, Title: 'Alfa', Vence: '2026-10-31T18:00:00.000Z' }, { id: 4, Title: 'Pronto', Vence: '2026-09-18T18:00:00Z' }];
 ok('ordenarProyectos: vence antes primero, empate por nombre (mismo dia aunque el ISO difiera), sin fecha al final', ordenarProyectos(proys).map(p => p.id).join(',') === '4,3,1,2');
 ok('ordenarProyectos no muta la entrada', proys[0].id === 1);
+// C-12/C-13 (mejorar-app proyectos, 29-sep): el dia se corta en hora de Mexico — 03:00Z del 1-oct es el 30-sep alla y va antes que el 1-oct (en UTC empataban)
+ok('ordenarProyectos corta el dia en hora de Mexico (madrugada UTC)', ordenarProyectos([{ id: 1, Title: 'Alfa', Vence: '2026-10-01T18:00:00Z' }, { id: 2, Title: 'Zeta', Vence: '2026-10-01T03:00:00Z' }]).map(p => p.id).join(',') === '2,1');
 // C-03 (v0.75.0): la regla del filtro del rail, una vez.
 { const ps = [{ id: 1, Estado: 'activo', Equipo: 'CALYTEK' }, { id: 2, Estado: 'cerrado', Equipo: 'CALYTEK' }, { id: 3, Estado: 'activo', Equipo: 'PITEPEC' }];
   ok('activosDe: solo Estado activo; tolera undefined', activosDe(ps).map(p => p.id).join() === '1,3' && activosDe(undefined).length === 0);

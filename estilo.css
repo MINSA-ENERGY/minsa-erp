@@ -2272,3 +2272,12 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 .t-side .tdoc .quitar { position: relative; z-index: 1; }
 /* U-47: en el selector el frente abierto va con su nombre completo (la cabecera lo corta a dos renglones en celular). */
 .sel-lista button.is-on .t { white-space: normal; overflow-wrap: anywhere; }
+/* U-17 (mejorar-app proyectos, 29-sep): el frente vencido (o por vencer) pinta tambien el DIA de la hoja con el color del semaforo;
+   sin caja ni banda de fondo (v0.98.0) y sin chip en el renglon (decision cerrada). */
+body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pficha.is-warn .cal .dia { color: var(--status-warn-fg); }
+/* U-18 (29-sep): «SIN / FECHA» con la misma caja y metrica en las dos palabras (antes «fecha» iba en minusculas con otra medida). */
+.pficha .cal.sin .dia { font-size: .66rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+/* U-19 (29-sep): sin cerrados el plegable no se abre: sin triangulo ni mano. */
+.cerrados.is-vacio > summary { cursor: default; } .cerrados.is-vacio > summary::before { content: none; }
+/* U-20 (29-sep): a 1366 las cifras quedaban a ~800 px del titulo; en escritorio la lista de Proyectos se acota a 60 rem. */
+@media (min-width: 721px) { #p-proyectos > .buscador, #p-proyectos > .lista, #p-proyectos > .cerrados { max-width: 60rem; } }

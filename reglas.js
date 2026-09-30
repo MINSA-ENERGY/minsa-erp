@@ -352,7 +352,8 @@ export function sinDueno(tareas) {
 export function ordenarProyectos(proyectos) {
     // Se compara el DIA (10 caracteres), no el ISO entero: el mismo dia escrito por la app
     // («…T18:00:00.000Z») y por la siembra («…T18:00:00Z») no es un empate si se compara la cadena.
-    const dia = p => p.Vence ? String(p.Vence).slice(0, 10) : null;
+    // C-13 (mejorar-app proyectos, 29-sep): el dia se corta en hora de Mexico (diaDe), como la hoja de calendario de la ficha; antes era UTC.
+    const dia = p => p.Vence ? (diaDe(p.Vence) || String(p.Vence).slice(0, 10)) : null;
     return [...(proyectos || [])].sort((a, b) => {
         const x = dia(a), y = dia(b);
         if (x !== y) { if (x === null) return 1; if (y === null) return -1; const c = x.localeCompare(y); if (c) return c; }
