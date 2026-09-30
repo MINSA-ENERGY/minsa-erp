@@ -3006,6 +3006,61 @@ try {
             clic('cpCancelar'); await esperar(() => $('dlg').open, 'confirmar descarte');
             R.ok('guarda (v0.100.0): Cancelar con cambios pregunta «¿Descartar los cambios?»', $('dlgTitulo').textContent === '¿Descartar los cambios?');
             clic('dlgOk'); await esperar(() => !$('dlgPartida').open, 'descartado');
+            // ---- C-10 (v0.148.0, /mejorar-app capital): el camino de error y de concurrencia del diálogo de partida (tanda 1: C-07..C-09, U-09..U-13)
+            { const abrirX1 = async q => { document.querySelector(`#capitalTabla tr[data-partida="${x1.id}"] .partida-t`).click(); await esperar(() => $('dlgPartida').open, q); };
+              const tituloX1 = x1.fields.Title;
+              // C-07: otra persona cambia las NOTAS mientras el diálogo está abierto; el primer Guardar da 412 y nombra el campo;
+              // el segundo manda SOLO el concepto y la nota ajena se conserva (antes volvía a vacía en silencio)
+              await abrirX1('C-07 abrir');
+              x1.fields.Notas = 'nota de otra persona'; x1.etag = (x1.etag || 1) + 3;
+              poner('cpConcepto', 'MANTENIMIENTO C-07'); clic('cpGuardar'); await esperar(() => avisoCon('Alguien cambió esta partida'), 'C-07 aviso 412');
+              R.ok('C-07 (v0.147.0): el aviso del 412 nombra lo que cambió la otra persona («(notas)») y el diálogo sigue abierto', $('dlgPartida').open && !!avisoCon('(notas)'), (avisoCon('Alguien cambió') || {}).textContent);
+              clic('cpGuardar'); await esperar(() => x1.fields.Title === 'MANTENIMIENTO C-07' && !$('dlgPartida').open, 'C-07 segundo guardar');
+              R.ok('C-07 (v0.147.0): el segundo Guardar tras el 412 manda solo el concepto y NO borra la nota ajena', JSON.stringify(DB.ultimoPatch.capital) === '{"Title":"MANTENIMIENTO C-07"}' && x1.fields.Notas === 'nota de otra persona', JSON.stringify(DB.ultimoPatch.capital) + ' · ' + x1.fields.Notas);
+              R.ok('C-09 (v0.147.0): al guardar, el foco vuelve al renglón de la partida', document.activeElement && document.activeElement.dataset.partida === String(x1.id), document.activeElement && document.activeElement.outerHTML.slice(0, 80));
+              x1.fields.Title = tituloX1; delete x1.fields.Notas; await recargarYEsperar(); await dormir(30);
+              // «Sin cambios»: abrir y Guardar sin tocar nada no escribe
+              { const antesP = JSON.stringify(DB.ultimoPatch.capital), ifm0 = DB.ifMatch;
+                await abrirX1('sin cambios'); clic('cpGuardar'); await esperar(() => !$('dlgPartida').open, 'sin cambios cierra');
+                R.ok('C-10 (v0.148.0): Guardar sin tocar nada cierra, dice «Sin cambios que guardar» y no manda PATCH', !!avisoCon('Sin cambios que guardar') && DB.ifMatch === ifm0 && JSON.stringify(DB.ultimoPatch.capital) === antesP, JSON.stringify(DB.ultimoPatch.capital)); }
+              // Editar una partida que otra persona borró (la relectura ya no la trae): cierra y lo dice, sin PATCH
+              { const ifm0 = DB.ifMatch;
+                await abrirX1('editar borrada'); ESTADO.capital = ESTADO.capital.filter(x => x.id !== x1.id);
+                poner('cpMonto', '777'); clic('cpGuardar'); await esperar(() => !$('dlgPartida').open, 'editar borrada cierra');
+                R.ok('C-10 (v0.148.0): editar una partida que ya no existe cierra con «Esa partida ya no existe» y no manda PATCH', !!avisoCon('ya no existe') && DB.ifMatch === ifm0 && x1.fields.Monto === 12000, x1.fields.Monto);
+                await recargarYEsperar(); await dormir(30); }
+              // C-08: con el PATCH en vuelo, Guardar/Borrar/Cancelar se deshabilitan y Esc no cierra; al volver se liberan
+              { let soltar; DB.retener = { metodo: 'PATCH', incluye: 'lista-capital/items', espera: new Promise(r => { soltar = r; }) };
+                await abrirX1('C-08 abrir'); poner('cpMonto', '12500'); clic('cpGuardar'); await dormir(40);
+                const bloq = ['cpGuardar', 'cpBorrar', 'cpCancelar'].every(id => $(id).disabled);
+                const esc = new Event('cancel', { cancelable: true }); $('dlgPartida').dispatchEvent(esc);
+                R.ok('C-08 (v0.147.0): con el PATCH en vuelo los tres botones se deshabilitan y Esc no cierra el diálogo', bloq && esc.defaultPrevented && $('dlgPartida').open && !$('dlg').open, `bloq=${bloq} esc=${esc.defaultPrevented} dlg=${$('dlg').open}`);
+                soltar(); await esperar(() => x1.fields.Monto === 12500 && !$('dlgPartida').open, 'C-08 PATCH suelto');
+                R.ok('C-08 (v0.147.0): al volver el PATCH se liberan los botones', ['cpGuardar', 'cpBorrar', 'cpCancelar'].every(id => !$(id).disabled));
+                await abrirX1('C-08 reponer'); poner('cpMonto', '12000'); clic('cpGuardar'); await esperar(() => x1.fields.Monto === 12000 && !$('dlgPartida').open, 'C-08 repuesto'); }
+              // Fallo del DELETE: avisa, el diálogo se queda y los botones se liberan
+              { DB.fallas.push({ metodo: 'DELETE', incluye: 'lista-capital/items', status: 500, veces: 1 });
+                try { await abrirX1('borrar con falla'); clic('cpBorrar'); await confirmar(); await esperar(() => avisoCon('No se pudo borrar la partida'), 'aviso de borrado fallido');
+                  R.ok('C-10 (v0.148.0): un DELETE que falla avisa, deja el diálogo abierto con los botones libres y la partida en su lugar', $('dlgPartida').open && !$('cpBorrar').disabled && !$('cpGuardar').disabled && cap().some(x => x.id === x1.id) && ESTADO.capital.some(x => x.id === x1.id));
+                } finally { DB.fallas = DB.fallas.filter(f => f.metodo !== 'DELETE' || f.incluye !== 'lista-capital/items'); }
+                clic('cpCancelar'); await esperar(() => !$('dlgPartida').open, 'cerrar tras falla'); }
+              // Esc con cambios pregunta; U-12: Fondeo esconde Categoría y Necesidad la devuelve
+              { await abrirX1('Esc con cambios'); poner('cpTipo', 'fondeo');
+                const oculta = $('cpCategoria').closest('.mn-field').classList.contains('oculto');
+                poner('cpTipo', 'necesidad');
+                R.ok('U-12 (v0.147.0): con Tipo «Fondeo» el campo Categoría se esconde y vuelve con «Necesidad»', oculta && !$('cpCategoria').closest('.mn-field').classList.contains('oculto'));
+                poner('cpConcepto', 'CAMBIO SIN GUARDAR'); const esc = new Event('cancel', { cancelable: true }); $('dlgPartida').dispatchEvent(esc); await esperar(() => $('dlg').open, 'Esc pregunta');
+                R.ok('C-10 (v0.148.0): Esc con cambios no cierra y pregunta «¿Descartar los cambios?»', esc.defaultPrevented && $('dlgPartida').open && $('dlgTitulo').textContent === '¿Descartar los cambios?');
+                clic('dlgOk'); await esperar(() => !$('dlgPartida').open, 'Esc descartado'); }
+              // C-09: ordenar con Enter en el encabezado no tira el foco al body; U-09: CONCEPTO dice el orden vigente
+              { const th = () => document.querySelector('#capitalTabla th[data-sort="monto"]');
+                th().focus(); th().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await dormir(30);
+                R.ok('C-09 (v0.147.0): Enter en «Monto» ordena y el foco sigue en ese encabezado (ya no cae al body)', th().getAttribute('aria-sort') === 'descending' && document.activeElement === th(), document.activeElement && document.activeElement.tagName);
+                R.ok('U-09 (v0.147.0): el encabezado CONCEPTO lleva el orden vigente («por monto ↓»)', document.querySelector('#capitalTabla th[data-sort="concepto"] .c-orden').textContent === 'por monto ↓', document.querySelector('#capitalTabla th[data-sort="concepto"] .c-orden').textContent);
+                document.querySelector('#capitalTabla th[data-sort="fecha"]').click(); await dormir(30); }
+              // U-11 · U-13: «Detalle» en el resumen; el mes largo y el corto (el CSS elige) con el largo en el title
+              { const m = document.querySelector('#capitalMeses tr[data-mes="2026-10"] td.c-mes');
+                R.ok('U-11 · U-13 (v0.147.0): la columna del resumen dice «Detalle» y el mes trae su rótulo largo y el corto', [...document.querySelectorAll('#capitalKpis thead th')].map(t => t.textContent).includes('Detalle') && !!m && /octubre/i.test(m.querySelector('.mes-l').textContent) && /^oct 2026$/i.test(m.querySelector('.mes-c').textContent) && /octubre/i.test(m.title), m && m.textContent); } }
             // filtro por proyecto: una partida de OTRO proyecto activo
             const otro = filas('proyectos').find(p => p.fields.Estado === 'activo' && p.id !== pid);
             cap().push({ id: DB.siguienteId++, fields: { Title: 'Partida de otro frente', ProyectoId: otro.id, Tipo: 'necesidad', Monto: 500, Estado: 'estimado' } });
@@ -3060,6 +3115,7 @@ try {
               const fecha = x => document.querySelector(`#capitalTabla tr[data-partida="${x.id}"] td.c-fecha`);
               const fechaP = x => document.querySelector(`#capitalTabla tr[data-partida="${x.id}"] .p .is-danger`);
               R.ok('R-03 (v0.118.0): fecha pasada y estado estimado/comprometido → fecha en rojo en la columna y en el renglón .p del celular; la pagada no', fecha(A).classList.contains('is-danger') && !!fechaP(A) && fechaP(A).textContent === fecha(A).textContent && fecha(C).classList.contains('is-danger') && !fecha(B).classList.contains('is-danger') && !fechaP(B) && fecha(A).title.includes('comprometido'), [fecha(A).className, fecha(B).className].join(' | '));
+              R.ok('U-10 (v0.147.0): la vencida dice «, vencida» visible junto a la fecha del renglón .p del celular; la pagada no', (document.querySelector(`#capitalTabla tr[data-partida="${A.id}"] .p .venc`) || {}).textContent === ', vencida' && !document.querySelector(`#capitalTabla tr[data-partida="${B.id}"] .p .venc`));
               const nota = document.querySelector('#capitalKpis [data-kpi="n"]').textContent;
               R.ok('R-04 (v0.118.0): la nota del resumen agrega «· $300.00 comprometido» (el fondeo comprometido no cuenta) sin columnas nuevas', nota.includes('$2,700.50 ya pagado · $300.00 comprometido') && document.querySelectorAll('#capitalKpis thead th').length === 5, nota);
               const filasMes = [...document.querySelectorAll('#capitalMeses tr.mes')];
