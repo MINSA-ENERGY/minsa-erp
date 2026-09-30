@@ -2157,12 +2157,13 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 .ctabla .partida-t .pt { display: block; }
 /* U-05: en escritorio, las notas se anuncian junto al concepto (el title no existe en el celular; ahi lo dice el renglon .p) */
 .ctabla .cnota { font-family: var(--font-data); font-size: .66rem; color: var(--text-muted); margin-left: var(--sp-1); }
-/* U-03: el conteo de partidas vive en su columna; a 720 px la columna se esconde y el conteo baja bajo el titulo */
-.cresumen .cres-sub { display: none; }
+/* U-03: el conteo de partidas vive en su columna; a 720 px la columna se esconde y el conteo baja a su renglon (U-08, 30-sep: .cres-fila) */
+.cresumen tr.cres-fila { display: none; }
 @media (max-width: 720px) {
   .ctabla .partida-t, .choja tr.cgrupo .cgrupo-nombre { min-height: 36px; }
   .ctabla .cnota { display: none; }
-  .cresumen .cres-sub { display: block; font-weight: 400; font-size: .72rem; color: var(--text-muted); }
+  .cresumen tr.cres-fila { display: table-row; }
+  .cresumen tr.cres-fila td { font-weight: 400; font-size: .72rem; color: var(--text-muted); white-space: normal; text-align: left; padding-top: 0; }
 }
 /* R-03 (26-sep, /mejorar-app capital): la fecha ya pasada de una partida que sigue estimada o comprometida, en rojo —
    la misma convencion de vencida de la Lista (#tab-lista td.vence.is-danger). En celular va dentro del renglon .p. */
@@ -2172,10 +2173,10 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 /* R-01: con la cuarta columna de dinero la hoja Por mes desbordaba 3 px a 390; en celular sus celdas se aprietan */
 @media (max-width: 720px) { .cmeses th, .cmeses td { padding-left: var(--sp-1); padding-right: var(--sp-1); } }
 /* R-05 (26-sep, /mejorar-app capital): «+ partida» en el renglon del frente — boton de texto chico, sin relleno ni borde */
-.cgrupo-mas { margin-left: var(--sp-3); background: none; border: 0; padding: 0 var(--sp-1); font-family: var(--font-ui); font-size: .72rem; font-weight: 600; color: var(--text-muted); cursor: pointer; white-space: nowrap; border-radius: var(--r-sm); }
+.cgrupo-mas { margin-left: var(--sp-3); background: none; border: 0; padding: 0 var(--sp-1); font-family: var(--font-ui); font-size: .72rem; font-weight: 600; color: var(--text-link); cursor: pointer; white-space: nowrap; border-radius: var(--r-sm); }
 .cgrupo-mas:hover { color: var(--text-strong); text-decoration: underline; }
 .cgrupo-mas:focus-visible { outline: 2px solid var(--brand-primary, currentColor); outline-offset: 1px; }
-@media (max-width: 720px) { .cgrupo-mas { display: block; min-height: 32px; margin: 0; padding: 0; text-align: left; } }   /* bajo el nombre, alineado con el numero */
+@media (max-width: 720px) { .cgrupo-mas { display: block; min-height: 36px; margin: 0; padding: 0; text-align: left; } }   /* bajo el nombre, alineado con el numero */
 
 /* ==== v0.120.0 (27-sep, /mejorar-app proyectos roadmap, tanda 1 automatica) ==== */
 /* U-11: el nombre bajo el rombo abre lo mismo que el rombo (el rombo ya tenia su ::after de 36 px) */
@@ -2287,3 +2288,12 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 @media (min-width: 721px) { #p-proyectos > .buscador, #p-proyectos > .lista, #p-proyectos > .cerrados { max-width: 60rem; } }
 /* R-01 (29-sep): la cifra roja de vencidas abre el frente filtrado; se subraya al pasar para decir que es su propio destino. */
 .pficha .stats [data-venc] { cursor: pointer; } .pficha .stats [data-venc]:hover b { text-decoration: underline; text-underline-offset: 3px; }
+/* ==== v0.147.0 (30-sep, /mejorar-app proyectos capital, tanda 1 automatica) ==== */
+/* U-07: «+ partida» con el color de accion (arriba) y, en escritorio, 28 px de alto de toque sin mover el renglon */
+@media (min-width: 721px) { .cgrupo-mas { min-height: 28px; margin-top: -7px; margin-bottom: -7px; } }
+/* U-09: el orden vigente junto a CONCEPTO, solo en celular (en escritorio lo dice la flecha de su columna) */
+.ctabla th .c-orden { display: none; }
+@media (max-width: 720px) { .ctabla th .c-orden { display: inline; margin-left: var(--sp-2); font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text-link); } }
+/* U-13: el mes corto en celular, el largo en escritorio */
+.cmeses td.c-mes .mes-c { display: none; }
+@media (max-width: 720px) { .cmeses td.c-mes .mes-l { display: none; } .cmeses td.c-mes .mes-c { display: inline; white-space: nowrap; } }
