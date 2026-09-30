@@ -420,13 +420,17 @@ export function pintarCalendario() {
     $('calTitulo').textContent = nombreMes(mes);
     const activosF = visibles();   // C-03
     const idsF = new Set(activosF.map(p => p.id));   // v0.13.1
-    const agenda = agendaPorDia(estado.tareas.filter(t => idsF.has(Number(t.ProyectoId))), activosF);
+    const yo = String(estado.cuenta && estado.cuenta.username || '').toLowerCase();
+    const agenda = agendaPorDia(estado.tareas.filter(t => idsF.has(Number(t.ProyectoId)) && (!estado.calSoloMias || (!!yo && String(t.Asignado || '').toLowerCase() === yo))), activosF);   // R-03 (v0.157.0): los fines de frente se quedan, son de todos
+    const fil = $('calFiltro'); fil.textContent = '';
+    for (const [texto, mias] of [['todo', false], ['solo mías', true]]) { const b = boton(texto, !!estado.calSoloMias === mias ? 'is-on' : '', null, { calMias: mias ? '1' : '0' }); b.setAttribute('aria-pressed', String(!!estado.calSoloMias === mias)); fil.appendChild(b); }
     const celdas = celdasDelMes(mes);
     const enMes = celdas.filter(c => c.enMes);
     const nT = enMes.reduce((n, c) => n + ((agenda.get(c.dia) || { tareas: [] }).tareas.length), 0), nF = enMes.reduce((n, c) => n + ((agenda.get(c.dia) || { fines: [] }).fines.length), 0);
     const nV = enMes.reduce((n, c) => n + ((agenda.get(c.dia) || { tareas: [] }).tareas.filter(t => estadoVence(t) === 'danger').length), 0);   // U-15 (v0.154.0): cuantas de esas ya vencieron (abiertas)
     const sub = $('calSub'); sub.textContent = `${nT} ${nT === 1 ? 'tarjeta' : 'tarjetas'} con fecha este mes · ${nF} ${nF === 1 ? 'fin' : 'fines'} de frente`;   // U-05 (v0.86.0): plural real; cuenta lo mismo que pintan la rejilla y la agenda
     if (nV) { sub.appendChild(document.createTextNode(' · ')); sub.appendChild(el('span', 'cal-sub-venc', `${nV} ${nV === 1 ? 'vencida' : 'vencidas'}`)); }
+    if (estado.calSoloMias) sub.appendChild(document.createTextNode(' · solo mías'));
     if (estado.filtroEquipo) sub.appendChild(document.createTextNode(` · solo ${nombreEquipoFiltrado()}`));
     const itemTarea = (t, largo) => {
         const p = porId(estado.proyectos, t.ProyectoId), quien = t.Asignado ? nombreDe(t.Asignado, estado.roles) : '';
@@ -522,6 +526,7 @@ export function engancharCalendario() {
     // C-10 (v0.154.0): un delegado por contenedor en lugar de ~85 listeners por pintada; las tarjetas y los fines se resuelven por id al clic (C-02)
     const abrirItem = e => { const t = e.target.closest('[data-cal-t]'); if (t) { irTarjetaId(t.dataset.calT); return true; } const p = e.target.closest('[data-cal-p]'); if (p) { irFrenteId(p.dataset.calP); return true; } return false; };
     for (const id of ['calDetalle', 'calAgenda']) $(id).addEventListener('click', abrirItem);
+    $('calFiltro').addEventListener('click', e => { const b = e.target.closest('[data-cal-mias]'); if (!b) return; estado.calSoloMias = b.dataset.calMias === '1'; conservarFoco($('calFiltro'), ['calMias'], pintarCalendario); });   // R-03 (v0.157.0)
     $('calRejilla').addEventListener('click', e => {
         if (abrirItem(e)) return;
         const celda = e.target.closest('.cal-dia'); if (!celda) return;

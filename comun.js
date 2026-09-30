@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.156.0';
+export const VERSION = '0.157.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -50,7 +50,7 @@ export const estado = {
     hoySoloMias: false,                     // v0.21.0: la cola «Hoy» de Inicio filtra a lo mio (la sesion; el default es todo el frente)
     densidad: 'comodo',                     // v0.20.0: 'comodo' | 'compacto' — tablero a una linea por tarjeta; se recuerda por dispositivo (localStorage)
     // v0.10.0: mes del calendario (YYYY-MM) y dia elegido; filtro de Archivos
-    mesCal: null, calDia: null,
+    mesCal: null, calDia: null, calSoloMias: false,   // R-03 (v0.157.0): «todo · solo mías» del calendario (la sesion)
     filtroArchivos: filtroArchivosVacio(),
     cargadoEl: 0,
     // Sitios de bibliotecas de unidad ya resueltos: clave -> { id, motivo }
@@ -578,7 +578,7 @@ export function contadorTexto(idInput, idCont, max, aviso) {
 export function equipoDe(p) { return CONFIG.equipos.find(e => e.clave === (p && p.Equipo)) || { clave: p && p.Equipo, nombre: (p && p.Equipo) || 'Sin equipo', unidad: null, rama: null, color: 'var(--status-idle-solid)', icono: ['M12 8v4M12 16h.01', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z'] }; }
 /**
  * v0.7.0: el equipo se ve por su ICONO + COLOR, no por su nombre (Carlos, 2026-09-12). Un <span class="eqi">
- * con el SVG armado por DOM (createElementNS: la casa prohibe innerHTML —lo vigila test/sw.test.js desde v0.152.0; la CSP todavia no, S-24— y aqui no se usa), el
+ * con el SVG armado por DOM (createElementNS: la casa prohibe innerHTML —lo vigila test/sw.test.js desde v0.152.0 y, desde v0.153.0, la CSP con Trusted Types (politica minsa-sw, solo para ./sw.js; la coteja el bloque S-24 de sw.test.js)— y aqui no se usa), el
  * color del equipo en `--c` y el nombre en `title` y `aria-label`, que es donde vive para el lector de pantalla.
  * `tam`: 'sm' (24 px, listas densas) · '' (30 px) · 'lg' (40 px, cabecera del proyecto).
  */

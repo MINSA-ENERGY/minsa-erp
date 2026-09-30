@@ -66,7 +66,7 @@ for (const css of ['estilo.css', 'minsa-ui.css']) for (const [, u] of readFileSy
 { const srv = readFileSync(join(raiz, 'servidor-local.js'), 'utf8'); assert.ok(/try \{ rel = decodeURIComponent\(/.test(srv) && srv.includes('res.writeHead(400'), 'servidor-local.js: un % mal formado contesta 400, no tumba el proceso'); }
 // S-24, mitad segura (v0.152.0, OK de Carlos 30-sep): cero sumideros de HTML o de script en los modulos de la app. Los datos (titulos,
 // comentarios, nombres de documento) los escriben diez personas; pintarlos como HTML seria un XSS con su sesion. Hoy todo va por
-// textContent y nodos: esta guarda lo vuelve obligatorio. La otra mitad (Trusted Types en la CSP) espera prueba con login real.
+// textContent y nodos: esta guarda lo vuelve obligatorio. La otra mitad, Trusted Types en la CSP, esta desde v0.153.0 (S-28: politica minsa-sw solo para ./sw.js) y la coteja el bloque S-24 de abajo.
 // Se barre el archivo ENTERO sin comentarios (no por linea: una asignacion partida en dos lineas tambien cuenta); los comentarios se
 // blanquean con espacios del mismo largo para que el numero de linea siga cuadrando, y un // precedido de «:» (https://) no es comentario.
 const sinComentarios = t => t.replace(/\/\*[\s\S]*?\*\//g, c => c.replace(/[^\n]/g, ' ')).replace(/(^|[^:\\])(\/\/.*)$/gm, (x, a, c) => a + ' '.repeat(c.length));
