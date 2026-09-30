@@ -1410,6 +1410,8 @@ El rol de `PROY_Roles` no es un permiso: SharePoint decide quién escribe. Por e
 historial de versiones activado y `PROY_Roles` no hereda permisos (Miembros = lectura). Si un día
 un rol debe ser inviolable, es permiso por lista en SharePoint, no código aquí.
 
+**El rol `lectura` es de interfaz, no de permiso: riesgo aceptado (S-23, decisión de Carlos 30-sep; no re-proponer).** Las cuentas `lectura` (el CEO y Eric) son Miembros con edición del sitio Administración, igual que las demás, así que por Graph directo podrían escribir en `PROY_Tareas`, `PROY_Actividad` y `PROY_Ligas`. No se pasan a Visitantes.
+
 **Borrar tarjetas y proyectos por Graph es un riesgo aceptado (S-22, decisión de Carlos 30-sep; no re-proponer).** `PUEDE.borrar` y
 `PUEDE.proyecto` (solo gerencia) esconden el botón, pero `PROY_Tareas` y `PROY_Proyectos` heredan los permisos del sitio: un Miembro
 con el token delegado puede hacer DELETE o PATCH directo, y eso no deja fila en `PROY_Actividad`, porque la bitácora la escribe el
