@@ -1325,7 +1325,7 @@ body.sin-scroll { overflow: hidden; }
 .cal-nav { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .cal-titulo { font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; color: var(--text-strong); text-transform: capitalize; margin-left: var(--sp-1); }
 .cal-rejilla { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--border-hairline); border: 1px solid var(--border-hairline); border-radius: var(--r-md); overflow: hidden; }
-.cal-dow { background: var(--surface-sunken); padding: var(--sp-1) var(--sp-2); font-size: .66rem; text-transform: uppercase; letter-spacing: .09em; font-weight: 600; color: var(--text-faint); }
+.cal-dow { background: var(--surface-sunken); padding: var(--sp-1) var(--sp-2); font-size: .72rem; text-transform: uppercase; letter-spacing: .09em; font-weight: 600; color: var(--text-muted); }   /* U-17 (v0.154.0): antes .66rem en text-faint */
 .cal-dia { background: var(--surface-card); min-height: 96px; padding: var(--sp-1); display: grid; align-content: start; gap: 2px; min-width: 0; cursor: pointer; }
 .cal-dia:hover { background: var(--surface-hover); }
 .cal-dia:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: -2px; }
@@ -1340,6 +1340,11 @@ body.sin-scroll { overflow: hidden; }
 .cal-it.is-ok { background: var(--status-ok-bg); color: var(--status-ok-fg); border-left-color: var(--status-ok-solid); text-decoration: line-through; }
 .cal-it.is-danger { background: var(--status-danger-bg); color: var(--status-danger-fg); border-left-color: var(--status-danger-solid); }
 .cal-it.is-hito { background: var(--surface-sunken); color: var(--text-strong); border-left-color: var(--brand-primary); }
+.cal-it.is-warn { background: var(--status-warn-bg); color: var(--status-warn-fg); border-left-color: var(--status-warn-solid); }   /* U-10 (v0.154.0): vence en los proximos CONFIG.semaforoDias */
+.cal-detalle .cal-it .m { margin-left: 0; padding-left: var(--sp-3); max-width: 60%; }   /* U-16 (v0.154.0): el proyecto junto al titulo, no al borde derecho */
+.cal-sub-venc { color: var(--status-danger-fg); font-weight: 600; }   /* U-15 (v0.154.0) */
+.cal-leyenda { margin-top: var(--sp-2); }   /* U-11 (v0.154.0) */
+.g-barra-mini.is-hito { background: var(--surface-sunken); border: 1px solid var(--border-hairline); border-left: 3px solid var(--brand-primary); }
 .cal-it .eqi.is-sm { width: 18px; height: 18px; } .cal-it .eqi.is-sm svg { width: 11px; height: 11px; }
 .cal-it .m { font-weight: 400; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: auto; padding-left: 6px; max-width: 45%; }
 .cal-mas { border: 0; background: none; font: inherit; font-size: .66rem; color: var(--text-link); cursor: pointer; text-align: left; padding: 0 6px; }
@@ -1511,7 +1516,7 @@ body.sin-scroll { overflow: hidden; }
   .cal-ag { display: grid; gap: 4px; padding: var(--sp-2) var(--sp-3); background: var(--surface-card); border: 1px solid var(--border-hairline); border-radius: var(--r-md); }
   .cal-ag h3 { margin: 0 0 2px; font-family: var(--font-display); font-size: .8rem; font-weight: 600; color: var(--text-muted); text-transform: capitalize; }
   .cal-ag.is-hoy { border-color: var(--brand-primary); } .cal-ag.is-hoy h3 { color: var(--brand-primary); }
-  .cal-ag.is-pasado { opacity: .75; }
+  .cal-ag.is-pasado:not(.con-vencidas) { opacity: .75; }   /* U-08 (v0.154.0): el dia pasado con vencidas o un fin de frente no se atenua */
   .cal-ag .cal-it { font-size: .8rem; padding: 6px 8px; min-height: 40px; flex-wrap: wrap; }
   /* U-03 (v0.86.0): a 390 el titulo se cortaba a ~25 caracteres y el proyecto a «LAU ASEA-03-001 (Lic…» (nowrap + elipsis en dos columnas). Titulo hasta 2 lineas; el proyecto como segundo renglon tenue completo. */
   .cal-ag .cal-it .t { white-space: normal; overflow-wrap: anywhere; flex: 1 1 60%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

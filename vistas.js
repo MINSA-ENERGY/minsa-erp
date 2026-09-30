@@ -30,6 +30,7 @@ const svgEl = (tag, attrs = {}) => { const e = document.createElementNS(SVG_NS, 
 // C-14 (v0.120.0): el mes corto y el dia de un «aaaa-mm-dd» salen de un solo sitio (antes cinco rebanadas a mano).
 const mesCorto = dia => MESES_CORTOS[+dia.slice(5, 7) - 1];
 const diaNum = dia => +dia.slice(8, 10);
+const mesLargo = dia => MESES[+dia.slice(5, 7) - 1];   // C-11 (v0.154.0): el calendario dice «30 de septiembre», no «sep»
 // U-12 (v0.120.0): dentro del eje, la fecha del año en curso va sin año (dd/mm), como ya hacia el roadmap global.
 const fechaEje = f => { const d = diaDe(f); return d && d.slice(0, 4) === hoyDia().slice(0, 4) ? diaMes(f) : fechaCorta(f); };
 
@@ -393,8 +394,8 @@ function pintarRoadmapCuerpo() {
 
 /**
  * Calendario mensual: las tarjetas por su Vence (abiertas y hechas, con su color) y los fines de frente.
- * En escritorio es la rejilla de 6 semanas; en celular la misma informacion como agenda (CSS decide).
- * El mes vive en estado.mesCal (YYYY-MM); «hoy» vuelve al actual.
+ * En escritorio es la rejilla de las semanas que tocan el mes (4-6, U-14); en celular la misma informacion como agenda (CSS decide).
+ * El mes que eligen ‹ › vive en estado.mesCal (YYYY-MM); null = el mes de hoy, recalculado en cada pintada (C-06). «Hoy» vuelve al actual.
  */
 /**
  * U-02 / U-04 (v0.86.0): tras elegir un dia, «+N más» o «Hoy», llevar a la vista lo que cambio: el detalle del dia en escritorio
@@ -408,9 +409,14 @@ export function enfocarCal() {
     const bloque = ag.querySelector('.cal-ag.is-hoy') || ag.querySelector('.cal-ag:not(.is-pasado)');
     if (bloque) bloque.scrollIntoView({ block: 'start' });
 }
+// U-10 (v0.154.0): lo abierto que vence en los proximos CONFIG.semaforoDias (el mismo corte que el filete de la tarjeta) va en ambar;
+// fuera de esa ventana manda la cubeta, como en C-01. Solo el calendario: claseBarraTarea del roadmap no cambia.
+const claseCal = t => { const c = claseBarraTarea(t); return c !== 'ok' && c !== 'danger' && estadoVence(t, CONFIG.semaforoDias) === 'warn' ? 'warn' : c; };
+const LEYENDA_CAL = [['danger', 'vencida'], ['warn', 'vence pronto'], ['idle', 'por hacer'], ['brand', 'en curso'], ['info', 'en revisión'], ['ok', 'hecha'], ['hito', 'fin de frente']];   // U-11 (v0.154.0)
+/** U-04 (v0.86.0) + C-10 (v0.154.0): elegir (o soltar) un dia; lo llaman los delegados de engancharCalendario. */
+function elegirDia(dia, soltar = true) { estado.calDia = soltar && estado.calDia === dia ? null : dia; pintarCalendario(); enfocarCal(); }
 export function pintarCalendario() {
-    estado.mesCal = mesActual();
-    const mes = estado.mesCal; const hoy = hoyDia();
+    const mes = mesActual(); const hoy = hoyDia();   // C-06 (v0.154.0): sin escribir estado.mesCal — solo ‹ › y «Hoy» lo fijan; antes la PWA abierta al cruzar de mes se quedaba en el anterior
     $('calTitulo').textContent = nombreMes(mes);
     const activosF = visibles();   // C-03
     const idsF = new Set(activosF.map(p => p.id));   // v0.13.1
@@ -418,49 +424,65 @@ export function pintarCalendario() {
     const celdas = celdasDelMes(mes);
     const enMes = celdas.filter(c => c.enMes);
     const nT = enMes.reduce((n, c) => n + ((agenda.get(c.dia) || { tareas: [] }).tareas.length), 0), nF = enMes.reduce((n, c) => n + ((agenda.get(c.dia) || { fines: [] }).fines.length), 0);
-    $('calSub').textContent = `${nT} ${nT === 1 ? 'tarjeta vence' : 'tarjetas vencen'} este mes · ${nF} ${nF === 1 ? 'fin' : 'fines'} de frente${estado.filtroEquipo ? ` · solo ${nombreEquipoFiltrado()}` : ''}`;   // U-05 (v0.86.0): plural real; cuenta lo mismo que pintan la rejilla y la agenda
-    const g = $('calRejilla'); g.textContent = '';
-    for (const d of DIAS_CORTOS) g.appendChild(el('div', 'cal-dow', d));
+    const nV = enMes.reduce((n, c) => n + ((agenda.get(c.dia) || { tareas: [] }).tareas.filter(t => estadoVence(t) === 'danger').length), 0);   // U-15 (v0.154.0): cuantas de esas ya vencieron (abiertas)
+    const sub = $('calSub'); sub.textContent = `${nT} ${nT === 1 ? 'tarjeta' : 'tarjetas'} con fecha este mes · ${nF} ${nF === 1 ? 'fin' : 'fines'} de frente`;   // U-05 (v0.86.0): plural real; cuenta lo mismo que pintan la rejilla y la agenda
+    if (nV) { sub.appendChild(document.createTextNode(' · ')); sub.appendChild(el('span', 'cal-sub-venc', `${nV} ${nV === 1 ? 'vencida' : 'vencidas'}`)); }
+    if (estado.filtroEquipo) sub.appendChild(document.createTextNode(` · solo ${nombreEquipoFiltrado()}`));
     const itemTarea = (t, largo) => {
-        const p = porId(estado.proyectos, t.ProyectoId);
-        const b = el('button', 'cal-it is-' + claseBarraTarea(t)); b.type = 'button'; b.dataset.calT = String(t.id); b.title = `${t.Title}${p ? ' · ' + p.Title : ''}${t.Asignado ? ' · ' + nombreDe(t.Asignado, estado.roles) : ''}`;   // C-01 (v0.86.0): hecha→ok, vencida→danger, columna→info/brand/idle — claseVence(t) recibia el objeto y devolvia idle siempre
-        b.appendChild(el('span', 't', t.Title)); if (largo && p) b.appendChild(el('span', 'm', p.Title));
-        b.addEventListener('click', () => irTarjetaId(b.dataset.calT)); return b;   // C-02 (v0.86.0): por id al clic, no el objeto capturado
+        const p = porId(estado.proyectos, t.ProyectoId), quien = t.Asignado ? nombreDe(t.Asignado, estado.roles) : '';
+        const d = estadoVence(t) === 'danger' ? fraseVence(diasPara(t.Vence), 'dias') : '';   // U-09 (v0.154.0): «venció hace N d» en palabras, no solo en rojo
+        const b = el('button', 'cal-it is-' + claseCal(t)); b.type = 'button'; b.dataset.calT = String(t.id); b.title = `${t.Title}${p ? ' · ' + p.Title : ''}${quien ? ' · ' + quien : ''}${d ? ' · ' + d : ''}`;   // C-01 (v0.86.0): hecha→ok, vencida→danger, columna→info/brand/idle; U-10: ambar si vence pronto
+        b.appendChild(el('span', 't', t.Title));
+        if (largo) { const m = [d, p && p.Title, t.Asignado ? nombreCorto(t.Asignado, estado.roles) : 'sin asignar'].filter(Boolean).join(' · '); b.appendChild(el('span', 'm', m)); }   // U-13 (v0.154.0): a quien le toca, visible (en tactil no hay title); U-09: «venció…» primero, la elipsis del detalle corta por el final
+        else if (d) b.appendChild(el('span', 'mn-sr', ' · ' + d));
+        return b;   // C-10 (v0.154.0): el clic lo resuelve el delegado de engancharCalendario, por id (C-02)
     };
-    const itemFin = p => { const b = el('button', 'cal-it is-hito'); b.type = 'button'; b.dataset.calP = String(p.id); b.title = `Fin del frente · ${p.Title}`; b.appendChild(iconoEquipo(equipoDe(p), 'sm')); b.appendChild(el('span', 't', `Fin: ${p.Title}`)); b.addEventListener('click', () => irFrenteId(b.dataset.calP)); return b; };   // C-02 (v0.86.0)
-    for (const c of celdas) {
-        const a = (c.enMes && agenda.get(c.dia)) || { tareas: [], fines: [] };   // U-05 (v0.86.0): los dias de fuera del mes no pintan; la agenda del celular y el subtitulo nunca los contaron. Revertir = quitar `c.enMes &&`
-        const celda = el('div', 'cal-dia' + (c.enMes ? '' : ' is-fuera') + (c.dia === hoy ? ' is-hoy' : '') + (a.tareas.length + a.fines.length ? ' con' : '')); celda.dataset.dia = c.dia;
-        celda.appendChild(el('span', 'num', String(+c.dia.slice(8, 10))));
-        const tope = 3;
-        for (const p of a.fines) celda.appendChild(itemFin(p));
-        for (const t of a.tareas.slice(0, tope)) celda.appendChild(itemTarea(t, false));
-        if (a.tareas.length > tope) { const mas = boton(`+${a.tareas.length - tope} más`, 'cal-mas', () => { estado.calDia = c.dia; pintarCalendario(); enfocarCal(); }); celda.appendChild(mas); }
-        const elegir = () => { estado.calDia = estado.calDia === c.dia ? null : c.dia; pintarCalendario(); enfocarCal(); };   // U-04 (v0.86.0)
-        celda.addEventListener('click', e => { if (e.target === celda || e.target.classList.contains('num')) elegir(); });
-        celda.tabIndex = 0; celda.setAttribute('role', 'button'); celda.setAttribute('aria-label', `${+c.dia.slice(8, 10)} de ${MESES[+c.dia.slice(5, 7) - 1]}${a.tareas.length ? ` · ${a.tareas.length} ${a.tareas.length === 1 ? 'tarjeta' : 'tarjetas'}` : ''}${a.fines.length ? ' · fin de frente' : ''}`);
-        celda.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === celda) { e.preventDefault(); elegir(); } });
-        celda.setAttribute('aria-pressed', String(estado.calDia === c.dia)); if (estado.calDia === c.dia) celda.classList.add('is-elegido');   // U-07 (v0.86.0): el lector de pantalla sabe cual dia esta abierto
-        g.appendChild(celda);
-    }
+    const itemFin = p => { const b = el('button', 'cal-it is-hito'); b.type = 'button'; b.dataset.calP = String(p.id); b.title = `Fin del frente · ${p.Title}`; b.appendChild(iconoEquipo(equipoDe(p), 'sm')); b.appendChild(el('span', 't', `Fin: ${p.Title}`)); return b; };   // C-02 (v0.86.0)
+    const FOCO_CAL = ['dia', 'calT', 'calP'];   // C-07 (v0.154.0): el refresco de 120 s ya no tira el foco; un contenedor a la vez, porque la misma tarjeta vive en 2-3 de ellos
+    const g = $('calRejilla');
+    conservarFoco(g, FOCO_CAL, () => {
+        g.textContent = '';
+        for (const d of DIAS_CORTOS) g.appendChild(el('div', 'cal-dow', d));
+        for (const c of celdas) {
+            const a = (c.enMes && agenda.get(c.dia)) || { tareas: [], fines: [] };   // U-05 (v0.86.0): los dias de fuera del mes no pintan; la agenda del celular y el subtitulo nunca los contaron. Revertir = quitar `c.enMes &&`
+            const celda = el('div', 'cal-dia' + (c.enMes ? '' : ' is-fuera') + (c.dia === hoy ? ' is-hoy' : '') + (a.tareas.length + a.fines.length ? ' con' : '')); celda.dataset.dia = c.dia;
+            celda.appendChild(el('span', 'num', String(diaNum(c.dia))));
+            const tope = 3;
+            for (const p of a.fines) celda.appendChild(itemFin(p));
+            for (const t of a.tareas.slice(0, tope)) celda.appendChild(itemTarea(t, false));
+            if (a.tareas.length > tope) { const mas = el('button', 'cal-mas', `+${a.tareas.length - tope} más`); mas.type = 'button'; celda.appendChild(mas); }
+            celda.tabIndex = 0; celda.setAttribute('role', 'button'); celda.setAttribute('aria-label', `${diaNum(c.dia)} de ${mesLargo(c.dia)}${a.tareas.length ? ` · ${a.tareas.length} ${a.tareas.length === 1 ? 'tarjeta' : 'tarjetas'}` : ''}${a.fines.length ? ' · fin de frente' : ''}`);
+            celda.setAttribute('aria-pressed', String(estado.calDia === c.dia)); if (estado.calDia === c.dia) celda.classList.add('is-elegido');   // U-07 (v0.86.0): el lector de pantalla sabe cual dia esta abierto
+            g.appendChild(celda);
+        }
+    });
     // detalle del dia elegido (escritorio) y agenda del mes (celular)
-    const det = $('calDetalle'); det.textContent = '';
-    if (estado.calDia) {
-        const a = agenda.get(estado.calDia) || { tareas: [], fines: [] };
-        det.appendChild(el('h2', '', `${diaCorto(estado.calDia)} ${+estado.calDia.slice(8, 10)} de ${MESES[+estado.calDia.slice(5, 7) - 1]}`));
-        for (const p of a.fines) det.appendChild(itemFin(p)); for (const t of a.tareas) det.appendChild(itemTarea(t, true));
-        if (!a.tareas.length && !a.fines.length) det.appendChild(el('p', 'vacio', 'Nada vence este día.'));
-    }
-    det.classList.toggle('oculto', !estado.calDia);
-    const ag = $('calAgenda'); ag.textContent = '';
-    for (const c of enMes) {
-        const a = agenda.get(c.dia); if (!a) continue;
-        const bloque = el('section', 'cal-ag' + (c.dia === hoy ? ' is-hoy' : '') + (c.dia < hoy ? ' is-pasado' : ''));
-        bloque.appendChild(el('h3', '', `${diaCorto(c.dia)} ${+c.dia.slice(8, 10)}`));
-        for (const p of a.fines) bloque.appendChild(itemFin(p)); for (const t of a.tareas) bloque.appendChild(itemTarea(t, true));
-        ag.appendChild(bloque);
-    }
-    if (!ag.childNodes.length) ag.appendChild(el('p', 'vacio', 'Nada vence este mes.'));
+    const det = $('calDetalle');
+    conservarFoco(det, FOCO_CAL, () => {
+        det.textContent = '';
+        if (estado.calDia) {
+            const a = agenda.get(estado.calDia) || { tareas: [], fines: [] };
+            det.appendChild(el('h2', '', `${diaCorto(estado.calDia)} ${diaNum(estado.calDia)} de ${mesLargo(estado.calDia)}`));
+            for (const p of a.fines) det.appendChild(itemFin(p)); for (const t of a.tareas) det.appendChild(itemTarea(t, true));
+            if (!a.tareas.length && !a.fines.length) det.appendChild(el('p', 'vacio', 'Nada vence este día.'));
+        }
+        det.classList.toggle('oculto', !estado.calDia);
+    });
+    const ag = $('calAgenda');
+    conservarFoco(ag, FOCO_CAL, () => {
+        ag.textContent = '';
+        for (const c of enMes) {
+            const a = agenda.get(c.dia); if (!a) continue;
+            const abiertas = c.dia < hoy && (a.fines.length || a.tareas.some(t => estadoVence(t) === 'danger'));   // U-08 (v0.154.0): el dia pasado con vencidas NO se atenua
+            const bloque = el('section', 'cal-ag' + (c.dia === hoy ? ' is-hoy' : '') + (c.dia < hoy ? ' is-pasado' : '') + (abiertas ? ' con-vencidas' : ''));
+            bloque.appendChild(el('h3', '', `${diaCorto(c.dia)} ${diaNum(c.dia)}`));
+            for (const p of a.fines) bloque.appendChild(itemFin(p)); for (const t of a.tareas) bloque.appendChild(itemTarea(t, true));
+            ag.appendChild(bloque);
+        }
+        if (!ag.childNodes.length) ag.appendChild(el('p', 'vacio', 'Nada vence este mes.'));
+    });
+    const ley = $('calLeyenda');
+    if (!ley.childNodes.length) for (const [cls, texto] of LEYENDA_CAL) ley.appendChild(muestraLeyenda('g-barra-mini', cls, texto));   // U-11 (v0.154.0): fija, se arma una vez
 }
 /**
  * v0.26.0: la linea de tiempo del Roadmap a PANTALLA COMPLETA (Carlos, 14-sep). La tarjeta `#roadmapLinea` toma la clase
@@ -494,6 +516,16 @@ export function engancharCalendario() {
     $('calAnterior').addEventListener('click', () => { estado.mesCal = mesSumar(mesActual(), -1); estado.calDia = null; pintarCalendario(); });
     $('calSiguiente').addEventListener('click', () => { estado.mesCal = mesSumar(mesActual(), 1); estado.calDia = null; pintarCalendario(); });
     $('calHoy').addEventListener('click', () => { estado.mesCal = hoyDia().slice(0, 7); estado.calDia = hoyDia(); pintarCalendario(); enfocarCal(); });   // U-02 (v0.86.0): «Hoy» tambien lleva a la vista
+    // C-10 (v0.154.0): un delegado por contenedor en lugar de ~85 listeners por pintada; las tarjetas y los fines se resuelven por id al clic (C-02)
+    const abrirItem = e => { const t = e.target.closest('[data-cal-t]'); if (t) { irTarjetaId(t.dataset.calT); return true; } const p = e.target.closest('[data-cal-p]'); if (p) { irFrenteId(p.dataset.calP); return true; } return false; };
+    for (const id of ['calDetalle', 'calAgenda']) $(id).addEventListener('click', abrirItem);
+    $('calRejilla').addEventListener('click', e => {
+        if (abrirItem(e)) return;
+        const celda = e.target.closest('.cal-dia'); if (!celda) return;
+        if (e.target.closest('.cal-mas')) elegirDia(celda.dataset.dia, false);   // «+N más» elige ese dia, nunca lo suelta
+        else if (e.target === celda || e.target.classList.contains('num')) elegirDia(celda.dataset.dia);
+    });
+    $('calRejilla').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('cal-dia')) { e.preventDefault(); elegirDia(e.target.dataset.dia); } });
     // U-07 (v0.86.0): Esc suelta el dia elegido (antes habia que volver a la celda y repetir Enter); no toca un <dialog> abierto, que ya tiene su Esc
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && estado.pestana === 'calendario' && estado.calDia && !document.querySelector('dialog[open]')) { estado.calDia = null; pintarCalendario(); } });
 }

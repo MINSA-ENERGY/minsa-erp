@@ -764,10 +764,12 @@ export function mesesDelRango(rango) {
     return out;
 }
 
-/** Las 42 celdas (6 semanas, lunes a domingo) del mes YYYY-MM: { dia, enMes }. */
+/** Las celdas (lunes a domingo) de las semanas que TOCAN el mes YYYY-MM: { dia, enMes }. U-14 (v0.154.0): 4, 5 o 6 semanas;
+ *  antes siempre 42 y la ultima fila salia vacia (los dias de fuera no pintan desde U-05). Revertir = `length: 42`. */
 export function celdasDelMes(mes) {
-    const inicio = lunesDe(mes + '-01');
-    return Array.from({ length: 42 }, (_, i) => { const dia = sumarDias(inicio, i); return { dia, enMes: dia.slice(0, 7) === mes }; });
+    const inicio = lunesDe(mes + '-01'), fin = sumarDias(mesSumar(mes, 1) + '-01', -1);
+    const n = Math.ceil((diasEntre(inicio, fin) + 1) / 7) * 7;
+    return Array.from({ length: n }, (_, i) => { const dia = sumarDias(inicio, i); return { dia, enMes: dia.slice(0, 7) === mes }; });
 }
 /**
  * Lo que cae en cada dia del calendario: tarjetas por su Vence (abiertas y hechas) y fines de frente
