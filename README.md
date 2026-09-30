@@ -1382,6 +1382,14 @@ El rol de `PROY_Roles` no es un permiso: SharePoint decide quién escribe. Por e
 historial de versiones activado y `PROY_Roles` no hereda permisos (Miembros = lectura). Si un día
 un rol debe ser inviolable, es permiso por lista en SharePoint, no código aquí.
 
+**Borrar tarjetas y proyectos por Graph es un riesgo aceptado (S-22, decisión de Carlos 30-sep; no re-proponer).** `PUEDE.borrar` y
+`PUEDE.proyecto` (solo gerencia) esconden el botón, pero `PROY_Tareas` y `PROY_Proyectos` heredan los permisos del sitio: un Miembro
+con el token delegado puede hacer DELETE o PATCH directo, y eso no deja fila en `PROY_Actividad`, porque la bitácora la escribe el
+cliente. Solo queda la papelera y el historial de versiones. **Se descartó «Contribuir sin eliminar» para todo el sitio** porque los
+colaboradores sí borran por la app: sus comentarios y sus ✓ en `PROY_Actividad`, las ligas en `PROY_Ligas` y, en el buzón, el recibo y
+el lote a medias. **También se descartó romper la herencia de esas dos listas**, por el mismo motivo que S-13. Si un día hay que cerrarlo, el
+remedio es por lista y no por código.
+
 **Y `PROY_Roles` se queda así aunque eso apague el `Visto` compartido** (S-01, v0.73.0, decisión de Carlos 16-sep): la marca de
 lectura de v0.15.0 escribe en esa misma lista, y con token delegado un colaborador debe recibir 403 —la app lo tolera y la marca
 queda por dispositivo (S-04)—. Nunca abrir la lista a Miembros «para que funcione el Visto»: es la única guarda contra subirse de
