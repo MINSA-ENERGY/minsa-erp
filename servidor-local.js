@@ -91,7 +91,9 @@ const servidor = http.createServer((req, res) => {
         return;
     }
 
-    const rel = decodeURIComponent(req.url.split('?')[0]);
+    // S-26 (v0.151.0): un % mal formado (/%E0%A4%A) lanzaba URIError sin atrapar y tumbaba el proceso: ahora es un 400.
+    let rel;
+    try { rel = decodeURIComponent(req.url.split('?')[0]); } catch (e) { res.writeHead(400, { 'Content-Type': 'text/plain' }).end('ruta mal formada'); return; }
 
     let destino;
     if (rel === '/') {

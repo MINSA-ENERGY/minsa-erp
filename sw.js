@@ -7,7 +7,7 @@
 // Cada peticion del armazon lleva `cache: 'reload'`: GitHub Pages sirve con max-age=600 y sin
 // eso el service worker nuevo se llena con los archivos VIEJOS (medido en captura, 2026-08-17).
 
-const CACHE = 'minsa-proyectos-v169';
+const CACHE = 'minsa-proyectos-v171';
 
 function traerDeLaRed(recurso) {
     return fetch(new Request(recurso, { cache: 'reload', credentials: 'same-origin' }));
@@ -39,12 +39,16 @@ const ARMAZON = [
     './vendor/fuentes/Saira-600.woff2',
     './vendor/fuentes/IBMPlexMono-400.woff2',
     './vendor/fuentes/IBMPlexMono-500.woff2',
+    './vendor/fuentes/BaiJamjuree-700.woff2',   // v0.151.0: faltaba; se cacheaba por accidente hasta S-25
     './iconos/icono-192.png',
     './iconos/icono-512.png',
     './iconos/icono-512-recortable.png',
     './marca/lockup.svg',
     './marca/lockup-oscuro.svg'
 ];
+// S-25 (v0.151.0): las rutas del armazon, resueltas contra el scope; el fetch guarda SOLO estas y por su ruta sin query —
+// antes toda GET del origen con respuesta ok entraba a la cache, y cada variante `?x=` quedaba como entrada propia.
+const RUTAS_ARMAZON = new Set(ARMAZON.map(r => new URL(r, self.location).pathname));
 
 self.addEventListener('install', evento => {
     evento.waitUntil(
@@ -74,12 +78,12 @@ self.addEventListener('fetch', evento => {
     evento.respondWith(
         traerDeLaRed(evento.request.url)
             .then(respuesta => {
-                if (respuesta && respuesta.ok) {
+                if (respuesta && respuesta.ok && RUTAS_ARMAZON.has(url.pathname)) {   // S-25
                     const copia = respuesta.clone();
-                    caches.open(CACHE).then(c => c.put(evento.request, copia));
+                    caches.open(CACHE).then(c => c.put(url.origin + url.pathname, copia));
                 }
                 return respuesta;
             })
-            .catch(() => caches.match(evento.request).then(r => r || caches.match('./index.html')))
+            .catch(() => caches.match(evento.request, { ignoreSearch: true }).then(r => r || caches.match('./index.html')))   // S-25: `?refresco=0` y cia. caen al mismo archivo
     );
 });

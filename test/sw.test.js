@@ -56,4 +56,12 @@ const cab = /^\/\*! @azure\/msal-browser v(\d+\.\d+\.\d+) /.exec(readFileSync(jo
 assert.ok(cab, 'el vendor de MSAL declara su version en la cabecera');
 const fila = /\| `msal-browser\.min\.js` \| @azure\/msal-browser (\d+\.\d+\.\d+) \|/.exec(readFileSync(join(raiz, 'vendor', 'INTEGRIDAD.md'), 'utf8'));
 assert.ok(fila && fila[1] === cab[1], `INTEGRIDAD.md registra ${fila && fila[1]} y el vendor es ${cab[1]}`);
+// S-25 (v0.151.0): el fetch guarda solo el armazon, por ruta sin query, y el respaldo ignora la query.
+assert.ok(/RUTAS_ARMAZON\.has\(url\.pathname\)/.test(sw) && sw.includes('ignoreSearch: true') && !sw.includes('c.put(evento.request'), 'sw.js: el fetch cachea solo RUTAS_ARMAZON y el respaldo usa ignoreSearch');
+// S-25 (v0.151.0): con el fetch acotado al armazon, todo recurso local que pida el CSS DEBE estar precargado, o sin red se pierde
+// (el revisor cazo BaiJamjuree-700.woff2, que solo se guardaba por accidente).
+for (const css of ['estilo.css', 'minsa-ui.css']) for (const [, u] of readFileSync(join(raiz, css), 'utf8').matchAll(/url\(\s*["']?\.\/([^"')]+)/g))
+  assert.ok(sw.includes(`'./${u}'`), `sw.js precarga ${u} (lo pide ${css})`);
+// S-26 (v0.151.0): el decodeURIComponent de la ruta va en try y contesta 400.
+{ const srv = readFileSync(join(raiz, 'servidor-local.js'), 'utf8'); assert.ok(/try \{ rel = decodeURIComponent\(/.test(srv) && srv.includes('res.writeHead(400'), 'servidor-local.js: un % mal formado contesta 400, no tumba el proceso'); }
 console.log('sw: ok');
