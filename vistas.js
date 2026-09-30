@@ -751,9 +751,8 @@ function leyenda(segs) {
     return l;
 }
 /** Barra horizontal con segmentos por cubeta del proyecto (la misma leyenda que la lista de proyectos) y su % a la derecha. */
-function barraSeg(a) {
+function barraSeg(a, segs = segmentosDe(a)) {
     const w = el('div', 'rep-barra');
-    const segs = segmentosDe(a);
     const b = el('div', 'segbar alta'); b.title = tituloSegmentos(segs);
     for (const [col, n, cls, tono] of segs) { const i = el('i', cls); if (tono) i.dataset.tono = tono; i.style.flex = String(n); i.title = `${col.nombre}: ${n}`; if (n) i.appendChild(el('span', '', String(n))); b.appendChild(i); }
     if (!a.total) { const i = el('i', 'p vacia', 'sin tarjetas'); i.style.flex = '1'; b.appendChild(i); }   // U-06 (18-sep): dice que no hay nada que medir
@@ -777,10 +776,15 @@ function columnas(cont, series, textoDe) {
         const par = el('span', 'barras'), h = el('span', 'h'), pct = s.n * 100 / max;   // la cifra de hechas va pegada a SU barra: arriba de la columna se leia como de la gris (revisor v0.132.0)
         const cifra = el('b', '', s.n ? String(s.n) : ''); cifra.style.bottom = `calc(${pct}% + 2px)`; h.appendChild(cifra);
         const barra = el('i'); barra.style.height = pct + '%'; if (!s.n) barra.classList.add('cero'); h.appendChild(barra); par.appendChild(h);
-        const nueva = el('i', 'nueva'); nueva.style.height = (s.nuevas * 100 / max) + '%'; if (!s.nuevas) nueva.classList.add('cero'); par.appendChild(nueva);
+        const nv = el('span', 'nv'), pctN = s.nuevas * 100 / max;   // U-15 (v0.146.0): la gris lleva su cifra, en span y no en b (las pruebas suman los b como hechas)
+        const cn = el('span', 'cn', s.nuevas ? String(s.nuevas) : ''); cn.style.bottom = `calc(${pctN}% + 2px)`; nv.appendChild(cn);
+        const nueva = el('i', 'nueva'); nueva.style.height = pctN + '%'; if (!s.nuevas) nueva.classList.add('cero'); nv.appendChild(nueva); par.appendChild(nv);
         c.appendChild(par); c.appendChild(el('small', '', textoDe(s))); g.appendChild(c);
     }
     cont.appendChild(g);
+    const ley = el('div', 'leyenda-sem rep-ley-sem'); ley.setAttribute('aria-hidden', 'true');   // U-15 (v0.146.0): en celular no hay title que diga que es la gris
+    for (const [cls, txt] of [['is-hecha', 'hechas'], ['is-nueva', 'nuevas']]) { const x = el('span', cls); x.appendChild(el('i')); x.appendChild(document.createTextNode(txt)); ley.appendChild(x); }
+    cont.appendChild(ley);
 }
 
 /**
@@ -790,8 +794,9 @@ function columnas(cont, series, textoDe) {
  * calcula del estado ya cargado; «Imprimir» saca la pantalla a PDF.
  */
 /** Fila de Reportes con barra horizontal (C-03, 18-sep): etiqueta + `.hbar` con sus tramos [clase, %, texto?] + la cifra a la derecha. */
-function filaBarra(eti, tramos, cifra, titulo, abre) {
+function filaBarra(eti, tramos, cifra, titulo, abre, dice) {
     const fila = el(abre ? 'button' : 'div', 'rep-fila'); if (abre) { fila.type = 'button'; fila.dataset.abre = abre; }   // U-12 (v0.129.0): con llave, lo abre el delegado data-abre de app.js
+    if (dice) { fila.setAttribute('aria-label', dice); if (!abre) fila.setAttribute('role', 'img'); }   // U-16 (v0.146.0): la frase entera, no cifras sueltas
     fila.appendChild(eti);
     const w = el('div', 'rep-barra'); const b = el('div', 'hbar'); if (titulo) b.title = titulo;
     for (const [cls, pct, texto] of tramos) { const i = el('i', cls); i.style.width = pct + '%'; if (texto) i.appendChild(el('span', '', texto)); b.appendChild(i); }
@@ -821,11 +826,15 @@ function pintarAvance(a, orden) {
     for (const p of orden) {
         const ap = avance(tareasDe(p, estado.tareas), columnasDe(p)); const d = diasPara(p.Vence);
         const fila = el('button', 'rep-fila'); fila.type = 'button'; fila.dataset.repP = String(p.id); fila.title = p.Title; fila.addEventListener('click', () => irFrenteId(Number(fila.dataset.repP)));   // C-01 (18-sep): por id al clic, no el objeto capturado
-        const eti = etiRep(p.Title, p.Vence ? fraseVence(d, 'corta', fechaCorta(p.Vence)) : 'sin fin de frente', iconoEquipo(equipoDe(p), 'sm'), p.Vence && d < 0 ? 'is-danger' : '');   // C-04 (v0.79.0): ahora tambien dice «vence hoy»
-        if (conSalud) eti.querySelector('.tx').appendChild(saludRep(p, hoy));
-        fila.appendChild(eti); fila.appendChild(barraSeg(ap)); pp.appendChild(fila);
+        const meta = p.Vence ? fraseVence(d, 'corta', fechaCorta(p.Vence)) : 'sin fin de frente';
+        const eti = etiRep(p.Title, meta, iconoEquipo(equipoDe(p), 'sm'), p.Vence && d < 0 ? 'is-danger' : '');   // C-04 (v0.79.0): ahora tambien dice «vence hoy»
+        const sl = conSalud ? saludRep(p, hoy) : null; if (sl) eti.querySelector('.tx').appendChild(sl);
+        const segs = segmentosDe(ap);
+        const partes = segs.filter(x => x[1]).map(([col, n]) => `${n} ${col.nombre}`).join(', ');   // U-16 (v0.146.0): el lector de pantalla oye la frase, no «7 2 3 5 41%»
+        fila.setAttribute('aria-label', `${p.Title}: ${ap.total ? `${ap.pct} %${partes ? ', ' + partes : ''}` : 'sin tarjetas'}; ${meta}${sl ? '; ' + sl.textContent : ''}`);
+        fila.appendChild(eti); fila.appendChild(barraSeg(ap, segs)); pp.appendChild(fila);
         // U-10 (v0.129.0): la leyenda suma las cubetas de todos los frentes por nombre y color; antes el nombre solo vivia en el title (en celular no hay)
-        for (const [col, n, cls, tono] of segmentosDe(ap)) { const k = `${cls}|${tono}|${col.nombre}`; const s = cubetas.get(k); if (s) s[1] += n; else cubetas.set(k, [col, n, cls, tono]); }
+        for (const [col, n, cls, tono] of segs) { const k = `${cls}|${tono}|${col.nombre}`; const s = cubetas.get(k); if (s) s[1] += n; else cubetas.set(k, [col, n, cls, tono]); }
     }
     if (!orden.length) pp.appendChild(el('p', 'vacio', 'Sin proyectos activos.'));
     const ley = $('repProyectosLeyenda'); ley.textContent = ''; if (cubetas.size) ley.appendChild(leyenda([...cubetas.values()]));
@@ -833,14 +842,15 @@ function pintarAvance(a, orden) {
 /** Carga por persona: abiertas con las vencidas marcadas; el ancho es relativo a quien mas tiene. */
 function pintarCarga(todas, hist) {
     const cp = $('repPersonas'); cp.textContent = '';
-    const carga = cargaPorPersona(todas, CONFIG.vencePronto); const maxC = Math.max(1, ...carga.map(c => c.abiertas));
-    // C-05 (v0.129.0): «N hechas» cuenta tambien los frentes ya cerrados; las abiertas y vencidas siguen siendo las de los activos
-    const hechasDe = new Map(); for (const t of hist) if (t.Columna === HECHO) { const q = String(t.Asignado || '').toLowerCase(); hechasDe.set(q, (hechasDe.get(q) || 0) + 1); }
+    // C-05 (v0.129.0): «N hechas» cuenta tambien los frentes ya cerrados; las abiertas y vencidas siguen siendo las de los activos. C-13 (v0.146.0): lo cuenta cargaPorPersona con la historia
+    const carga = cargaPorPersona(todas, CONFIG.vencePronto, new Date(), hist); const maxC = Math.max(1, ...carga.map(c => c.abiertas));
     for (const c of carga) {
         const tramos = [['abiertas', (c.abiertas - c.vencidas) * 100 / maxC]]; if (c.vencidas) tramos.push(['vencidas', c.vencidas * 100 / maxC, String(c.vencidas)]);
         const sinDueno = !c.quien && c.abiertas > 0;   // U-12 (v0.129.0): la fila «Sin dueño» lleva al tablero filtrado sin dueño (irASinDueno)
         const abre = sinDueno ? 'sd' : c.quien && c.abiertas > 0 ? `pe:${c.quien}` : '';   // R-02 (v0.131.0): la de una persona abre sus abiertas (abrirCargaPersona)
-        const fila = filaBarra(etiRep(c.quien ? nombreDe(c.quien, estado.roles) : 'Sin dueño', `${hechasDe.get(c.quien) || 0} hechas`), tramos, String(c.abiertas), sinDueno ? 'Ver las tarjetas sin dueño' : `${c.abiertas} abiertas, ${c.vencidas} vencidas${abre ? ': ver cuáles' : ''}`, abre);
+        const nombre = c.quien ? nombreDe(c.quien, estado.roles) : 'Sin dueño';
+        const dice = `${nombre}: ${c.abiertas} ${plural(c.abiertas, 'abierta')}, ${c.vencidas} ${plural(c.vencidas, 'vencida')}, ${c.hechas} ${plural(c.hechas, 'hecha')}${abre ? (sinDueno ? '. Ver las tarjetas sin dueño' : '. Ver cuáles') : ''}`;
+        const fila = filaBarra(etiRep(nombre, `${c.hechas} ${plural(c.hechas, 'hecha')}`), tramos, String(c.abiertas), sinDueno ? 'Ver las tarjetas sin dueño' : `${c.abiertas} abiertas, ${c.vencidas} vencidas${abre ? ': ver cuáles' : ''}`, abre, dice);
         fila.dataset.repQ = c.quien || 'sin-dueno'; cp.appendChild(fila);
     }
     if (!carga.length) cp.appendChild(el('p', 'vacio', 'Sin tarjetas.'));
@@ -850,6 +860,15 @@ function pintarCarga(todas, hist) {
  * primero, como el clic en una barra de Linear Insights. Cada renglon abre su tarjeta por la llave `t:<id>` del delegado de app.js.
  * Se recalcula de los frentes visibles (mismo filtro de equipo que Reportes) al abrir y en cada repintado.
  */
+/** C-15 (v0.146.0): el renglon de una tarjeta en Reportes (Vencidas por proyecto y el dialogo de una persona): titulo + chip de vence,
+ *  meta opcional debajo. Lo abre el delegado data-abre de app.js por la llave t:<id> (antes Vencidas registraba un listener por boton). */
+function renglonTarjeta(t, meta) {
+    const b = el('button', 'it clic'); b.type = 'button'; b.dataset.abre = `t:${t.id}`; b.title = 'Abrir la tarjeta';
+    const cab = el('div', 'cab'); cab.appendChild(el('span', 'q', t.Title));
+    const cls = estadoVence(t, CONFIG.vencePronto); cab.appendChild(el('span', 'd' + (cls ? ' is-' + cls : ''), t.Vence ? fraseVence(diasPara(t.Vence), 'chip') : 'sin fecha'));
+    if (meta === undefined) { b.appendChild(cab); return b; }
+    const c = el('div'); c.appendChild(cab); c.appendChild(el('div', 'f', meta)); b.appendChild(c); return b;
+}
 let personaCarga = null;
 export function abrirCargaPersona(quien) { personaCarga = String(quien || '').toLowerCase(); pintarCargaPersona(); abrirDialogo('dlgPersona'); }
 export function pintarCargaPersona() {
@@ -859,23 +878,18 @@ export function pintarCargaPersona() {
     const n = grupos.reduce((s, g) => s + g.tareas.length, 0), nv = grupos.reduce((s, g) => s + g.vencidas, 0);
     $('peTitulo').textContent = personaCarga ? nombreDe(personaCarga, estado.roles) : 'Sin dueño';
     $('peSub').textContent = n ? `${n} ${plural(n, 'abierta')}${nv ? `, ${nv} ${plural(nv, 'vencida')}` : ''}${estado.filtroEquipo ? ` en ${nombreEquipoFiltrado()}` : ''}.` : 'Ya no tiene tarjetas abiertas.';
-    const l = $('peLista'); l.textContent = '';
-    for (const g of grupos) {
-        l.appendChild(el('div', 'rep-grupo', `${g.p.Title} · ${g.tareas.length}`));
-        for (const t of g.tareas) {
-            const b = el('button', 'it clic'); b.type = 'button'; b.dataset.abre = `t:${t.id}`; b.title = 'Abrir la tarjeta';
-            const cab = el('div', 'cab'); cab.appendChild(el('span', 'q', t.Title));
-            const cls = estadoVence(t, CONFIG.vencePronto); cab.appendChild(el('span', 'd' + (cls ? ' is-' + cls : ''), t.Vence ? fraseVence(diasPara(t.Vence), 'chip') : 'sin fecha'));
-            b.appendChild(cab); l.appendChild(b);
-        }
-    }
+    const l = $('peLista');
+    conservarFoco($('dlgPersona'), ['abre'], () => {   // C-12 (v0.146.0): el refresco de 120 s recrea la lista; el foco vuelve a la misma tarjeta (antes caia al body)
+        l.textContent = '';
+        for (const g of grupos) { l.appendChild(el('div', 'rep-grupo', `${g.p.Title} · ${g.tareas.length}`)); for (const t of g.tareas) l.appendChild(renglonTarjeta(t)); }
+    });
 }
 /** Hechas por semana: 8 columnas y el subtitulo con el total y el promedio; R-03 (v0.132.0): mas las nuevas y hacia donde va el pendiente. */
 function pintarSemanas(todas) {
     const hs = $('repSemanas'); hs.textContent = '';
-    const semanas = hechasPorSemana(todas, 8); columnas(hs, semanas, s => `${+s.desde.slice(8, 10)} ${MESES_CORTOS[+s.desde.slice(5, 7) - 1]}`);
+    const semanas = hechasPorSemana(todas, 8); columnas(hs, semanas, s => `${diaNum(s.desde)} ${mesCorto(s.desde)}`);   // C-17 (v0.146.0)
     const totalSem = semanas.reduce((n, s) => n + s.n, 0), nuevas = semanas.reduce((n, s) => n + s.nuevas, 0), dif = nuevas - totalSem;
-    const hechas = totalSem ? `${totalSem} tarjeta${totalSem === 1 ? ' hecha' : 's hechas'} en 8 semanas · ${(totalSem / 8).toFixed(1)} por semana.` : 'Ninguna tarjeta con fecha de hecho en las últimas 8 semanas.';
+    const hechas = totalSem ? `${totalSem} ${plural(totalSem, 'tarjeta')} ${plural(totalSem, 'hecha')} en 8 semanas · ${(totalSem / 8).toFixed(1)} por semana.` : 'Ninguna tarjeta con fecha de hecho en las últimas 8 semanas.';
     const rumbo = !nuevas && !totalSem ? '' : ` ${nuevas} ${plural(nuevas, 'nueva')}: ${dif > 0 ? `el pendiente creció en ${dif}` : dif < 0 ? `el pendiente bajó en ${-dif}` : 'el pendiente se mantuvo'}.`;
     $('repSemanasSub').textContent = hechas + rumbo;
 }
@@ -895,9 +909,8 @@ function pintarTarde(orden, venc) {
         const vs = porP.get(p.id); if (!vs) continue;
         const cab = el('div', 'rep-grupo'); cab.textContent = `${p.Title} · ${vs.length}`; tv.appendChild(cab);   // U-02 (18-sep): rotulo propio; `.grupo` es el marco de filtros
         for (const t of vs.sort(porVence)) {   // C-10 (v0.129.0): el orden de reglas.js, con su desempate por id
-            const b = el('button', 'it clic'); b.type = 'button'; b.dataset.repV = String(t.id); b.addEventListener('click', () => irTarjetaId(Number(b.dataset.repV)));   // C-01 (18-sep): por id al clic
-            // U-09 (v0.129.0): la tarjeta es el renglon principal; quien la tiene, con su nombre completo, va de meta junto a los dias
-            const c = el('div'); const cab2 = el('div', 'cab'); cab2.appendChild(el('span', 'q', t.Title)); cab2.appendChild(el('span', 'd is-danger', fraseVence(diasPara(t.Vence), 'chip'))); c.appendChild(cab2); c.appendChild(el('div', 'f', t.Asignado ? nombreDe(t.Asignado, estado.roles) : 'sin dueño')); b.appendChild(c); tv.appendChild(b);
+            // U-09 (v0.129.0): la tarjeta es el renglon principal; quien la tiene, con su nombre completo, va de meta junto a los dias. C-15 (v0.146.0): renglonTarjeta
+            tv.appendChild(renglonTarjeta(t, t.Asignado ? nombreDe(t.Asignado, estado.roles) : 'sin dueño'));
         }
     }
     if (!venc.length) tv.appendChild(el('p', 'vacio', 'Nada vencido.'));
@@ -914,11 +927,11 @@ export function pintarReportes() {
     const venc = todas.filter(t => estadoVence(t, CONFIG.vencePronto) === 'danger');   // C-10 (v0.129.0): estadoVence ya descarta las hechas
     // U-13 / C-06 (v0.129.0): plural concordado, y la fecha es la de la ultima lectura (estado.cargadoEl), no la del reloj: sin red, lo impreso decia hoy sobre datos viejos
     const nP = ps.length, nT = todas.length;
-    $('reportesSub').textContent = `${nP} frente${nP === 1 ? ' activo' : 's activos'}${estado.filtroEquipo ? ` de ${nombreEquipoFiltrado()}` : ''} · ${nT} ${plural(nT, 'tarjeta')} · leído de las listas el ${fechaHora(new Date(estado.cargadoEl || Date.now()).toISOString())}.`;
+    $('reportesSub').textContent = `${nP} ${plural(nP, 'frente')} ${plural(nP, 'activo')}${estado.filtroEquipo ? ` de ${nombreEquipoFiltrado()}` : ''} · ${nT} ${plural(nT, 'tarjeta')} · leído de las listas el ${fechaHora(new Date(estado.cargadoEl || Date.now()).toISOString())}.`;
     // v0.46.0 (Carlos, 15-sep): los 5 KPI de arriba (proyectos activos · abiertas · hechas · vencidas · sin dueño) SALIERON.
     // C-07 (v0.129.0): el refresco de 120 s recrea las filas; se anota la fila con foco y se le devuelve al terminar (antes caia al body). Desde C-16 lo hace conservarFoco (comun.js), abajo.
     const orden = ordenarProyectos(ps);   // C-03 (18-sep): cinco bloques, cada uno su funcion; el calculo comun se queda aqui
-    conservarFoco($('p-reportes'), ['repP', 'repV', 'abre'], () => { pintarAvance(a, orden); pintarCarga(todas, hist); pintarSemanas(hist); pintarActividad(idsHist); pintarTarde(orden, venc); });   // C-16 (v0.137.0): la logica de C-07 vive en comun.js
+    conservarFoco($('p-reportes'), ['repP', 'abre'], () => { pintarAvance(a, orden); pintarCarga(todas, hist); pintarSemanas(hist); pintarActividad(idsHist); pintarTarde(orden, venc); });   // C-16 (v0.137.0): la logica de C-07 vive en comun.js
 }
 export function engancharReportes() {
     $('btnImprimirReportes').addEventListener('click', () => window.print());

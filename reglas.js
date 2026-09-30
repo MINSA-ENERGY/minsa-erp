@@ -231,7 +231,7 @@ export function avanceGlobal(tareas, columnasDeTarea) {
  */
 export function proximos(tareas, n = 6, hoy = new Date()) {
     return (tareas || [])
-        .filter(t => t.Columna !== 'hecho' && t.Vence && diasPara(t.Vence, hoy) !== null)
+        .filter(t => t.Columna !== HECHO && t.Vence && diasPara(t.Vence, hoy) !== null)
         .map(t => ({ tarea: t, dias: diasPara(t.Vence, hoy) }))
         .sort((a, b) => a.dias - b.dias || String(a.tarea.Title).localeCompare(String(b.tarea.Title)))
         .slice(0, n);
@@ -266,7 +266,7 @@ export function fraseVence(d, forma = 'corta', fecha = '') {
 }
 /** Clase de estado de una fecha de vencimiento: 'danger' vencida · 'warn' vence en `pronto` dias · 'idle' lejos · null sin fecha o hecha. */
 export function estadoVence(tarea, pronto = 7, hoy = new Date()) {
-    if (!tarea || tarea.Columna === 'hecho') return null;
+    if (!tarea || tarea.Columna === HECHO) return null;
     const d = diasPara(tarea.Vence, hoy);
     return d === null ? null : claseVence(d, pronto);
 }
@@ -279,7 +279,7 @@ export function estadoVence(tarea, pronto = 7, hoy = new Date()) {
  */
 export function semaforo(tarea, dias = 3, hoy = new Date()) {
     if (!tarea) return '';
-    if (tarea.Columna === 'hecho') return 'hecha';
+    if (tarea.Columna === HECHO) return 'hecha';
     const e = estadoVence(tarea, dias, hoy);
     return e === 'danger' ? 'vencida' : e === 'warn' ? 'pronto' : '';
 }
@@ -332,7 +332,7 @@ export function filtrarTareas(tareas, f = {}, hoy = new Date()) {
     const texto = sinAcentos(f.texto).trim();
     // «Sin dueño» es una casilla mas del mismo menu que las personas, asi que con ellas hace UNION (mis tarjetas
     // + las huerfanas), no interseccion — sola sigue dejando solo las huerfanas abiertas (C7).
-    const huerfana = t => t.Columna !== 'hecho' && !String(t.Asignado || '').trim();
+    const huerfana = t => t.Columna !== HECHO && !String(t.Asignado || '').trim();
     return (tareas || []).filter(t =>
         ((!quienes.length && !f.sinDueno) || quienes.includes(String(t.Asignado || '').toLowerCase()) || (f.sinDueno && huerfana(t)))
         && (!f.alta || t.Prioridad === 'alta')
@@ -342,7 +342,7 @@ export function filtrarTareas(tareas, f = {}, hoy = new Date()) {
 
 /** Tarjetas abiertas sin asignado (C7): no salen en Mis tareas de nadie ni cuentan en ningun KPI si no es este. */
 export function sinDueno(tareas) {
-    return (tareas || []).filter(t => t.Columna !== 'hecho' && !String(t.Asignado || '').trim());
+    return (tareas || []).filter(t => t.Columna !== HECHO && !String(t.Asignado || '').trim());
 }
 
 /**
@@ -714,7 +714,7 @@ export function mesSumar(mes, n) { const f = new Date(mes + '-01T00:00:00Z'); f.
  * si no `Vence`. Una tarjeta sin fin no tiene barra: sale en la lista «sin fecha».
  */
 export function lapsoTarea(t) {
-    const fin = diaDe(t.Columna === 'hecho' ? (t.HechoEl || t.Vence) : t.Vence);
+    const fin = diaDe(t.Columna === HECHO ? (t.HechoEl || t.Vence) : t.Vence);
     let inicio = diaDe(t.Desde) || diaDe(t._creado);
     if (fin && inicio && inicio > fin) inicio = fin;
     return { inicio: inicio || fin, fin };
@@ -778,7 +778,7 @@ export function agendaPorDia(tareas, proyectos) {
     const de = d => { if (!m.has(d)) m.set(d, { tareas: [], fines: [] }); return m.get(d); };
     for (const t of tareas || []) { const d = diaDe(t.Vence); if (d) de(d).tareas.push(t); }
     for (const p of proyectos || []) { const d = diaDe(p.Vence); if (d && p.Estado === 'activo') de(d).fines.push(p); }
-    for (const v of m.values()) v.tareas.sort((a, b) => (a.Columna === 'hecho') - (b.Columna === 'hecho') || String(a.Title).localeCompare(String(b.Title)));
+    for (const v of m.values()) v.tareas.sort((a, b) => (a.Columna === HECHO) - (b.Columna === HECHO) || String(a.Title).localeCompare(String(b.Title)));
     return m;
 }
 
@@ -792,20 +792,19 @@ export function hechasPorSemana(tareas, n = 8, hoy = new Date()) {
     const de = d => d && semanas.find(x => x.desde === lunesDe(d));
     for (const t of tareas || []) {
         const c = de(diaDe(t._creado)); if (c) c.nuevas++;
-        if (t.Columna !== 'hecho') continue;
+        if (t.Columna !== HECHO) continue;
         const s = de(diaDe(t.HechoEl)); if (s) s.n++;
     }
     return semanas;
 }
-/** Carga por persona: abiertas, vencidas y hechas, de mas abiertas a menos; sin dueño ('') al final. */
-export function cargaPorPersona(tareas, pronto = 7, hoy = new Date()) {
+/** Carga por persona: abiertas, vencidas y hechas, de mas abiertas a menos; sin dueño ('') al final.
+ *  C-13 (v0.146.0): `historia` (los frentes del filtro aunque esten cerrados, C-05) da las HECHAS y la fila de quien solo tiene hechas;
+ *  las abiertas y vencidas salen de `tareas` (los activos). Sin `historia`, las hechas son las de `tareas`. */
+export function cargaPorPersona(tareas, pronto = 7, hoy = new Date(), historia = tareas) {
     const m = new Map();
-    for (const t of tareas || []) {
-        const q = String(t.Asignado || '').toLowerCase();
-        if (!m.has(q)) m.set(q, { quien: q, abiertas: 0, vencidas: 0, hechas: 0 });
-        const r = m.get(q);
-        if (t.Columna === 'hecho') r.hechas++; else { r.abiertas++; if (estadoVence(t, pronto, hoy) === 'danger') r.vencidas++; }
-    }
+    const fila = t => { const q = String(t.Asignado || '').toLowerCase(); if (!m.has(q)) m.set(q, { quien: q, abiertas: 0, vencidas: 0, hechas: 0 }); return m.get(q); };
+    for (const t of tareas || []) if (t.Columna !== HECHO) { const r = fila(t); r.abiertas++; if (estadoVence(t, pronto, hoy) === 'danger') r.vencidas++; }
+    for (const t of historia || []) if (t.Columna === HECHO) fila(t).hechas++;
     return [...m.values()].sort((a, b) => (a.quien === '') - (b.quien === '') || b.abiertas - a.abiertas || a.quien.localeCompare(b.quien));
 }
 /**
@@ -815,7 +814,7 @@ export function cargaPorPersona(tareas, pronto = 7, hoy = new Date()) {
 export function abiertasDePersona(tareas, quien, orden, pronto = 7, hoy = new Date()) {
     const q = String(quien || '').toLowerCase(), porP = new Map();
     for (const t of tareas || []) {
-        if (t.Columna === 'hecho' || String(t.Asignado || '').toLowerCase() !== q) continue;
+        if (t.Columna === HECHO || String(t.Asignado || '').toLowerCase() !== q) continue;
         const k = Number(t.ProyectoId); if (!porP.has(k)) porP.set(k, []); porP.get(k).push(t);
     }
     const vencida = t => estadoVence(t, pronto, hoy) === 'danger';
@@ -935,7 +934,7 @@ export function sellarAsignadoPor(campos, columnas, correo) {
 }
 export function misAbiertas(tareas, correo) {
     const yo = String(correo || '').toLowerCase();
-    return (tareas || []).filter(t => String(t.Asignado || '').toLowerCase() === yo && t.Columna !== 'hecho');
+    return (tareas || []).filter(t => String(t.Asignado || '').toLowerCase() === yo && t.Columna !== HECHO);
 }
 /**
  * «Las que delegué» (Mis tareas): tarjetas ABIERTAS asignadas a otro que esta persona creo (createdBy de SharePoint o
@@ -948,7 +947,7 @@ export function delegadas(tareas, actividad, correo) {
     const yo = String(correo || '').toLowerCase();
     const tocadas = new Set((actividad || []).filter(a => a.TareaId && String(a.Quien || '').toLowerCase() === yo
         && (a.Accion === 'crear-tarea' || (a.Accion === 'editar-tarea' && /^asign/i.test(String(a.Title || ''))))).map(a => Number(a.TareaId)));
-    return (tareas || []).filter(t => { const q = String(t.Asignado || '').trim().toLowerCase(); return t.Columna !== 'hecho' && q && q !== yo
+    return (tareas || []).filter(t => { const q = String(t.Asignado || '').trim().toLowerCase(); return t.Columna !== HECHO && q && q !== yo
         && (String(t.AsignadoPor || '').toLowerCase() === yo || String(t._creadoPor || '').toLowerCase() === yo || tocadas.has(Number(t.id))); })
         .sort(porVence);
 }

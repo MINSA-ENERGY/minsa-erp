@@ -1434,7 +1434,7 @@ body.sin-scroll { overflow: hidden; }
 .doc .tarjeta-liga { border: 0; background: none; font: inherit; color: var(--text-link); cursor: pointer; text-align: left; padding: 0; }
 /* ---- reportes */
 .rep-rejilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--sp-4); }
-.rep-global { display: grid; }
+.rep-global { display: grid; align-content: start; }   /* U-17 (v0.146.0): sin esto el grid repartia el alto estirado de la fila y el anillo flotaba a media tarjeta */
 .rep-anillo { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
 .anillo .fondo { fill: none; stroke: var(--surface-sunken); stroke-width: 4; }
 .anillo .seg { fill: none; stroke-width: 4; stroke-linecap: butt; }
@@ -1486,6 +1486,10 @@ body.sin-scroll { overflow: hidden; }
 .rep-cols .col-s .barras .h b { position: absolute; left: 0; right: 0; text-align: center; line-height: 1; }
 .rep-cols .col-s .barras i.nueva { flex: 0 0 30%; background: var(--text-faint); border-radius: 3px 3px 0 0; }
 .rep-cols .col-s .barras i.nueva.cero { visibility: hidden; }
+.rep-cols .col-s .barras .nv { position: relative; flex: 0 0 30%; height: 100%; display: flex; align-items: flex-end; }   /* U-15 (v0.146.0): la gris va en su caja para llevar la cifra encima */
+.rep-cols .col-s .barras .nv i.nueva { width: 100%; }
+.rep-cols .col-s .barras .cn { position: absolute; left: 0; font-family: var(--font-data); font-size: .66rem; line-height: 1; color: var(--text-muted); white-space: nowrap; }   /* anclada al borde izquierdo de la gris: centrada chocaba con la de hechas */
+.rep-ley-sem { margin-top: var(--sp-2); padding: 0; } .rep-ley-sem i { width: 10px; height: 10px; border-radius: 2px; } .rep-ley-sem .is-nueva i { background: var(--text-faint); }
 .rep-cols .col-s small { font-family: var(--font-data); font-size: .72rem; line-height: 1.15; height: 2.3em; display: flex; align-items: flex-end; justify-content: center; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; max-width: 100%; }   /* U-05 (18-sep): .6rem/faint era ilegible y con nowrap+ellipsis «27 jul» salia «27 j…» hasta a 1366; ahora parte en dos lineas (dia / mes) y TODAS reservan las dos, para que las barras compartan la base */
 /* ---- avance del proyecto: el anillo junto a la barra en la lateral */
 .avance-anillo { display: flex; justify-content: center; margin-bottom: var(--sp-2); }
