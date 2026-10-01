@@ -7,7 +7,7 @@ autor, sin confiar en el nombre (amarillo 7 del auditor-repo, 2026-09-11).
 |---|---|---|---|---|
 | `msal-browser.min.js` | @azure/msal-browser 5.23.0 | `https://cdn.jsdelivr.net/npm/@azure/msal-browser@5.23.0/lib/msal-browser.min.js` | `a71f893dc3c9fa3c59219e0535ab6a00a6281860f24315ab8118304baafacc64` | 2026-09-28, dos descargas frescas del origen = mismo hash (S-17, v0.127.0); `integrity` = `sha256-px+JPcPJ+jxZIZ4FNatqAKYoGGDyQxWrgRgwS6r6zGQ=`. **Sustituye** a la fila de abajo |
 | `msal-browser.min.js` | @azure/msal-browser 5.22.0 | `https://cdn.jsdelivr.net/npm/@azure/msal-browser@5.22.0/lib/msal-browser.min.js` | `5ce42b98842c06a0d00233253f46684f43dd398b46cb7dd5e1441f1bfd9caa6d` | 2026-09-16, dos descargas frescas del origen = mismo hash (S-06, v0.77.0); `integrity` = `sha256-XOQrmIQsBqDQAjMlP0ZoT0PdOYtGy33V4UQfG/2cqm0=`. **Sustituye** a la fila de abajo |
-| `msal-browser.min.js` | @azure/msal-browser 4.29.0 | `https://cdn.jsdelivr.net/npm/@azure/msal-browser@4.29.0/lib/msal-browser.min.js` | `d822083e23e729bd49248c54b68c51b6d5dbcff276a5ab3ab46f57b295de9cb7` | 2026-09-11, descarga fresca del origen = mismo hash; byte-idéntico al de `calytek-planta-app`. **Se corrió hasta v0.76.0**; planta sigue en esta |
+| `msal-browser.min.js` | @azure/msal-browser 4.29.0 | `https://cdn.jsdelivr.net/npm/@azure/msal-browser@4.29.0/lib/msal-browser.min.js` | `d822083e23e729bd49248c54b68c51b6d5dbcff276a5ab3ab46f57b295de9cb7` | 2026-09-11, descarga fresca del origen = mismo hash; byte-idéntico al de `calytek-planta-app`. **Se corrió hasta v0.76.0**; planta la dejó por 5.22.0 el 2026-09-20 |
 
 Cómo re-verificar (desde la raíz de `proyectos/`):
 
