@@ -20,6 +20,11 @@ export function problemaCobranza(d) {
     for (const c of d.clientes) {
         if (!c || !c.rfc || !Array.isArray(c.monedas) || !Array.isArray(c.facturas)) return `cliente incompleto: ${c && c.nombre || '(sin nombre)'}`;
     }
+    // v0.170.0: `proveedores` (Por pagar) es opcional —un archivo de antes no lo trae—, pero si viene tiene la misma forma
+    if (d.proveedores !== undefined && !Array.isArray(d.proveedores)) return 'proveedores no es una lista';
+    for (const c of d.proveedores || []) {
+        if (!c || !c.rfc || !Array.isArray(c.monedas) || !Array.isArray(c.facturas)) return `proveedor incompleto: ${c && c.nombre || '(sin nombre)'}`;
+    }
     return null;
 }
 

@@ -3773,6 +3773,31 @@ try {
             document.querySelector('#tabsFinanzas [data-tab="capital"]').click(); await esperar(() => visible('p-capital'), 'pestaña Capital');
             R.ok('cobranza: la pestaña «Capital» lleva a Capital', location.hash.startsWith('#capital'));
             await irHash('#finanzas'); await esperar(() => $('tabsFinanzas'), 'de vuelta a Finanzas');
+            // (e0) v0.170.0: POR PAGAR. Un cobranza.json de antes (sin `proveedores`) lo dice; con proveedores, la misma tabla.
+            const tabPP = () => document.querySelector('#tabsFinanzas [data-tab="porpagar"]');
+            tabPP().click(); await esperar(() => $('porPagarSinDatos') || $('porPagarTabla'), 'por pagar sin proveedores');
+            R.ok('por pagar (v0.170.0): un archivo publicado sin `proveedores` pide re-publicar, no pinta una tabla vacía', !!$('porPagarSinDatos') && !$('porPagarTabla') && tabPP().getAttribute('aria-selected') === 'true');
+            const FIXPP = { ...FIX, proveedores: [
+                { rfc: 'MSO220721AU0', nombre: 'Proveedor Demo', monedas: [mon('MXN', 5000, 1000, 3000, 0, 1000)],
+                  facturas: [fac('P1', 'MXN', 3000, 'OK'), fac('P2', 'MXN', 1000, 'SIN')] },
+                { rfc: 'XSS000000BBB', nombre: '<img src=x onerror="window.__xssPP=1">Proveedor Etiqueta', monedas: [mon('USD', 70, 0, 0, 0, 70)], facturas: [fac('P9', 'USD', 70, 'SIN')] }
+            ], vigencia_proveedores: false };
+            DB.datos['cobranza.json'] = JSON.stringify(FIXPP);
+            clic('btnLeerCobranza'); await esperar(() => $('porPagarTabla'), 'tabla por pagar');
+            const filasPP = () => [...document.querySelectorAll('#porPagarTabla tr.cob-cliente')];
+            R.ok('por pagar: un renglón por proveedor y moneda, con «Proveedor» de encabezado y KPI «Por pagar» por moneda',
+                filasPP().length === 2 && /Proveedor/.test($('porPagarTabla').querySelector('th').textContent) && /Por pagar · MXN/.test($('porPagarKpis').textContent) && /4,000\.00/.test($('porPagarKpis').textContent) && /Por pagar · USD/.test($('porPagarKpis').textContent), $('porPagarKpis').textContent);
+            R.ok('por pagar: la evidencia se parte igual que en cobranza (sana / sin REP)', /3,000\.00 sana/.test(filasPP().find(f => /Proveedor Demo/.test(f.textContent)).textContent) && /1,000\.00 sin REP/.test(filasPP().find(f => /Proveedor Demo/.test(f.textContent)).textContent));
+            R.ok('por pagar: un nombre con etiqueta sale como TEXTO', !window.__xssPP && filasPP().some(f => f.querySelector('.cob-abrir').textContent.startsWith('<img')));
+            R.ok('por pagar: sin vigencia de proveedores lo dice', /No se consultó al SAT/.test($('porPagarNota').textContent));
+            filasPP().find(f => /Proveedor Demo/.test(f.textContent)).querySelector('.cob-abrir').click(); await esperar(() => document.querySelector('#porPagarTabla .cob-detalle'), 'detalle por pagar');
+            R.ok('por pagar: abrir el proveedor lista sus facturas, la mayor primero', [...document.querySelectorAll('#porPagarTabla .cob-detalle li')].map(li => li.querySelector('b').textContent).join() === 'P1,P2');
+            document.querySelector('#tabsFinanzas [data-tab="cobranza"]').click(); await esperar(() => $('cobranzaTabla'), 'de vuelta a Cobranza');
+            R.ok('por pagar: volver a «Cobranza» pinta clientes, no proveedores, y no abre lo que se abrió en Por pagar', !$('porPagarTabla') && !/Proveedor Demo/.test($('cobranzaTabla').textContent) && /Cliente/.test($('cobranzaTabla').querySelector('th').textContent));
+            DB.datos['cobranza.json'] = JSON.stringify({ ...FIX, proveedores: 'no' });
+            clic('btnLeerCobranza'); await esperar(() => $('cobranzaError'), 'proveedores mal formado');
+            R.ok('por pagar: un `proveedores` que no es lista se dice como error del archivo', /proveedores no es una lista/.test($('cobranzaError').textContent));
+            DB.datos['cobranza.json'] = JSON.stringify(FIXPP); clic('btnLeerCobranza'); await esperar(() => $('cobranzaTabla'), 'cobranza restaurada');   // con proveedores: la vista porpagar de capturas.mjs
             document.querySelector('#tabsFinanzas [data-tab="gastos"]').click(); await esperar(() => visible('p-gastos'), 'pestaña Gastos');
             R.ok('cobranza: la pestaña «Gastos» lleva a Gastos', location.hash.startsWith('#gastos'));
             R.ok('cobranza: CERO escrituras (solo lee)', escritas() === esc0);
