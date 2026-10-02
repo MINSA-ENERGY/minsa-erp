@@ -949,6 +949,12 @@ export function misAbiertas(tareas, correo) {
     const yo = String(correo || '').toLowerCase();
     return (tareas || []).filter(t => String(t.Asignado || '').toLowerCase() === yo && t.Columna !== HECHO);
 }
+/** R-04 (v0.172.0): las mias HECHAS hoy (dia de HechoEl en hora de Mexico), la ultima arriba — el plegable al pie de Mis tareas. */
+export function misHechasHoy(tareas, correo, hoy = new Date()) {
+    const yo = String(correo || '').toLowerCase(), dia = diaDe(hoy);
+    return (tareas || []).filter(t => String(t.Asignado || '').toLowerCase() === yo && t.Columna === HECHO && diaDe(t.HechoEl) === dia)
+        .sort((a, b) => String(b.HechoEl).localeCompare(String(a.HechoEl)) || a.id - b.id);
+}
 /**
  * «Las que delegué» (Mis tareas): tarjetas ABIERTAS asignadas a otro que esta persona creo (createdBy de SharePoint o
  * el renglon crear-tarea de la bitacora) o asigno (editar-tarea «asignó …»). Quien reparte no las pierde de vista.

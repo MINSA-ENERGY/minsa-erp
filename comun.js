@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.171.0';
+export const VERSION = '0.172.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -36,6 +36,7 @@ export const estado = {
     ordenLista: { col: 'vence', dir: 1 },
     colMovil: null,   // v0.11.0: null = la primera cubeta del proyecto abierto (antes 'por-hacer' fijo)
     filtroMis: null,
+    misHechas: false,   // R-04 (v0.172.0): Mis tareas despliega «Hechas hoy» al pie (vive la sesion)
     columnasProyectos: null,   // R-05 (v0.128.0): igual que columnasTareas, para PROY_Proyectos; la tarjeta «Estado del frente» solo existe si trae Salud
     columnasTareas: null,   // C-02 (v0.91.0): Set con los nombres internos REALES de PROY_Tareas (una lectura por sesion); AsignadoPor solo se manda si esta
     filtroMisAlLlegar: null,   // U-03 (v0.90.0): el filtro con que Inicio manda a Mis tareas; irA lo consume en esa visita

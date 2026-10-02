@@ -867,6 +867,27 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 .densa .tr .t .insig, .densa .tr .t .mn-chip { flex: none; }
 .densa .tr .eqc, .densa .tr .cu { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: .8rem; color: var(--text-muted); }
 .densa .tr[data-tono]:not(.is-vencida) { background: color-mix(in srgb, var(--tono) 13%, var(--surface-card)); }   /* el color elegido tiñe el renglon como a la tarjeta; el vencido gana */
+/* R-01 (v0.172.0, Todoist): en MI lista cada renglon va en un .fila cuyo primer hijo es el circulo «marcar hecha» (36 px de toque); el
+   tinte (vencida, color) y el filete pasan a la .fila para que el circulo quede DENTRO del renglon, y el .tr de adentro va sin fondo.
+   R-04: «Hechas hoy» es otra .bloq al pie, con el renglon atenuado como #tab-lista tr.is-hecha y la palomita llena. */
+.densa .fila { display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: stretch; border-top: 1px solid var(--border-hairline); min-width: 0; }
+.densa .fila:first-child { border-top: 0; }
+.densa .fila > .tr:is(*, :hover, .is-vencida, [data-tono]) { border-top: 0; background: transparent; padding-left: 0; }
+.densa .fila:hover { background: var(--surface-sunken); }
+.densa .fila.is-vencida { background: color-mix(in srgb, var(--status-danger-bg) 55%, transparent); }
+.densa .fila.is-vencida:hover { background: color-mix(in srgb, var(--status-danger-bg) 80%, transparent); }
+.densa .fila[data-tono]:not(.is-vencida) { background: color-mix(in srgb, var(--tono) 13%, var(--surface-card)); }
+.densa .circ { display: grid; place-items: center; width: 36px; min-height: 40px; padding: 0; border: 0; background: none; color: var(--status-ok-fg); cursor: pointer; }
+.densa .circ::before { content: ""; width: 18px; height: 18px; box-sizing: border-box; border: 2px solid var(--text-faint); border-radius: 50%; }
+.densa button.circ:hover::before, .densa button.circ:focus-visible::before { border-color: var(--status-ok-solid); background: color-mix(in srgb, var(--status-ok-bg) 70%, transparent); }
+.densa button.circ:disabled { cursor: progress; } .densa button.circ:disabled::before { border-style: dotted; }
+.densa .circ.is-vacio::before { content: none; }
+.densa .circ.is-hecha { cursor: default; }
+.densa .circ.is-hecha::before { content: "\2713"; border-color: var(--status-ok-solid); background: var(--status-ok-solid); color: var(--surface-card); font: 700 .7rem/14px var(--font-data); text-align: center; }
+.densa .tr.is-hecha .t, .densa .tr.is-hecha .k b { color: var(--text-muted); }
+.densa .tr.is-hecha .t .tit { text-decoration: line-through; text-decoration-color: var(--text-faint); }
+.bloq.is-hecha .rot b { color: var(--status-ok-fg); }
+.bloques > .mas, .bloq > .mas { justify-self: start; }
 /* U-09 + U-10 (mejorar-app mis, 2-oct): en escritorio la lista de Mis tareas tiene ancho de lectura —a 1366 el proyecto y la cubeta caian a ~1,100 px del titulo— y la columna de proyecto crece porque ahora lleva el NOMBRE, no la clave. */
 @media (min-width: 721px) { #misLista { max-width: 1080px; } #misLista .densa .tr { grid-template-columns: 46px minmax(0, 1fr) 200px 120px; } }
 @media (max-width: 720px) {

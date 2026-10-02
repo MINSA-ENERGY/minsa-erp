@@ -1358,6 +1358,25 @@ try {
           document.querySelector('#filtroMis [data-mis="sinfecha"]').click(); await dormir(30);
           R.ok('v0.58.0: el contador «sin fecha» filtra a las tarjetas sin Vence (y su cifra cuadra)', document.querySelector('#filtroMis .kpi.is-on').dataset.mis === 'sinfecha' && document.querySelectorAll('#misLista .tr').length === Number(document.querySelector('#filtroMis [data-mis="sinfecha"] b').textContent) && [...document.querySelectorAll('#misLista .tr .k b')].every(v => v.textContent.trim() === '—'), String(document.querySelectorAll('#misLista .tr').length));
           document.querySelector('#filtroMis [data-mis="todas"]').click(); await dormir(30); }
+        // R-01 + R-04 (v0.172.0): el círculo marca hecha con un toque (mismo PATCH que la ficha) y «Deshacer» la regresa a su cubeta;
+        // las mías hechas hoy salen plegadas al pie («ver las N hechas hoy») y desplegadas como bloque atenuado con la palomita.
+        { const fila = () => document.querySelector(`#misLista .fila > .tr[data-t="${t.id}"]`)?.parentElement; const cubetaAntes = t.fields.Columna;
+          R.ok('R-01 (v0.172.0): en mi lista cada renglón va en un .fila con el círculo «marcar hecha» como PRIMER hijo y el .tr intacto (su .k sigue primero)', !!fila() && fila().firstElementChild.matches('button.circ[data-hecha]') && fila().firstElementChild.getAttribute('aria-label') === `Marcar hecha: ${t.fields.Title}` && [...document.querySelectorAll('#misLista .fila')].every(f => f.children.length === 2 && f.children[1].matches('.tr') && f.children[1].firstElementChild.classList.contains('k')));
+          fila().querySelector('.circ').click(); await esperar(() => t.fields.Columna === 'hecho', 'tarjeta hecha por el círculo');
+          await esperar(() => !document.querySelector(`#misLista .tr[data-t="${t.id}"]`), 'renglón fuera');
+          const deshacer = document.querySelector('#avisos [data-accion]');
+          R.ok('R-01 (v0.172.0): el toque deja la tarjeta en hecho con HechoPor/HechoEl, la saca de la lista y el aviso trae «Deshacer»', t.fields.HechoPor === YO && !!t.fields.HechoEl && !document.querySelector(`#misLista .tr[data-t="${t.id}"]`) && deshacer?.textContent === 'Deshacer' && $('avisos').textContent.includes('hecha'), $('avisos').textContent);
+          const pie = document.querySelector('#misLista [data-mas="hechas-hoy"]');
+          R.ok('R-04 (v0.172.0): al pie, plegado, «ver las N hechas hoy» con la cifra de las mías cerradas hoy', !!pie && /^ver las \d+ hechas? hoy$/.test(pie.textContent) && !document.querySelector('#misLista .bloq[data-bloque="hechas"]'), pie?.textContent);
+          pie.click(); await dormir(30);
+          const hb = document.querySelector('#misLista .bloq.is-hecha[data-bloque="hechas"]'); const rh = hb?.querySelector(`.tr[data-t="${t.id}"]`);
+          R.ok('R-04 (v0.172.0): desplegado es el último bloque «Hechas hoy», con la tarjeta atenuada (.is-hecha), la palomita sin acción y su cifra = renglones', !!rh && rh.classList.contains('is-hecha') && rh.parentElement.firstElementChild.matches('span.circ.is-hecha') && hb === $('misLista').querySelector(':scope > .bloq:last-of-type') && Number(hb.querySelector('.rot b').textContent) === hb.querySelectorAll('.tr').length && hb.querySelector('.rot').textContent.includes('Hechas hoy'));
+          hb.querySelector('[data-mas="hechas-hoy-ocultar"]').click(); await dormir(30);
+          R.ok('R-04 (v0.172.0): «ocultar las hechas» lo vuelve a plegar', !document.querySelector('#misLista .bloq[data-bloque="hechas"]') && !!document.querySelector('#misLista [data-mas="hechas-hoy"]'));
+          deshacer.click(); await esperar(() => t.fields.Columna === cubetaAntes, 'deshacer');
+          await esperar(() => document.querySelector(`#misLista .tr[data-t="${t.id}"]`), 'renglón de vuelta');
+          R.ok('R-01 (v0.172.0): «Deshacer» la regresa a la cubeta de antes, limpia el sello y el renglón vuelve con su círculo', t.fields.Columna === cubetaAntes && !t.fields.HechoPor && !t.fields.HechoEl && !!fila()?.querySelector('button.circ:not(:disabled)'), t.fields.Columna);
+        }
         // Inicio: KPI y próximos.
         pestana('inicio'); await esperar(() => $('inicioSub').textContent, 'inicio');
         R.ok('v0.21.0: el saludo cuenta 1 frente activo', $('inicioSub').textContent.includes('1 frente activo ·'), $('inicioSub').textContent);
@@ -2537,6 +2556,7 @@ try {
                 await recargarYEsperar(); pestana('mis'); await esperar(() => visible('p-mis'), 'mis'); await dormir(30);
                 const sinFiltro = [...document.querySelectorAll('#misLista .tr')].some(x => x.dataset.t === String(tAjena.id));
                 document.querySelector('#filtroMis [data-mis="delegadas"]').click(); await dormir(40);
+                R.ok('R-01 (v0.172.0): en «las que delegué» no hay círculo de marcar hecha (la lista personal cierra lo mío)', !document.querySelector('#misLista .circ, #misLista .fila') && document.querySelectorAll('#misLista .tr').length > 0);
                 R.ok('v0.15.0: «Las que delegué» en Mis tareas lista la tarjeta ajena que yo asigné (y sin el filtro no sale)', !sinFiltro && [...document.querySelectorAll('#misLista .tr')].some(x => x.dataset.t === String(tAjena.id)) && $('misLista').textContent.includes('Colega'));
                 document.querySelector('#filtroMis [data-mis="todas"]').click(); await dormir(20);
             }

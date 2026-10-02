@@ -7,7 +7,7 @@
 // «→ siguiente» de la cara de la tarjeta se quito, y «Origen en la KB» ya no se ensena ni se pide.
 
 import { CONFIG } from './config.js';
-import { sellarAsignadoPor, PUEDE, ordenar, tareasDe, diasQuieta, rotuloQuieta, camposDeMovimiento, nombreDe, nombreCorto, diasPara, estadoVence, semaforo, vencidasEn, filtrarTareas, ordenarLista, reordenar, sinAcentos, columnasDe, normalizarColumnas, nombreColumnaEn, claseDeColumna, HECHO, MAX_COLUMNAS, MAX_NOMBRE_COLUMNA, COLORES, colorValido, hrefSeguro, delegadas, misAbiertas, porVence, infoVence, plural } from './reglas.js';
+import { sellarAsignadoPor, PUEDE, ordenar, tareasDe, diasQuieta, rotuloQuieta, camposDeMovimiento, nombreDe, nombreCorto, diasPara, estadoVence, semaforo, vencidasEn, filtrarTareas, ordenarLista, reordenar, sinAcentos, columnasDe, normalizarColumnas, nombreColumnaEn, claseDeColumna, HECHO, MAX_COLUMNAS, MAX_NOMBRE_COLUMNA, COLORES, colorValido, hrefSeguro, delegadas, misAbiertas, misHechasHoy, porVence, infoVence, plural } from './reglas.js';
 import { $, L, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, el, boton, chip, chipVence, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, fechaHora, aIsoDia, diaInput, fechaInput, atajosFecha, opciones, limpiar, porId, proyectoAbierto, registrarActividad, hashDe, fijarHash, irAHash, ligaDeTarjeta, notasDe, aplicarVivo, agregarSinDuplicar, fusionarActividad, pedirRelectura, equipoDe, iconoEquipo, iconoArchivo, textoConMenciones, insignia, TRAZOS, iconoSvg, puedeBorrarComentario, borrarComentario, columnasDeTarea, notasPorTarea, ligasPorTarea, buzonPorTarea, mesDia, personasActivas, contadorTexto, mayusculasEnVivo, conservarFoco } from './comun.js';
 import { abrirPartida } from './capital.js';   // v0.103.0: «Nueva partida» desde la pestaña Capital del proyecto
 import { abrirLigar, abrirSubir, abrirEnlace, quitarLiga, puedeLigarEn, puedeEnlazarEn } from './docs.js';
@@ -434,11 +434,12 @@ function pintarMisAhora() {
             : q ? `Ninguna con ese texto en este filtro: ${conTexto.length} ${plural(conTexto.length, 'está', 'están')} fuera de él. `
             : 'Nada con ese filtro.');
         if (todas.length && conTexto.length && q) v.appendChild(boton('Ver en abiertas', 'mn-btn is-ghost is-sm', () => { estado.filtroMis = null; pintarMisTareas(); }, { misSalir: '1' }));
-        cont.appendChild(v); return;
+        cont.appendChild(v); pieHechasHoy(cont, delego, q, pajar); return;
     }
     // v0.67.0: una tarjeta por bloque. `mias` viene en orden de fecha, asi que los bloques salen contiguos y en el orden fijo.
     const porBloque = new Map(); for (const t of mias) { const b = info.get(t.id).bloque; porBloque.set(b, (porBloque.get(b) || 0) + 1); }
     let bloque = '', densa = null;
+    const conCirculo = !delego && PUEDE.mover(estado.rol);   // R-01: el circulo es de MI lista; en «las que delegué» y en lectura no hay columna
     for (const t of mias) {
         const b = info.get(t.id).bloque;
         if (b !== bloque) {
@@ -448,13 +449,35 @@ function pintarMisAhora() {
             const rot = el('h3', 'rot'); rot.appendChild(el('b', '', String(n))); rot.appendChild(document.createTextNode(' ' + b)); sec.appendChild(rot);
             densa = el('div', 'densa'); sec.appendChild(densa); cont.appendChild(sec);
         }
-        densa.appendChild(renglonDenso(t, delego, info.get(t.id).sem));
+        densa.appendChild(renglonDenso(t, delego, info.get(t.id).sem, conCirculo));
     }
+    pieHechasHoy(cont, delego, q, pajar);
 }
+/**
+ * R-04 (v0.172.0; Microsoft To Do «Completadas», Linear My Issues): al pie de «abiertas», plegado, las MIAS cerradas hoy
+ * (HechoEl en hora de Mexico) para ver el avance del dia y reabrir un error desde su ficha. El boton es el mismo «ver las N …»
+ * de Hecho del tablero y de la Lista; la bandera vive la sesion (estado.misHechas). Respeta el buscador; en los otros filtros no sale.
+ */
+function pieHechasHoy(cont, delego, q, pajar) {
+    if (delego || estado.filtroMis) return;
+    const hechas = misHechasHoy(estado.tareas, estado.cuenta.username).filter(t => !q || pajar(t).includes(q));
+    if (!hechas.length) return;
+    if (!estado.misHechas) { cont.appendChild(boton(`ver las ${hechas.length} ${plural(hechas.length, 'hecha')} hoy`, 'mn-btn is-ghost is-sm mas', () => { estado.misHechas = true; pintarMisTareas(); enfocar('[data-mas="hechas-hoy-ocultar"]'); }, { mas: 'hechas-hoy' })); return; }
+    const sec = el('section', 'bloq is-hecha'); sec.dataset.bloque = 'hechas';
+    const rot = el('h3', 'rot'); rot.appendChild(el('b', '', String(hechas.length))); rot.appendChild(document.createTextNode(' Hechas hoy')); sec.appendChild(rot);
+    const densa = el('div', 'densa'); for (const t of hechas) densa.appendChild(renglonDenso(t, false, null, PUEDE.mover(estado.rol))); sec.appendChild(densa);
+    sec.appendChild(boton('ocultar las hechas', 'mn-btn is-ghost is-sm mas', () => { estado.misHechas = false; pintarMisTareas(); enfocar('[data-mas="hechas-hoy"]'); }, { mas: 'hechas-hoy-ocultar' }));
+    cont.appendChild(sec);
+}
+/** El repintado recrea los botones del pie y el círculo: el foco va al control que toma su lugar (revisor-entregable, v0.172.0). */
+function enfocar(sel) { const b = $('misLista').querySelector(sel); if (b) b.focus(); }
 const BLOQUES = { 'Vencidas': 'vencidas', 'Esta semana': 'semana', 'Después': 'despues', 'Sin fecha': 'sinfecha' };
-/** Un renglón de la tabla densa: fecha en columna · título (barras de prioridad, insignias; en «delegué», a quién) · proyecto · cubeta. `sem` viene de infoVence (C-05): sin default, para que un llamador nuevo no vuelva a leer la fecha. */
-function renglonDenso(t, conQuien, sem) {
-    const b = el('button', 'tr' + (sem ? ' is-' + sem : '') + (t.Prioridad === 'alta' ? ' alta' : '')); b.type = 'button'; b.dataset.t = String(t.id);
+/** Un renglón de la tabla densa: fecha en columna · título (barras de prioridad, insignias; en «delegué», a quién) · proyecto · cubeta. `sem` viene de infoVence (C-05): sin default, para que un llamador nuevo no vuelva a leer la fecha.
+ *  R-01 (v0.172.0): con `conCirculo` el renglón va dentro de un `.fila` cuyo primer hijo es el círculo «marcar hecha» (un botón no cabe dentro
+ *  del botón `.tr`); si el frente está cerrado el hueco queda vacío para que la columna no brinque, y en una hecha es la palomita, sin acción. */
+function renglonDenso(t, conQuien, sem, conCirculo = false) {
+    const hecha = t.Columna === HECHO;
+    const b = el('button', 'tr' + (sem ? ' is-' + sem : '') + (t.Prioridad === 'alta' ? ' alta' : '') + (hecha ? ' is-hecha' : '')); b.type = 'button'; b.dataset.t = String(t.id);
     if (colorValido(t.Color)) b.dataset.tono = colorValido(t.Color);
     // v0.66.0: la fecha a la izquierda, como `.hoy-r .k` de Inicio: dia fuerte + mes tenue; «—» sin fecha.
     const m = mesDia(t.Vence); const k = el('span', 'k'); k.setAttribute('aria-hidden', 'true');
@@ -474,7 +497,48 @@ function renglonDenso(t, conQuien, sem) {
     // El título se corta con puntos suspensivos si es largo (artifact C): el completo vive en el title, con lo que la fila no enseña.
     b.title = [t.Title, t.Prioridad === 'alta' ? 'Prioridad alta' : '', p ? `${p.Title} (${p.Clave})` : '', t.Vence ? 'vence ' + fechaCorta(t.Vence) : 'sin fecha'].filter(Boolean).join(' · ');
     b.addEventListener('click', () => abrirTarjeta(t.id));
-    return b;
+    if (!conCirculo) return b;
+    const fila = el('div', 'fila' + (sem ? ' is-' + sem : '') + (hecha ? ' is-hecha' : '')); if (b.dataset.tono) fila.dataset.tono = b.dataset.tono;
+    if (hecha) { const v = el('span', 'circ is-hecha'); v.setAttribute('aria-hidden', 'true'); fila.appendChild(v); }
+    else if (p && p.Estado === 'activo') {
+        const c = boton('', 'circ', () => marcarHecha(t.id, c), { hecha: String(t.id) });
+        c.setAttribute('aria-label', `Marcar hecha: ${t.Title}`); c.title = 'Marcar hecha'; fila.appendChild(c);
+    } else fila.appendChild(el('span', 'circ is-vacio'));
+    fila.appendChild(b);
+    return fila;
+}
+/**
+ * R-01 (v0.172.0; Todoist: «click the circle to mark it complete, and move on»): un toque cierra la tarjeta desde Mis tareas con el
+ * MISMO ejecutarMovimiento de la ficha (PATCH con If-Match, sello HechoPor/HechoEl, bitácora) y un aviso con «Deshacer» que la
+ * regresa a la cubeta de donde salió. Las mismas guardas que moverTarea; el 412 va por conflicto().
+ */
+const marcandoHecha = new Set();   // ids con el PATCH en vuelo: una relectura a medio PATCH repinta un círculo nuevo sin `disabled`
+async function marcarHecha(id, circ) {
+    const t = porId(estado.tareas, id); if (!t || t.Columna === HECHO || marcandoHecha.has(id)) return;
+    if (!PUEDE.mover(estado.rol)) { avisar('Tu rol es de lectura: no puedes mover tarjetas.', 'error'); return; }
+    const p = porId(estado.proyectos, t.ProyectoId);
+    if (!p || p.Estado !== 'activo') { avisar('El proyecto está cerrado.', 'error'); return; }
+    if (circ) circ.disabled = true;
+    marcandoHecha.add(id);
+    const filas = [...$('misLista').querySelectorAll('button.circ[data-hecha]')]; const i = filas.indexOf(circ);
+    const sig = i >= 0 ? (filas[i + 1] || filas[i - 1]) : null; const sigId = sig ? sig.dataset.hecha : null;   // a quien pasa el foco: el siguiente, o el anterior si era el ultimo
+    try {
+        const antes = await ejecutarMovimiento(t, HECHO);
+        if (circ && document.activeElement === circ || !document.activeElement || document.activeElement === document.body) enfocar(sigId ? `[data-hecha="${sigId}"]` : '[data-mas="hechas-hoy"]');
+        avisar(`«${t.Title.slice(0, 60)}» → hecha.`, 'ok', { accion: 'Deshacer', alClic: () => deshacerHecha(id, antes), ms: 8000 });   // 8 s: el doble del aviso de la casa, para rectificar un toque en el celular
+    } catch (e) {
+        if (circ) circ.disabled = false;
+        if (esConflicto(e)) { await conflicto(t); return; }
+        avisar('No se pudo marcar hecha: ' + (e && e.message ? e.message : e), 'error');
+    } finally { marcandoHecha.delete(id); }
+}
+async function deshacerHecha(id, antes) {
+    const t = porId(estado.tareas, id); if (!t || t.Columna !== HECHO) return;
+    const p = porId(estado.proyectos, t.ProyectoId);
+    if (!PUEDE.mover(estado.rol) || !p || p.Estado !== 'activo') { avisar('Ya no se puede deshacer aquí: ábrela y muévela desde su ficha.', 'error'); return; }
+    if (!columnasDeTarea(t).some(c => c.clave === antes)) { avisar('Su cubeta anterior ya no existe: ábrela y muévela desde su ficha.', 'error'); return; }
+    try { await ejecutarMovimiento(t, antes); avisar(`«${t.Title.slice(0, 60)}» volvió a ${nombreColumna(t)}.`, 'ok'); }
+    catch (e) { if (esConflicto(e)) { await conflicto(t); return; } avisar('No se pudo deshacer: ' + (e && e.message ? e.message : e), 'error'); }
 }
 
 // ---------------------------------------------------------------- tarjeta (dialogo)
