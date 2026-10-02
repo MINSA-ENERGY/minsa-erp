@@ -3780,11 +3780,18 @@ try {
             const FIXPP = { ...FIX, proveedores: [
                 { rfc: 'MSO220721AU0', nombre: 'Proveedor Demo', monedas: [mon('MXN', 5000, 1000, 3000, 0, 1000)],
                   facturas: [fac('P1', 'MXN', 3000, 'OK'), fac('P2', 'MXN', 1000, 'SIN')] },
-                { rfc: 'XSS000000BBB', nombre: '<img src=x onerror="window.__xssPP=1">Proveedor Etiqueta', monedas: [mon('USD', 70, 0, 0, 0, 70)], facturas: [fac('P9', 'USD', 70, 'SIN')] }
+                { rfc: 'XSS000000BBB', nombre: '<img src=x onerror="window.__xssPP=1">Proveedor Etiqueta', monedas: [mon('USD', 70, 0, 0, 0, 70)], facturas: [fac('P9', 'USD', 70, 'SIN')] },
+                { rfc: 'TOS230824ID4', nombre: 'TKC Demo', monedas: [mon('MXN', 90000, 0, 0, 0, 90000)], facturas: [fac('T1', 'MXN', 90000, 'SIN')] }
             ], vigencia_proveedores: false };
             DB.datos['cobranza.json'] = JSON.stringify(FIXPP);
             clic('btnLeerCobranza'); await esperar(() => $('porPagarTabla'), 'tabla por pagar');
-            const filasPP = () => [...document.querySelectorAll('#porPagarTabla tr.cob-cliente')];
+            const filasPP = () => [...document.querySelectorAll('#porPagarTabla tr.cob-cliente:not(.is-aparte)')];
+            const tkc = [...document.querySelectorAll('#porPagarTabla tr.is-aparte')];
+            R.ok('por pagar (v0.171.0): TKC va APARTE — fuera del KPI, en su tarjeta con el motivo y al final de la tabla bajo su título',
+                tkc.length === 1 && /TKC Demo/.test(tkc[0].textContent) && /Flash Tab\/TKC/.test(tkc[0].textContent)
+                && !!document.querySelector('#porPagarKpis .cob-aparte[data-rfc="TOS230824ID4"]') && /90,000\.00 MXN/.test(document.querySelector('#porPagarKpis .cob-aparte').textContent)
+                && document.querySelector('#porPagarTabla tr.cob-aparte-tit').compareDocumentPosition(tkc[0]) === Node.DOCUMENT_POSITION_FOLLOWING
+                && !/94,000/.test($('porPagarKpis').textContent), $('porPagarKpis').textContent);
             R.ok('por pagar: un renglón por proveedor y moneda, con «Proveedor» de encabezado y KPI «Por pagar» por moneda',
                 filasPP().length === 2 && /Proveedor/.test($('porPagarTabla').querySelector('th').textContent) && /Por pagar · MXN/.test($('porPagarKpis').textContent) && /4,000\.00/.test($('porPagarKpis').textContent) && /Por pagar · USD/.test($('porPagarKpis').textContent), $('porPagarKpis').textContent);
             R.ok('por pagar: la evidencia se parte igual que en cobranza (sana / sin REP)', /3,000\.00 sana/.test(filasPP().find(f => /Proveedor Demo/.test(f.textContent)).textContent) && /1,000\.00 sin REP/.test(filasPP().find(f => /Proveedor Demo/.test(f.textContent)).textContent));

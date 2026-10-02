@@ -43,6 +43,11 @@ export const CONFIG = {
     // SharePoint); la app solo LEE `archivoCobranza` (lo escribe exportar_cobranza.py de /conciliar-finanzas). Si falta, lo dice.
     bibliotecaDatos: 'ERP_Datos',
     archivoCobranza: 'cobranza.json',
+    // v0.171.0 (Carlos, 2-oct: «lo de tkc márcalo aparte»): proveedores de Por pagar que NO se suman al KPI y salen en su propio
+    // bloque, con el motivo. RFC -> motivo. Para sacar uno de aqui, borrar su renglon (vuelve a sumar).
+    porPagarAparte: {
+        'TOS230824ID4': 'Línea Flash Tab/TKC sin explicar en la base (finanzas-tesoreria.md): casi todo sin REP; no se suma hasta aclararla.'
+    },
     // v0.166.0: Vigencias. Mismo lugar y misma publicacion que la cobranza (vigencias.py lo cosecha de la KB).
     archivoVigencias: 'vigencias.json',
     // v0.168.0: Servicios (y luego Compras). Biblioteca que lee el EQUIPO (Lorena, José y gerencia; sin herencia en SharePoint),

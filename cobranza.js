@@ -68,10 +68,10 @@ function tarjetaAviso(v, id, chipTxt, chipCls, titulo, texto) {
 
 /** Lo que cambia entre Cobranza (clientes, nos deben) y Por pagar (proveedores, les debemos): textos, ids y qué renglones están abiertos. */
 const VISTAS = {
-    cobranza: { lista: d => d.clientes, kpi: 'Por cobrar', parte: 'Cliente', ids: ['cobranzaKpis', 'cobranzaCorte', 'cobranzaTabla'], abiertos: C.abiertos,
+    cobranza: { lista: d => d.clientes, aparte: {}, kpi: 'Por cobrar', parte: 'Cliente', ids: ['cobranzaKpis', 'cobranzaCorte', 'cobranzaTabla'], abiertos: C.abiertos,
         sub: 'Lo que nos deben y qué tan probado está cada saldo.',
         nota: '«Sin REP» quiere decir que no hay complemento de pago timbrado, no que no hayan pagado: por eso el saldo se parte por evidencia y no se presenta como cifra firme. «En verificación» cuenta por el extremo alto de su rango. Una factura que el SAT reporta cancelada no suma (sale tachada en el detalle). Las monedas no se suman entre sí. El detalle y la estrategia de cada cliente viven en su expediente de /conciliar-finanzas.' },
-    porpagar: { lista: d => d.proveedores, kpi: 'Por pagar', parte: 'Proveedor', ids: ['porPagarKpis', 'porPagarCorte', 'porPagarTabla'], abiertos: C.abiertosPP,
+    porpagar: { lista: d => d.proveedores, aparte: CONFIG.porPagarAparte || {}, kpi: 'Por pagar', parte: 'Proveedor', ids: ['porPagarKpis', 'porPagarCorte', 'porPagarTabla'], abiertos: C.abiertosPP,
         sub: 'Lo que les debemos a los proveedores y qué tan probado está cada saldo.',
         nota: 'Las facturas que nos emitieron y no tienen pago comprobado. «Sin REP» quiere decir que el proveedor no ha timbrado el complemento de pago, no que no le hayamos pagado: un pago sin REP sigue saliendo aquí, así que el saldo se parte por evidencia y no es cifra firme. «En verificación» cuenta por el extremo alto de su rango. Las monedas no se suman entre sí. El detalle de una contraparte vive en su expediente de /conciliar-finanzas.' }
 };
@@ -107,8 +107,11 @@ export function pintarFinanzas() {
 function pintarSaldos(v, d, vista) {
     const [idKpis, idCorte, idTabla] = vista.ids;
     const dias = diasDesde(d.generado);
+    // v0.171.0: las contrapartes marcadas aparte (CONFIG.porPagarAparte) no entran al KPI y van al final de la tabla
+    const motivoAparte = c => vista.aparte[c.rfc] || '';
+    const normales = vista.lista(d).filter(c => !motivoAparte(c)), apartados = vista.lista(d).filter(c => motivoAparte(c));
     const kpis = el('div', 'cob-kpis'); kpis.id = idKpis;
-    for (const t of totalesCobranza(vista.lista(d))) {
+    for (const t of totalesCobranza(normales)) {
         const k = el('div', 'mn-card cob-kpi');
         k.appendChild(el('span', 'cob-k', `${vista.kpi} · ${t.moneda}`));
         k.appendChild(el('b', 'cob-v mn-mono', monto(t.insoluto)));
@@ -125,6 +128,13 @@ function pintarSaldos(v, d, vista) {
     f.appendChild(el('b', 'cob-v mn-mono', `${dias} ${dias === 1 ? 'día' : 'días'}`));
     const pf = el('div', 'cob-pie'); pf.appendChild(dias >= COBRANZA_VIEJA_DIAS ? chip('corte viejo: re-correr el exportador', 'warn') : chip('al día', 'ok'));
     f.appendChild(pf); kpis.appendChild(f);
+    for (const c of apartados) {   // una tarjeta por contraparte aparte: su saldo por moneda y el motivo
+        const k = el('div', 'mn-card cob-kpi cob-aparte'); k.dataset.rfc = c.rfc;
+        k.appendChild(el('span', 'cob-k', `Aparte · ${c.nombre}`));
+        k.appendChild(el('b', 'cob-v mn-mono', totalesCobranza([c]).map(t => monto(t.insoluto, t.moneda)).join(' · ') || '0'));
+        const p = el('div', 'cob-pie'); p.appendChild(chip('no suma a «' + vista.kpi + '»', null)); p.appendChild(el('span', 'cob-sub', motivoAparte(c))); k.appendChild(p);
+        kpis.appendChild(k);
+    }
     v.appendChild(kpis);
 
     // Tabla: un renglon por contraparte y moneda; al abrirlo, sus facturas con saldo
@@ -134,7 +144,7 @@ function pintarSaldos(v, d, vista) {
     for (const [t, cls] of [[vista.parte, ''], ['Facturado', 'n'], ['Pagado', 'n'], ['Insoluto', 'n'], ['Evidencia del saldo', '']]) th.appendChild(el('th', cls, t));
     const thead = el('thead'); thead.appendChild(th); tabla.appendChild(thead);
     const tbody = el('tbody');
-    for (const r of renglonesCobranza(vista.lista(d))) {
+    const renglon = r => {
         const clave = r.rfc + '|' + r.moneda;
         const abierto = vista.abiertos.has(clave);
         const tr = el('tr', 'cob-cliente' + (abierto ? ' is-abierto' : '')); tr.dataset.clave = clave;
@@ -143,6 +153,7 @@ function pintarSaldos(v, d, vista) {
         b.addEventListener('click', () => { if (abierto) vista.abiertos.delete(clave); else vista.abiertos.add(clave); alCambiar(); });
         tdN.appendChild(b);
         tdN.appendChild(el('span', 'cob-sub', `${r.moneda} · ${r.facturas.length} ${r.facturas.length === 1 ? 'factura' : 'facturas'} con saldo · ${r.rfc}`));
+        if (vista.aparte[r.rfc]) { tr.classList.add('is-aparte'); tdN.appendChild(el('span', 'cob-sub', vista.aparte[r.rfc])); }
         tr.appendChild(tdN);
         tr.appendChild(el('td', 'n mn-mono', monto(r.facturado)));
         tr.appendChild(el('td', 'n mn-mono', monto(r.pagado)));
@@ -169,6 +180,11 @@ function pintarSaldos(v, d, vista) {
             }
             td.appendChild(lista); trD.appendChild(td); tbody.appendChild(trD);
         }
+    };
+    for (const r of renglonesCobranza(normales)) renglon(r);
+    if (apartados.length) {
+        const trT = el('tr', 'cob-aparte-tit'); const td = el('td', '', `Aparte — no suma a «${vista.kpi}»`); td.colSpan = 5; trT.appendChild(td); tbody.appendChild(trT);
+        for (const r of renglonesCobranza(apartados)) renglon(r);
     }
     tabla.appendChild(tbody);
     caja.appendChild(tabla);
