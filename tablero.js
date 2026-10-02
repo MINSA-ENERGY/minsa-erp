@@ -7,7 +7,7 @@
 // «→ siguiente» de la cara de la tarjeta se quito, y «Origen en la KB» ya no se ensena ni se pide.
 
 import { CONFIG } from './config.js';
-import { sellarAsignadoPor, PUEDE, ordenar, tareasDe, diasQuieta, rotuloQuieta, camposDeMovimiento, nombreDe, nombreCorto, diasPara, estadoVence, semaforo, vencidasEn, filtrarTareas, ordenarLista, reordenar, sinAcentos, columnasDe, normalizarColumnas, nombreColumnaEn, claseDeColumna, HECHO, MAX_COLUMNAS, MAX_NOMBRE_COLUMNA, COLORES, colorValido, hrefSeguro, delegadas, misAbiertas, misHechasHoy, porVence, infoVence, plural } from './reglas.js';
+import { sellarAsignadoPor, PUEDE, ordenar, tareasDe, diasQuieta, rotuloQuieta, camposDeMovimiento, nombreDe, nombreCorto, diasPara, estadoVence, semaforo, vencidasEn, filtrarTareas, ordenarLista, reordenar, sinAcentos, columnasDe, normalizarColumnas, nombreColumnaEn, claseDeColumna, HECHO, MAX_COLUMNAS, MAX_NOMBRE_COLUMNA, COLORES, colorValido, hrefSeguro, delegadas, misAbiertas, misHechasHoy, diaPospuesto, ATAJOS_POSPONER, porVence, infoVence, plural } from './reglas.js';
 import { $, L, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, el, boton, chip, chipVence, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, fechaHora, aIsoDia, diaInput, fechaInput, atajosFecha, opciones, limpiar, porId, proyectoAbierto, registrarActividad, hashDe, fijarHash, irAHash, ligaDeTarjeta, notasDe, aplicarVivo, agregarSinDuplicar, fusionarActividad, pedirRelectura, equipoDe, iconoEquipo, iconoArchivo, textoConMenciones, insignia, TRAZOS, iconoSvg, puedeBorrarComentario, borrarComentario, columnasDeTarea, notasPorTarea, ligasPorTarea, buzonPorTarea, mesDia, personasActivas, contadorTexto, mayusculasEnVivo, conservarFoco } from './comun.js';
 import { abrirPartida } from './capital.js';   // v0.103.0: «Nueva partida» desde la pestaña Capital del proyecto
 import { abrirLigar, abrirSubir, abrirEnlace, quitarLiga, puedeLigarEn, puedeEnlazarEn } from './docs.js';
@@ -449,7 +449,7 @@ function pintarMisAhora() {
             const rot = el('h3', 'rot'); rot.appendChild(el('b', '', String(n))); rot.appendChild(document.createTextNode(' ' + b)); sec.appendChild(rot);
             densa = el('div', 'densa'); sec.appendChild(densa); cont.appendChild(sec);
         }
-        densa.appendChild(renglonDenso(t, delego, info.get(t.id).sem, conCirculo));
+        densa.appendChild(renglonDenso(t, delego, info.get(t.id).sem, conCirculo, conCirculo && b === 'Vencidas' && PUEDE.tarea(estado.rol)));   // R-03: «Posponer» solo en las vencidas de MI lista
     }
     pieHechasHoy(cont, delego, q, pajar);
 }
@@ -475,7 +475,7 @@ const BLOQUES = { 'Vencidas': 'vencidas', 'Esta semana': 'semana', 'Después': '
 /** Un renglón de la tabla densa: fecha en columna · título (barras de prioridad, insignias; en «delegué», a quién) · proyecto · cubeta. `sem` viene de infoVence (C-05): sin default, para que un llamador nuevo no vuelva a leer la fecha.
  *  R-01 (v0.172.0): con `conCirculo` el renglón va dentro de un `.fila` cuyo primer hijo es el círculo «marcar hecha» (un botón no cabe dentro
  *  del botón `.tr`); si el frente está cerrado el hueco queda vacío para que la columna no brinque, y en una hecha es la palomita, sin acción. */
-function renglonDenso(t, conQuien, sem, conCirculo = false) {
+function renglonDenso(t, conQuien, sem, conCirculo = false, conPosponer = false) {
     const hecha = t.Columna === HECHO;
     const b = el('button', 'tr' + (sem ? ' is-' + sem : '') + (t.Prioridad === 'alta' ? ' alta' : '') + (hecha ? ' is-hecha' : '')); b.type = 'button'; b.dataset.t = String(t.id);
     if (colorValido(t.Color)) b.dataset.tono = colorValido(t.Color);
@@ -492,7 +492,9 @@ function renglonDenso(t, conQuien, sem, conCirculo = false) {
     if (nDocs) tt.appendChild(insignia(TRAZOS.clip, nDocs, `${nDocs} ${plural(nDocs, 'documento')}`, 'is-docs'));
     if (buzonPorTarea().get(t.id)) tt.appendChild(chip('en el buzón', 'info'));
     b.appendChild(tt);
-    const p = porId(estado.proyectos, t.ProyectoId); b.appendChild(el('span', 'eqc', p ? p.Title : ''));   // v0.66.0: texto plano, sin pastilla; U-09 (2-oct): el NOMBRE del proyecto, la clave va en el title
+    const p = porId(estado.proyectos, t.ProyectoId);
+    if (p && p.Clave) b.appendChild(el('span', 'cl', p.Clave));   // R-02 (v0.173.0; Microsoft To Do «Mi día»): bajo 720 px el frente va en un segundo renglón tenue; arriba lo dice .eqc y el CSS lo esconde
+    b.appendChild(el('span', 'eqc', p ? p.Title : ''));   // v0.66.0: texto plano, sin pastilla; U-09 (2-oct): el NOMBRE del proyecto, la clave va en el title
     b.appendChild(el('span', 'cu', nombreColumna(t)));
     // El título se corta con puntos suspensivos si es largo (artifact C): el completo vive en el title, con lo que la fila no enseña.
     b.title = [t.Title, t.Prioridad === 'alta' ? 'Prioridad alta' : '', p ? `${p.Title} (${p.Clave})` : '', t.Vence ? 'vence ' + fechaCorta(t.Vence) : 'sin fecha'].filter(Boolean).join(' · ');
@@ -505,7 +507,46 @@ function renglonDenso(t, conQuien, sem, conCirculo = false) {
         c.setAttribute('aria-label', `Marcar hecha: ${t.Title}`); c.title = 'Marcar hecha'; fila.appendChild(c);
     } else fila.appendChild(el('span', 'circ is-vacio'));
     fila.appendChild(b);
+    if (conPosponer && !hecha && p && p.Estado === 'activo') {
+        const abierto = estado.misPosponer === t.id;
+        const pb = boton('Posponer', 'pos mn-btn is-ghost is-sm' + (abierto ? ' is-on' : ''), () => { estado.misPosponer = abierto ? null : t.id; pintarMisTareas(); enfocar(abierto ? `[data-posponer="${t.id}"]` : `.atajos-pos [data-pospone="${t.id}"]`); }, { posponer: String(t.id) });
+        pb.setAttribute('aria-expanded', abierto ? 'true' : 'false'); pb.setAttribute('aria-label', `Posponer: ${t.Title}`); fila.appendChild(pb);
+        if (abierto) {
+            const g = el('div', 'atajos-pos'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', 'Posponer a');
+            for (const [texto, atajo] of ATAJOS_POSPONER) { const dia = diaPospuesto(atajo); const a = boton(texto, 'mn-btn is-ghost is-sm', () => posponerTarea(t.id, dia, a), { pospone: String(t.id), dia }); a.title = fechaCorta(dia); g.appendChild(a); }
+            fila.appendChild(g);
+        }
+    }
     return fila;
+}
+/**
+ * R-03 (v0.173.0; Todoist «postpone them to tomorrow or later in the week»): una vencida cambia de fecha desde su renglón con un
+ * toque —mañana · el lunes · +7 d (reglas.js: diaPospuesto, hora de México)— con el mismo PATCH condicional y bitácora que la ficha,
+ * y un aviso con «Deshacer» que le devuelve su fecha. Las mismas guardas que guardarEdicion; el 412 va por conflicto().
+ */
+async function posponerTarea(id, dia, btn, deshacer = false) {
+    const t = porId(estado.tareas, id); if (!t) return;
+    if (!PUEDE.tarea(estado.rol)) { avisar('Tu rol es de lectura: no puedes editar tarjetas.', 'error'); return; }
+    const p = porId(estado.proyectos, t.ProyectoId);
+    if (!p || p.Estado !== 'activo') { avisar('El proyecto está cerrado.', 'error'); return; }
+    const antes = t.Vence || null; let vence; try { vence = aIsoDia(dia); } catch (e) { avisar(e.message, 'error'); return; }
+    if (btn) btn.disabled = true;
+    try {
+        const campos = { Vence: vence };
+        const res = await estado.cliente.actualizarRenglon(estado.siteId, L.tareas, t.id, campos, m => avisar(m, 'ojo'), t._etag);
+        aplicarVivo(estado.tareas, t.id, campos, res && res._etag, t);
+        if (estado.misPosponer === id) estado.misPosponer = null;
+        alCambiar();
+        enfocar(`.tr[data-t="${id}"]`);   // el atajo pulsado se destruyo al repintar: el foco va al renglon de esa tarjeta, en su bloque nuevo
+        if (deshacer) avisar(`«${t.Title.slice(0, 60)}» volvió a su fecha (${fechaCorta(vence)}).`, 'ok');
+        else avisar(`«${t.Title.slice(0, 60)}» → ${fechaCorta(vence)}.`, 'ok', { accion: 'Deshacer', alClic: () => posponerTarea(id, diaInput(antes), null, true), ms: 8000 });
+        await registrarActividad('editar-tarea', `${deshacer ? 'regresó' : 'pospuso'} «${t.Title.slice(0, 80)}» al ${fechaCorta(vence)}`, t.ProyectoId, t.id);
+        alCambiar();
+    } catch (e) {
+        if (btn) btn.disabled = false;
+        if (esConflicto(e)) { await conflicto(t); return; }
+        avisar('No se pudo cambiar la fecha: ' + (e && e.message ? e.message : e), 'error');
+    }
 }
 /**
  * R-01 (v0.172.0; Todoist: «click the circle to mark it complete, and move on»): un toque cierra la tarjeta desde Mis tareas con el

@@ -870,7 +870,7 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 /* R-01 (v0.172.0, Todoist): en MI lista cada renglon va en un .fila cuyo primer hijo es el circulo «marcar hecha» (36 px de toque); el
    tinte (vencida, color) y el filete pasan a la .fila para que el circulo quede DENTRO del renglon, y el .tr de adentro va sin fondo.
    R-04: «Hechas hoy» es otra .bloq al pie, con el renglon atenuado como #tab-lista tr.is-hecha y la palomita llena. */
-.densa .fila { display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: stretch; border-top: 1px solid var(--border-hairline); min-width: 0; }
+.densa .fila { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: stretch; border-top: 1px solid var(--border-hairline); min-width: 0; }
 .densa .fila:first-child { border-top: 0; }
 .densa .fila > .tr:is(*, :hover, .is-vencida, [data-tono]) { border-top: 0; background: transparent; padding-left: 0; }
 .densa .fila:hover { background: var(--surface-sunken); }
@@ -888,6 +888,17 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 .densa .tr.is-hecha .t .tit { text-decoration: line-through; text-decoration-color: var(--text-faint); }
 .bloq.is-hecha .rot b { color: var(--status-ok-fg); }
 .bloques > .mas, .bloq > .mas { justify-self: start; }
+/* R-03 (v0.173.0, Todoist): «Posponer» en las vencidas de MI lista es la 3a columna de la .fila (auto: 0 px donde no hay boton);
+   abierto, los atajos ocupan un renglon entero bajo el renglon, a partir de la columna de la fecha. */
+.densa .fila > .pos { align-self: center; margin-right: var(--sp-2); }
+.densa .fila > .atajos-pos { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: 0 var(--sp-3) var(--sp-2) 36px; }
+@media (min-width: 721px) { #misLista .densa .fila { grid-template-columns: 36px minmax(0, 1fr) 96px; } #misLista .densa .fila > .pos { justify-self: end; } }   /* en escritorio la 3a columna es FIJA en todos los renglones: con auto, el de la vencida corria proyecto y cubeta y no alineaba con los otros bloques */
+/* R-02 (v0.173.0, Microsoft To Do «Mi día»): la clave del frente es un segundo renglon tenue SOLO bajo 720 px, donde .eqc/.cu se esconden. */
+.densa .tr .cl { display: none; }
+@media (max-width: 720px) {
+  .densa .tr .k { grid-row: 1 / span 2; }
+  .densa .tr .cl { display: block; grid-column: 2; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 500 .7rem/1.25 var(--font-data); color: var(--text-faint); }
+}
 /* U-09 + U-10 (mejorar-app mis, 2-oct): en escritorio la lista de Mis tareas tiene ancho de lectura —a 1366 el proyecto y la cubeta caian a ~1,100 px del titulo— y la columna de proyecto crece porque ahora lleva el NOMBRE, no la clave. */
 @media (min-width: 721px) { #misLista { max-width: 1080px; } #misLista .densa .tr { grid-template-columns: 46px minmax(0, 1fr) 200px 120px; } }
 @media (max-width: 720px) {

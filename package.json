@@ -1,6 +1,6 @@
 {
   "name": "minsa-erp",
-  "version": "0.172.0",
+  "version": "0.173.0",
   "private": true,
   "type": "module",
   "description": "PWA de proyectos multiusuario de MINSA ENERGY: tablero por proyecto, tareas asignadas y ligas a documentos, sobre listas de SharePoint",

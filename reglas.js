@@ -949,6 +949,10 @@ export function misAbiertas(tareas, correo) {
     const yo = String(correo || '').toLowerCase();
     return (tareas || []).filter(t => String(t.Asignado || '').toLowerCase() === yo && t.Columna !== HECHO);
 }
+/** R-03 (v0.173.0): los atajos de «Posponer» de una vencida en Mis tareas (Todoist: «postpone them to tomorrow or later in the week»). */
+export const ATAJOS_POSPONER = [['mañana', 1], ['el lunes', 'lunes'], ['+7 d', 7]];
+/** El dia (YYYY-MM-DD, hora de Mexico) al que lleva un atajo: n dias desde hoy, o 'lunes' = el lunes SIGUIENTE (si hoy es lunes, el de la otra semana). */
+export function diaPospuesto(atajo, hoy = new Date()) { const d = diaDe(hoy); return atajo === 'lunes' ? sumarDias(lunesDe(d), 7) : sumarDias(d, atajo); }
 /** R-04 (v0.172.0): las mias HECHAS hoy (dia de HechoEl en hora de Mexico), la ultima arriba — el plegable al pie de Mis tareas. */
 export function misHechasHoy(tareas, correo, hoy = new Date()) {
     const yo = String(correo || '').toLowerCase(), dia = diaDe(hoy);
