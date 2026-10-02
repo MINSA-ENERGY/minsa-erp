@@ -1,4 +1,4 @@
-// Configuracion de MINSA Proyectos (proyectos multiusuario del holding).
+// Configuracion de MINSA ERP (antes MINSA Proyectos; proyectos multiusuario del holding).
 //
 // TODO ESTO ES PUBLICO POR DISENO (misma regla que calytek-planta-app): en una app de pagina
 // unica el client id y el tenant id no son secretos; lo que impide que alguien monte una

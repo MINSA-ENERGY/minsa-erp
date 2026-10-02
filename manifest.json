@@ -1,7 +1,7 @@
 {
-  "name": "MINSA Proyectos",
-  "short_name": "Proyectos",
-  "description": "Proyectos de MINSA ENERGY: tablero, tareas asignadas y documentos, para todo el equipo",
+  "name": "MINSA ERP",
+  "short_name": "MINSA ERP",
+  "description": "ERP de MINSA ENERGY: proyectos, tablero, tareas asignadas y documentos, para todo el equipo",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

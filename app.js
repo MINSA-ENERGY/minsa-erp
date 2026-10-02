@@ -1,4 +1,4 @@
-// MINSA Proyectos — proyectos multiusuario del holding. v0.1.0: piloto (Inicio · Proyectos ·
+// MINSA ERP (antes MINSA Proyectos, renombrada en v0.161.0) — proyectos multiusuario del holding. v0.1.0: piloto (Inicio · Proyectos ·
 // Proyecto [Tablero / Lista / Documentos] · Mis tareas). v0.3.0: tanda 2 de la auditoria (reabrir,
 // carpeta destino, filtros y orden, subir/bajar, mover de proyecto, KPI y rail vivos, «→ siguiente»
 // con Deshacer, tablero por pestanas en celular, If-Match, sin red, enlaces).
@@ -32,7 +32,7 @@ const pca = new msal.PublicClientApplication({
     cache: { cacheLocation: 'sessionStorage' }
 });
 
-$('pie').textContent = `MINSA Proyectos v${VERSION}`;
+$('pie').textContent = `MINSA ERP v${VERSION}`;
 
 // ---------------------------------------------------------------- sesion
 
@@ -47,7 +47,7 @@ let msalListo = null;
 function prepararMsal() {
     return msalListo ??= (async () => { await pca.initialize(); return pca.handleRedirectPromise(); })().catch(e => { msalListo = null; throw e; });   // si falla, el siguiente clic lo reintenta
 }
-const PISTA_MARCA = 'MINSA · Proyectos';
+const PISTA_MARCA = 'MINSA · ERP';
 const PISTA_SIN_RED = 'Sin conexión: hace falta red para entrar.', PISTA_FALLO = 'No se pudo entrar. Vuelve a intentarlo.';
 function pistaEntrada(texto) { const p = $('textoEntrar'); p.textContent = texto; p.classList.toggle('estado', texto !== PISTA_MARCA); }   // U-05: un ESTADO se pinta legible; la marca, chica
 // U-04 / C-03 (v0.87.0): los dos catch (entrar, arrancar) dejaban la entrada en estados distintos — el de arrancar

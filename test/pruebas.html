@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Pruebas de extremo a extremo — MINSA Proyectos</title>
+<title>Pruebas de extremo a extremo — MINSA ERP</title>
 <!-- Corre la app REAL (index.html + app.js) contra un Graph FALSO en memoria y un MSAL falso, y
      recorre los escenarios del plan (cerebro/docs/plan-proyectos-app-2026-09-11.md § F) por rol.
      Arnes copiado de calytek-planta-app/app/test/pruebas.html (2026-09-11) + search y root:/ruta.
@@ -363,7 +363,7 @@ try {
       Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true }); window.dispatchEvent(new Event('online')); await dormir(30);
       const pistaCon = $('textoEntrar').textContent;
       ESTADO.sesion = true; $('btnEntrar').disabled = true;
-      R.ok('U-01: sin red en la entrada → sin banda, pista «Sin conexión: hace falta red para entrar.» y botón vivo; con red vuelve la marca', sinBanda && pistaSin === 'Sin conexión: hace falta red para entrar.' && vivo && pistaCon === 'MINSA · Proyectos', `banda oculta=${sinBanda} pista=«${pistaSin}» vivo=${vivo} despues=«${pistaCon}»`); }
+      R.ok('U-01: sin red en la entrada → sin banda, pista «Sin conexión: hace falta red para entrar.» y botón vivo; con red vuelve la marca', sinBanda && pistaSin === 'Sin conexión: hace falta red para entrar.' && vivo && pistaCon === 'MINSA · ERP', `banda oculta=${sinBanda} pista=«${pistaSin}» vivo=${vivo} despues=«${pistaCon}»`); }
     if (ROL === 'lectura') {
         await esperar(() => $('dlgTarea').open, 'deep link al arrancar');
         R.ok('deep link al arrancar: abre el proyecto y la tarjeta', visible('p-proyecto') && $('pTitulo').textContent === 'LAU DEMO' && $('tTitulo').textContent.startsWith('Tarea sembrada'));
@@ -2897,7 +2897,7 @@ try {
               document.getElementById("avisos").replaceChildren(); $('btnEntrar').disabled = false; clic('btnEntrar'); await dormir(80);
               R.ok('C-11: un error de sesión caducada no pinta «No se pudo entrar» ni reenciende el botón (la página ya se va al login)', !avisoCon('No se pudo entrar') && $('btnEntrar').disabled === true && $('textoEntrar').textContent === 'Entrando…', `pista=«${$('textoEntrar').textContent}» boton=${$('btnEntrar').disabled}`);
               window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })); await dormir(30);
-              R.ok('U-08: volver de la bfcache sin sesión reenciende el botón y regresa la pista a la marca', $('btnEntrar').disabled === false && $('textoEntrar').textContent === 'MINSA · Proyectos', `boton=${$('btnEntrar').disabled} pista=«${$('textoEntrar').textContent}»`);
+              R.ok('U-08: volver de la bfcache sin sesión reenciende el botón y regresa la pista a la marca', $('btnEntrar').disabled === false && $('textoEntrar').textContent === 'MINSA · ERP', `boton=${$('btnEntrar').disabled} pista=«${$('textoEntrar').textContent}»`);
           } finally {
               pcaFalso.PublicClientApplication.prototype.getAllAccounts = cuentasOrig; pcaFalso.PublicClientApplication.prototype.loginRedirect = loginOrig;
               ESTADO.sesion = true; ESTADO.siteId = siteOrig; $('btnEntrar').disabled = true; document.getElementById("avisos").replaceChildren();

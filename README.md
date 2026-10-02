@@ -1,4 +1,4 @@
-# MINSA Proyectos
+# MINSA ERP (antes MINSA Proyectos)
 
 PWA de proyectos multiusuario de MINSA ENERGY: cada **proyecto** es un frente con fin (una licencia,
 un arranque de planta, un servicio), con su **tablero** de cubetas (cuatro por default, editables por proyecto desde v0.11.0), tareas asignadas a gente
@@ -7,6 +7,12 @@ mueven sus tarjetas desde el celular; el estado vive en listas de SharePoint del
 Administración, no en la app.
 
 **2026-09-17 — Origen propio (S-09 de `_seguridad`, decisión de Carlos 17-sep): `https://proyectos.minsaenergy.com/`.** Sin cambio de código ni de versión: `manifest.json` (`start_url`/`scope` = `./`) y `redirectUri` (`new URL('./', location)`) ya eran relativos. Lo que cambió está fuera del repo: 2 CNAME en HostGator (`proyectos` y `planta` → `minsa-energy.github.io`, Carlos), `cname` + `https_enforced` en Pages de los dos repos (`gh api -X PUT repos/MINSA-ENERGY/<repo>/pages`), y las dos redirect URI nuevas en Entra sin quitar las viejas (Carlos). Medido: certificado `approved` en ~10 min, `curl --resolve … https://proyectos.minsaenergy.com/comun.js` → 200 con `VERSION = '0.82.1'`, la URL vieja → 301 a la nueva. Pendiente de Carlos: reinstalar la PWA y, confirmado el login, quitar la redirect URI `github.io`. Por qué: ver «Lo que la app NO protege».
+
+**v0.161.0** (2026-10-02) — **MINSA Proyectos pasa a llamarse MINSA ERP y se muda a `https://erp.minsaenergy.com/`** (decisión de Carlos 2-oct: «no me gustó cómo quedó el MINSA ERP; mejor empezamos con lo que tiene MINSA PROYECTOS», porque planea expandirlo). La ERP anterior (v0.9.0) se archivó como repo `MINSA-ENERGY/minsa-erp-v1`; lo suyo que esta app no tenía (Gastos y el cruce de CFDI) quedó en `docs/rescate-erp-v1/` para integrarse después. Repo renombrado `minsa-proyectos` → `minsa-erp` (GitHub redirige el viejo). `proyectos.minsaenergy.com` se APAGA, no redirige (decisión de Carlos).
+- Cambia lo visible: `<title>`, `manifest.json` (name, short_name, description), la marca del rail («ERP»), la pista de la entrada («MINSA · ERP») y el pie. `CNAME` = `erp.minsaenergy.com`; caché del SW `minsa-erp-v181`.
+- **NO cambia, a propósito:** las listas `PROY_*` (renombrarlas obliga a re-provisionar y perder versiones), la firma `app: 'minsa-proyectos'` de los `_lote.json` (es contrato con `inventario-buzon.py` y `recibo-lote.py`, y hay lotes viejos en los buzones), el app registration de Entra (ya tenía la redirect URI de erp) y la carpeta de exportes `minsa-energy/administracion/proyectos-app/`. `redirectUri` sale de `location`, así que no hubo que tocar código de sesión.
+- Efecto en el equipo: es otro origen — cada quien vuelve a entrar una vez y reinstala el PWA; lo guardado en el navegador (tema, rail plegado, «visto») arranca de cero.
+- Verificación: `npm test` en verde; E2E 858/715/45, 0 fallas.
 
 **v0.160.0** (2026-09-30) — **Tanda 2 de `/mejorar-app proyectos entrar` (automático): S-30 de `_seguridad`**, que queda `hecho` en `docs/mejoras/_seguridad.json`. Sin cambio de lo que se ve ni del tenant.
 - **S-30:** la guarda de datos del repo público (`test/datos.test.js`) escanea ya todo archivo rastreado salvo binarios (png, jpg, gif, webp, ico, woff/woff2, ttf, otf, pdf, zip) y `vendor/`; antes, una lista cerrada de extensiones de texto dejaba fuera `test/e2e.ps1` y cualquier `.ps1`/`.py`/`.mjs` nuevo. Pasa de 28 a 32 archivos (entran `test/e2e.ps1`, `CNAME`, `.gitattributes`, `.gitignore`), limpios. La lista de binarios también es cerrada: un binario nuevo de otra extensión fuera de `vendor/` se leería como texto — falla hacia el lado ruidoso (un falso positivo), nunca hacia dejar pasar un dato; se agrega su extensión al regex.
