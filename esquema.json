@@ -1,5 +1,5 @@
 {
-  "_que_es": "Esquema de las listas de SharePoint de la app de proyectos multiusuario MINSA Proyectos. Es la UNICA fuente: la lee herramientas-dev/provisionar.html para crearlas y app/graph.js para leerlas/escribirlas. Los nombres de columna son los INTERNOS (sin espacios ni acentos); el titulo visible va en 'titulo'. Las relaciones van por ID de renglon (numero), no por columna de busqueda: mas simple de leer por Graph y no obliga a crear las listas en orden. Viven en /sites/Administracion (decision del plan 2026-09-11: la app es dueña del estado; la KB liga).",
+  "_que_es": "v0.162.0 (Gastos traido de la ERP v1, que lo agrego en su v0.6.0): al final van ERP_Gastos y ERP_Roles, fundidas de docs/gastos-esquema.json sin tocar ninguna PROY_* (decision 6), y la llave `bibliotecas` (la biblioteca «Gastos», que provisionar no recorre). Esquema de las listas de SharePoint de la app de proyectos multiusuario MINSA Proyectos. Es la UNICA fuente: la lee herramientas-dev/provisionar.html para crearlas y app/graph.js para leerlas/escribirlas. Los nombres de columna son los INTERNOS (sin espacios ni acentos); el titulo visible va en 'titulo'. Las relaciones van por ID de renglon (numero), no por columna de busqueda: mas simple de leer por Graph y no obliga a crear las listas en orden. Viven en /sites/Administracion (decision del plan 2026-09-11: la app es dueña del estado; la KB liga).",
   "version": 2,
   "listas": [
     {
@@ -108,6 +108,52 @@
         { "nombre": "Estado", "titulo": "Estado", "tipo": "choice", "opciones": ["estimado", "comprometido", "pagado"], "obligatorio": true },
         { "nombre": "Notas", "titulo": "Notas", "tipo": "note" }
       ]
+    },
+    {
+      "nombre": "ERP_Gastos",
+      "titulo": "Gastos del equipo (registro y reembolso)",
+      "clave": "gastos",
+      "regla": "decision 7: un gasto = monto, concepto y proyecto (opcional) mas foto OPCIONAL del ticket; sin comprobante, Notas es obligatoria (la app lo exige). Estados: registrado -> reembolsado, y SOLO tesoreria (ERP_Roles) marca reembolsado o rechazado; sin cadena de aprobacion. Nada se borra: rechazado conserva el renglon y el comprobante. Tesoreria puede capturar por el empleado (CapturadoPor != Solicitante).",
+      "columnas": [
+        { "nombre": "Title", "titulo": "Concepto", "tipo": "text", "obligatorio": true },
+        { "nombre": "Fecha", "titulo": "Fecha del gasto", "tipo": "dateTime", "obligatorio": true, "indexada": true, "nota": "la del ticket, no la de captura. Define la carpeta AAAA-MM del comprobante en la biblioteca Gastos y la ventana de 30 dias del cruce con CFDI (decision 8)" },
+        { "nombre": "Monto", "titulo": "Monto (total con IVA)", "tipo": "number", "obligatorio": true, "nota": "el TOTAL del ticket o factura: es lo que se cruza contra el Total del CFDI (decision 8, total exacto)" },
+        { "nombre": "Moneda", "titulo": "Moneda", "tipo": "choice", "opciones": ["MXN", "USD"], "obligatorio": true },
+        { "nombre": "Categoria", "titulo": "Categoria", "tipo": "choice", "opciones": ["combustible", "casetas", "alimentos", "hospedaje", "transporte", "papelería", "herramienta y material", "mensajería", "otro"], "libre": true },
+        { "nombre": "Equipo", "titulo": "Equipo (unidad)", "tipo": "choice", "opciones": ["CALYTEK", "PITEPEC", "RABASA", "Ventas Quimicos", "Ventas Ambiental", "Administracion"], "obligatorio": true, "indexada": true, "nota": "las mismas claves que PROY_Proyectos.Equipo y config.js `equipos`; la rama se deriva de ahi (equipos[].rama), no se guarda" },
+        { "nombre": "ProyectoId", "titulo": "ID del proyecto", "tipo": "number", "indexada": true, "nota": "opcional: ID de renglon de PROY_Proyectos; vacio = gasto del equipo sin frente" },
+        { "nombre": "Solicitante", "titulo": "Solicitante (correo)", "tipo": "text", "obligatorio": true, "indexada": true, "nota": "a quien se le reembolsa; «mis gastos» filtra por aqui" },
+        { "nombre": "CapturadoPor", "titulo": "Capturado por (correo)", "tipo": "text", "nota": "quien lo dio de alta; distinto del Solicitante cuando tesoreria captura por el empleado (decision 5)" },
+        { "nombre": "Estado", "titulo": "Estado", "tipo": "choice", "opciones": ["registrado", "reembolsado", "rechazado"], "obligatorio": true, "indexada": true, "nota": "sin «aprobado»: la decision 7 descarta la cadena de aprobacion. «rechazado» es la salida de tesoreria para lo que no se reembolsa (duplicado, no es gasto de la empresa) sin borrar nada" },
+        { "nombre": "ReembolsadoPor", "titulo": "Reembolsado por (correo)", "tipo": "text" },
+        { "nombre": "ReembolsadoEl", "titulo": "Reembolsado el", "tipo": "dateTime", "nota": "una vez escrito, la app NO lo limpia: un renglon con ReembolsadoEl lleno y Estado distinto de reembolsado se senala a tesoreria (guarda contra el doble pago; SharePoint no tiene permisos por columna)" },
+        { "nombre": "RechazadoPor", "titulo": "Rechazado por (correo)", "tipo": "text" },
+        { "nombre": "RechazadoEl", "titulo": "Rechazado el", "tipo": "dateTime" },
+        { "nombre": "MotivoRechazo", "titulo": "Motivo del rechazo", "tipo": "text" },
+        { "nombre": "ComprobanteItemId", "titulo": "ID del comprobante en la biblioteca Gastos", "tipo": "text", "nota": "DriveItemId en la biblioteca Gastos (NO la biblioteca Documentos del sitio). Vacio = sin comprobante: entonces Notas va llena" },
+        { "nombre": "ComprobanteRuta", "titulo": "Ruta del comprobante", "tipo": "text", "nota": "relativa a la raiz de la biblioteca Gastos: AAAA-MM/AAAA-MM-DD_GASTO-<ID>_<Tipo>_<descripcion>.<ext>. Varios archivos: el principal aqui y los demas en la misma carpeta con el mismo prefijo GASTO-<ID>" },
+        { "nombre": "CfdiEstado", "titulo": "CFDI", "tipo": "choice", "opciones": ["sin-cfdi", "propuesto", "confirmado"], "indexada": true, "nota": "decision 8: «sin-cfdi» es estado normal, no alerta. La tarea semanal propone; contabilidad (ERP_Roles) confirma con un clic; solo se marca sola con un unico candidato exacto" },
+        { "nombre": "CfdiUuid", "titulo": "UUID del CFDI", "tipo": "text", "indexada": true, "nota": "el del CFDI confirmado (04_CFDI/indice.csv de Finanzas). Indexada para impedir ligar el mismo CFDI a dos gastos" },
+        { "nombre": "CfdiCandidatos", "titulo": "Candidatos CFDI (JSON)", "tipo": "note", "nota": "lo escribe la tarea semanal: [{\"uuid\":\"…\",\"total\":0,\"fecha\":\"…\",\"emisor\":\"…\"}]. Se vacia al confirmar" },
+        { "nombre": "CfdiConfirmadoPor", "titulo": "CFDI confirmado por (correo)", "tipo": "text", "nota": "«tarea-semanal» cuando se marco sola (unico candidato exacto)" },
+        { "nombre": "CfdiConfirmadoEl", "titulo": "CFDI confirmado el", "tipo": "dateTime" },
+        { "nombre": "Notas", "titulo": "Notas", "tipo": "note", "nota": "obligatoria en la app cuando no hay comprobante (decision 7)" }
+      ]
+    },
+    {
+      "nombre": "ERP_Roles",
+      "titulo": "Roles de Gastos (tesoreria y contabilidad)",
+      "clave": "rolesErp",
+      "regla": "Solo los roles NUEVOS de Gastos: tesoreria (marca reembolsado/rechazado) y contabilidad (confirma el CFDI). El acceso a la app y los roles de proyecto siguen en PROY_Roles, cuyo esquema no se toca (decision 6). Un renglon por persona y rol. Sin herencia de permisos y Miembros en solo lectura, como PROY_Roles.",
+      "columnas": [
+        { "nombre": "Title", "titulo": "Correo", "tipo": "text", "obligatorio": true },
+        { "nombre": "Nombre", "titulo": "Nombre", "tipo": "text" },
+        { "nombre": "Rol", "titulo": "Rol", "tipo": "choice", "opciones": ["tesoreria", "contabilidad"], "obligatorio": true },
+        { "nombre": "Activo", "titulo": "Activo", "tipo": "boolean" }
+      ]
     }
+  ],
+  "bibliotecas": [
+    {"nombre": "Gastos", "titulo": "Comprobantes de gastos", "clave": "gastos", "regla": "decision 10: biblioteca nueva del sitio Administracion, una carpeta por mes del gasto (AAAA-MM) que la app crea al subir el primer comprobante del mes. La escribe el ERP con la cuenta de quien registra; ninguna skill la archiva y no tiene buzon. Nace con su _LEEME_estructura-y-nombres.md en la raiz (el censo de bibliotecas.py no ve una biblioteca sin el).", "carpetaPorMes": "AAAA-MM", "leeme": "_LEEME_estructura-y-nombres.md"}
   ]
 }

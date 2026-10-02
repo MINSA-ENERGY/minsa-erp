@@ -12,7 +12,7 @@ autor, sin confiar en el nombre (amarillo 7 del auditor-repo, 2026-09-11).
 Cómo re-verificar (desde la raíz de `proyectos/`):
 
 ```
-sha256sum minsa-proyectos-app/app/vendor/msal-browser.min.js
+sha256sum minsa-erp-app/app/vendor/msal-browser.min.js
 curl -sL https://cdn.jsdelivr.net/npm/@azure/msal-browser@5.23.0/lib/msal-browser.min.js | sha256sum
 ```
 
@@ -26,5 +26,5 @@ coteja el atributo contra los bytes del archivo en cada `npm test`. Al subir de 
 atributos se regeneran con:
 
 ```
-openssl dgst -sha256 -binary minsa-proyectos-app/app/vendor/msal-browser.min.js | openssl base64 -A
+openssl dgst -sha256 -binary minsa-erp-app/app/vendor/msal-browser.min.js | openssl base64 -A
 ```

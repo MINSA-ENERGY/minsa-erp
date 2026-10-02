@@ -43,6 +43,8 @@
       <button type="button" data-p="roadmap" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h8M3 12h12M3 18h6"/><path d="M14 4l6 2-6 2z"/><circle cx="18" cy="12" r="1.5"/><path d="M12 18h9"/></svg><span>Roadmap</span></button>
       <button type="button" data-p="calendario" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v15H4z"/><path d="M4 10h16M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17h2"/></svg><span>Calendario</span></button>
       <button type="button" data-p="archivos" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Archivos</span></button>
+      <!-- v0.162.0: Gastos (traido de la ERP v1). Lo usa todo el equipo desde el celular: va en la barra de abajo, no en el menu «···» -->
+      <button type="button" data-p="gastos" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span>Gastos</span></button>
       <button type="button" data-p="reportes" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Reportes</span></button>
       <!-- v0.100.0: capital de trabajo — solo gerencia (app.js quita .oculto); en celular vive en el menu «···» -->
       <button type="button" data-p="capital" role="tab" class="rail-extra oculto" id="railCapital"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3z"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5v5M17.5 9.5v5"/></svg><span>Capital</span></button>
@@ -287,6 +289,12 @@
         <div id="capitalTabla"></div>
         <section class="choja-sec"><h2 class="choja-tit">Por mes · según la fecha estimada</h2><div id="capitalMeses"></div></section>
       </div>
+    </section>
+
+    <!-- v0.162.0: Gastos (gastos.js, traido de la ERP v1). Cabecera fija; gastos.js pinta #gastosCuerpo (Mis gastos · Tesoreria · Contabilidad). -->
+    <section id="p-gastos" class="pantalla oculto">
+      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span><h1>Gastos</h1><button id="btnNuevoGasto" class="mn-btn is-primary is-sm" type="button">Registrar gasto</button><p class="sub" id="gastosSub"></p></header>
+      <div class="gastos-cuerpo" id="gastosCuerpo"></div>
     </section>
 
     <!-- Mis tareas -->
@@ -540,6 +548,40 @@
 </dialog>
 
 <!-- Confirmacion propia (sustituye a confirm()) -->
+<!-- v0.162.0: Gastos (gastos.js). El comprobante va a la biblioteca «Gastos» del sitio Administracion, carpeta AAAA-MM. «Tomar foto»
+     abre la camara del celular (capture); «Elegir archivo» deja escoger una foto o un PDF (capture solo impediria el PDF). -->
+<dialog id="dlgGasto" class="mn-dialog" aria-labelledby="gaCab">
+  <form id="formGasto" class="forma" novalidate>
+    <div class="mn-dialog-head"><h2 id="gaCab">Registrar gasto</h2><button id="gaCerrar" class="mn-btn is-ghost is-sm is-icono" type="button" aria-label="Cerrar">×</button></div>
+    <div class="mn-dialog-body">
+      <div class="dlg-avisos" role="status" aria-live="polite"></div>
+      <div id="gaParaCampo" class="mn-field oculto"><label for="gaPara">Para quién (a quién se le reembolsa)</label><select id="gaPara"></select></div>
+      <div class="mn-row ga-monto">
+        <div class="mn-field"><label for="gaMonto">Monto (total con IVA)</label><input id="gaMonto" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00"></div>
+        <div class="mn-field"><label for="gaMoneda">Moneda</label><select id="gaMoneda"><option value="MXN">MXN</option><option value="USD">USD</option></select></div>
+      </div>
+      <div class="mn-field"><label for="gaConcepto">Concepto</label><input id="gaConcepto" maxlength="255" autocomplete="off" placeholder="Ej. casetas a planta"></div>
+      <div class="mn-row">
+        <div class="mn-field"><label for="gaFecha">Fecha del ticket</label><input id="gaFecha"></div>
+        <div class="mn-field"><label for="gaCategoria">Categoría</label><select id="gaCategoria"></select></div>
+      </div>
+      <div class="mn-row">
+        <div class="mn-field"><label for="gaProyecto">Proyecto (opcional)</label><select id="gaProyecto"></select></div>
+        <div class="mn-field"><label for="gaEquipo">Equipo</label><select id="gaEquipo"></select></div>
+      </div>
+      <div class="mn-field"><label for="gaElegir">Comprobante · opcional (foto del ticket o PDF)</label>
+        <div id="gaSinArchivo" class="ga-botones"><button id="gaTomar" class="mn-btn" type="button">Tomar foto</button><button id="gaElegir" class="mn-btn" type="button">Elegir archivo</button></div>
+        <div id="gaConArchivo" class="ga-archivo oculto"><span id="gaArchivoNombre"></span><button id="gaQuitar" class="mn-btn is-sm" type="button">Quitar</button></div>
+        <input id="gaFoto" class="oculto" type="file" accept="image/*" capture="environment" tabindex="-1" aria-hidden="true">
+        <input id="gaArchivo" class="oculto" type="file" accept="image/*,application/pdf" tabindex="-1" aria-hidden="true">
+      </div>
+      <div class="mn-field"><label for="gaNotas" id="gaNotasEtq">Notas</label><textarea id="gaNotas" rows="2" maxlength="2000" placeholder="Fonda, efectivo, no dan comprobante…"></textarea></div>
+      <p id="gaProgreso" class="progreso" role="status" aria-live="polite"></p>
+    </div>
+    <div class="mn-dialog-foot"><button id="gaCancelar" class="mn-btn" type="button">Cancelar</button><button id="gaGuardar" class="mn-btn" type="submit" disabled>Falta el monto</button></div>
+  </form>
+</dialog>
+
 <dialog id="dlg" class="mn-dialog">
   <div class="mn-dialog-head"><h2 id="dlgTitulo"></h2></div>
   <div class="mn-dialog-body"><p id="dlgTexto"></p><div class="mn-field oculto" id="dlgMotivoCampo"><label for="dlgMotivo" id="dlgMotivoEtiqueta">Motivo</label><input id="dlgMotivo"><p class="deny oculto" id="dlgError">El motivo es obligatorio.</p></div></div>

@@ -1502,7 +1502,7 @@ body.sin-scroll { overflow: hidden; }
 @media print { .cal-nav, #btnImprimirReportes, .archivos-filtros { display: none !important; } .gantt-caja { overflow: visible; max-height: none !important; } .rep-rejilla { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }   /* U-03 (18-sep): sin `exact` el navegador quita los fondos y las barras (segbar, hbar, columnas) se van con sus cifras blancas */   /* max-height: none !important (v0.79.0, va ANTES del @media de 720 y perderia sin el): que el tope de U-06 (celular) no recorte la impresion desde un viewport angosto */
 /* ---- celular */
 @media (max-width: 720px) {
-  .rail .rail-extra { display: none; }   /* Roadmap · Archivos · Reportes viven en el menu «···» de la barra movil */
+  .rail .rail-extra { display: none; }   /* Roadmap · Archivos · Reportes (y Capital) viven en el menu «···» de la barra movil; Gastos NO es rail-extra (v0.162.0): va en la barra, seis botones */
   /* La insignia de la barra movil es absolute con right:25% (piel): sin position:relative en el boton se anclaba al rail entero y el «1» de Mis tareas caia sobre Mensajes (medido a 390 con 5 pestanas). */
   .rail nav button { position: relative; padding: 0 2px; }
   /* U-02 (mejorar-app, 16-sep): a 390 con 5 pestanas «MIS TAREAS» partia en dos renglones y la insignia (right: 25% de la piel) caia
@@ -2317,3 +2317,71 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 /* U-13: el mes corto en celular, el largo en escritorio */
 .cmeses td.c-mes .mes-c { display: none; }
 @media (max-width: 720px) { .cmeses td.c-mes .mes-l { display: none; } .cmeses td.c-mes .mes-c { display: inline; white-space: nowrap; } }
+
+/* ==== v0.162.0 — Gastos (gastos.js, traido de la ERP v1): Mis gastos, la cola de tesoreria, los CFDI por confirmar y el dialogo de alta.
+   Misma estructura que la v1, con los tokens de esta app (border-hairline, surface-sunken) en vez de los de la v1. */
+.gastos-cuerpo { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-3); min-width: 0; }
+.gastos-nota { margin: 0; font-size: .85rem; }
+.gastos-card { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.gastos-cab { display: flex; align-items: center; gap: var(--sp-2); }
+.gastos-cab h2 { margin: 0; }
+.gastos-resumen { margin: 0; font-size: .9rem; }
+.gastos-lista { display: flex; flex-direction: column; }
+.gasto { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; padding: var(--sp-3) 0; border-bottom: 1px solid var(--border-hairline); }
+.gasto:last-child { border-bottom: 0; }
+.gasto-fecha { display: grid; justify-items: center; line-height: 1.05; }
+.gasto-fecha b { font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.gasto-fecha span { font-family: var(--font-data); font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.gasto-fecha.sin b { color: var(--text-faint); }
+.gasto-cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gasto .titulo { color: var(--text-strong); font-weight: 600; overflow-wrap: anywhere; }
+.gasto-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: .8rem; color: var(--text-muted); min-width: 0; }
+.gasto-meta > * { min-width: 0; overflow-wrap: anywhere; }
+.gasto-meta .quien { color: var(--text-body); font-weight: 600; }
+.gasto-nota { font-size: .8rem; color: var(--text-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.gasto-alerta { font-size: .8rem; color: var(--status-danger-fg); overflow-wrap: anywhere; }
+.gasto .monto { font-family: var(--font-data); font-size: .95rem; font-weight: 500; color: var(--text-strong); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gasto-estado { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; max-width: 460px; }   /* 460: chips + «Marcar reembolsado» + «Rechazar» en un renglon a 1366 */
+.gastos-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
+.gastos-kpi { display: grid; gap: 2px; padding: 10px 14px; border: 1px solid var(--border-hairline); border-radius: var(--r-sm); background: var(--surface-card); min-width: 0; }
+.gastos-kpi small { font-size: .72rem; color: var(--text-muted); font-weight: 600; }
+.gastos-kpi b { font-family: var(--font-display); font-size: 1.3rem; line-height: 1.15; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-strong); overflow-wrap: anywhere; }
+.gastos-kpi .f { font-size: .75rem; color: var(--text-muted); }
+.tabla-totales { display: flex; flex-direction: column; }
+.fila-tot { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, .6fr) repeat(3, minmax(0, 1.2fr)) minmax(0, .5fr); gap: var(--sp-3); align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-hairline); font-size: .9rem; }
+.fila-tot:last-child { border-bottom: 0; }
+.fila-tot.cab { padding-top: 0; }
+.fila-tot .num { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.fila-tot .lbl-movil { display: none; }
+.gastos-resueltos summary { cursor: pointer; font-weight: 600; color: var(--text-strong); }
+.ga-monto { grid-template-columns: minmax(0, 1fr) 7.5rem; }   /* la moneda cabe angosta tambien en celular */
+.ga-botones { display: flex; gap: var(--sp-2); }
+.ga-botones .mn-btn { flex: 1; }
+.ga-archivo { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1.5px dashed var(--border-default); border-radius: var(--r-sm); color: var(--text-strong); overflow-wrap: anywhere; }
+.ga-archivo span { min-width: 0; }
+.cfdi-gasto { padding-bottom: var(--sp-3); border-bottom: 1px solid var(--border-hairline); }
+.cfdi-gasto:last-child { border-bottom: 0; }
+.cfdi-gasto > .gasto { border-bottom: 0; padding-bottom: 6px; }
+.cfdi-candidatos { display: flex; flex-direction: column; gap: 6px; margin-left: 56px; }
+.cfdi-cand { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; padding: 8px 12px; background: var(--surface-sunken); border: 1px solid var(--border-hairline); border-radius: var(--r-sm); }
+.cfdi-cand-datos { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cfdi-emisor { color: var(--text-strong); font-weight: 600; overflow-wrap: anywhere; }
+.cfdi-uuid { font-family: var(--font-data); }
+.cfdi-cand .monto { font-family: var(--font-data); font-size: .95rem; font-weight: 500; color: var(--text-strong); white-space: nowrap; }
+.cfdi-pie { display: flex; justify-content: flex-end; margin: 8px 0 0 56px; }
+@media (max-width: 720px) {
+  .cfdi-candidatos, .cfdi-pie { margin-left: 0; }
+  .cfdi-cand { grid-template-columns: minmax(0, 1fr) auto; }
+  .cfdi-cand .mn-btn { grid-column: 1 / -1; }
+  .cfdi-pie { justify-content: flex-start; }
+  .gasto { grid-template-columns: 40px minmax(0, 1fr); }
+  .gasto .monto { grid-column: 2; text-align: left; }
+  .gasto-estado { grid-column: 2; justify-content: flex-start; max-width: none; }
+  .gastos-kpis { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
+  .gastos-kpi b { font-size: 1.1rem; }
+  .fila-tot.cab { display: none; }
+  .fila-tot { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); row-gap: 4px; }
+  .fila-tot .lbl-movil { display: inline; color: var(--text-muted); font-size: .8rem; }
+  .fila-tot [data-col="0"], .fila-tot [data-col="1"] { font-weight: 600; color: var(--text-strong); }
+  .fila-tot [data-col="0"] .lbl-movil, .fila-tot [data-col="1"] .lbl-movil { display: none; }
+}

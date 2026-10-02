@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
 
-export const VERSION = '0.161.0';
+export const VERSION = '0.162.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -64,7 +64,8 @@ export const estado = {
     // sitio (se deja de preguntar en esta sesion; tras provisionar, recargar la pagina). capitalError: la ultima lectura fallo por otra cosa.
     capital: [], capitalLista: null, capitalError: null,
     filtroCapital: null,                       // id del proyecto elegido en la seccion Capital (null = todos)
-    ordenCapital: { col: 'fecha', dir: 1 }
+    ordenCapital: { col: 'fecha', dir: 1 },
+    gastosSub: 'mios'                          // v0.162.0: 'mios' | 'tesoreria' | 'contabilidad' (#gastos/<sub>; la sesion)
 };
 
 // ---------------------------------------------------------------- DOM
@@ -294,6 +295,7 @@ export function hashDe(tareaId) {
     if (estado.pestana === 'mensajes' && estado.mensajesSel) h += estado.mensajesSel.t === 'f' ? `/f/${estado.mensajesSel.k}` : `/d/${aliasParaMencion(estado.mensajesSel.k, estado.roles) || String(estado.mensajesSel.k).split('@')[0]}`;
     // v0.100.0: Capital lleva el proyecto filtrado (#capital/f/<clave>), para que la tarjeta del Resumen y una liga pegada abran ese corte
     if (estado.pestana === 'capital' && estado.filtroCapital) { const p = porId(estado.proyectos, estado.filtroCapital); if (p && p.Clave) h += '/f/' + p.Clave; }
+    if (estado.pestana === 'gastos' && estado.gastosSub && estado.gastosSub !== 'mios') h += '/' + estado.gastosSub;   // v0.162.0
     if (tareaId) h += '/t/' + tareaId;
     return h;
 }

@@ -17,6 +17,7 @@ import { crearCliente, esConflicto } from './graph.js';
 import { rolDe, PUEDE, nombreCorto, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, misAbiertas as misAbiertasDe, HECHO, plural } from './reglas.js';
 import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, textoVence, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas, conservarFoco, olvidarVistosLocales } from './comun.js';
 import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambiarTareas, abrirTarjeta, tarjetaAbiertaId, repintarFicha, pintarFiltroTareas, pintarBotonFiltros, abrirNuevaTarea } from './tablero.js';
+import { pintarGastos, engancharGastos, alCambiarGastos, recargarGastosSiLeidos } from './gastos.js';   // v0.162.0: Gastos (de la ERP v1)
 import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
 import { pintarChat, engancharChat, alCambiarChat, fijarAbrirTarjeta, salirDelChat } from './chat.js';
 import { pintarCapital, pintarCapitalProyecto, pintarCapitalTab, puedeVerCapital, engancharCapital, alCambiarCapital, fijarIrAProyecto } from './capital.js';
@@ -236,6 +237,7 @@ async function cargarTodo() {
         estado.buzonExiste = {}; estado.buzonAvisado = false;   // C-03: el aviso «no se pudo consultar el buzon» va una vez por carga
         estado.cargadoEl = Date.now();
         await cargarCapital(roles);
+        await recargarGastosSiLeidos();   // v0.162.0: solo si #gastos ya se leyo una vez (nunca tira la carga: los errores quedan en la pantalla de Gastos)
     } finally { recargando = false; pintarSync(); }
 }
 /**
@@ -277,7 +279,7 @@ async function recargar() {
 // Refresco automatico mientras la app esta a la vista; nunca borra un dialogo de EDICION abierto.
 // E4 (v0.6.0): Equipo y Toda la actividad son de lectura y alguien los deja abiertos minutos; con
 // ellos abiertos se sigue releyendo, y al cerrarlos se relee si ya pasaron 60 s (la regla de visibilitychange).
-const DLG_EDICION = ['dlgTarea', 'dlgNuevaTarea', 'dlgProyecto', 'dlgSalud', 'dlgCubetas', 'dlgLigar', 'dlgSubir', 'dlgEnlace', 'dlgPartida', 'dlg'];
+const DLG_EDICION = ['dlgTarea', 'dlgNuevaTarea', 'dlgProyecto', 'dlgSalud', 'dlgCubetas', 'dlgLigar', 'dlgSubir', 'dlgEnlace', 'dlgPartida', 'dlgGasto', 'dlg'];
 const editando = () => DLG_EDICION.some(id => $(id).open);
 const hayBorrador = () => editando() || ['chatTexto', 'tNota'].some(id => $(id).value.trim() !== '');   // C-08 (v0.159.0): #chatTexto no vive en ningun dialogo
 const rancio = () => estado.sesion && Date.now() - estado.cargadoEl > 60000;
@@ -341,13 +343,13 @@ function irA(p) {
 // v0.42.0: Mensajes lleva lo elegido en el hash (#mensajes/f/<clave> el hilo del frente), para que Atras regrese a la
 // bandeja y una liga pegada abra justo ese hilo. v0.43.0: #mensajes/d/<alias> (la ficha de la persona) ya no existe;
 // una liga vieja con /d/ cae a la bandeja de Mensajes con aviso.
-const RE_HASH = /^#(?:(inicio|proyectos|mis|roadmap|calendario|mensajes|archivos|reportes|capital)(?:\/(f|d)\/([a-z0-9._-]+))?|p\/([a-z0-9-]+)(?:\/(lista|docs|chat|tablero|resumen|roadmap|capital))?)(?:\/t\/(\d+))?$/;
+const RE_HASH = /^#(?:(inicio|proyectos|mis|roadmap|calendario|mensajes|archivos|reportes|capital|gastos)(?:\/(f|d)\/([a-z0-9._-]+)|\/(tesoreria|contabilidad))?|p\/([a-z0-9-]+)(?:\/(lista|docs|chat|tablero|resumen|roadmap|capital))?)(?:\/t\/(\d+))?$/;
 function esHashDeLaApp(h) { return RE_HASH.test(String(h || '')); }
 function aplicarHash() {
     if (!estado.sesion) return;
     const m = RE_HASH.exec(location.hash || '');
     if (!m) { irA('inicio'); return; }
-    const [, pantalla, msjTipo, msjClave, clave, tabHash, tareaId] = m;
+    const [, pantalla, msjTipo, msjClave, subGastos, clave, tabHash, tareaId] = m;   // v0.162.0: subGastos = #gastos/tesoreria | /contabilidad
     if (clave) {
         const p = proyectoPorClave(clave);   // C-07 (mensajes, 17-sep)
         if (!p) { irA('inicio'); avisar(`No hay un proyecto con la clave «${clave}».`, 'ojo'); return; }
@@ -369,6 +371,10 @@ function aplicarHash() {
         if (msjTipo === 'f') { const p = proyectoPorClave(msjClave); if (p) f = p.id; else avisar(`No hay un proyecto con la clave «${msjClave}».`, 'ojo'); }
         const cambio = f !== estado.filtroCapital; estado.filtroCapital = f;
         if (estado.pestana !== 'capital') irA('capital'); else if (cambio) repintar();
+    } else if (pantalla === 'gastos') {
+        // v0.162.0: la sub-vista va en el hash (#gastos/tesoreria); a quien no tiene el rol gastos.js le pinta «Mis gastos»
+        const sub = subGastos || 'mios'; const cambio = sub !== estado.gastosSub; estado.gastosSub = sub;
+        if (estado.pestana !== 'gastos') irA('gastos'); else if (cambio) repintar();
     } else if (estado.pestana !== pantalla) irA(pantalla);
     const id = tareaId ? Number(tareaId) : null;
     if (id) { if (tarjetaAbiertaId() !== id) { if (porId(estado.tareas, id)) abrirTarjeta(id); else avisar(`No hay una tarjeta #${id}.`, 'ojo'); } }
@@ -409,6 +415,7 @@ function repintar() {
     else if (estado.pestana === 'archivos') pintarArchivos();
     else if (estado.pestana === 'reportes') pintarReportes();
     else if (estado.pestana === 'capital') pintarCapital();   // v0.100.0
+    else if (estado.pestana === 'gastos') pintarGastos();   // v0.162.0
     if ($('dlgPersona').open) pintarCargaPersona();   // R-02 (v0.131.0): el refresco sigue con las abiertas de la persona abiertas
     if ($('dlgActividad').open) pintarActividad();   // C-12 (v0.94.0): el refresco sigue con «Toda la actividad» abierta (E4); acCtx conserva filtro y pagina
 }
@@ -1560,6 +1567,7 @@ engancharTablero();
 engancharDocs();
 engancharChat();
 engancharMensajes();   // v0.42.0
+engancharGastos(); alCambiarGastos(repintar);   // v0.162.0
 engancharCapital(); alCambiarCapital(repintar); fijarIrAProyecto(id => abrirProyecto(id));   // v0.100.0; C-04 (26-sep): recibe el id
 $('pCapitalIr').addEventListener('click', () => { const p = proyectoAbierto(); if (!p) return; estado.filtroCapital = p.id; irA('capital'); });
 engancharRoadmap(); engancharCalendario(); engancharArchivos(); engancharReportes();   // v0.10.0 · v0.26.0 roadmap a pantalla completa

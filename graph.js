@@ -264,6 +264,54 @@ export function crearCliente(graph, token) {
             return await r.json();
         },
 
+        // ------------------------------------------------------------ v0.162.0: Gastos (traido de la ERP v1 v0.6.0) (otra biblioteca, por su drive)
+
+        /** ¿Existe la lista (o biblioteca) en el sitio? false si no; otro error (403, red) revienta. Gastos degrada con esto. */
+        async existeLista(siteId, nombre) {
+            if (listasPorNombre.has(nombre)) return true;
+            if (!cargandoListas) cargandoListas = this.listas(siteId).finally(() => { cargandoListas = null; });
+            await cargandoListas;
+            return listasPorNombre.has(nombre);
+        },
+
+        /**
+         * El drive de una biblioteca del sitio por su nombre. `/sites/{id}/drive` es la biblioteca Documentos; «Gastos» es
+         * otra (docs/gastos-instrucciones-carlos.md), y todo lo suyo va por `/drives/{driveId}/…`.
+         */
+        async driveDeLista(siteId, nombre) {
+            const listaId = await this.idDeLista(siteId, nombre);
+            const r = await pedir(`${graph}/sites/${siteId}/lists/${listaId}/drive?$select=id`);
+            if (!r.ok) throw errorHttp(`no se pudo abrir la biblioteca ${nombre}: ` + await motivo(r), r.status);
+            return (await r.json()).id;
+        },
+
+        /** Carpeta en la raiz de un drive; si ya existe (409, conflictBehavior fail) no se toca y no es error. */
+        async asegurarCarpetaEnDrive(driveId, nombre, avisar) {
+            const r = await pedir(`${graph}/drives/${driveId}/root/children`, {
+                method: 'POST', headers: json, body: JSON.stringify({ name: nombre, folder: {}, '@microsoft.graph.conflictBehavior': 'fail' })
+            }, avisar);
+            if (r.ok || r.status === 409) return;
+            throw errorHttp(`no se pudo crear la carpeta ${nombre}: ` + await motivo(r), r.status);
+        },
+
+        /** Sube un archivo a una ruta del drive SIN sobrescribir: si ya existe, error con status 409 (quien llama cambia el nombre). */
+        async subirADrive(driveId, ruta, bytes, tipoMime, avisar) {
+            const r = await pedir(`${graph}/drives/${driveId}/root:/${rutaUrl(ruta)}:/content?@microsoft.graph.conflictBehavior=fail`, {
+                method: 'PUT', headers: { 'Content-Type': tipoMime }, body: bytes
+            }, avisar);
+            if (r.status === 409) throw errorHttp(`ya existe ${ruta}`, 409);
+            if (!r.ok) throw errorHttp(`no se pudo subir ${ruta}: ` + await motivo(r), r.status);
+            return await r.json();
+        },
+
+        /** Un elemento de un drive por id: { id, nombre, url }. */
+        async itemDeDriveId(driveId, itemId, avisar) {
+            const r = await pedir(`${graph}/drives/${driveId}/items/${encodeURIComponent(itemId)}?$select=id,name,webUrl`, {}, avisar);
+            if (!r.ok) throw errorHttp('no se pudo leer el comprobante: ' + await motivo(r), r.status);
+            const it = await r.json();
+            return { id: it.id, nombre: it.name, url: it.webUrl };
+        },
+
         // ------------------------------------------------------------ Docs (MINSA Proyectos)
 
         /**

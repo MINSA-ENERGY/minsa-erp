@@ -31,8 +31,14 @@ export const CONFIG = {
         ligas: 'PROY_Ligas',
         roles: 'PROY_Roles',
         actividad: 'PROY_Actividad',
-        capital: 'PROY_Capital'   // v0.100.0: capital de trabajo (solo gerencia); puede no existir todavia — la app lo tolera
+        capital: 'PROY_Capital',   // v0.100.0: capital de trabajo (solo gerencia); puede no existir todavia — la app lo tolera
+        // v0.162.0: Gastos (traido de la ERP v1). Ya existen en /sites/Administracion (las creo Carlos el 1-oct, con datos reales);
+        // si faltaran, #gastos lo dice y lo demas sigue igual.
+        gastos: 'ERP_Gastos',
+        rolesErp: 'ERP_Roles'
     },
+    // v0.162.0: biblioteca de los comprobantes de gastos, en el MISMO sitio (Administracion), una carpeta por AAAA-MM.
+    bibliotecaGastos: 'Gastos',
 
     // Las cubetas (columnas) del tablero YA NO viven aqui: desde v0.11.0 (Carlos, 12-sep) cada proyecto
     // trae las suyas en PROY_Proyectos.Columnas y el default es COLUMNAS_DEFAULT de reglas.js.
