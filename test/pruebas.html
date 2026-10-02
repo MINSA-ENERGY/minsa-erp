@@ -1995,7 +1995,7 @@ try {
         {
             const hoyIso = new Date().toISOString();
             R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-proyectos', 'p-mis', 'p-roadmap', 'p-calendario', 'p-mensajes', 'p-archivos', 'p-reportes', 'p-capital', 'p-gastos', 'p-finanzas'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));
-            R.ok('v0.10.0: el rail trae las 9 secciones (v0.162.0: + Gastos; 12 con Capital, Finanzas y Vigencias, v0.100.0/v0.165.0/v0.166.0: solo gerencia las ve) y las que no caben en la barra móvil van en el menú «···»', document.querySelectorAll('#pestanas button').length === 13 && document.querySelectorAll('#menuMovil .ir-movil').length === 7 && document.querySelectorAll('#pestanas button:not(.oculto)').length === (gerencia ? 13 : ROL === 'colaborador' ? 10 : 9) && document.querySelectorAll('#menuMovil .ir-movil:not(.oculto)').length === (gerencia ? 7 : ROL === 'colaborador' ? 4 : 3));   // v0.168.0: + Servicios (gerencia y colaborador)
+            R.ok('v0.10.0: el rail trae las 9 secciones (v0.162.0: + Gastos; 12 con Capital, Finanzas y Vigencias, v0.100.0/v0.165.0/v0.166.0: solo gerencia las ve) y las que no caben en la barra móvil van en el menú «···»', document.querySelectorAll('#pestanas button').length === 14 && document.querySelectorAll('#menuMovil .ir-movil').length === 8 && document.querySelectorAll('#pestanas button:not(.oculto)').length === (gerencia ? 14 : ROL === 'colaborador' ? 11 : 9) && document.querySelectorAll('#menuMovil .ir-movil:not(.oculto)').length === (gerencia ? 8 : ROL === 'colaborador' ? 5 : 3));   // v0.168.0: + Servicios (gerencia y colaborador)
             // v0.167.0: tres bloques en el rail; cada pestana en el suyo; Operacion sin pestanas visibles no pinta rotulo
             {
                 const bloques = [...document.querySelectorAll('#pestanas .rail-bloque')];
@@ -2005,7 +2005,7 @@ try {
                 R.ok('v0.167.0: el rail va en Trabajo · Dinero · Operación, cada pestaña en su bloque, y el rótulo de Operación solo se pinta si hay una pestaña visible',
                     bloques.length === 3 && rot === 'Trabajo|Dinero|Operación'
                     && de(bloques[0]) === 'inicio,mis,mensajes,proyectos,roadmap,calendario,archivos,reportes'
-                    && de(bloques[1]) === 'gastos,capital,finanzas' && de(bloques[2]) === 'servicios,vigencias'
+                    && de(bloques[1]) === 'gastos,capital,finanzas,compras' && de(bloques[2]) === 'servicios,vigencias'
                     && (innerWidth <= 720 ? !opVisible : opVisible === (gerencia || ROL === 'colaborador')),   // v0.168.0: con Servicios, Operación se ve también a colaborador
                     `${rot} / ${bloques.map(de).join(' / ')} / op=${opVisible}`);
             }
@@ -3898,6 +3898,62 @@ try {
             await recargarYEsperar();
             R.ok('servicios: «Actualizar» de la app no vuelve a bajar servicios.json', leidasOp() === nLeidas);
             R.ok('servicios: CERO escrituras (solo lee)', escritas() === esc0);
+        }
+        pestana('inicio'); await dormir(30);
+    }
+    // ==================================================================================================================
+    // v0.169.0: COMPRAS. Gerencia y colaborador; solo LEE compras.json de ERP_Operacion (lo cosecha compras.py de los .docx). Con montos.
+    {
+        for (const d of document.querySelectorAll('dialog[open]')) d.close();
+        const leidasOp = () => DB.llamadas.filter(c => c.includes('/drives/drive-operacion/') && c.includes('compras')).length;
+        const escritas = () => DB.llamadas.filter(c => /^(POST|PATCH|PUT|DELETE) /.test(c)).length;
+        const sinPermiso = params.get('gastos') === 'no';
+        if (ROL !== 'gerencia' && ROL !== 'colaborador') {
+            const n0 = leidasOp();
+            await irHash('#compras'); await esperar(() => visible('p-inicio'), 'compras negado');
+            R.ok(`${ROL} (v0.169.0): sin «Compras» en el rail ni en el menú «···»; #compras cae a Inicio y compras.json ni se lee`,
+                $('railCompras').classList.contains('oculto') && $('irComprasMovil').classList.contains('oculto') && leidasOp() === n0 && $('comprasCuerpo').textContent === '');
+            document.querySelector('#avisos .cerrar')?.click();
+        } else if (sinPermiso) {
+            await irHash('#compras'); await esperar(() => $('comprasSinAcceso') || $('comprasNoHabilitada'), 'compras sin biblioteca');
+            R.ok(`${ROL} sin ERP_Operacion (v0.169.0): Compras dice «sin acceso» y nombra la biblioteca`, !!$('comprasSinAcceso') && /ERP_Operacion/.test($('comprasSinAcceso').textContent));
+        } else {
+            const esc0 = escritas();
+            const local = d => new Date(Date.now() + d * 86400000 - new Date().getTimezoneOffset() * 60000).toISOString();
+            const anio = new Date().getFullYear();
+            const pa = (n, descripcion, cantidad, unidad, pu) => ({ n, descripcion, cantidad, unidad, pu, total: Math.round(cantidad * pu * 100) / 100 });
+            const oc = (folio, fecha, partidas, extra = {}) => { const st = partidas.reduce((a, p) => a + p.total, 0), iva = Math.round(st * 16) / 100; return { folio, fecha, proveedor: 'PRODEOS', moneda: 'MXN', partidas, subtotal: st, iva, total: Math.round((st + iva) * 100) / 100, archivo: folio + '.docx', ...extra }; };
+            const FIX = { version: 1, generado: local(-1).slice(0, 19), fuente: 'pruebas', ordenes: [
+                oc('PDH-008', `${anio}-07-01`, [pa(1, 'Suministro de prueba', 1000, 'Litros', 10), { ...pa(2, 'Partida con P.U. viejo', 1, '8 horas', 900), pu: 800, cuadra: false }]),
+                oc('PDH-009', `${anio}-08-12`, [pa(1, '<img src=x onerror="window.__xssCmp=1">Xileno', 2000, 'Litros', 10), pa(2, 'Servicio a pozo', 1, '8 horas', 500)]),
+                oc('PDH-001', `${anio - 1}-12-01`, [pa(1, 'Del año pasado', 1, 'pza', 100)])
+            ] };
+            DB.datos['compras.json'] = null;
+            await irHash('#compras'); await esperar(() => $('comprasNoHabilitada') || $('comprasSinAcceso'), 'compras sin archivo');
+            const aviso = gerencia ? $('comprasNoHabilitada') : $('comprasSinAcceso');
+            R.ok(`${ROL} (v0.169.0): «Compras» en el rail y en el menú «···»; sin compras.json lo dice y nombra ERP_Operacion`,
+                !$('railCompras').classList.contains('oculto') && !$('irComprasMovil').classList.contains('oculto') && !!aviso && /ERP_Operacion/.test(aviso.textContent));
+            DB.datos['compras.json'] = JSON.stringify({ ...FIX, version: 2 });
+            clic('btnLeerCompras'); await esperar(() => $('comprasError'), 'compras version');
+            R.ok('compras (v0.169.0): una versión distinta del cosechador se dice, no se pinta a medias', /versión 2/.test($('comprasError').textContent) && !$('comprasTabla'));
+            DB.datos['compras.json'] = JSON.stringify(FIX);
+            clic('btnLeerCompras'); await esperar(() => $('comprasTabla'), 'compras tabla');
+            const ren = () => [...document.querySelectorAll('#comprasTabla tr.cmp-fila')];
+            R.ok('compras: una fila por orden, la más nueva primero', ren().map(f => f.dataset.folio).join() === 'PDH-009,PDH-008,PDH-001', ren().map(f => f.dataset.folio).join());
+            R.ok('compras: el total con IVA y su moneda; el concepto une las partidas', /23,780\.00 MXN/.test(ren()[0].querySelector('.cmp-total').textContent) && / \+ Servicio a pozo/.test(ren()[0].querySelector('.cmp-concepto').textContent));
+            R.ok('compras: «Emitido en el año» suma solo las de este año, con IVA', /36,424\.00 MXN/.test($('comprasKpis').children[1].textContent) && /2 órdenes/.test($('comprasKpis').children[1].textContent), $('comprasKpis').children[1].textContent);
+            R.ok('compras: texto con HTML se pinta como texto (sin XSS)', !window.__xssCmp && /<img src=x/.test(ren()[0].textContent));
+            ren()[0].querySelector('.cmp-abrir').click(); await esperar(() => document.querySelector('#comprasTabla .cmp-detalle'), 'partidas');
+            const det = document.querySelector('#comprasTabla .cmp-detalle');
+            R.ok('compras: el folio abre las partidas con cantidad × P.U., su importe y el desglose', det.querySelectorAll('.cmp-partidas li').length === 2 && /2,000 Litros × 10\.00/.test(det.textContent) && /Subtotal 20,500\.00 · IVA 3,280\.00 · Total 23,780\.00 MXN/.test(det.textContent) && document.querySelector('[data-folio="PDH-009"] .cmp-abrir').getAttribute('aria-expanded') === 'true', det.textContent);
+            R.ok('compras: una partida que no cuadra (cantidad × P.U. ≠ importe) se señala en la fila', /una partida no cuadra/.test(ren()[1].querySelector('.cmp-concepto').textContent) && !/no cuadra/.test(ren()[0].textContent));
+            const nLeidas = leidasOp();
+            await recargarYEsperar();
+            R.ok('compras: el refresco no relee el archivo y la orden abierta sigue abierta', leidasOp() === nLeidas && !!document.querySelector('#comprasTabla .cmp-detalle'));
+            DB.datos['compras.json'] = JSON.stringify({ ...FIX, generado: local(-20).slice(0, 19) });
+            clic('btnLeerCompras'); await esperar(() => $('comprasCorte') && /20 días/.test($('comprasCorte').textContent), 'compras corte viejo');
+            R.ok('compras: un corte de 20 días pide re-publicar', /re-publicar/.test($('comprasCorte').textContent));
+            R.ok('compras: CERO escrituras (solo lee)', escritas() === esc0);
         }
         pestana('inicio'); await dormir(30);
     }

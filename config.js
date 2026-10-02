@@ -49,6 +49,8 @@ export const CONFIG = {
     // por eso aparte de ERP_Datos, que es solo gerencia. La publica la misma corrida de docs/publicar-cobranza.ps1. Sin montos.
     bibliotecaOperacion: 'ERP_Operacion',
     archivoServicios: 'servicios.json',
+    // v0.169.0: Compras, en la misma biblioteca del equipo. CON montos (Carlos, 2-oct: «no importa que vean los montos»).
+    archivoCompras: 'compras.json',
 
     // Las cubetas (columnas) del tablero YA NO viven aqui: desde v0.11.0 (Carlos, 12-sep) cada proyecto
     // trae las suyas en PROY_Proyectos.Columnas y el default es COLUMNAS_DEFAULT de reglas.js.

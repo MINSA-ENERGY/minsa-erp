@@ -2423,6 +2423,28 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
   #serviciosKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
   #serviciosKpis .cob-kpi { padding: var(--sp-2) var(--sp-3); }
 }
+/* ---- v0.169.0: Compras — el folio es el boton que abre las partidas; el total, a la derecha en mono. */
+.cmp-folio .cmp-abrir { font-family: var(--font-data); font-weight: 600; padding-inline: var(--sp-2); }
+.cmp-fecha, .cmp-total { white-space: nowrap; }
+.cmp-concepto { overflow-wrap: anywhere; }
+.cmp-detalle td { background: var(--surface-sunken, var(--banda)); }
+.cmp-partidas { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); }
+.cmp-partidas li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: baseline; }
+.cmp-cant { color: var(--text-muted); font-size: .85rem; white-space: nowrap; }
+.cmp-imp { white-space: nowrap; }
+.cmp-totales { margin: var(--sp-2) 0 0; }
+.cmp-partidas li .mn-chip { grid-column: 1 / -1; justify-self: start; }
+.cmp-concepto .mn-chip { margin-left: var(--sp-2); }
+/* En celular: folio y total arriba; el concepto a todo el ancho; el proveedor se omite (hoy es uno solo y lo dice el concepto). */
+@media (max-width: 640px) {
+  .cmp-tabla tr.cmp-fila { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); align-items: baseline; }
+  .cmp-fila .cmp-prov { display: none; }
+  .cmp-fila .cmp-concepto { grid-column: 1 / -1; order: 1; padding-top: 0; font-size: .85rem; color: var(--text-muted); }
+  .cmp-partidas li { grid-template-columns: minmax(0, 1fr) auto; }
+  .cmp-partidas .cmp-cant { grid-column: 1 / -1; order: 1; }
+  #comprasKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+  #comprasKpis .cob-kpi { padding: var(--sp-2) var(--sp-3); }
+}
 .gastos-resumen { margin: 0; font-size: .9rem; }
 .gastos-lista { display: flex; flex-direction: column; }
 .gasto { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; padding: var(--sp-3) 0; border-bottom: 1px solid var(--border-hairline); }
