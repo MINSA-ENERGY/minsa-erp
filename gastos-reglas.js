@@ -92,8 +92,8 @@ export function etiquetaCfdi(estado) {
 
 // ---------------------------------------------------------------- comprobante
 
-const EXT_IMAGEN = ['jpg', 'jpeg', 'png', 'heic', 'heif', 'webp', 'gif'];
-const EXT_DE_MIME = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/heic': 'heic', 'image/heif': 'heif', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf' };
+const EXT_IMAGEN = ['jpg', 'jpeg', 'png', 'heic', 'heif', 'webp', 'gif', 'jfif', 'avif', 'bmp', 'tif', 'tiff'];   // S-34 (2-oct): LISTA BLANCA de fotos; sin svg
+const EXT_DE_MIME = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/avif': 'avif', 'image/bmp': 'bmp', 'image/tiff': 'tif', 'image/png': 'png', 'image/heic': 'heic', 'image/heif': 'heif', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf' };
 /** Extension del comprobante en minusculas (de su nombre o, si no trae, de su tipo MIME); '' si no se sabe. */
 export function extComprobante(nombre, mime) {
     const m = /\.([A-Za-z0-9]{1,5})$/.exec(String(nombre || ''));
@@ -103,7 +103,9 @@ export function extComprobante(nombre, mime) {
 /** Tipo de la convencion del _LEEME de «Gastos»: Ticket (foto) · Factura (PDF) · CFDI (XML) · Otro. */
 export function tipoComprobante(nombre, mime) {
     const e = extComprobante(nombre, mime);
-    if (EXT_IMAGEN.includes(e) || /^image\//i.test(String(mime || ''))) return 'Ticket';
+    // S-34 (2-oct): ya no basta con que el MIME empiece por image/ (un .svg pasaba como Ticket). La extension manda y debe estar en la
+    // lista blanca EXT_IMAGEN; el MIME solo cuenta si el nombre no trae extension, y extComprobante ya lo traduce por EXT_DE_MIME (sin svg).
+    if (EXT_IMAGEN.includes(e)) return 'Ticket';
     if (e === 'pdf') return 'Factura';
     if (e === 'xml') return 'CFDI';
     return 'Otro';

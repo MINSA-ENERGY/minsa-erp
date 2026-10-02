@@ -7,6 +7,7 @@ import { rolesErpDe, PUEDE_GASTO, misGastos, porReembolsar, resueltos, yaReembol
     formatoMonto, etiquetaEstado, etiquetaCfdi, extComprobante, tipoComprobante, comprobanteValido, nombreComprobante, rutaComprobante,
     faltanGasto, largoInvalido, camposGasto, camposReembolso, camposRechazo, leerCandidatos, porConfirmarCfdi, uuidCorto, ligadoEnOtro, camposConfirmarCfdi,
     camposNingunoCfdi, confirmadosDelMes, ESTADOS_GASTO, MONEDAS, CATEGORIAS_GASTO, CFDI_ESTADOS, COMPROBANTE_MAX_MB } from '../gastos-reglas.js';
+import { idItemUrl } from '../graph.js';
 
 let n = 0;
 const ok = (nombre, cond) => { assert.ok(cond, nombre); n++; };
@@ -78,6 +79,17 @@ ok('tipo: Ticket (foto) · Factura (PDF) · CFDI (XML) · Otro', tipoComprobante
 ok('valido: foto o PDF, no vacio, tope de MB', comprobanteValido({ name: 'a.jpg', type: 'image/jpeg', size: 10 }).ok && comprobanteValido({ name: 'b.pdf', type: 'application/pdf', size: 10 }).ok
     && !comprobanteValido({ name: 'c.xml', type: 'text/xml', size: 10 }).ok && !comprobanteValido({ name: 'd.jpg', type: 'image/jpeg', size: 0 }).ok
     && !comprobanteValido({ name: 'e.jpg', type: 'image/jpeg', size: COMPROBANTE_MAX_MB * 1048576 + 1 }).ok && !comprobanteValido(null).ok);
+// S-34 (MINSA ERP 2-oct): lista blanca por extension; el MIME solo sin extension. Un .svg (o .html con MIME de foto) ya no pasa como Ticket.
+ok('valido: .svg rechazado con cualquier MIME y sin extension con MIME svg; .html con image/png tambien; jfif/avif/bmp/tif y IMG con image/jpg pasan',
+    !comprobanteValido({ name: 'x.svg', type: 'image/svg+xml', size: 10 }).ok && !comprobanteValido({ name: 'x', type: 'image/svg+xml', size: 10 }).ok
+    && !comprobanteValido({ name: 'x.svg', type: 'image/png', size: 10 }).ok && !comprobanteValido({ name: 'evil.html', type: 'image/png', size: 10 }).ok
+    && ['foto.jfif', 'a.avif', 'a.bmp', 'a.tif', 'a.TIFF'].every(n => comprobanteValido({ name: n, type: 'image/jpeg', size: 10 }).ok)
+    && comprobanteValido({ name: 'IMG', type: 'image/jpg', size: 10 }).ok);
+// S-35 (MINSA ERP 2-oct): el id del driveItem que viene del renglon no puede sacar la peticion de /items/.
+{ const lanza = id => { try { idItemUrl(id); return false; } catch { return true; } };
+  ok('idItemUrl: ids de Graph y del fixture pasan; «..», «/», «%2e», vacio y null revientan',
+    idItemUrl('01ABCDEFGHIJKLMNOPQRSTUVWXYZ234567') === '01ABCDEFGHIJKLMNOPQRSTUVWXYZ234567' && idItemUrl('ABC!123') === 'ABC!123' && idItemUrl('gasto-arch-sembrado') === 'gasto-arch-sembrado'
+    && ['..', '../x', 'a/b', '%2e%2e', '', null, undefined, 'a b', 'a?b'].every(lanza)); }
 ok('nombre: AAAA-MM-DD_GASTO-<ID>_<Tipo>_<descripcion>.<ext>', nombreComprobante({ dia: '2026-10-01', id: 17, tipo: 'Ticket', concepto: 'Casetas Monterrey–planta (ida)', ext: 'jpg' }) === '2026-10-01_GASTO-17_Ticket_casetas-monterrey-planta-ida.jpg');
 ok('nombre: segundo archivo con _2, sin acentos, descripcion de 40 a lo mas', (() => { const s = nombreComprobante({ dia: '2026-10-01', id: 3, tipo: 'Factura', concepto: 'Papelería y engargolado del expediente completo de la LAU', ext: 'pdf', n: 2 }); return s === '2026-10-01_GASTO-3_Factura_papeleria-y-engargolado-del-expediente_2.pdf' && !/[^\x20-\x7e]/.test(s); })());
 ok('nombre: concepto sin letras = «gasto»', nombreComprobante({ dia: '2026-10-01', id: 1, tipo: 'Ticket', concepto: '¡¿?!', ext: 'png' }) === '2026-10-01_GASTO-1_Ticket_gasto.png');

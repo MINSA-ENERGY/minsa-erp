@@ -60,6 +60,14 @@ function carpetaDe(it) {
  * (la regla de validarRecibo, lote.js): encodeURIComponent los deja literales y Graph los resuelve, asi que una Ruta
  * editada en PROY_Ligas sacaba la consulta de drive/root hacia cualquier endpoint, con el token de quien abre Docs.
  */
+/** S-35 (2-oct): el id de un driveItem que viene de un renglon (ComprobanteItemId, escribible por cualquier Miembro) se valida antes de
+ *  armar la URL: solo alfanumericos, «!», «_» y «-». Un «..» o una «/» sacarian la peticion de /items/ (la clase de S-20 en rutaUrl). */
+export function idItemUrl(id) {
+    const s = String(id ?? '');
+    if (!/^[A-Za-z0-9!_-]+$/.test(s)) throw new Error(`id de archivo invalido: ${s}`);
+    return encodeURIComponent(s);
+}
+
 export function rutaUrl(ruta) {
     const partes = String(ruta).split('/').filter(s => s !== '');
     if (partes.some(s => s === '.' || s === '..')) throw new Error(`ruta invalida: ${ruta}`);
@@ -306,7 +314,7 @@ export function crearCliente(graph, token) {
 
         /** Un elemento de un drive por id: { id, nombre, url }. */
         async itemDeDriveId(driveId, itemId, avisar) {
-            const r = await pedir(`${graph}/drives/${driveId}/items/${encodeURIComponent(itemId)}?$select=id,name,webUrl`, {}, avisar);
+            const r = await pedir(`${graph}/drives/${driveId}/items/${idItemUrl(itemId)}?$select=id,name,webUrl`, {}, avisar);
             if (!r.ok) throw errorHttp('no se pudo leer el comprobante: ' + await motivo(r), r.status);
             const it = await r.json();
             return { id: it.id, nombre: it.name, url: it.webUrl };
