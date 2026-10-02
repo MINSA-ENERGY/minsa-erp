@@ -3,7 +3,7 @@
 // ✅ cadena sana · ⚠️ en verificacion · 🔴 sin REP. Solo gerencia (PUEDE.capital: el mismo dato financiero que Capital).
 //   - SOLO LEE: cobranza.json de la biblioteca CONFIG.bibliotecaDatos (sitio Administracion), que publica la laptop con
 //     .claude/skills/conciliar-finanzas/scripts/exportar_cobranza.py. La app no escribe nada aqui.
-//   - Se lee al entrar a #finanzas y con «Volver a leer»; el refresco de 2 min no lo toca (el archivo cambia por semana).
+//   - Se lee la PRIMERA vez que se entra a #finanzas en la sesión y con «Volver a leer»; el refresco de 2 min no lo toca (el archivo cambia por semana).
 //   - Degrada: sin biblioteca o sin archivo lo dice y el resto de la app sigue igual.
 // Nada de innerHTML: el() / textContent.
 

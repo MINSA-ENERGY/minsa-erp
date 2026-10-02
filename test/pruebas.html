@@ -1995,6 +1995,19 @@ try {
             const hoyIso = new Date().toISOString();
             R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-proyectos', 'p-mis', 'p-roadmap', 'p-calendario', 'p-mensajes', 'p-archivos', 'p-reportes', 'p-capital', 'p-gastos', 'p-finanzas'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));
             R.ok('v0.10.0: el rail trae las 9 secciones (v0.162.0: + Gastos; 12 con Capital, Finanzas y Vigencias, v0.100.0/v0.165.0/v0.166.0: solo gerencia las ve) y las que no caben en la barra móvil van en el menú «···»', document.querySelectorAll('#pestanas button').length === 12 && document.querySelectorAll('#menuMovil .ir-movil').length === 6 && document.querySelectorAll('#pestanas button:not(.oculto)').length === (gerencia ? 12 : 9) && document.querySelectorAll('#menuMovil .ir-movil:not(.oculto)').length === (gerencia ? 6 : 3));
+            // v0.167.0: tres bloques en el rail; cada pestana en el suyo; Operacion sin pestanas visibles no pinta rotulo
+            {
+                const bloques = [...document.querySelectorAll('#pestanas .rail-bloque')];
+                const de = b => [...b.querySelectorAll(':scope > button')].map(x => x.dataset.p).join(',');
+                const rot = bloques.map(b => b.querySelector('.rail-grupo')?.textContent).join('|');
+                const opVisible = getComputedStyle(bloques[2].querySelector('.rail-grupo')).display !== 'none';
+                R.ok('v0.167.0: el rail va en Trabajo · Dinero · Operación, cada pestaña en su bloque, y el rótulo de Operación solo se pinta si hay una pestaña visible',
+                    bloques.length === 3 && rot === 'Trabajo|Dinero|Operación'
+                    && de(bloques[0]) === 'inicio,mis,mensajes,proyectos,roadmap,calendario,archivos,reportes'
+                    && de(bloques[1]) === 'gastos,capital,finanzas' && de(bloques[2]) === 'vigencias'
+                    && (gerencia ? (innerWidth <= 720 || opVisible) : !opVisible),
+                    `${rot} / ${bloques.map(de).join(' / ')} / op=${opVisible}`);
+            }
             // una tarjeta que vence HOY y una hecha hace 2 dias, para el calendario, el roadmap y «hechas por semana»
             const tHoy = { id: DB.siguienteId++, fields: { Title: 'Vence hoy para el calendario', ProyectoId: proyectoId, Columna: 'en-curso', Asignado: YO, Prioridad: 'normal', Vence: hoyIso, Desde: new Date(Date.now() - 5 * 86400000).toISOString() } };
             filas('tareas').push(tHoy);

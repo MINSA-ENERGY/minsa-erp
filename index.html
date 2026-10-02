@@ -36,6 +36,8 @@
     <div class="marca"><!-- v0.28.1 (Carlos, 14-sep): la MARCA es el boton que pliega; el chevron solo se ve plegado y despliega. Estado en localStorage `rail`. --><button type="button" id="btnMarca" class="marca-btn" title="Plegar la barra" aria-expanded="true" aria-controls="rail"><img class="logo solo-claro" src="./marca/lockup.svg" alt="MINSA ENERGY" width="724" height="256"><img class="logo solo-oscuro" src="./marca/lockup-oscuro.svg" alt="MINSA ENERGY" width="724" height="256"><span>ERP</span></button><button type="button" id="btnPlegar" class="plegar" aria-expanded="false" aria-controls="rail" title="Desplegar la barra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button></div>
     <nav id="pestanas" role="tablist" aria-label="Secciones">
       <!-- v0.102.0 (Carlos, 25-sep): orden por uso — lo mío (Inicio · Mis tareas · Mensajes), el trabajo (Proyectos · Roadmap · Calendario · Archivos), gerencia (Reportes · Capital) -->
+      <!-- v0.167.0 (Carlos, 2-oct; maqueta HV1C5pzx): tres bloques — Trabajo · Dinero · Operación. El bloque es display:contents, asi que la barra movil (los seis sin .rail-extra) no cambia de orden; el rotulo es aria-hidden y solo se ve en escritorio desplegado. -->
+      <div class="rail-bloque" role="presentation"><p class="mn-label rail-grupo" aria-hidden="true">Trabajo</p>
       <button type="button" data-p="inicio" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v10H3z"/><path d="M9 21v-6h6v6"/></svg><span>Inicio</span></button>
       <button type="button" data-p="mis" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6"/></svg><span>Mis tareas</span><b class="mn-rail-hot" id="nMis" hidden></b></button>
       <button type="button" data-p="mensajes" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.6-4.5A8 8 0 1 1 21 12z"/><path d="M8.5 11h7M8.5 14h4"/></svg><span>Mensajes</span><b class="mn-rail-hot is-info" id="nMensajes" hidden></b></button>
@@ -43,15 +45,20 @@
       <button type="button" data-p="roadmap" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h8M3 12h12M3 18h6"/><path d="M14 4l6 2-6 2z"/><circle cx="18" cy="12" r="1.5"/><path d="M12 18h9"/></svg><span>Roadmap</span></button>
       <button type="button" data-p="calendario" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v15H4z"/><path d="M4 10h16M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17h2"/></svg><span>Calendario</span></button>
       <button type="button" data-p="archivos" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Archivos</span></button>
+      <button type="button" data-p="reportes" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Reportes</span></button>
+      </div>
+      <div class="rail-bloque" role="presentation"><p class="mn-label rail-grupo" aria-hidden="true">Dinero</p>
       <!-- v0.162.0: Gastos (traido de la ERP v1). Lo usa todo el equipo desde el celular: va en la barra de abajo, no en el menu «···» -->
       <button type="button" data-p="gastos" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span>Gastos</span></button>
-      <button type="button" data-p="reportes" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Reportes</span></button>
       <!-- v0.100.0: capital de trabajo — solo gerencia (app.js quita .oculto); en celular vive en el menu «···» -->
       <button type="button" data-p="capital" role="tab" class="rail-extra oculto" id="railCapital"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3z"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5v5M17.5 9.5v5"/></svg><span>Capital</span></button>
       <!-- v0.165.0: Finanzas > Cobranza (solo gerencia; cobranza.js). Lee cobranza.json de la biblioteca ERP_Datos. -->
       <button type="button" data-p="finanzas" role="tab" class="rail-extra oculto" id="railFinanzas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16"/><path d="M6 15l4-4 3 3 5-6"/><path d="M15 8h3v3"/></svg><span>Finanzas</span></button>
+      </div>
+      <div class="rail-bloque" role="presentation"><p class="mn-label rail-grupo" aria-hidden="true">Operación</p>
       <!-- v0.166.0: Vigencias (solo gerencia; vigencias.js). Lee vigencias.json de la biblioteca ERP_Datos. -->
       <button type="button" data-p="vigencias" role="tab" class="rail-extra oculto" id="railVigencias"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg><span>Vigencias</span></button>
+      </div>
     </nav>
     <div class="equipos" id="railEquipos"></div>
     <!-- v0.48.0 (Carlos, 15-sep; artifact M3B6fy3g «A4»): dos renglones. 1) nombre + rol como ROTULO DE DATOS (mono, versalitas; la burbuja
