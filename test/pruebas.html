@@ -977,11 +977,11 @@ try {
           poner('textoProyectos', ''); await dormir(30);
           DB.listas.proyectos.items = filas('proyectos').filter(p => !idsC10.includes(p.id)); await recargarYEsperar(); }
         pestana('mis'); await esperar(() => visible('p-mis'), 'mis');
-        poner('textoMis', 'INSUMOS'); await dormir(30);
+        poner('textoMis', 'INSUMOS'); await dormir(200);   // C-11 (2-oct): el buscador espera la pausa (conRetardo 120 ms)
         R.ok('C3: el buscador de Mis tareas filtra por título', document.querySelectorAll('#misLista .tr').length === 1 && !!document.querySelector(`#misLista .tr[data-t="${t.id}"]`));
-        poner('textoMis', 'nada-de-nada'); await dormir(30);
+        poner('textoMis', 'nada-de-nada'); await dormir(200);
         R.ok('C3: Mis tareas sin resultado lo dice', $('misLista').textContent.includes('ese texto'));
-        poner('textoMis', ''); await dormir(30);
+        poner('textoMis', ''); await dormir(200);
         // C4: Ctrl+Enter envía la nota y el contador aparece a partir de 200 caracteres.
         await abrirLau(); await esperar(() => document.querySelector(`.tarjeta[data-t="${t.id}"]`), 'tarjeta');
         document.querySelector(`.tarjeta[data-t="${t.id}"]`).click(); await esperar(() => $('dlgTarea').open, 'tarjeta');
@@ -2178,9 +2178,23 @@ try {
                 const conNota = trs().filter(r => notasDe(Number(r.dataset.t))), conLiga = trs().filter(r => ligasDe(Number(r.dataset.t)));
                 R.ok('C-04 (v0.90.0): las insignias del renglón denso cuadran con los datos —.is-notas donde hay notas, .is-docs donde hay ligas, ninguna donde no— y la sembrada trae las dos y el chip «en el buzón»', conNota.length > 0 && conLiga.length > 0 && !!document.querySelector(`#misLista .tr[data-t="${tHoy.id}"] .t .insig.is-notas`) && !!document.querySelector(`#misLista .tr[data-t="${tHoy.id}"] .t .insig.is-docs`) && document.querySelector(`#misLista .tr[data-t="${tHoy.id}"] .t .mn-chip`)?.textContent === 'en el buzón' && trs().every(r => { const id = Number(r.dataset.t); const n = r.querySelector('.t .insig.is-notas'), d = r.querySelector('.t .insig.is-docs'); return (!!n === notasDe(id) > 0) && (!!d === ligasDe(id) > 0) && (!n || n.textContent.trim() === String(notasDe(id))) && (!d || d.textContent.trim() === String(ligasDe(id))) && (!!r.querySelector('.t .mn-chip') === buzonDe(id)); }), `notas=${conNota.length} ligas=${conLiga.length}`);
                 R.ok('U-07 (v0.90.0): cada renglón lleva un .mn-sr con «vence dd/mm/aaaa» o «sin fecha» para el lector de pantalla, y la columna .k sigue aria-hidden', trs().length > 0 && trs().every(r => { const s = r.querySelector('.mn-sr'); return s && (s.textContent === 'sin fecha' || /^vence \d{2}\/\d{2}\/\d{4}$/.test(s.textContent)) && r.querySelector('.k').getAttribute('aria-hidden') === 'true'; }), trs()[0]?.querySelector('.mn-sr')?.textContent);
-                document.querySelector('#filtroMis [data-mis="pronto"]').click(); await dormir(30);
+                { const k = document.querySelector('#filtroMis [data-mis="pronto"]'); k.focus(); k.click(); } await dormir(30);
                 const bloques = [...document.querySelectorAll('#misLista > .bloq')];
                 R.ok('C-04 (v0.90.0): «vencen en 7 días» deja solo el bloque «Esta semana» (.is-pronto, data-bloque=semana) con la que vence hoy, su cifra = los renglones = el contador, y el día en ámbar', document.querySelector('#filtroMis .kpi.is-on').dataset.mis === 'pronto' && bloques.length === 1 && bloques[0].dataset.bloque === 'semana' && bloques[0].classList.contains('is-pronto') && !!bloques[0].querySelector(`.tr[data-t="${tHoy.id}"]`) && Number(bloques[0].querySelector('.rot b').textContent) === trs().length && trs().length === Number(document.querySelector('#filtroMis [data-mis="pronto"] b').textContent) && bloques[0].querySelector(`.tr[data-t="${tHoy.id}"]`).classList.contains('is-pronto') && getComputedStyle(bloques[0].querySelector(`.tr[data-t="${tHoy.id}"] .k b`)).color === getComputedStyle(bloques[0].querySelector('.rot b')).color, `bloques=${bloques.map(b => b.dataset.bloque).join(',')} n=${trs().length}`);
+                // C-07 (2-oct): el contador pulsado se recrea al repintar; el foco vuelve a él, no cae al body (tras el clic y tras una relectura).
+                R.ok('C-07 (2-oct): tras pulsar «vencen en 7 días» el foco sigue en ese contador', document.activeElement?.dataset?.mis === 'pronto', document.activeElement?.tagName + ':' + (document.activeElement?.dataset?.mis || ''));
+                await recargarYEsperar(); document.querySelector('#filtroMis [data-mis="pronto"]').focus(); await recargarYEsperar(); await dormir(30);
+                R.ok('C-07 (2-oct): tras una relectura (repintar) el foco sigue en el contador «pronto»', visible('p-mis') && document.activeElement?.dataset?.mis === 'pronto' && document.activeElement.isConnected, document.activeElement?.tagName);
+                // C-08 + U-14 (2-oct): con texto y contador puestos, si el texto SÍ encuentra la tarjeta pero el contador la deja fuera, el vacío lo dice y ofrece volver a «abiertas» conservando el texto.
+                poner('textoMis', tHoy.fields.Title); await dormir(200); document.querySelector('#filtroMis [data-mis="vencidas"]').click(); await dormir(30);
+                const salir = document.querySelector('#misLista .vacio [data-mis-salir]');
+                R.ok('C-08/U-14 (2-oct): texto que encuentra la de hoy + «vencidas» → el vacío dice «fuera de él» (no culpa al texto) y trae el botón', !!salir && $('misLista').textContent.includes('fuera de él') && !$('misLista').textContent.includes('Ninguna con ese texto.'), $('misLista').textContent.slice(0, 120));
+                salir?.click(); await dormir(30);
+                R.ok('C-08/U-14 (2-oct): «Ver en abiertas» vuelve a abiertas con el texto puesto y la tarjeta a la vista', document.querySelector('#filtroMis .kpi.is-on').dataset.mis === 'todas' && $('textoMis').value === tHoy.fields.Title && !!document.querySelector(`#misLista .tr[data-t="${tHoy.id}"]`));
+                // U-12 (2-oct): el buscador también encuentra por el nombre del proyecto.
+                { const p = filas('proyectos').find(x => x.id === tHoy.fields.ProyectoId); poner('textoMis', String(p?.fields?.Title || '').toUpperCase()); await dormir(200);
+                  R.ok('U-12 (2-oct): buscar por el nombre del proyecto encuentra sus tarjetas', !!p && !!document.querySelector(`#misLista .tr[data-t="${tHoy.id}"]`), p?.fields?.Title); }
+                poner('textoMis', ''); await dormir(200); document.querySelector('#filtroMis [data-mis="pronto"]').click(); await dormir(30);
                 await irHash(`#mis/t/${tHoy.id}`); await esperar(() => $('dlgTarea').open, 'tarjeta por #mis/t');
                 R.ok('C-04 (v0.90.0): #mis/t/<id> abre la tarjeta SOBRE Mis tareas (no en el proyecto) y el hash se queda', $('dlgTarea').open && visible('p-mis') && $('tTitulo').textContent.startsWith(tHoy.fields.Title) && location.hash === `#mis/t/${tHoy.id}`, location.hash);
                 clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada');
@@ -2188,7 +2202,8 @@ try {
                 // U-03: el filtro «vencidas» que pone Inicio («ver en Mis tareas», solo mías) dura esa visita; la pestaña y el hash sin origen vuelven a «abiertas».
                 pestana('inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await dormir(30);
                 R.ok('U-03 (v0.90.0): entrar a Mis tareas por la pestaña vuelve a «abiertas» (el «pronto» de la visita anterior no se queda pegado)', (pestana('mis'), true) && document.querySelector('#filtroMis .kpi.is-on').dataset.mis === 'todas', document.querySelector('#filtroMis .kpi.is-on').dataset.mis);
-                const mod = await import('../comun.js'); mod.estado.filtroMisAlLlegar = 'vencidas'; await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio otra vez'); await irHash('#mis'); await esperar(() => visible('p-mis'), 'mis por hash'); await dormir(30);
+                const mod = await import('../comun.js'); poner('textoMis', 'texto-de-otra-visita'); await dormir(200); mod.estado.filtroMisAlLlegar = 'vencidas'; await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio otra vez'); await irHash('#mis'); await esperar(() => visible('p-mis'), 'mis por hash'); await dormir(30);
+                R.ok('C-08 (2-oct): el «ver en Mis tareas» de Inicio aterriza con el buscador vacío (no con el texto de la visita anterior)', $('textoMis').value === '' && mod.estado.textoMis === '', $('textoMis').value);
                 R.ok('U-03 (v0.90.0): el filtro que deja Inicio (filtroMisAlLlegar) aterriza puesto UNA vez…', document.querySelector('#filtroMis .kpi.is-on').dataset.mis === 'vencidas' && mod.estado.filtroMisAlLlegar === null, document.querySelector('#filtroMis .kpi.is-on').dataset.mis);
                 await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio 3'); await irHash('#mis'); await esperar(() => visible('p-mis'), 'mis por hash 2'); await dormir(30);
                 R.ok('U-03 (v0.90.0): …y la visita siguiente por hash sin origen ya entra en «abiertas»', document.querySelector('#filtroMis .kpi.is-on').dataset.mis === 'todas', document.querySelector('#filtroMis .kpi.is-on').dataset.mis);

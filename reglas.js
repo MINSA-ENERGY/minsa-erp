@@ -284,6 +284,17 @@ export function semaforo(tarea, dias = 3, hoy = new Date()) {
     return e === 'danger' ? 'vencida' : e === 'warn' ? 'pronto' : '';
 }
 
+/**
+ * C-05 (v0.90.0) / C-09 (2-oct): una sola lectura de la fecha por tarjeta, para Mis tareas Y el contador del rail (antes era una copia
+ * privada de tablero.js que ninguna unitaria tocaba). `e` = estadoVence(t, pronto) · `bloque` de la lista —«Esta semana» = hasta
+ * `pronto` dias, hoy incluido— · `sem` = semaforo(t, semDias). Un solo diasPara; las unitarias la cotejan contra las otras dos.
+ */
+export function infoVence(tarea, pronto = 7, semDias = 3, hoy = new Date()) {
+    const hecha = tarea.Columna === HECHO, d = hecha ? null : diasPara(tarea.Vence, hoy);
+    const e = d === null ? null : claseVence(d, pronto), s = d === null ? null : claseVence(d, semDias);
+    return { e, bloque: e === 'danger' ? 'Vencidas' : e === 'warn' ? 'Esta semana' : tarea.Vence ? 'Después' : 'Sin fecha', sem: hecha ? 'hecha' : s === 'danger' ? 'vencida' : s === 'warn' ? 'pronto' : '' };
+}
+
 /** Cuantas de estas tarjetas estan vencidas (para el contador rojo de la cubeta). */
 export function vencidasEn(tareas, hoy = new Date()) { return (tareas || []).filter(t => estadoVence(t, 0, hoy) === 'danger').length; }
 

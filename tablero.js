@@ -7,8 +7,8 @@
 // «→ siguiente» de la cara de la tarjeta se quito, y «Origen en la KB» ya no se ensena ni se pide.
 
 import { CONFIG } from './config.js';
-import { sellarAsignadoPor, PUEDE, ordenar, tareasDe, diasQuieta, rotuloQuieta, camposDeMovimiento, nombreDe, nombreCorto, diasPara, estadoVence, semaforo, vencidasEn, filtrarTareas, ordenarLista, reordenar, sinAcentos, columnasDe, normalizarColumnas, nombreColumnaEn, claseDeColumna, HECHO, MAX_COLUMNAS, MAX_NOMBRE_COLUMNA, COLORES, colorValido, hrefSeguro, delegadas, misAbiertas, porVence, claseVence, plural } from './reglas.js';
-import { $, L, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, el, boton, chip, chipVence, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, fechaHora, aIsoDia, diaInput, fechaInput, atajosFecha, opciones, limpiar, porId, proyectoAbierto, registrarActividad, hashDe, fijarHash, irAHash, ligaDeTarjeta, notasDe, aplicarVivo, agregarSinDuplicar, fusionarActividad, pedirRelectura, equipoDe, iconoEquipo, iconoArchivo, textoConMenciones, insignia, TRAZOS, iconoSvg, puedeBorrarComentario, borrarComentario, columnasDeTarea, notasPorTarea, ligasPorTarea, buzonPorTarea, mesDia, personasActivas, contadorTexto, mayusculasEnVivo } from './comun.js';
+import { sellarAsignadoPor, PUEDE, ordenar, tareasDe, diasQuieta, rotuloQuieta, camposDeMovimiento, nombreDe, nombreCorto, diasPara, estadoVence, semaforo, vencidasEn, filtrarTareas, ordenarLista, reordenar, sinAcentos, columnasDe, normalizarColumnas, nombreColumnaEn, claseDeColumna, HECHO, MAX_COLUMNAS, MAX_NOMBRE_COLUMNA, COLORES, colorValido, hrefSeguro, delegadas, misAbiertas, porVence, infoVence, plural } from './reglas.js';
+import { $, L, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, el, boton, chip, chipVence, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, fechaHora, aIsoDia, diaInput, fechaInput, atajosFecha, opciones, limpiar, porId, proyectoAbierto, registrarActividad, hashDe, fijarHash, irAHash, ligaDeTarjeta, notasDe, aplicarVivo, agregarSinDuplicar, fusionarActividad, pedirRelectura, equipoDe, iconoEquipo, iconoArchivo, textoConMenciones, insignia, TRAZOS, iconoSvg, puedeBorrarComentario, borrarComentario, columnasDeTarea, notasPorTarea, ligasPorTarea, buzonPorTarea, mesDia, personasActivas, contadorTexto, mayusculasEnVivo, conservarFoco } from './comun.js';
 import { abrirPartida } from './capital.js';   // v0.103.0: «Nueva partida» desde la pestaña Capital del proyecto
 import { abrirLigar, abrirSubir, abrirEnlace, quitarLiga, puedeLigarEn, puedeEnlazarEn } from './docs.js';
 import { esConflicto } from './graph.js';
@@ -391,7 +391,10 @@ export function pintarLista(proyecto) {
  * de la página; la cabecera de columnas `.hd` y los separadores `.sep` dentro de la tabla ya no existen.
  */
 const FILTROS_MIS = [[null, 'abiertas'], ['vencidas', 'vencidas'], ['pronto', 'vencen en 7 días'], ['sinfecha', 'sin fecha'], ['delegadas', 'las que delegué']];   // v0.15.0: quien reparte no las pierde de vista; v0.58.0: «sin fecha» nace con los contadores
-export function pintarMisTareas() {
+// C-07 (mejorar-app mis, 2-oct): el clic en un contador y el refresco de 120 s recrean los .kpi y los renglones; conservarFoco devuelve
+// el foco al mismo control (data-mis / data-t) en vez de dejarlo caer al body, como ya hacen Inicio, Proyectos y Capital.
+export function pintarMisTareas() { conservarFoco($('p-mis'), ['mis', 't'], pintarMisAhora); }
+function pintarMisAhora() {
     const yo = estado.cuenta.username.toLowerCase();
     $('misTitulo').textContent = 'Mis tareas · ' + nombreDe(yo, estado.roles);
     const propias = misAbiertas(estado.tareas, yo).sort(porVence);   // C-03 (v0.90.0): la misma regla que la insignia del rail (app.js)
@@ -400,7 +403,7 @@ export function pintarMisTareas() {
     const ajenas = delegadas(estado.tareas, estado.actividad, yo);
     // C-05 (v0.90.0): la fecha de cada tarjeta se lee UNA vez por pintada (antes ~9 llamadas a estadoVence por tarjeta, y la pintada
     // corre en cada tecla del buscador): {e, bloque, sem} por id, y los contadores salen de esa misma pasada.
-    const info = new Map(); for (const t of propias) info.set(t.id, infoVence(t)); for (const t of ajenas) info.set(t.id, infoVence(t));
+    const info = new Map(); for (const t of [...propias, ...ajenas]) info.set(t.id, infoVence(t, CONFIG.vencePronto, CONFIG.semaforoDias));   // C-09 (2-oct): la de reglas.js, la misma que cuenta el rail
     // U3: los KPI de Inicio aterrizan aqui con el filtro puesto; los contadores lo muestran y lo cambian (v0.58.0: cada uno con su cifra).
     const cuenta = { todas: propias.length, vencidas: 0, pronto: 0, sinfecha: 0, delegadas: ajenas.length };
     for (const t of propias) { const e = info.get(t.id).e; if (e === 'danger') cuenta.vencidas++; else if (e === 'warn') cuenta.pronto++; if (!t.Vence) cuenta.sinfecha++; }
@@ -415,13 +418,24 @@ export function pintarMisTareas() {
     const cont = $('misLista'); cont.textContent = '';
     $('misSub').textContent = delego ? 'Tarjetas abiertas de otros que tú creaste o asignaste, en orden de fecha. Las vencidas arriba.' : 'Tus tarjetas abiertas, en todos los proyectos, en orden de fecha. Las vencidas arriba.';
     const todas = delego ? ajenas : propias;
-    // C3 (v0.6.0): buscador por titulo, sin acentos, encima del filtro por vencimiento.
+    // C3 (v0.6.0): buscador sin acentos, encima del filtro por vencimiento. U-12 (2-oct): busca tambien en la clave y el nombre del
+    // proyecto y, en «las que delegué», en a quien se la di (correo y nombre).
     const q = sinAcentos(estado.textoMis).trim();
-    const conTexto = q ? todas.filter(t => sinAcentos(t.Title).includes(q)) : todas;
+    const pajar = t => { const p = porId(estado.proyectos, t.ProyectoId); return sinAcentos([t.Title, p ? p.Clave : '', p ? p.Title : '', delego && t.Asignado ? t.Asignado + ' ' + nombreDe(t.Asignado, estado.roles) : ''].join(' ')); };
+    const conTexto = q ? todas.filter(t => pajar(t).includes(q)) : todas;
     const mias = estado.filtroMis === 'vencidas' ? conTexto.filter(t => info.get(t.id).e === 'danger')
         : estado.filtroMis === 'pronto' ? conTexto.filter(t => info.get(t.id).e === 'warn')
         : estado.filtroMis === 'sinfecha' ? conTexto.filter(t => !t.Vence) : conTexto;
-    if (!mias.length) { cont.appendChild(el('p', 'vacio', todas.length ? (q ? 'Ninguna con ese texto.' : 'Nada con ese filtro.') : delego ? 'No has delegado ninguna tarjeta abierta: las que crees o asignes a otros salen aquí.' : 'Sin tareas abiertas asignadas a ti.')); return; }
+    if (!mias.length) {
+        // C-08 + U-14 (2-oct): el vacio dice QUE etapa vacio la lista. Si el texto si encuentra tarjetas pero el contador las deja
+        // fuera, lo dice con la cifra y un boton que vuelve a «abiertas» conservando el texto (antes culpaba al texto).
+        const v = el('p', 'vacio', !todas.length ? (delego ? 'No has delegado ninguna tarjeta abierta: las que crees o asignes a otros salen aquí.' : 'Sin tareas abiertas asignadas a ti.')
+            : !conTexto.length ? 'Ninguna con ese texto.'
+            : q ? `Ninguna con ese texto en este filtro: ${conTexto.length} ${plural(conTexto.length, 'está', 'están')} fuera de él. `
+            : 'Nada con ese filtro.');
+        if (todas.length && conTexto.length && q) v.appendChild(boton('Ver en abiertas', 'mn-btn is-ghost is-sm', () => { estado.filtroMis = null; pintarMisTareas(); }, { misSalir: '1' }));
+        cont.appendChild(v); return;
+    }
     // v0.67.0: una tarjeta por bloque. `mias` viene en orden de fecha, asi que los bloques salen contiguos y en el orden fijo.
     const porBloque = new Map(); for (const t of mias) { const b = info.get(t.id).bloque; porBloque.set(b, (porBloque.get(b) || 0) + 1); }
     let bloque = '', densa = null;
@@ -438,16 +452,6 @@ export function pintarMisTareas() {
     }
 }
 const BLOQUES = { 'Vencidas': 'vencidas', 'Esta semana': 'semana', 'Después': 'despues', 'Sin fecha': 'sinfecha' };
-/**
- * C-05 (v0.90.0): una sola lectura de la fecha por tarjeta. `e` = estadoVence (umbral CONFIG.vencePronto), `bloque` de la lista —por el
- * mismo umbral que el chip: «Esta semana» = hasta `vencePronto` días, hoy incluido— y `sem` = semaforo (umbral CONFIG.semaforoDias).
- * Reproduce estadoVence() y semaforo() de reglas.js sobre un solo diasPara; las unitarias de esas dos siguen siendo la referencia.
- */
-function infoVence(t) {
-    const hecha = t.Columna === HECHO, d = hecha ? null : diasPara(t.Vence);
-    const e = d === null ? null : claseVence(d, CONFIG.vencePronto), s = d === null ? null : claseVence(d, CONFIG.semaforoDias);
-    return { e, bloque: e === 'danger' ? 'Vencidas' : e === 'warn' ? 'Esta semana' : t.Vence ? 'Después' : 'Sin fecha', sem: hecha ? 'hecha' : s === 'danger' ? 'vencida' : s === 'warn' ? 'pronto' : '' };
-}
 /** Un renglón de la tabla densa: fecha en columna · título (barras de prioridad, insignias; en «delegué», a quién) · proyecto · cubeta. `sem` viene de infoVence (C-05): sin default, para que un llamador nuevo no vuelva a leer la fecha. */
 function renglonDenso(t, conQuien, sem) {
     const b = el('button', 'tr' + (sem ? ' is-' + sem : '') + (t.Prioridad === 'alta' ? ' alta' : '')); b.type = 'button'; b.dataset.t = String(t.id);
@@ -459,16 +463,16 @@ function renglonDenso(t, conQuien, sem) {
     const tt = el('span', 't');
     tt.appendChild(el('span', 'tit', t.Title));
     tt.appendChild(marcaPrioridad(t.Prioridad));   // v0.60.0: a la derecha del titulo
-    if (conQuien) { const q = el('span', 'quien'); q.appendChild(document.createTextNode(t.Asignado ? nombreCorto(t.Asignado, estado.roles) : 'sin asignar')); tt.appendChild(q); }
+    if (conQuien) { const q = el('span', 'quien'); q.appendChild(document.createTextNode(nombreCorto(t.Asignado, estado.roles))); tt.appendChild(q); }   // C-12 (2-oct): sin rama «sin asignar», inalcanzable desde U-05
     const nNotas = notasPorTarea().get(t.id) || 0, nDocs = ligasPorTarea().get(t.id) || 0;
     if (nNotas) tt.appendChild(insignia(TRAZOS.burbuja, nNotas, `${nNotas} ${plural(nNotas, 'nota')}`, 'is-notas'));
     if (nDocs) tt.appendChild(insignia(TRAZOS.clip, nDocs, `${nDocs} ${plural(nDocs, 'documento')}`, 'is-docs'));
     if (buzonPorTarea().get(t.id)) tt.appendChild(chip('en el buzón', 'info'));
     b.appendChild(tt);
-    const p = porId(estado.proyectos, t.ProyectoId); b.appendChild(el('span', 'eqc', p ? p.Clave : ''));   // v0.66.0: texto plano, sin pastilla
+    const p = porId(estado.proyectos, t.ProyectoId); b.appendChild(el('span', 'eqc', p ? p.Title : ''));   // v0.66.0: texto plano, sin pastilla; U-09 (2-oct): el NOMBRE del proyecto, la clave va en el title
     b.appendChild(el('span', 'cu', nombreColumna(t)));
     // El título se corta con puntos suspensivos si es largo (artifact C): el completo vive en el title, con lo que la fila no enseña.
-    b.title = [t.Title, t.Prioridad === 'alta' ? 'Prioridad alta' : '', p ? p.Title : '', t.Vence ? 'vence ' + fechaCorta(t.Vence) : 'sin fecha'].filter(Boolean).join(' · ');
+    b.title = [t.Title, t.Prioridad === 'alta' ? 'Prioridad alta' : '', p ? `${p.Title} (${p.Clave})` : '', t.Vence ? 'vence ' + fechaCorta(t.Vence) : 'sin fecha'].filter(Boolean).join(' · ');
     b.addEventListener('click', () => abrirTarjeta(t.id));
     return b;
 }

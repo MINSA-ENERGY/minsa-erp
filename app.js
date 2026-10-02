@@ -14,8 +14,8 @@
 
 import { CONFIG } from './config.js';
 import { crearCliente, esConflicto } from './graph.js';
-import { rolDe, PUEDE, nombreCorto, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, misAbiertas as misAbiertasDe, HECHO, plural } from './reglas.js';
-import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, textoVence, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas, conservarFoco, olvidarVistosLocales } from './comun.js';
+import { rolDe, PUEDE, nombreCorto, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, infoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, misAbiertas as misAbiertasDe, HECHO, plural } from './reglas.js';
+import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, textoVence, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas, conservarFoco, olvidarVistosLocales, conRetardo } from './comun.js';
 import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambiarTareas, abrirTarjeta, tarjetaAbiertaId, repintarFicha, pintarFiltroTareas, pintarBotonFiltros, abrirNuevaTarea } from './tablero.js';
 import { pintarGastos, engancharGastos, alCambiarGastos, recargarGastosSiLeidos } from './gastos.js';   // v0.162.0: Gastos (de la ERP v1)
 import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
@@ -320,7 +320,7 @@ function irA(p) {
     estado.pestana = p;
     // U-03 (v0.90.0): el filtro que fija Inicio («ver en Mis tareas» de las vencidas) dura UNA visita: al entrar a #mis por la pestaña
     // o por un hash sin origen se vuelve a «abiertas». Lo que se elige con los contadores dentro de la pantalla no pasa por aqui.
-    if (p === 'mis') { estado.filtroMis = estado.filtroMisAlLlegar || null; estado.filtroMisAlLlegar = null; }
+    if (p === 'mis') { if (estado.filtroMisAlLlegar) { estado.textoMis = ''; $('textoMis').value = ''; } estado.filtroMis = estado.filtroMisAlLlegar || null; estado.filtroMisAlLlegar = null; }   // C-08 (2-oct): el «ver en Mis tareas» de Inicio no aterriza con el texto de otra visita
     if (p !== 'roadmap') roadmapFull(false);   // v0.26.0: salir de pantalla completa al cambiar de pantalla
     for (const s of document.querySelectorAll('.pantalla')) s.classList.add('oculto');
     $('p-' + (p === 'proyecto' ? 'proyecto' : p)).classList.remove('oculto');
@@ -431,7 +431,7 @@ function pintarInsignias() {
     for (const id of ['railCapital', 'irCapitalMovil']) $(id).classList.toggle('oculto', !PUEDE.capital(estado.rol));
     const mias = misAbiertas();
     // T4: el contador del rail siempre es VENCIDAS (rojo) y nada si no hay; el total abierto vive en el KPI de Inicio.
-    const vencidas = mias.filter(t => estadoVence(t, CONFIG.vencePronto) === 'danger').length;
+    const vencidas = mias.filter(t => infoVence(t, CONFIG.vencePronto, CONFIG.semaforoDias).e === 'danger').length;   // C-09 (2-oct): la misma cuenta que pinta Mis tareas
     $('nMis').textContent = String(vencidas); $('nMis').hidden = vencidas === 0;
     const n = activos().length; $('nProyectos').textContent = String(n); $('nProyectos').hidden = n === 0;
     // D5: el lector de pantalla leia «Mis tareas 1» sin decir que el 1 son vencidas.
@@ -1551,7 +1551,8 @@ document.addEventListener('keydown', ev => {
     const a = document.activeElement; if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return;
     ev.preventDefault(); $('textoProyectos').focus();
 });
-$('textoMis').addEventListener('input', () => { estado.textoMis = $('textoMis').value; if (estado.pestana === 'mis') pintarMisTareas(); });
+const pintarMisAlTeclear = conRetardo(() => { if (estado.pestana === 'mis') pintarMisTareas(); });   // C-11 (2-oct): una pintada por pausa, no por tecla (delegadas() recorre la actividad)
+$('textoMis').addEventListener('input', () => { estado.textoMis = $('textoMis').value; pintarMisAlTeclear(); });
 $('btnNuevoProyecto').addEventListener('click', () => abrirFormaProyecto(null));
 $('btnEditarProyecto').addEventListener('click', () => abrirFormaProyecto(proyectoAbierto()));
 $('btnCerrarProyecto').addEventListener('click', cerrarProyecto);

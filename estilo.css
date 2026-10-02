@@ -857,6 +857,8 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 .densa .tr .t .insig, .densa .tr .t .mn-chip { flex: none; }
 .densa .tr .eqc, .densa .tr .cu { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: .8rem; color: var(--text-muted); }
 .densa .tr[data-tono]:not(.is-vencida) { background: color-mix(in srgb, var(--tono) 13%, var(--surface-card)); }   /* el color elegido tiñe el renglon como a la tarjeta; el vencido gana */
+/* U-09 + U-10 (mejorar-app mis, 2-oct): en escritorio la lista de Mis tareas tiene ancho de lectura —a 1366 el proyecto y la cubeta caian a ~1,100 px del titulo— y la columna de proyecto crece porque ahora lleva el NOMBRE, no la clave. */
+@media (min-width: 721px) { #misLista { max-width: 1080px; } #misLista .densa .tr { grid-template-columns: 46px minmax(0, 1fr) 200px 120px; } }
 @media (max-width: 720px) {
   .densa .tr { grid-template-columns: 40px minmax(0, 1fr); }
   .densa .tr .eqc, .densa .tr .cu { display: none; }
