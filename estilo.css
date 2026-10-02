@@ -2395,6 +2395,34 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
   .vig-fila .vig-resp::before { content: 'Responsable: '; }
   .vig-fila .vig-resp.is-vacio { display: none; }
 }
+/* ---- v0.168.0: Servicios — la barra de 12 pasos (maqueta HV1C5pzx): hecho verde, actual marca, esperando ambar, a medias rojo. */
+.srv-pasos { display: flex; gap: 3px; min-width: 200px; padding-top: 6px; }
+.srv-p { display: inline-block; flex: 1; height: 8px; border-radius: 2px; background: var(--border-default); }
+.srv-p.is-hecho { background: var(--ok-solid); }
+.srv-p.is-actual { background: var(--brand-primary); }
+.srv-p.is-bloqueado { background: var(--warn-solid); }
+.srv-p.is-rebotado { background: var(--bad-solid); }
+.srv-leyenda { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); font-size: .8rem; color: var(--text-muted); }
+.srv-ley { display: inline-flex; align-items: center; gap: 6px; }
+.srv-ley .srv-p { flex: none; width: 14px; height: 10px; }
+.srv-clave { color: var(--text-strong); font-weight: 600; white-space: nowrap; }
+.srv-paso { color: var(--text-strong); font-weight: 600; }
+.srv-actual .mn-chip { margin-top: 4px; }
+.srv-espera { overflow-wrap: anywhere; }
+.srv-desde { white-space: nowrap; }
+.srv-guia summary { cursor: pointer; font-weight: 600; }
+.srv-guia-lista { margin: var(--sp-2) 0 0; padding-left: 2.2em; display: grid; gap: var(--sp-1); }
+.srv-guia-lista li::marker { font-family: var(--font-data); color: var(--text-muted); }
+/* En celular: el expediente y su barra a todo el ancho; abajo el paso, a quién espera y desde cuándo. */
+@media (max-width: 640px) {
+  .srv-tabla tr.srv-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); }
+  .srv-fila .srv-exp, .srv-fila .srv-avance, .srv-fila .srv-actual { grid-column: 1 / -1; padding-bottom: 0; }
+  .srv-fila .srv-pasos { min-width: 0; }
+  .srv-fila .srv-espera { font-size: .8rem; color: var(--text-muted); }
+  .srv-fila .srv-espera::before { content: 'Espera a: '; }
+  #serviciosKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+  #serviciosKpis .cob-kpi { padding: var(--sp-2) var(--sp-3); }
+}
 .gastos-resumen { margin: 0; font-size: .9rem; }
 .gastos-lista { display: flex; flex-direction: column; }
 .gasto { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; padding: var(--sp-3) 0; border-bottom: 1px solid var(--border-hairline); }

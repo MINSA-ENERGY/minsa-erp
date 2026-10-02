@@ -45,6 +45,10 @@ export const CONFIG = {
     archivoCobranza: 'cobranza.json',
     // v0.166.0: Vigencias. Mismo lugar y misma publicacion que la cobranza (vigencias.py lo cosecha de la KB).
     archivoVigencias: 'vigencias.json',
+    // v0.168.0: Servicios (y luego Compras). Biblioteca que lee el EQUIPO (Lorena, José y gerencia; sin herencia en SharePoint),
+    // por eso aparte de ERP_Datos, que es solo gerencia. La publica la misma corrida de docs/publicar-cobranza.ps1. Sin montos.
+    bibliotecaOperacion: 'ERP_Operacion',
+    archivoServicios: 'servicios.json',
 
     // Las cubetas (columnas) del tablero YA NO viven aqui: desde v0.11.0 (Carlos, 12-sep) cada proyecto
     // trae las suyas en PROY_Proyectos.Columnas y el default es COLUMNAS_DEFAULT de reglas.js.

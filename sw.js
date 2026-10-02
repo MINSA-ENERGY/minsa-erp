@@ -7,7 +7,7 @@
 // Cada peticion del armazon lleva `cache: 'reload'`: GitHub Pages sirve con max-age=600 y sin
 // eso el service worker nuevo se llena con los archivos VIEJOS (medido en captura, 2026-08-17).
 
-const CACHE = 'minsa-erp-v187';
+const CACHE = 'minsa-erp-v188';
 
 function traerDeLaRed(recurso) {
     return fetch(new Request(recurso, { cache: 'reload', credentials: 'same-origin' }));
@@ -34,6 +34,8 @@ const ARMAZON = [
     './cobranza-reglas.js',
     './vigencias.js',       // v0.166.0
     './vigencias-reglas.js',
+    './servicios.js',       // v0.168.0
+    './servicios-reglas.js',
     './lote.js',
     './esquema.json',
     './manifest.json',

@@ -192,7 +192,7 @@
             return a ? json(200, { id: a.id, name: a.nombre, webUrl: a.webUrl }) : error(404, 'itemNotFound');
         }
         // v0.165.0: la biblioteca ERP_Datos (Finanzas > Cobranza), por su drive; la app solo LEE un JSON por ruta.
-        if ((m = /^\/drives\/drive-datos\/root:\/([^?:]+)$/.exec(ruta)) && metodo === 'GET') {
+        if ((m = /^\/drives\/drive-(?:datos|operacion)\/root:\/([^?:]+)$/.exec(ruta)) && metodo === 'GET') {   // v0.168.0: + ERP_Operacion
             const nombre = decodeURIComponent(m[1]); const tx = DB.datos[nombre];
             return tx == null ? error(404, 'itemNotFound') : json(200, { id: 'datos-' + nombre, name: nombre, size: tx.length, file: {}, '@microsoft.graph.downloadUrl': DESCARGA + encodeURIComponent('datos:' + nombre) });
         }
@@ -253,10 +253,11 @@
         DB.esquema = esquema;
         for (const l of esquema.listas) DB.listas[l.clave] = { id: 'lista-' + l.clave, nombre: l.nombre, items: [] };
         DB.listas.bibDatos = { id: 'lista-bibdatos', nombre: 'ERP_Datos', items: [], drive: 'drive-datos' };   // v0.165.0: Finanzas > Cobranza
+        DB.listas.bibOperacion = { id: 'lista-bibop', nombre: 'ERP_Operacion', items: [], drive: 'drive-operacion' };   // v0.168.0: Servicios
         DB.datos = {};
         DB.listas.bibGastos = { id: 'lista-bibgastos', nombre: 'Gastos', items: [], drive: 'drive-gastos' };   // v0.162.0: la biblioteca de comprobantes (una lista con drive)
         // v0.162.0: ?gastos=no = el sitio SIN ERP_Gastos, ERP_Roles ni la biblioteca (antes de entrar: la app cachea la lista de listas al iniciar)
-        if (new URLSearchParams(location.search).get('gastos') === 'no') { delete DB.listas.gastos; delete DB.listas.rolesErp; delete DB.listas.bibGastos; }
+        if (new URLSearchParams(location.search).get('gastos') === 'no') { delete DB.listas.gastos; delete DB.listas.rolesErp; delete DB.listas.bibGastos; delete DB.listas.bibOperacion; }   // v0.168.0: + ERP_Operacion = colaborador sin permiso
         const roles = DB.listas.roles.items;
         roles.push({ id: DB.siguienteId++, fields: { Title: window.__CUENTA.username, Nombre: 'Persona de Prueba', Rol: rol, Activo: true } });
         roles.push({ id: DB.siguienteId++, fields: { Title: 'colega@example.invalid', Nombre: 'Colega Demo', Rol: 'colaborador', Activo: true } });
@@ -1994,7 +1995,7 @@ try {
         {
             const hoyIso = new Date().toISOString();
             R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-proyectos', 'p-mis', 'p-roadmap', 'p-calendario', 'p-mensajes', 'p-archivos', 'p-reportes', 'p-capital', 'p-gastos', 'p-finanzas'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));
-            R.ok('v0.10.0: el rail trae las 9 secciones (v0.162.0: + Gastos; 12 con Capital, Finanzas y Vigencias, v0.100.0/v0.165.0/v0.166.0: solo gerencia las ve) y las que no caben en la barra móvil van en el menú «···»', document.querySelectorAll('#pestanas button').length === 12 && document.querySelectorAll('#menuMovil .ir-movil').length === 6 && document.querySelectorAll('#pestanas button:not(.oculto)').length === (gerencia ? 12 : 9) && document.querySelectorAll('#menuMovil .ir-movil:not(.oculto)').length === (gerencia ? 6 : 3));
+            R.ok('v0.10.0: el rail trae las 9 secciones (v0.162.0: + Gastos; 12 con Capital, Finanzas y Vigencias, v0.100.0/v0.165.0/v0.166.0: solo gerencia las ve) y las que no caben en la barra móvil van en el menú «···»', document.querySelectorAll('#pestanas button').length === 13 && document.querySelectorAll('#menuMovil .ir-movil').length === 7 && document.querySelectorAll('#pestanas button:not(.oculto)').length === (gerencia ? 13 : ROL === 'colaborador' ? 10 : 9) && document.querySelectorAll('#menuMovil .ir-movil:not(.oculto)').length === (gerencia ? 7 : ROL === 'colaborador' ? 4 : 3));   // v0.168.0: + Servicios (gerencia y colaborador)
             // v0.167.0: tres bloques en el rail; cada pestana en el suyo; Operacion sin pestanas visibles no pinta rotulo
             {
                 const bloques = [...document.querySelectorAll('#pestanas .rail-bloque')];
@@ -2004,8 +2005,8 @@ try {
                 R.ok('v0.167.0: el rail va en Trabajo · Dinero · Operación, cada pestaña en su bloque, y el rótulo de Operación solo se pinta si hay una pestaña visible',
                     bloques.length === 3 && rot === 'Trabajo|Dinero|Operación'
                     && de(bloques[0]) === 'inicio,mis,mensajes,proyectos,roadmap,calendario,archivos,reportes'
-                    && de(bloques[1]) === 'gastos,capital,finanzas' && de(bloques[2]) === 'vigencias'
-                    && (gerencia ? (innerWidth <= 720 || opVisible) : !opVisible),
+                    && de(bloques[1]) === 'gastos,capital,finanzas' && de(bloques[2]) === 'servicios,vigencias'
+                    && (innerWidth <= 720 ? !opVisible : opVisible === (gerencia || ROL === 'colaborador')),   // v0.168.0: con Servicios, Operación se ve también a colaborador
                     `${rot} / ${bloques.map(de).join(' / ')} / op=${opVisible}`);
             }
             // una tarjeta que vence HOY y una hecha hace 2 dias, para el calendario, el roadmap y «hechas por semana»
@@ -3834,6 +3835,69 @@ try {
             await recargarYEsperar();
             R.ok('vigencias: «Actualizar» de la app no vuelve a bajar vigencias.json', leidasDatos() === nLeidas);
             R.ok('vigencias: CERO escrituras (solo lee)', escritas() === esc0);
+        }
+        pestana('inicio'); await dormir(30);
+    }
+    // ==================================================================================================================
+    // v0.168.0: SERVICIOS. Gerencia y colaborador; solo LEE servicios.json de ERP_Operacion (lo cosecha servicios.py de la KB).
+    {
+        for (const d of document.querySelectorAll('dialog[open]')) d.close();
+        const leidasOp = () => DB.llamadas.filter(c => c.includes('/drives/drive-operacion/')).length;
+        const escritas = () => DB.llamadas.filter(c => /^(POST|PATCH|PUT|DELETE) /.test(c)).length;
+        const sinPermiso = params.get('gastos') === 'no';   // ese run no tiene ERP_Operacion: lo que ve quien no tiene lectura
+        if (ROL !== 'gerencia' && ROL !== 'colaborador') {
+            const n0 = leidasOp();
+            await irHash('#servicios'); await esperar(() => visible('p-inicio'), 'servicios negado');
+            R.ok(`${ROL} (v0.168.0): sin «Servicios» en el rail ni en el menú «···»; #servicios cae a Inicio y servicios.json ni se lee`,
+                $('railServicios').classList.contains('oculto') && $('irServiciosMovil').classList.contains('oculto') && leidasOp() === n0 && $('serviciosCuerpo').textContent === '');
+            document.querySelector('#avisos .cerrar')?.click();
+        } else if (sinPermiso) {
+            await irHash('#servicios'); await esperar(() => $('serviciosSinAcceso') || $('serviciosNoHabilitada'), 'servicios sin biblioteca');
+            R.ok(`${ROL} sin ERP_Operacion (v0.168.0): dice «sin acceso», nombra la biblioteca y no culpa a la publicación`,
+                !!$('serviciosSinAcceso') && /ERP_Operacion/.test($('serviciosSinAcceso').textContent) && /Carlos/.test($('serviciosSinAcceso').textContent));
+        } else {
+            const esc0 = escritas();
+            const local = d => new Date(Date.now() + d * 86400000 - new Date().getTimezoneOffset() * 60000).toISOString();
+            const PASOS = Array.from({ length: 12 }, (_, i) => ({ n: i, paso: `Paso de prueba ${i}`, quien: i === 6 ? 'José Sandoval' : 'Alguien' }));
+            const ex = (clave, paso, extra = {}) => ({ clave, tipo: 'OC', id: '45000' + clave.slice(1), titulo: 'servicio ' + clave, alcance: '', paso, paso_texto: 'texto del paso', bloqueado: false, rotos: [], espera_a: 'Tesorería LATINA', ultimo_movimiento: '', desde: '2026-09-23', ...extra });
+            const FIX = { version: 1, generado: local(-1).slice(0, 19), fuente: 'pruebas', pasos: PASOS, expedientes: [
+                ex('E2', 11),
+                ex('E10', 1, { tipo: 'SOLPED', espera_a: '<img src=x onerror="window.__xssSrv=1">LATINA' }),
+                ex('E4', 3, { bloqueado: true, desde: '' }),
+                ex('E3', 6, { rotos: [{ paso: 4, txt: 'PDH-009 nunca se envió' }] })
+            ] };
+            // (a) sin archivo
+            DB.datos['servicios.json'] = null;
+            await irHash('#servicios'); await esperar(() => $('serviciosNoHabilitada') || $('serviciosSinAcceso'), 'servicios sin archivo');
+            const aviso = gerencia ? $('serviciosNoHabilitada') : $('serviciosSinAcceso');
+            R.ok(`${ROL} (v0.168.0): «Servicios» en el rail y en el menú «···»; sin servicios.json lo dice y nombra ERP_Operacion (gerencia: falta publicar; colaborador: pedir acceso)`,
+                !$('railServicios').classList.contains('oculto') && !$('irServiciosMovil').classList.contains('oculto') && !!aviso && /ERP_Operacion/.test(aviso.textContent));
+            // (b) version que la app no lee
+            DB.datos['servicios.json'] = JSON.stringify({ ...FIX, version: 2 });
+            clic('btnLeerServicios'); await esperar(() => $('serviciosError'), 'servicios version');
+            R.ok('servicios (v0.168.0): una versión distinta del cosechador se dice, no se pinta a medias', /versión 2/.test($('serviciosError').textContent) && !$('serviciosTabla'));
+            // (c) el JSON bueno
+            DB.datos['servicios.json'] = JSON.stringify(FIX);
+            clic('btnLeerServicios'); await esperar(() => $('serviciosTabla'), 'servicios tabla');
+            const renglones = [...document.querySelectorAll('#serviciosTabla tr.srv-fila')];
+            R.ok('servicios: un renglón por expediente, el más nuevo arriba (E10 antes que E4)', renglones.map(f => f.dataset.clave).join() === 'E10,E4,E3,E2', renglones.map(f => f.dataset.clave).join());
+            const seg = f => [...f.querySelectorAll('.srv-p')].map(x => x.className.replace('srv-p is-', '')).join(',');
+            R.ok('servicios: 12 segmentos; el paso actual marcado y los anteriores hechos', seg(renglones[3]) === Array(11).fill('hecho').concat('actual').join() && renglones.every(f => f.querySelectorAll('.srv-p').length === 12));
+            R.ok('servicios: el bloqueado sale «esperando» en su paso y la fila lo marca', renglones[1].classList.contains('is-bloqueado') && renglones[1].querySelectorAll('.srv-p')[3].classList.contains('is-bloqueado'));
+            R.ok('servicios: el paso pasado a medias sale rojo y con su chip', renglones[2].querySelectorAll('.srv-p')[4].classList.contains('is-rebotado') && /paso 4: PDH-009 nunca se envió/.test(renglones[2].textContent));
+            R.ok('servicios: el paso actual nombra su paso de la tabla de 12; «Desde» en fecha corta, «—» si no hay', /6 · Paso de prueba 6/.test(renglones[2].textContent) && renglones[0].querySelector('.srv-desde').textContent === '23-sep' && renglones[1].querySelector('.srv-desde').textContent === '—');
+            R.ok('servicios: texto con HTML se pinta como texto (sin XSS)', !window.__xssSrv && /<img src=x/.test(renglones[0].querySelector('.srv-espera').textContent));
+            R.ok('servicios: la guía de los 12 pasos trae a quién depende cada uno', $('serviciosPasos').querySelectorAll('li').length === 12 && /José Sandoval/.test($('serviciosPasos').textContent));
+            R.ok('servicios: resumen 4 abiertos · 1 en cobro · 2 detenidos', /4/.test($('serviciosKpis').children[0].textContent) && /1/.test($('serviciosKpis').children[1].textContent) && /2/.test($('serviciosKpis').children[2].textContent));
+            // (d) corte viejo
+            DB.datos['servicios.json'] = JSON.stringify({ ...FIX, generado: local(-20).slice(0, 19) });
+            clic('btnLeerServicios'); await esperar(() => $('serviciosCorte') && /20 días/.test($('serviciosCorte').textContent), 'servicios corte viejo');
+            R.ok('servicios: un corte de 20 días pide re-publicar', /re-publicar/.test($('serviciosCorte').textContent));
+            // (e) el refresco de la app no relee el archivo
+            const nLeidas = leidasOp();
+            await recargarYEsperar();
+            R.ok('servicios: «Actualizar» de la app no vuelve a bajar servicios.json', leidasOp() === nLeidas);
+            R.ok('servicios: CERO escrituras (solo lee)', escritas() === esc0);
         }
         pestana('inicio'); await dormir(30);
     }
