@@ -22,6 +22,7 @@ import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, pued
 import { pintarChat, engancharChat, alCambiarChat, fijarAbrirTarjeta, salirDelChat } from './chat.js';
 import { pintarCapital, pintarCapitalProyecto, pintarCapitalTab, puedeVerCapital, engancharCapital, alCambiarCapital, fijarIrAProyecto } from './capital.js';
 import { pintarFinanzas, alCambiarCobranza, fijarIrDesdeFinanzas } from './cobranza.js';   // v0.165.0: Finanzas > Cobranza (solo gerencia)
+import { pintarVigencias, alCambiarVigencias } from './vigencias.js';   // v0.166.0: Vigencias (solo gerencia)
 import { pintarRoadmap, pintarRoadmapProyecto, roadmapFull, engancharRoadmap, olvidarLugarRoadmap, pintarCalendario, engancharCalendario, enfocarCal, pintarMensajes, engancharMensajes, devolverChat, mensajesNuevos, proyectoDeMensajes, pintarArchivos, engancharArchivos, pintarReportes, engancharReportes, anillo, abrirCargaPersona, pintarCargaPersona } from './vistas.js';
 
 // NO llamar `msal` a esta variable: taparia el global del bundle UMD.
@@ -316,7 +317,7 @@ pintarRed();
 // ---------------------------------------------------------------- navegacion
 
 function irA(p) {
-    const negado = (p === 'capital' || p === 'finanzas') && !PUEDE.capital(estado.rol);   // v0.100.0: Capital es solo de gerencia (una liga pegada tampoco entra); v0.165.0: Finanzas tambien
+    const negado = (p === 'capital' || p === 'finanzas' || p === 'vigencias') && !PUEDE.capital(estado.rol);   // v0.100.0: Capital es solo de gerencia (una liga pegada tampoco entra); v0.165.0: Finanzas tambien
     if (negado) p = 'inicio';
     estado.pestana = p;
     // U-03 (v0.90.0): el filtro que fija Inicio («ver en Mis tareas» de las vencidas) dura UNA visita: al entrar a #mis por la pestaña
@@ -334,7 +335,7 @@ function irA(p) {
     repintar();
     fijarHash(hashDe(tarjetaAbiertaId()));
     window.scrollTo({ top: 0 });
-    if (negado) avisar('Capital y Finanzas son solo para gerencia.', 'ojo');
+    if (negado) avisar('Capital, Finanzas y Vigencias son solo para gerencia.', 'ojo');
     if (p === 'calendario') enfocarCal();   // U-02 (v0.86.0): al ENTRAR, la agenda del celular aterriza en hoy (no en repintar(): ese corre en cada refresco y moveria la pantalla)
 }
 // Router por hash (v0.2.0, F8): LEE location.hash y deja la pantalla como dice; es idempotente, asi
@@ -344,7 +345,7 @@ function irA(p) {
 // v0.42.0: Mensajes lleva lo elegido en el hash (#mensajes/f/<clave> el hilo del frente), para que Atras regrese a la
 // bandeja y una liga pegada abra justo ese hilo. v0.43.0: #mensajes/d/<alias> (la ficha de la persona) ya no existe;
 // una liga vieja con /d/ cae a la bandeja de Mensajes con aviso.
-const RE_HASH = /^#(?:(inicio|proyectos|mis|roadmap|calendario|mensajes|archivos|reportes|capital|gastos|finanzas)(?:\/(f|d)\/([a-z0-9._-]+)|\/(tesoreria|contabilidad))?|p\/([a-z0-9-]+)(?:\/(lista|docs|chat|tablero|resumen|roadmap|capital))?)(?:\/t\/(\d+))?$/;
+const RE_HASH = /^#(?:(inicio|proyectos|mis|roadmap|calendario|mensajes|archivos|reportes|capital|gastos|finanzas|vigencias)(?:\/(f|d)\/([a-z0-9._-]+)|\/(tesoreria|contabilidad))?|p\/([a-z0-9-]+)(?:\/(lista|docs|chat|tablero|resumen|roadmap|capital))?)(?:\/t\/(\d+))?$/;
 function esHashDeLaApp(h) { return RE_HASH.test(String(h || '')); }
 function aplicarHash() {
     if (!estado.sesion) return;
@@ -418,6 +419,7 @@ function repintar() {
     else if (estado.pestana === 'capital') pintarCapital();   // v0.100.0
     else if (estado.pestana === 'gastos') pintarGastos();   // v0.162.0
     else if (estado.pestana === 'finanzas') pintarFinanzas();   // v0.165.0
+    else if (estado.pestana === 'vigencias') pintarVigencias();   // v0.166.0
     if ($('dlgPersona').open) pintarCargaPersona();   // R-02 (v0.131.0): el refresco sigue con las abiertas de la persona abiertas
     if ($('dlgActividad').open) pintarActividad();   // C-12 (v0.94.0): el refresco sigue con «Toda la actividad» abierta (E4); acCtx conserva filtro y pagina
 }
@@ -430,7 +432,7 @@ const misAbiertas = () => misAbiertasDe(estado.tareas, estado.cuenta.username); 
 
 function pintarInsignias() {
     // v0.100.0: el acceso a Capital (rail en escritorio, menu «···» en celular) solo existe para gerencia
-    for (const id of ['railCapital', 'irCapitalMovil', 'railFinanzas', 'irFinanzasMovil']) $(id).classList.toggle('oculto', !PUEDE.capital(estado.rol));   // v0.165.0: + Finanzas
+    for (const id of ['railCapital', 'irCapitalMovil', 'railFinanzas', 'irFinanzasMovil', 'railVigencias', 'irVigenciasMovil']) $(id).classList.toggle('oculto', !PUEDE.capital(estado.rol));   // v0.165.0: + Finanzas; v0.166.0: + Vigencias
     const mias = misAbiertas();
     // T4: el contador del rail siempre es VENCIDAS (rojo) y nada si no hay; el total abierto vive en el KPI de Inicio.
     const vencidas = mias.filter(t => infoVence(t, CONFIG.vencePronto, CONFIG.semaforoDias).e === 'danger').length;   // C-09 (2-oct): la misma cuenta que pinta Mis tareas
@@ -1572,6 +1574,7 @@ engancharChat();
 engancharMensajes();   // v0.42.0
 engancharGastos(); alCambiarGastos(repintar);   // v0.162.0
 alCambiarCobranza(repintar); fijarIrDesdeFinanzas(irA);   // v0.165.0
+alCambiarVigencias(repintar);   // v0.166.0
 engancharCapital(); alCambiarCapital(repintar); fijarIrAProyecto(id => abrirProyecto(id));   // v0.100.0; C-04 (26-sep): recibe el id
 $('pCapitalIr').addEventListener('click', () => { const p = proyectoAbierto(); if (!p) return; estado.filtroCapital = p.id; irA('capital'); });
 engancharRoadmap(); engancharCalendario(); engancharArchivos(); engancharReportes();   // v0.10.0 · v0.26.0 roadmap a pantalla completa

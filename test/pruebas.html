@@ -1994,7 +1994,7 @@ try {
         {
             const hoyIso = new Date().toISOString();
             R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-proyectos', 'p-mis', 'p-roadmap', 'p-calendario', 'p-mensajes', 'p-archivos', 'p-reportes', 'p-capital', 'p-gastos', 'p-finanzas'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));
-            R.ok('v0.10.0: el rail trae las 9 secciones (v0.162.0: + Gastos; 11 con Capital y Finanzas, v0.100.0/v0.165.0: solo gerencia las ve) y las que no caben en la barra móvil van en el menú «···»', document.querySelectorAll('#pestanas button').length === 11 && document.querySelectorAll('#menuMovil .ir-movil').length === 5 && document.querySelectorAll('#pestanas button:not(.oculto)').length === (gerencia ? 11 : 9) && document.querySelectorAll('#menuMovil .ir-movil:not(.oculto)').length === (gerencia ? 5 : 3));
+            R.ok('v0.10.0: el rail trae las 9 secciones (v0.162.0: + Gastos; 12 con Capital, Finanzas y Vigencias, v0.100.0/v0.165.0/v0.166.0: solo gerencia las ve) y las que no caben en la barra móvil van en el menú «···»', document.querySelectorAll('#pestanas button').length === 12 && document.querySelectorAll('#menuMovil .ir-movil').length === 6 && document.querySelectorAll('#pestanas button:not(.oculto)').length === (gerencia ? 12 : 9) && document.querySelectorAll('#menuMovil .ir-movil:not(.oculto)').length === (gerencia ? 6 : 3));
             // una tarjeta que vence HOY y una hecha hace 2 dias, para el calendario, el roadmap y «hechas por semana»
             const tHoy = { id: DB.siguienteId++, fields: { Title: 'Vence hoy para el calendario', ProyectoId: proyectoId, Columna: 'en-curso', Asignado: YO, Prioridad: 'normal', Vence: hoyIso, Desde: new Date(Date.now() - 5 * 86400000).toISOString() } };
             filas('tareas').push(tHoy);
@@ -3762,6 +3762,65 @@ try {
             document.querySelector('#tabsFinanzas [data-tab="gastos"]').click(); await esperar(() => visible('p-gastos'), 'pestaña Gastos');
             R.ok('cobranza: la pestaña «Gastos» lleva a Gastos', location.hash.startsWith('#gastos'));
             R.ok('cobranza: CERO escrituras (solo lee)', escritas() === esc0);
+        }
+        pestana('inicio'); await dormir(30);
+    }
+    // ==================================================================================================================
+    // v0.166.0: VIGENCIAS. Solo gerencia; solo LEE vigencias.json de ERP_Datos (lo cosecha vigencias.py de la KB).
+    {
+        for (const d of document.querySelectorAll('dialog[open]')) d.close();
+        const leidasDatos = () => DB.llamadas.filter(c => c.includes('/drives/drive-datos/')).length;
+        const escritas = () => DB.llamadas.filter(c => /^(POST|PATCH|PUT|DELETE) /.test(c)).length;
+        if (ROL !== 'gerencia') {
+            const n0 = leidasDatos();
+            await irHash('#vigencias'); await esperar(() => visible('p-inicio'), 'vigencias negado');
+            R.ok(`${ROL} (v0.166.0): sin «Vigencias» en el rail ni en el menú «···»; #vigencias cae a Inicio y vigencias.json ni se lee`,
+                $('railVigencias').classList.contains('oculto') && $('irVigenciasMovil').classList.contains('oculto') && leidasDatos() === n0 && $('vigenciasCuerpo').textContent === '');
+            document.querySelector('#avisos .cerrar')?.click();
+        } else {
+            const esc0 = escritas();
+            const local = d => new Date(Date.now() + d * 86400000 - new Date().getTimezoneOffset() * 60000).toISOString();
+            const dia = d => local(d).slice(0, 10);   // AAAA-MM-DD local, a `d` dias de hoy
+            const vg = (d, titulo, extra = {}) => ({ unidad: 'Grupo', vence: dia(d), titulo, responsable: 'Carlos', nota: '', archivo: 'minsa-energy/x.md', linea: 1, ...extra });
+            const FIX = { version: 1, generado: local(-2).slice(0, 19), fuente: 'pruebas', vigencias: [
+                vg(107, 'Certificados ISO de prueba'),
+                vg(-14, 'Registro de proveedor vencido', { responsable: 'Francisco' }),
+                vg(6, '<img src=x onerror="window.__xssVig=1">Fianza etiqueta', { unidad: 'CALYTEK', nota: 'la renovación se ingresa antes' }),
+                vg(40, 'Plazo de convenio', { unidad: 'Legal', responsable: '' })
+            ] };
+            // (a) sin archivo
+            DB.datos['vigencias.json'] = null;
+            await irHash('#vigencias'); await esperar(() => $('vigenciasNoHabilitada'), 'vigencias sin archivo');
+            R.ok('gerencia (v0.166.0): «Vigencias» en el rail y en el menú «···»; sin vigencias.json lo dice y nombra ERP_Datos',
+                !$('railVigencias').classList.contains('oculto') && !$('irVigenciasMovil').classList.contains('oculto') && /ERP_Datos/.test($('vigenciasNoHabilitada').textContent) && /vigencias\.json/.test($('vigenciasNoHabilitada').textContent));
+            // (b) version que la app no lee
+            DB.datos['vigencias.json'] = JSON.stringify({ ...FIX, version: 2 });
+            clic('btnLeerVigencias'); await esperar(() => $('vigenciasError'), 'vigencias version');
+            R.ok('vigencias (v0.166.0): una versión distinta del cosechador se dice, no se pinta a medias', /versión 2/.test($('vigenciasError').textContent) && !$('vigenciasTabla'));
+            // (c) el JSON bueno
+            DB.datos['vigencias.json'] = JSON.stringify(FIX);
+            const nDesc = DB.descargas.length;
+            clic('btnLeerVigencias'); await esperar(() => $('vigenciasTabla'), 'tabla de vigencias');
+            R.ok('vigencias: la descarga va por la liga pre-autenticada, SIN Authorization', DB.descargas.length === nDesc + 1 && DB.descargas[DB.descargas.length - 1].auth === false);
+            const filas = [...document.querySelectorAll('#vigenciasTabla tr.vig-fila')];
+            R.ok('vigencias: la vencida arriba y luego la más próxima', filas.length === 4 && /vencido/.test(filas[0].textContent) && /Fianza/.test(filas[1].textContent) && /Plazo/.test(filas[2].textContent) && /ISO/.test(filas[3].textContent), filas.map(f => f.textContent).join(' | '));
+            R.ok('vigencias: la vencida dice hace cuánto, en rojo, y su renglón se marca', /vencida hace 14 días/.test(filas[0].textContent) && filas[0].classList.contains('is-vencida') && !!filas[0].querySelector('.mn-chip.is-danger'));
+            R.ok('vigencias: semáforo — 6 días rojo, 40 ámbar, 107 verde', !!filas[1].querySelector('.mn-chip.is-danger') && !!filas[2].querySelector('.mn-chip.is-warn') && /107 días/.test(filas[3].textContent) && !!filas[3].querySelector('.mn-chip.is-ok'));
+            R.ok('vigencias: unidad, responsable (— si no hay) y la nota bajo el título', /CALYTEK/.test(filas[1].textContent) && /la renovación se ingresa antes/.test(filas[1].textContent) && filas[2].querySelector('.vig-resp').textContent === '—' && /Francisco/.test(filas[0].textContent));
+            R.ok('vigencias: un título con etiqueta sale como TEXTO y no ejecuta', !window.__xssVig && filas[1].querySelector('.vig-titulo').textContent.startsWith('<img') && !document.querySelector('#vigenciasTabla img'));
+            const kpis = [...document.querySelectorAll('#vigenciasKpis .cob-kpi')];
+            R.ok('vigencias: resumen 1 vencida · 1 en rojo · 1 en ámbar · corte de 2 días al día', kpis.length === 4 && /Vencidas1/.test(kpis[0].textContent) && /1/.test(kpis[1].querySelector('.cob-v').textContent) && kpis[2].querySelector('.cob-v').textContent === '1' && /2 días/.test($('vigenciasCorte').textContent) && /al día/.test($('vigenciasCorte').textContent), kpis.map(k => k.textContent).join(' | '));
+            // (d) corte viejo
+            DB.datos['vigencias.json'] = JSON.stringify({ ...FIX, generado: local(-20).slice(0, 19) });
+            clic('btnLeerVigencias'); await esperar(() => $('vigenciasCorte') && /20 días/.test($('vigenciasCorte').textContent), 'corte viejo');
+            R.ok('vigencias: un corte de 20 días pide re-publicar', /re-publicar/.test($('vigenciasCorte').textContent));
+            // (e) el refresco de la app no relee el archivo; cero escrituras. Deja el JSON bueno sembrado para las capturas.
+            DB.datos['vigencias.json'] = JSON.stringify(FIX);
+            clic('btnLeerVigencias'); await esperar(() => $('vigenciasCorte') && /2 días/.test($('vigenciasCorte').textContent), 'corte fresco');
+            const nLeidas = leidasDatos();
+            await recargarYEsperar();
+            R.ok('vigencias: «Actualizar» de la app no vuelve a bajar vigencias.json', leidasDatos() === nLeidas);
+            R.ok('vigencias: CERO escrituras (solo lee)', escritas() === esc0);
         }
         pestana('inicio'); await dormir(30);
     }

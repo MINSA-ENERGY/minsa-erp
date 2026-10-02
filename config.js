@@ -43,6 +43,8 @@ export const CONFIG = {
     // SharePoint); la app solo LEE `archivoCobranza` (lo escribe exportar_cobranza.py de /conciliar-finanzas). Si falta, lo dice.
     bibliotecaDatos: 'ERP_Datos',
     archivoCobranza: 'cobranza.json',
+    // v0.166.0: Vigencias. Mismo lugar y misma publicacion que la cobranza (vigencias.py lo cosecha de la KB).
+    archivoVigencias: 'vigencias.json',
 
     // Las cubetas (columnas) del tablero YA NO viven aqui: desde v0.11.0 (Carlos, 12-sep) cada proyecto
     // trae las suyas en PROY_Proyectos.Columnas y el default es COLUMNAS_DEFAULT de reglas.js.

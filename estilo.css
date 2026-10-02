@@ -2369,6 +2369,22 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
   .cob-monto { grid-column: 1 / 2; text-align: left; }
   .cob-facturas li > .mn-chip { justify-self: end; }
 }
+/* v0.166.0: Vigencias (vigencias.js). Reusa la tabla y los KPI de Cobranza (.cob-*); aqui solo lo propio. */
+.vig-vence { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.vig-titulo { color: var(--text-strong); font-weight: 600; overflow-wrap: anywhere; }
+.vig-fila.is-vencida .vig-vence { color: var(--status-danger-fg); font-weight: 600; }
+.vig-faltan { white-space: nowrap; }
+/* En celular: el documento arriba a todo el ancho, abajo la fecha y lo que falta; la unidad se omite (la dice el titulo). */
+@media (max-width: 640px) {
+  .vig-tabla tr.vig-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); }
+  .vig-fila .vig-que { grid-column: 1 / -1; order: -1; padding-bottom: 0; }
+  #vigenciasKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+  #vigenciasKpis .cob-kpi { padding: var(--sp-2) var(--sp-3); }
+  .vig-fila .vig-unidad { display: none; }
+  .vig-fila .vig-resp { grid-column: 1 / -1; order: 1; padding-top: 0; font-size: .8rem; color: var(--text-muted); }
+  .vig-fila .vig-resp::before { content: 'Responsable: '; }
+  .vig-fila .vig-resp.is-vacio { display: none; }
+}
 .gastos-resumen { margin: 0; font-size: .9rem; }
 .gastos-lista { display: flex; flex-direction: column; }
 .gasto { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; padding: var(--sp-3) 0; border-bottom: 1px solid var(--border-hairline); }
