@@ -104,6 +104,9 @@
         // v0.108.0: la liga de descarga pre-autenticada del recibo (`@microsoft.graph.downloadUrl`). Sin Authorization.
         if (u.startsWith(DESCARGA)) {
             DB.descargas.push({ url: u, auth: !!(opts.headers && (opts.headers.Authorization || opts.headers.authorization)) });
+            // v0.165.0: cobranza.json de la biblioteca ERP_Datos (DB.datos[nombre] = texto; null = no existe)
+            const nd = decodeURIComponent(u.slice(DESCARGA.length));
+            if (nd.startsWith('datos:')) { const tx = DB.datos[nd.slice(6)]; return tx == null ? error(404, 'descarga') : new Response(tx, { status: 200 }); }
             const a = DB.archivos.find(x => x.id === decodeURIComponent(u.slice(DESCARGA.length)));
             return a ? new Response(a.texto || '', { status: 200 }) : error(404, 'descarga');
         }
@@ -188,6 +191,11 @@
             const a = DB.gastosDrive.archivos.find(x => x.id === decodeURIComponent(m[1]));
             return a ? json(200, { id: a.id, name: a.nombre, webUrl: a.webUrl }) : error(404, 'itemNotFound');
         }
+        // v0.165.0: la biblioteca ERP_Datos (Finanzas > Cobranza), por su drive; la app solo LEE un JSON por ruta.
+        if ((m = /^\/drives\/drive-datos\/root:\/([^?:]+)$/.exec(ruta)) && metodo === 'GET') {
+            const nombre = decodeURIComponent(m[1]); const tx = DB.datos[nombre];
+            return tx == null ? error(404, 'itemNotFound') : json(200, { id: 'datos-' + nombre, name: nombre, size: tx.length, file: {}, '@microsoft.graph.downloadUrl': DESCARGA + encodeURIComponent('datos:' + nombre) });
+        }
         // Biblioteca de CALYTEK: busqueda, existencia, carpetas, piezas.
         if ((m = /^\/sites\/sitio-calytek\/drive\/root\/search\(q='([^']*)'\)/.exec(ruta)) && metodo === 'GET') {
             const q = decodeURIComponent(m[1]).toLowerCase();
@@ -244,6 +252,8 @@
     window.__sembrar = function (esquema, rol) {
         DB.esquema = esquema;
         for (const l of esquema.listas) DB.listas[l.clave] = { id: 'lista-' + l.clave, nombre: l.nombre, items: [] };
+        DB.listas.bibDatos = { id: 'lista-bibdatos', nombre: 'ERP_Datos', items: [], drive: 'drive-datos' };   // v0.165.0: Finanzas > Cobranza
+        DB.datos = {};
         DB.listas.bibGastos = { id: 'lista-bibgastos', nombre: 'Gastos', items: [], drive: 'drive-gastos' };   // v0.162.0: la biblioteca de comprobantes (una lista con drive)
         // v0.162.0: ?gastos=no = el sitio SIN ERP_Gastos, ERP_Roles ni la biblioteca (antes de entrar: la app cachea la lista de listas al iniciar)
         if (new URLSearchParams(location.search).get('gastos') === 'no') { delete DB.listas.gastos; delete DB.listas.rolesErp; delete DB.listas.bibGastos; }
@@ -1983,8 +1993,8 @@ try {
         // ---- v0.10.0: Roadmap · Calendario · Mensajes · Archivos · Reportes (foto de referencia, 12-sep) + titulo con icono + anillo
         {
             const hoyIso = new Date().toISOString();
-            R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-proyectos', 'p-mis', 'p-roadmap', 'p-calendario', 'p-mensajes', 'p-archivos', 'p-reportes', 'p-capital', 'p-gastos'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));
-            R.ok('v0.10.0: el rail trae las 9 secciones (v0.162.0: + Gastos; 10 con Capital, v0.100.0: solo gerencia la ve) y las que no caben en la barra móvil van en el menú «···»', document.querySelectorAll('#pestanas button').length === 10 && document.querySelectorAll('#menuMovil .ir-movil').length === 4 && document.querySelectorAll('#pestanas button:not(.oculto)').length === (gerencia ? 10 : 9) && document.querySelectorAll('#menuMovil .ir-movil:not(.oculto)').length === (gerencia ? 4 : 3));
+            R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-proyectos', 'p-mis', 'p-roadmap', 'p-calendario', 'p-mensajes', 'p-archivos', 'p-reportes', 'p-capital', 'p-gastos', 'p-finanzas'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));
+            R.ok('v0.10.0: el rail trae las 9 secciones (v0.162.0: + Gastos; 11 con Capital y Finanzas, v0.100.0/v0.165.0: solo gerencia las ve) y las que no caben en la barra móvil van en el menú «···»', document.querySelectorAll('#pestanas button').length === 11 && document.querySelectorAll('#menuMovil .ir-movil').length === 5 && document.querySelectorAll('#pestanas button:not(.oculto)').length === (gerencia ? 11 : 9) && document.querySelectorAll('#menuMovil .ir-movil:not(.oculto)').length === (gerencia ? 5 : 3));
             // una tarjeta que vence HOY y una hecha hace 2 dias, para el calendario, el roadmap y «hechas por semana»
             const tHoy = { id: DB.siguienteId++, fields: { Title: 'Vence hoy para el calendario', ProyectoId: proyectoId, Columna: 'en-curso', Asignado: YO, Prioridad: 'normal', Vence: hoyIso, Desde: new Date(Date.now() - 5 * 86400000).toISOString() } };
             filas('tareas').push(tHoy);
@@ -3684,6 +3694,75 @@ try {
                 }
             }
         } finally { window.open = openReal; for (const d of document.querySelectorAll('dialog[open]')) d.close(); }
+        pestana('inicio'); await dormir(30);
+    }
+    // ==================================================================================================================
+    // v0.165.0: FINANZAS > COBRANZA. Solo gerencia; solo LEE cobranza.json de ERP_Datos (lo publica exportar_cobranza.py).
+    {
+        for (const d of document.querySelectorAll('dialog[open]')) d.close();
+        const leidasDatos = () => DB.llamadas.filter(c => c.includes('/drives/drive-datos/')).length;
+        const escritas = () => DB.llamadas.filter(c => /^(POST|PATCH|PUT|DELETE) /.test(c)).length;
+        if (ROL !== 'gerencia') {
+            const n0 = leidasDatos();
+            await irHash('#finanzas'); await esperar(() => visible('p-inicio'), 'finanzas negado');
+            R.ok(`${ROL} (v0.165.0): sin «Finanzas» en el rail ni en el menú «···»; #finanzas cae a Inicio y cobranza.json ni se lee`,
+                $('railFinanzas').classList.contains('oculto') && $('irFinanzasMovil').classList.contains('oculto') && leidasDatos() === n0 && $('finanzasCuerpo').textContent === '');
+            document.querySelector('#avisos .cerrar')?.click();
+        } else {
+            const esc0 = escritas();
+            const hace = d => new Date(Date.now() - d * 86400000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 19);   // hora LOCAL sin zona, como la escribe exportar_cobranza.py
+            const mon = (moneda, facturado, pagado, ok, duda, sin) => ({ moneda, facturado, pagado, ok, duda_min: duda, duda_max: duda, sin, n_facturas: 2 });
+            const fac = (id, moneda, ins, estado, extra = {}) => ({ id, uuid: id + '-UUID', fecha: '2026-03-01', concepto: 'Servicio de prueba', moneda, neto: ins, pagado: 0, insoluto_min: ins, insoluto_max: ins, estado, cancelada: false, ...extra });
+            const FIX = { version: 1, generado: hace(2), fuente: 'pruebas', clientes: [
+                { rfc: 'CPL801111PS2', nombre: 'Constructora Demo', monedas: [mon('USD', 3000, 1000, 500, 0, 1500), { ...mon('MXN', 800, 200, 0, 0, 0), cancelado: 600 }],
+                  facturas: [fac('F10', 'USD', 1500, 'SIN'), fac('F11', 'USD', 500, 'OK'), fac('F12', 'MXN', 600, 'SIN', { cancelada: true })] },
+                { rfc: 'XSS000000AAA', nombre: '<img src=x onerror="window.__xssCob=1">Cliente Etiqueta', monedas: [mon('USD', 900, 0, 0, 300, 600)],
+                  facturas: [fac('X1', 'USD', 300, 'DUDA', { insoluto_min: 100 }), fac('X2', 'USD', 600, 'SIN')] },
+                { rfc: 'SAL000000AAA', nombre: 'Saldado Demo', monedas: [mon('MXN', 50, 50, 0, 0, 0)], facturas: [] }
+            ] };
+            // (a) sin archivo: lo dice y nombra la biblioteca
+            DB.datos['cobranza.json'] = null;
+            await irHash('#finanzas'); await esperar(() => $('cobranzaNoHabilitada'), 'cobranza sin archivo');
+            R.ok('gerencia (v0.165.0): «Finanzas» en el rail y en el menú «···»; sin cobranza.json lo dice y nombra ERP_Datos',
+                !$('railFinanzas').classList.contains('oculto') && !$('irFinanzasMovil').classList.contains('oculto') && /ERP_Datos/.test($('cobranzaNoHabilitada').textContent) && /cobranza\.json/.test($('cobranzaNoHabilitada').textContent));
+            // (b) version que la app no lee: error con el motivo
+            DB.datos['cobranza.json'] = JSON.stringify({ ...FIX, version: 2 });
+            clic('btnLeerCobranza'); await esperar(() => $('cobranzaError'), 'cobranza version');
+            R.ok('cobranza (v0.165.0): una versión distinta del exportador se dice, no se pinta a medias', /versión 2/.test($('cobranzaError').textContent) && !$('cobranzaTabla'));
+            // (c) el JSON bueno
+            DB.datos['cobranza.json'] = JSON.stringify(FIX);
+            const nDesc = DB.descargas.length;
+            clic('btnLeerCobranza'); await esperar(() => $('cobranzaTabla'), 'tabla de cobranza');
+            R.ok('cobranza: la descarga va por la liga pre-autenticada, SIN Authorization', DB.descargas.length === nDesc + 1 && DB.descargas[DB.descargas.length - 1].auth === false);
+            const kpis = [...document.querySelectorAll('#cobranzaKpis .cob-kpi')];
+            R.ok('cobranza: un KPI por moneda (USD, MXN) + la antigüedad del corte', kpis.length === 3 && /USD/.test(kpis[0].textContent) && /MXN/.test(kpis[1].textContent) && kpis[2].id === 'cobranzaCorte', kpis.map(k => k.textContent).join(' | '));
+            R.ok('cobranza: USD = 2,900.00 (2,000 + 900) con 2,100.00 sin REP; nunca suma MXN; lo de un CFDI cancelado no suma y se dice aparte', /2,900\.00/.test(kpis[0].textContent) && /2,100\.00 sin REP/.test(kpis[0].textContent) && /MXN0\.00/.test(kpis[1].textContent) && /600\.00 en CFDI cancelados, no suma/.test(kpis[1].textContent), kpis[1].textContent);
+            R.ok('cobranza: corte de 2 días = al día', /2 días/.test($('cobranzaCorte').textContent) && /al día/.test($('cobranzaCorte').textContent));
+            const filas = () => [...document.querySelectorAll('#cobranzaTabla tr.cob-cliente')];
+            R.ok('cobranza: un renglón por cliente y moneda con saldo, USD primero y el mayor primero; el saldado no sale',
+                filas().map(r => r.dataset.clave).join(',') === 'CPL801111PS2|USD,XSS000000AAA|USD,CPL801111PS2|MXN', filas().map(r => r.dataset.clave).join(','));
+            R.ok('cobranza: un nombre con etiqueta sale como TEXTO y no ejecuta', !window.__xssCob && filas()[1].querySelector('.cob-abrir').textContent.startsWith('<img') && !document.querySelector('#cobranzaTabla img'));
+            filas()[1].querySelector('.cob-abrir').click(); await esperar(() => document.querySelector('#cobranzaTabla .cob-detalle'), 'detalle abierto');
+            const det = [...document.querySelectorAll('#cobranzaTabla .cob-detalle li')];
+            R.ok('cobranza: abrir el cliente lista sus facturas con saldo, la mayor primero, con su semáforo y el rango cuando lo hay',
+                det.length === 2 && /X2/.test(det[0].textContent) && /sin REP/.test(det[0].textContent) && /100\.00 – 300\.00/.test(det[1].textContent) && /en verificación/.test(det[1].textContent), det.map(x => x.textContent).join(' | '));
+            filas()[2].querySelector('.cob-abrir').click(); await esperar(() => document.querySelectorAll('#cobranzaTabla .cob-detalle').length === 2, 'segundo detalle');
+            R.ok('cobranza: un CFDI cancelado lo dice en su renglón, sale tachado y el cliente lo marca «no suma»', /CFDI cancelado/.test(document.querySelectorAll('#cobranzaTabla .cob-detalle')[1].textContent) && !!document.querySelector('#cobranzaTabla .cob-detalle li.is-cancelada') && /600\.00 cancelado, no suma/.test(filas()[2].textContent));
+            // (d) corte viejo
+            DB.datos['cobranza.json'] = JSON.stringify({ ...FIX, generado: hace(20) });
+            clic('btnLeerCobranza'); await esperar(() => $('cobranzaCorte') && /20 días/.test($('cobranzaCorte').textContent), 'corte viejo');
+            R.ok('cobranza: un corte de 20 días pide re-correr el exportador', /re-correr el exportador/.test($('cobranzaCorte').textContent));
+            // (e) las pestañas llevan a Gastos y Capital; el refresco de la app no relee el archivo
+            const nLeidas = leidasDatos();
+            await recargarYEsperar();
+            R.ok('cobranza: «Actualizar» de la app no vuelve a bajar cobranza.json (cambia por semana; tiene su «Volver a leer»)', leidasDatos() === nLeidas);
+            document.querySelector('#tabsFinanzas [data-tab="capital"]').click(); await esperar(() => visible('p-capital'), 'pestaña Capital');
+            R.ok('cobranza: la pestaña «Capital» lleva a Capital', location.hash.startsWith('#capital'));
+            await irHash('#finanzas'); await esperar(() => $('tabsFinanzas'), 'de vuelta a Finanzas');
+            document.querySelector('#tabsFinanzas [data-tab="gastos"]').click(); await esperar(() => visible('p-gastos'), 'pestaña Gastos');
+            R.ok('cobranza: la pestaña «Gastos» lleva a Gastos', location.hash.startsWith('#gastos'));
+            R.ok('cobranza: CERO escrituras (solo lee)', escritas() === esc0);
+        }
         pestana('inicio'); await dormir(30);
     }
 } catch (e) {

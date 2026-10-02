@@ -39,6 +39,10 @@ export const CONFIG = {
     },
     // v0.162.0: biblioteca de los comprobantes de gastos, en el MISMO sitio (Administracion), una carpeta por AAAA-MM.
     bibliotecaGastos: 'Gastos',
+    // v0.165.0: Finanzas > Cobranza. Biblioteca de datos que publica la laptop (solo gerencia la lee: permisos sin herencia en
+    // SharePoint); la app solo LEE `archivoCobranza` (lo escribe exportar_cobranza.py de /conciliar-finanzas). Si falta, lo dice.
+    bibliotecaDatos: 'ERP_Datos',
+    archivoCobranza: 'cobranza.json',
 
     // Las cubetas (columnas) del tablero YA NO viven aqui: desde v0.11.0 (Carlos, 12-sep) cada proyecto
     // trae las suyas en PROY_Proyectos.Columnas y el default es COLUMNAS_DEFAULT de reglas.js.

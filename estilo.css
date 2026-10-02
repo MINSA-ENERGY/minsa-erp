@@ -2327,6 +2327,48 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 .gastos-card { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 .gastos-cab { display: flex; align-items: center; gap: var(--sp-2); }
 .gastos-cab h2 { margin: 0; }
+/* v0.165.0: Finanzas > Cobranza (cobranza.js). KPI por moneda + corte; tabla por cliente con detalle plegable; monedas nunca se suman. */
+.cob-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-3); }
+.cob-kpi { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.cob-k { font-size: .85rem; color: var(--text-muted); }
+.cob-v { font-size: 1.35rem; font-weight: 500; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.cob-pie, .cob-ev { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.cob-caja { padding: 0; overflow-x: auto; }
+.cob-tabla { width: 100%; min-width: 640px; border-collapse: collapse; }
+.cob-tabla th, .cob-tabla td { text-align: left; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--border-hairline); vertical-align: top; }
+.cob-tabla th { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 600; }
+.cob-tabla .n { text-align: right; white-space: nowrap; }
+.cob-ins { font-weight: 600; color: var(--text-strong); }
+.cob-abrir { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--text-link); cursor: pointer; text-align: left; }
+.cob-abrir::before { content: '▸'; display: inline-block; width: 1.1em; color: var(--text-muted); }
+.cob-cliente.is-abierto .cob-abrir::before { content: '▾'; }
+.cob-sub { display: block; font-size: .8rem; color: var(--text-muted); }
+.cob-detalle td { background: var(--surface-sunken); }
+.cob-facturas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.cob-facturas li { display: grid; grid-template-columns: 7em 6.5em minmax(0, 1fr) auto auto; gap: var(--sp-2); align-items: center; font-size: .9rem; }
+.cob-fecha { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.cob-concepto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cob-monto { text-align: right; white-space: nowrap; }
+.cob-facturas li.is-cancelada .cob-monto { text-decoration: line-through; color: var(--text-muted); }
+.cob-nota { margin: 0; font-size: .85rem; max-width: 80ch; }
+.cob-acciones { display: flex; justify-content: flex-end; }
+/* En celular la tabla cabe en el ancho: Facturado y Pagado se ocultan (el saldo y su evidencia son lo que se lee) y cada factura
+   va en dos renglones: folio · fecha arriba, concepto, y saldo con su semaforo abajo a la derecha. */
+@media (max-width: 640px) {
+  .cob-tabla, .cob-tabla tbody, .cob-tabla tr, .cob-tabla td { display: block; min-width: 0; }
+  .cob-tabla thead, .cob-cliente td:nth-child(2), .cob-cliente td:nth-child(3) { display: none; }
+  .cob-tabla tr.cob-cliente { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); }
+  .cob-tabla td { border-bottom: 0; padding: var(--sp-2); }
+  .cob-cliente td.cob-ev { grid-column: 1 / -1; padding-top: 0; display: flex; }
+  .cob-detalle { border-bottom: 1px solid var(--border-hairline); }
+  .cob-abrir { overflow-wrap: anywhere; }
+  .cob-facturas li { grid-template-columns: minmax(0, 1fr) auto; row-gap: 2px; padding-block: var(--sp-1); border-bottom: 1px solid var(--border-hairline); }
+  .cob-facturas li:last-child { border-bottom: 0; }
+  .cob-concepto { grid-column: 1 / -1; white-space: normal; }
+  .cob-fecha { text-align: right; }
+  .cob-monto { grid-column: 1 / 2; text-align: left; }
+  .cob-facturas li > .mn-chip { justify-self: end; }
+}
 .gastos-resumen { margin: 0; font-size: .9rem; }
 .gastos-lista { display: flex; flex-direction: column; }
 .gasto { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; padding: var(--sp-3) 0; border-bottom: 1px solid var(--border-hairline); }

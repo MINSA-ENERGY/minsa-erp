@@ -402,18 +402,22 @@ export function crearCliente(graph, token) {
          * Se baja por `@microsoft.graph.downloadUrl` (pre-autenticada, SIN la cabecera Authorization): `/content`
          * responde 302 a ese mismo host y el token no debe viajar fuera de Graph. El host va en la CSP (connect-src).
          */
-        async leerJson(siteId, ruta, avisar) {
-            const r = await pedir(`${graph}/sites/${siteId}/drive/root:/${rutaUrl(ruta)}`, {}, avisar);
-            if (r.status === 404) return null;
-            if (!r.ok) throw errorHttp(`no se pudo leer ${ruta}: ` + await motivo(r), r.status);
-            const it = await r.json();
-            const url = it['@microsoft.graph.downloadUrl'];
-            if (!url || (it.size || 0) > 256 * 1024) throw new Error(`${ruta}: sin liga de descarga o demasiado grande`);
-            const b = await conReintento(() => fetch(url, { credentials: 'omit' }), avisar);
-            if (!b.ok) throw errorHttp(`no se pudo bajar ${ruta}: HTTP ${b.status}`, b.status);
-            return { id: it.id, datos: JSON.parse(await b.text()) };
-        }
+        async leerJson(siteId, ruta, avisar) { return bajarJson(`${graph}/sites/${siteId}/drive/root:/${rutaUrl(ruta)}`, ruta, avisar, 256 * 1024); },
+        /** v0.165.0: lo mismo en OTRA biblioteca del sitio (por su drive, como «Gastos»); `maxBytes` porque cobranza.json pesa ~100 KB y crece. */
+        async leerJsonDeDrive(driveId, ruta, avisar, maxBytes = 256 * 1024) { return bajarJson(`${graph}/drives/${driveId}/root:/${rutaUrl(ruta)}`, ruta, avisar, maxBytes); }
     };
+
+    async function bajarJson(urlItem, ruta, avisar, maxBytes) {
+        const r = await pedir(urlItem, {}, avisar);
+        if (r.status === 404) return null;
+        if (!r.ok) throw errorHttp(`no se pudo leer ${ruta}: ` + await motivo(r), r.status);
+        const it = await r.json();
+        const url = it['@microsoft.graph.downloadUrl'];
+        if (!url || (it.size || 0) > maxBytes) throw new Error(`${ruta}: sin liga de descarga o demasiado grande`);
+        const b = await conReintento(() => fetch(url, { credentials: 'omit' }), avisar);
+        if (!b.ok) throw errorHttp(`no se pudo bajar ${ruta}: HTTP ${b.status}`, b.status);
+        return { id: it.id, datos: JSON.parse(await b.text()) };
+    }
 }
 
 /**
