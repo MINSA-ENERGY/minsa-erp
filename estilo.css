@@ -343,6 +343,14 @@ body[data-modulo="cuenta"] #pie { display: none; }   /* la versión ya va en la 
 @media (prefers-reduced-motion: reduce) { .mn-btn { transition: none; } .mn-btn:active:not(:disabled) { transform: none; } .mn-btn .onda { display: none; } }
 .mn-btn.is-icono { padding: 0; min-width: var(--control-h-sm); justify-content: center; }
 .mn-btn.is-icono svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* v1.0.2 (Carlos, 3-oct, captura «muestra de boton» = «Elegir archivos» y «Foto»): los botones de TEXTO dejan de ser liga azul
+   sin borde (.is-ghost de la piel) y llevan el contorno del botón secundario: fondo de tarjeta, borde gris y texto oscuro.
+   Se quedan planos los de solo icono (⋯, ×, ↑ ↓) y los que viven DENTRO de un menú (⋯ de archivo y de documento), donde un
+   borde por renglón estorba. :where() deja la especificidad en la de la piel (0,2,0): las reglas de contexto siguen ganando.
+   Se revierte borrando estas tres reglas. */
+.mn-btn.is-ghost:where(:not(.is-icono, .flecha, .fila-menu .menu *, .acc-menu .acciones *)) { background: var(--surface-card); border-color: var(--border-default); color: var(--text-body); }
+.mn-btn.is-ghost:where(:not(.is-icono, .flecha, .fila-menu .menu *, .acc-menu .acciones *)):hover { background: var(--surface-hover); }
+.mn-btn.is-ghost:where(:not(.is-icono, .flecha, .fila-menu .menu *, .acc-menu .acciones *)):active { background: var(--surface-active); }
 .mn-dialog-head h2 { min-width: 0; overflow-wrap: anywhere; }
 /* F12: «ver toda» pegado al titulo de la tarjeta de actividad. v0.15.1 (captura de Carlos 13-sep): era float: right, y
    como el h2 no contenia el flotante, la lista .mini (un grid = contexto de formato propio) se ACORTABA a su lado en toda
@@ -2715,7 +2723,8 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 .rp-opts input { margin: 0; accent-color: var(--navy); }
 .rp-ed-a { display: flex; gap: 6px; margin-top: 8px; }
 .rp-ed-z { display: flex; align-items: center; gap: 6px; margin-top: 14px; }
-.rp-quien { margin: 2px 0 6px; }
+.rp-quien { display: flex; margin: 2px 0 6px; }
+.rp-quien button { flex: 1 1 0; }   /* v1.0.2 (Carlos, 3-oct): las dos opciones se reparten el ancho; antes quedaba un hueco en blanco a la derecha de «EQUIPO» */
 /* ---- «Guardados» al pie del panel */
 .panel .panel-guardados { display: grid; gap: 1px; }
 .panel .sv { display: flex; align-items: center; gap: 8px; width: calc(100% - 22px); min-height: 38px; margin-left: 11px; padding: 7px 8px; border: 0; border-radius: 3px; background: none; color: var(--ink); font: inherit; font-size: 14.5px; text-align: left; cursor: pointer; }

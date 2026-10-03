@@ -249,10 +249,15 @@ export function grafica(caja, o) {
             globo.appendChild(r);
             if (k === 1 && p.inc != null && p.inc !== p.y && o.incTexto) globo.appendChild(el('small', '', `${o.incTexto}: ${fLargo(p.inc)}`));
         }
-        const escalaX = (svg.getBoundingClientRect().width || W) / W, ymax = Math.max(...series.map(s => (s.puntos[i] || {}).y || 0));
-        // el globo se queda dentro de la caja: no más a la izquierda o a la derecha que su mitad
-        const izq = Math.min(Math.max(svg.offsetLeft + xs(i) * escalaX, 70), (caja.clientWidth || W) - 70);
-        globo.style.left = izq + 'px'; globo.style.top = (svg.offsetTop + ys(ymax) * escalaX) + 'px'; globo.classList.add('is-on');
+        const ymax = Math.max(...series.map(s => (s.puntos[i] || {}).y || 0));
+        // v1.0.2 (Carlos, 3-oct: «la información sale cortada»): el punto se lleva a la caja con la matriz del SVG. Antes salía de
+        // `svg.offsetLeft`, que un <svg> NO tiene: daba NaN, el globo se quedaba en la esquina de arriba a la izquierda y el panel lo cortaba.
+        const m = svg.getScreenCTM(), rc = caja.getBoundingClientRect();
+        const pt = m ? new DOMPoint(xs(i), ys(ymax)).matrixTransform(m) : { x: rc.left + xs(i), y: rc.top + ys(ymax) };
+        // el globo se queda dentro de la caja: no más a la izquierda o a la derecha que su mitad (medida, no supuesta: un nombre largo lo ensancha)
+        const mitad = globo.offsetWidth / 2 + 4, ancho = caja.clientWidth || W;
+        globo.style.left = Math.min(Math.max(pt.x - rc.left - caja.clientLeft, mitad), Math.max(mitad, ancho - mitad)) + 'px';
+        globo.style.top = (pt.y - rc.top - caja.clientTop) + 'px'; globo.classList.add('is-on');
         guia.setAttribute('x1', xs(i)); guia.setAttribute('x2', xs(i)); guia.classList.add('is-on');
         svg.dataset.punto = String(i);
     };

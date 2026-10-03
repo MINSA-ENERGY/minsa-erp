@@ -4229,6 +4229,12 @@ try {
             R.ok('v1.0.0 (cubeta 2): la gráfica es SVG armado por DOM, en LÍNEA por omisión, un punto por mes con su área y su línea', !!svg() && svg().dataset.tipo === 'line' && Number(svg().dataset.n) >= 2 && !!svg().querySelector('path.rp-linea') && !!svg().querySelector('path.rp-area') && !document.querySelector('#rpGrafica canvas'));
             svg().querySelector('rect.rp-hit').dispatchEvent(new PointerEvent('pointerenter')); await dormir(10);
             R.ok('v1.0.0 (cubeta 2): al pasar el puntero, el globo con el mes y el monto y la guía vertical', document.querySelector('#rpGrafica .rp-globo').classList.contains('is-on') && /US\$/.test(document.querySelector('#rpGrafica .rp-globo').textContent) && svg().querySelector('.rp-guia').classList.contains('is-on'));
+            { const hits = svg().querySelectorAll('rect.rp-hit'), caja = document.querySelector('#rpGrafica'), g = document.querySelector('#rpGrafica .rp-globo');
+              const medir = h => { h.dispatchEvent(new PointerEvent('pointerenter')); const rg = g.getBoundingClientRect(), rh = h.getBoundingClientRect(), rc = caja.getBoundingClientRect();
+                  return { dentro: rg.left >= rc.left - 1 && rg.right <= rc.right + 1, centro: Math.round(Math.abs((rg.left + rg.right) / 2 - (rh.left + rh.right) / 2)), left: g.style.left }; };
+              const a = medir(hits[0]), b = medir(hits[Math.floor(hits.length / 2)]), c = medir(hits[hits.length - 1]);
+              R.ok('v1.0.2 (Carlos, 3-oct): el globo sale SOBRE su punto y dentro de la gráfica en los dos extremos — antes salía de `svg.offsetLeft`, que un <svg> no tiene (NaN), y quedaba en la esquina, cortado',
+                  a.dentro && b.dentro && c.dentro && b.centro <= 1 && /^\d+(\.\d+)?px$/.test(b.left), JSON.stringify({ a, b, c })); }
             const nMes = Number(svg().dataset.n);
             document.querySelector('#finanzasCuerpo [data-rp="tipo:bar"]').click(); await dormir(10);
             R.ok('v1.0.0 (cubeta 2): LÍNEA | BARRAS cambia el tipo', svg().dataset.tipo === 'bar' && svg().querySelectorAll('rect.rp-barra').length === nMes);
