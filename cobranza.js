@@ -49,7 +49,8 @@ export async function cargarCobranza() {
         C.datos = leido.datos; C.error = null;
     } catch (e) { C.error = motivo(e); }
 }
-function asegurarCarga() {
+/** v1.0.0 (cubeta 4): exportada — Inicio la llama para su KPI y «Requiere atención» (la misma lectura única por sesión; solo gerencia). */
+export function asegurarCarga() {
     if (C.datos !== null || C.cargando || C.error) return;
     C.cargando = cargarCobranza().finally(() => { C.cargando = null; alCambiar(); });
 }

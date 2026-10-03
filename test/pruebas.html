@@ -283,6 +283,9 @@
     R.ok = (nombre, cond, detalle) => { if (cond) { R.oks++; R.log('ok', nombre + (detalle ? ' — ' + detalle : '')); } else { R.fallas++; R.log('falla', nombre + (detalle ? ' — ' + detalle : '')); } };
     R.cerrar = async () => {
         const resumen = `${R.oks} ok · ${R.fallas} falla(s)`;
+        // cubeta 4: el reloj de la página es VIRTUAL en la E2E (e2e.ps1, --virtual-time-budget=120000); si la corrida pasa del presupuesto,
+        // Edge vuelca el DOM a media corrida y no hay resumen. Esta nota dice cuánto se usó, para ver el margen antes de que se acabe.
+        R.log('nota', `reloj de la página al terminar: ${Math.round(performance.now() / 1000)} s`);
         R.log(R.fallas ? 'falla' : 'ok', 'RESUMEN: ' + resumen);
         document.title = 'PRUEBAS TERMINADAS: ' + resumen;
         try { await fetch('/guardar', { method: 'POST', body: JSON.stringify({ resumen, rol: new URLSearchParams(location.search).get('rol') || 'gerencia', lineas: R.lineas, llamadas: window.__DB.llamadas.length }, null, 1) }); } catch (_) {}
@@ -312,11 +315,41 @@ const dormir = ms => new Promise(r => setTimeout(r, ms));
 // se comia el estado transitorio (un aviso de 4 s); agregar pruebas corria el contador y rompia una prueba ajena.
 // esperar() conserva una red a 95 por si los clics solos (irA de la app) cruzan el tope entre dos irHash.
 let pushes = 0; { const ps = history.pushState.bind(history); history.pushState = (...a) => { pushes++; return ps(...a); }; }
+// TRAMPA del tiempo virtual y las lecturas de Blob (medida 2026-10-02, cubeta 4 del rediseño; intermitente en sin-rol-gastos
+// «aviso de subida fallida» y en «lote subido»): con --virtual-time-budget el reloj de la pagina CORRE mientras un File/Blob se lee
+// (arrayBuffer/text van por IPC al navegador y no detienen el tiempo virtual, como si lo hace un fetch). En una maquina cargada esa
+// lectura real tarda y el reloj virtual avanza segundos: medido con 5 corridas en paralelo, de 0 a 7,775 ms virtuales por lectura, y
+// las dos fallas (gastos y Subir) fueron lecturas de mas de 8 s y 10 s.
+// Remedio (2a vuelta, cierre de la cubeta 4): la primera version pausaba el presupuesto de esperar() con la lectura en vuelo, pero el
+// reloj virtual seguia corriendo y se comia el presupuesto de TODA la corrida (--virtual-time-budget de e2e.ps1): una corrida cargada
+// de colaborador se corto a media prueba (800 de 958, sin resumen). Ahora la causa no ocurre: todo archivo de prueba nace con
+// archivoDePrueba(), que registra sus bytes, y arrayBuffer()/text() de ESE archivo los devuelve de memoria, sin IPC y sin que corra el
+// reloj (la app llama igual a `archivo.arrayBuffer()`; lo que se finge es el disco, como el Graph falso finge SharePoint). Una lectura
+// nativa que no venga de ahi se sigue contando: esperar() le da hasta 400 vueltas (~10 s virtuales) de gracia y despues falla con su
+// nombre, en vez de agotar en silencio el reloj de la corrida.
+let blobsEnVuelo = 0;
+const BYTES_DE_PRUEBA = new Map();   // "nombre|tamaño|tipo|lastModified" -> Uint8Array; input.files devuelve otro objeto File, pero con esos 4 datos
+const llaveArchivo = f => `${f.name}|${f.size}|${f.type}|${f.lastModified}`;
+function archivoDePrueba(texto, nombre, tipo) { const bytes = new TextEncoder().encode(texto); const f = new File([bytes], nombre, { type: tipo }); BYTES_DE_PRUEBA.set(llaveArchivo(f), bytes); return f; }
+for (const k of ['arrayBuffer', 'text']) {
+    const f = Blob.prototype[k];
+    Blob.prototype[k] = function (...a) {
+        const enMemoria = this instanceof File && BYTES_DE_PRUEBA.get(llaveArchivo(this));
+        if (enMemoria) return Promise.resolve(k === 'text' ? new TextDecoder().decode(enMemoria) : enMemoria.slice().buffer);
+        blobsEnVuelo++; let p; try { p = f.apply(this, a); } catch (e) { blobsEnVuelo--; throw e; } return p.finally(() => { blobsEnVuelo--; });
+    };
+}
 async function respirar(tope = 80) { if (pushes >= tope) { pushes = 0; await dormir(10500); } }
 async function esperar(fn, que, ms = 8000) {
     if (pushes >= 95) { pushes = 0; await dormir(10500); }
-    const t0 = Date.now();
-    while (Date.now() - t0 < ms) { try { const v = fn(); if (v) return v; } catch (_) {} await dormir(25); }
+    let gastado = 0, antes = Date.now(), pausadas = 0;
+    while (gastado < ms) {
+        try { const v = fn(); if (v) return v; } catch (_) {}
+        await dormir(25);
+        const ahora = Date.now();
+        if (blobsEnVuelo > 0 && pausadas < 400) pausadas++; else gastado += ahora - antes;
+        antes = ahora;
+    }
     throw new Error('tiempo agotado esperando: ' + que);
 }
 const visible = id => $(id).tagName === 'DIALOG' ? $(id).open : !$(id).classList.contains('oculto') && !$(id).hidden && $(id).offsetParent !== null;
@@ -334,8 +367,8 @@ const editar = campo => { const b = document.querySelector(`#dlgTarea [data-edit
 const popAbierto = () => !$('tPop').classList.contains('oculto') ? $('tPop').dataset.campo : null;
 function archivosFalsos() {
     const dt = new DataTransfer();
-    dt.items.add(new File([new Blob(['%PDF-1.4 falso'])], 'filosofia-borrador.pdf', { type: 'application/pdf' }));
-    dt.items.add(new File([new Blob(['hola'])], 'nota.txt', { type: 'text/plain' }));
+    dt.items.add(archivoDePrueba('%PDF-1.4 falso', 'filosofia-borrador.pdf', 'application/pdf'));
+    dt.items.add(archivoDePrueba('hola', 'nota.txt', 'text/plain'));
     $('sbArchivos').files = dt.files; $('sbArchivos').dispatchEvent(new Event('change', { bubbles: true }));
 }
 const actividad = accion => filas('actividad').filter(a => a.fields.Accion === accion);
@@ -752,10 +785,14 @@ try {
         // subir/bajar (F11), «→ siguiente» con Deshacer (U7), 412 (T1), sin red (T2).
         R.ok('T4: el contador rojo del rail es solo vencidas (gerencia: nada; colaborador: 1)', $('nMis').hidden === gerencia && (gerencia || $('nMis').textContent === '1'), `${$('nMis').hidden}/${$('nMis').textContent}`);
         // v0.21.0 (iteracion 3): 3 KPI de lo mio con tendencia contra ayer; el saludo lleva el nombre y la cuenta de frentes.
-        R.ok('v0.41.0: Inicio ya NO trae la fila de KPI (#inicioKpis salió entera: ni los 3 de lo mío ni los 2 globales planos)', !document.getElementById('inicioKpis') && !document.querySelector('#p-inicio .mn-kpis'));
+        // v1.0.0 (cubeta 4; plan «fila de KPIs por rol», supera v0.41.0): sustituye a «Inicio ya NO trae la fila de KPI (#inicioKpis salió entera…)»
+        R.ok('v1.0.0 (cubeta 4): Inicio trae la fila de KPIs POR ROL (#inicioKpis: gerencia 5 · colaborador 3 · lectura 1), cada KPI con la ruta de su reporte; ni la .mn-kpis vieja',
+            document.querySelectorAll('#inicioKpis .ini-kpi').length === (gerencia ? 5 : ROL === 'colaborador' ? 3 : 1) && [...document.querySelectorAll('#inicioKpis .ini-kpi')].every(b => /^#[a-z]/.test(b.dataset.ir || '')) && !document.querySelector('#p-inicio .mn-kpis'), [...document.querySelectorAll('#inicioKpis .ini-kpi')].map(b => b.dataset.kpi).join());
         R.ok('v0.21.0: el saludo lleva el nombre de pila y la fecha de hoy con los frentes activos y el rol', /^Buen[oa]s (días|tardes|noches), Persona$/.test($('inicioSaludo').textContent) && /^(domingo|lunes|martes|miércoles|jueves|viernes|sábado) \d{1,2} de [a-z]+ · \d+ frentes? activos? · (gerencia|colaborador|lectura)$/.test($('inicioSub').textContent), `${$('inicioSaludo').textContent} / ${$('inicioSub').textContent}`);
-        R.ok('v0.21.0 → v0.39.0: la cola «Hoy» lleva encabezados de grupo en orden de urgencia DENTRO de cada mitad (izq. vencidas · hoy · sin dueño; der. nuevo · mención · semana) y renglones del mismo esqueleto (fecha en columna · título · sub; sin verbo desde v0.25.1, sin avatar desde v0.61.0, sin punto desde v0.65.0)', (() => { const gs = [...document.querySelectorAll('#inicioHoy .hoy-g')].map(g => g.dataset.grupo); const enOrden = (sel, orden) => { const idx = [...document.querySelectorAll(sel)].map(g => orden.indexOf(g.dataset.grupo)); return idx.every((v, i) => v >= 0 && (i === 0 || v > idx[i - 1])); }; return gs.length >= 1 && enOrden('#inicioUrgente .hoy-g', ['vencidas', 'hoy', 'sin-dueno']) && enOrden('#inicioResto .hoy-g', ['nuevo', 'mencion', 'semana']) && [...document.querySelectorAll('#inicioHoy .hoy-r')].every(r => r.querySelector('.k b') && r.querySelector('.k b').textContent && !r.querySelector('.st') && r.querySelector('.t') && r.querySelector('.p') && !r.querySelector('.av') && !r.querySelector('.ir')) && $('nHoy').textContent === String([...document.querySelectorAll('#inicioHoy .hoy-g .n')].reduce((s, b) => s + Number(b.textContent), 0)) && [...document.querySelectorAll('#inicioHoy .hoy-g')].every(g => { let n = 0, mas = false, e = g.nextElementSibling; while (e && !e.classList.contains('hoy-g')) { if (e.classList.contains('hoy-r')) n++; if (e.classList.contains('hoy-mas')) mas = true; e = e.nextElementSibling; } const total = Number(g.querySelector('.n').textContent); return n <= 8 && (n === total || mas || ['nuevo', 'mencion', 'sin-dueno'].includes(g.dataset.grupo)); }); })(), [...document.querySelectorAll('#inicioHoy .hoy-g')].map(g => g.dataset.grupo).join(','));
-        R.ok('v0.39.0: la cola va en dos mitades dentro de #inicioHoy — izquierda vencidas · hoy · sin dueño, derecha nuevo · mención · semana — y ningún grupo cambia de lado', (() => { const L = [...document.querySelectorAll('#inicioUrgente .hoy-g')].map(g => g.dataset.grupo), Rr = [...document.querySelectorAll('#inicioResto .hoy-g')].map(g => g.dataset.grupo); return $('inicioHoy').classList.contains('cola-dos') && L.every(x => ['vencidas', 'hoy', 'sin-dueno'].includes(x)) && Rr.every(x => ['nuevo', 'mencion', 'semana'].includes(x)) && (L.length + Rr.length) === document.querySelectorAll('#inicioHoy .hoy-g').length && !document.querySelector('#cardFines'); })(), [...document.querySelectorAll('#inicioHoy .hoy-g')].map(g => g.parentElement.id + ':' + g.dataset.grupo).join('|'));
+        // v1.0.0 (cubeta 4): sustituye a «… (izq. vencidas · hoy · sin dueño; der. nuevo · mención · semana) …» — «Esta semana» ya no es grupo (vive en Mis
+        // tareas; aquí queda una liga) y por rol se suman servicios detenidos y vigencias (izq.) y cobro, O.C. que no cuadra y frentes sin movimiento (der.)
+        R.ok('v0.21.0 → v1.0.0 (cubeta 4): «Requiere atención» lleva encabezados de grupo en orden de urgencia DENTRO de cada mitad (izq. vencidas · hoy · sin dueño · detenidos · vigencias; der. nuevo · mención · cobro · no cuadra · frentes) y renglones del mismo esqueleto (fecha en columna · título · sub; sin verbo desde v0.25.1, sin avatar desde v0.61.0, sin punto desde v0.65.0)', (() => { const gs = [...document.querySelectorAll('#inicioHoy .hoy-g')].map(g => g.dataset.grupo); const enOrden = (sel, orden) => { const idx = [...document.querySelectorAll(sel)].map(g => orden.indexOf(g.dataset.grupo)); return idx.every((v, i) => v >= 0 && (i === 0 || v > idx[i - 1])); }; return gs.length >= 1 && enOrden('#inicioUrgente .hoy-g', ['vencidas', 'hoy', 'sin-dueno', 'detenidos', 'vigencias']) && enOrden('#inicioResto .hoy-g', ['nuevo', 'mencion', 'cobro', 'no-cuadra', 'frentes']) && [...document.querySelectorAll('#inicioHoy .hoy-r')].every(r => r.querySelector('.k b') && r.querySelector('.k b').textContent && !r.querySelector('.st') && r.querySelector('.t') && r.querySelector('.p') && !r.querySelector('.av') && !r.querySelector('.ir')) && $('nHoy').textContent === String([...document.querySelectorAll('#inicioHoy .hoy-g .n')].reduce((s, b) => s + Number(b.textContent), 0)) && [...document.querySelectorAll('#inicioHoy .hoy-g')].every(g => { let n = 0, mas = false, e = g.nextElementSibling; while (e && !e.classList.contains('hoy-g')) { if (e.classList.contains('hoy-r')) n++; if (e.classList.contains('hoy-mas')) mas = true; e = e.nextElementSibling; } const total = Number(g.querySelector('.n').textContent); return n <= 8 && (n === total || mas || ['nuevo', 'mencion', 'sin-dueno'].includes(g.dataset.grupo)); }); })(), [...document.querySelectorAll('#inicioHoy .hoy-g')].map(g => g.dataset.grupo).join(','));
+        R.ok('v0.39.0 → v1.0.0 (cubeta 4): la cola va en dos mitades dentro de #inicioHoy — izquierda vencidas · hoy · sin dueño · detenidos · vigencias, derecha nuevo · mención · cobro · no cuadra · frentes — y ningún grupo cambia de lado', (() => { const L = [...document.querySelectorAll('#inicioUrgente .hoy-g')].map(g => g.dataset.grupo), Rr = [...document.querySelectorAll('#inicioResto .hoy-g')].map(g => g.dataset.grupo); return $('inicioHoy').classList.contains('cola-dos') && L.every(x => ['vencidas', 'hoy', 'sin-dueno', 'detenidos', 'vigencias'].includes(x)) && Rr.every(x => ['nuevo', 'mencion', 'cobro', 'no-cuadra', 'frentes'].includes(x)) && (L.length + Rr.length) === document.querySelectorAll('#inicioHoy .hoy-g').length && !document.querySelector('#cardFines'); })(), [...document.querySelectorAll('#inicioHoy .hoy-g')].map(g => g.parentElement.id + ':' + g.dataset.grupo).join('|'));
         R.ok('v0.39.0: Inicio no tiene lateral — es .bandas; la tarjeta «Sin movimiento» se oculta solo cuando no hay renglones', !!document.querySelector('#p-inicio > .bandas') && !document.querySelector('#p-inicio .dos-columnas') && ($('cardSinMov').classList.contains('oculto') === (document.querySelectorAll('#inicioSinMov .it').length === 0)));
         { const antes = document.querySelectorAll('#inicioHoy .hoy-r').length; const tareasHoy = (await import('../comun.js')).estado.tareas; document.querySelector('#hoyFiltro [data-hoy="mias"]').click(); await dormir(30);
           R.ok('v0.21.0: «solo mías» deja en la cola solo mis tarjetas (los grupos por fecha) y se marca; «todo el frente» las devuelve', document.querySelector('#hoyFiltro [data-hoy="mias"]').classList.contains('is-on') && [...document.querySelectorAll('#inicioHoy .hoy-r[data-t]:not([data-sin-dueno])')].every(r => { const t = tareasHoy.find(x => x.id === Number(r.dataset.t)); return !!t && String(t.Asignado || '').toLowerCase() === YO.toLowerCase(); }) && document.querySelectorAll('#inicioHoy .hoy-r').length <= antes, `${document.querySelectorAll('#inicioHoy .hoy-r').length}/${antes}`);
@@ -907,7 +944,9 @@ try {
           await recargarYEsperar(); await abrirLau(); await esperar(() => document.querySelectorAll('#tableroCols .tarjeta').length === N, 'semáforo retirado'); }
         pestana('inicio'); await esperar(() => document.querySelector('#inicioHoy [data-kpi="sin-dueno"]'), 'grupo sin dueño');
         R.ok('C7 (v0.21.0 / v0.25.0): la cola trae el grupo «Sin dueño» = 1 con su renglón (el renglón del proyecto ya no lleva el chip: v0.25.0)', document.querySelector('#inicioHoy [data-kpi="sin-dueno"] .n').textContent === '1' && document.querySelectorAll('#inicioHoy .hoy-r[data-sin-dueno]').length === 1 && !document.querySelector(`#inicioProyectos .pficha[data-open="${proyectoId}"] .mn-chip`) && !!document.querySelector(`#inicioProyectos .pficha[data-open="${proyectoId}"] .cal .mes`) && document.querySelectorAll(`#inicioProyectos .pficha[data-open="${proyectoId}"] .stats b`).length === 3);
-        R.ok('v0.41.0: sin fila de KPI, el encabezado del grupo «Sin dueño» de la cola sigue siendo botón', !document.getElementById('inicioKpis') && document.querySelector('#inicioHoy [data-kpi="sin-dueno"]').tagName === 'BUTTON');
+        // v1.0.0 (cubeta 4): sustituye a «v0.41.0: sin fila de KPI, el encabezado del grupo «Sin dueño» sigue siendo botón» — la fila de KPIs volvió (por rol) y el
+        // data-kpi del grupo no choca con los suyos (viven en #inicioKpis)
+        R.ok('v1.0.0 (cubeta 4): con la fila de KPIs de vuelta, el encabezado del grupo «Sin dueño» sigue siendo botón y su data-kpi no choca con los de #inicioKpis', !document.querySelector('#inicioKpis [data-kpi="sin-dueno"]') && document.querySelector('#inicioHoy [data-kpi="sin-dueno"]').tagName === 'BUTTON');
         document.querySelector('#inicioHoy [data-kpi="sin-dueno"]').click(); await esperar(() => visible('p-proyecto') && document.querySelectorAll('#tableroCols .tarjeta').length === 1, 'proyecto filtrado');
         R.ok('C7: el grupo de la cola aterriza en el proyecto con el filtro «sin dueño» puesto', document.querySelector('#filtroChips [data-filtro="sinDueno"] input').checked && document.querySelector('#filtroChips .menu-quien > summary').classList.contains('is-on') && document.querySelector('#tableroCols .tarjeta').dataset.t === String(normal.id));
         { const mod = await import('../comun.js');
@@ -1435,7 +1474,8 @@ try {
         R.ok('v0.94.0 (U-11): el renglón de la cola anuncia al lector de pantalla la fecha que la columna .k (aria-hidden) enseña', (() => { const r = document.querySelector(`#inicioHoy .hoy-r[data-t="${t.id}"]`); const k = r && r.querySelector('.k'); return !!k && k.getAttribute('aria-hidden') === 'true' && (r.getAttribute('aria-label') || '').startsWith('LISTA DE INSUMOS') && r.getAttribute('aria-label').endsWith(`${k.querySelector('b').textContent} ${k.querySelector('small').textContent}`); })(), (document.querySelector(`#inicioHoy .hoy-r[data-t="${t.id}"]`) || { getAttribute: () => 'sin renglón' }).getAttribute('aria-label'));
         document.querySelector(`#inicioHoy .hoy-r[data-t="${t.id}"]`).click(); await esperar(() => $('dlgTarea').open, 'tarjeta desde la cola');
         R.ok('v0.21.0: el renglón de la cola abre su tarjeta', $('tTitulo').textContent.startsWith('LISTA DE INSUMOS')); clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada');
-        R.ok('v0.95.0 (C-11): los renglones que abren algo en Inicio llevan su llave data-abre («t:<id>» / «a:<id>[:<pid>]») y no un closure', (() => { const rs = [...document.querySelectorAll('#inicioHoy button.hoy-r, #inicioSinMov button.it, #inicioActividad button.it')]; return rs.length > 0 && rs.every(r => /^(t:\d+|a:\d+(:\d+)?)$/.test(r.dataset.abre || '')) && document.querySelector(`#inicioHoy .hoy-r[data-t="${t.id}"]`).dataset.abre === `t:${t.id}`; })());
+        // v1.0.0 (cubeta 4): sustituye a la misma con «t:<id>» / «a:<id>[:<pid>]» — los renglones de Operación y Dinero de «Requiere atención» llevan «r:<ruta>»
+        R.ok('v0.95.0 (C-11) → v1.0.0 (cubeta 4): los renglones que abren algo en Inicio llevan su llave data-abre («t:<id>» / «a:<id>[:<pid>]» / «r:<ruta de la app>») y no un closure', (() => { const rs = [...document.querySelectorAll('#inicioHoy button.hoy-r, #inicioSinMov button.it, #inicioActividad button.it')]; return rs.length > 0 && rs.every(r => /^(t:\d+|a:\d+(:\d+)?|r:#[a-z].*)$/.test(r.dataset.abre || '')) && document.querySelector(`#inicioHoy .hoy-r[data-t="${t.id}"]`).dataset.abre === `t:${t.id}`; })());
         { const fant = document.createElement('button'); fant.type = 'button'; fant.dataset.abre = 't:987654'; $('inicioUrgente').appendChild(fant); const h0 = location.hash; fant.click(); await dormir(30);
           R.ok('v0.95.0 (C-11): una llave que ya no resuelve contra el estado vivo avisa y no navega', !!avisoCon('Eso ya no está') && location.hash === h0 && !$('dlgTarea').open); fant.remove(); }
 
@@ -1464,6 +1504,7 @@ try {
         R.ok('_lote.json va AL FINAL y firmado por minsa-proyectos', piezas.length === 3 && piezas[2].nombre === '_lote.json' && JSON.parse(piezas[2].texto).app === 'minsa-proyectos' && JSON.parse(piezas[2].texto).proyecto === CLAVE && JSON.parse(piezas[2].texto).tarea === t.id, piezas.map(p => p.nombre).join(','));
         R.ok('el manifiesto lista las 2 piezas y propone la carpeta del proyecto (o el default de la unidad)', JSON.parse(piezas[2].texto).archivos.length === 2 && JSON.parse(piezas[2].texto).destino === (gerencia ? '03_Predios/Arrocera' : '08_Otros-Varios'), JSON.parse(piezas[2].texto).destino);
         R.ok('liga tipo buzon con la ruta del lote', lote.fields.Tipo === 'buzon' && lote.fields.Ruta === carpeta.ruta);
+        await esperar(() => actividad('subir').length, 'actividad de subir').catch(() => {});   // cubeta 4: misma carrera que «ligar» (v0.123.0) — subir escribe la bitácora DESPUÉS de la liga con su propio await (docs.js); en tiempo real (capturas) la prueba la leía antes
         R.ok('PROY_Actividad: subir', actividad('subir').length === 1);
         await esperar(() => document.querySelectorAll('#docsLista .doc').length === 2, 'docs con 2');
         R.ok('Docs muestra «en el buzón»', $('docsLista').textContent.includes('en el buzón'));
@@ -2033,10 +2074,12 @@ try {
             // C-14 (v0.94.0): 7 tarjetas que vencen en 4 dias llenan «Esta semana» mas alla del tope; su «+N más» aterriza en el Calendario.
             { const sem = []; for (let i = 1; i <= 7; i++) { const x = { id: DB.siguienteId++, fields: { Title: `Vence esta semana ${i}`, ProyectoId: proyectoId, Columna: 'por-hacer', Asignado: 'colega@example.invalid', Prioridad: 'normal', Vence: new Date(Date.now() + 4 * 864e5).toISOString() } }; filas('tareas').push(x); sem.push(x); }
               await recargarYEsperar(); pestana('inicio'); await dormir(30);
-              let masSem = null; for (let e = document.querySelector('#inicioResto [data-grupo="semana"]'); e && !masSem; e = e.nextElementSibling) { if (e !== document.querySelector('#inicioResto [data-grupo="semana"]') && e.classList.contains('hoy-g')) break; if (e.classList.contains('hoy-mas')) masSem = e; }
-              R.ok('v0.94.0 (C-14): «Esta semana» con más de 6 trae «+N más · ver en el Calendario →»', !!masSem && /^\+\d+ más · ver en el Calendario →$/.test(masSem.textContent), masSem ? masSem.textContent : 'sin botón');
-              if (masSem) { masSem.click(); await esperar(() => visible('p-calendario'), 'Calendario desde «+N más»'); }
-              R.ok('v0.94.0 (C-14): el clic de ese «+N más» aterriza en #calendario', visible('p-calendario') && location.hash === '#calendario', location.hash);
+              // v1.0.0 (cubeta 4; plan: «la cola "esta semana / después" vive en Mis tareas»): sustituye a «"Esta semana" con más de 6 trae "+N más · ver en el
+              // Calendario →"» — Inicio ya no lista esas tarjetas: deja UNA liga con la cifra completa (con «todo el frente», al Calendario)
+              const masSem = document.querySelector('#inicioResto .hoy-semana[data-ir="semana"]');
+              R.ok('v1.0.0 (cubeta 4): «Esta semana» ya no pinta renglones en Inicio: una liga «Esta semana vencen N · ver en el Calendario →» con las 7 (y ningún renglón suyo)', !!masSem && /^Esta semana vencen \d+ · ver en el Calendario →$/.test(masSem.textContent) && Number(/vencen (\d+)/.exec(masSem.textContent)[1]) >= 7 && !sem.some(x => document.querySelector(`#inicioHoy .hoy-r[data-t="${x.id}"]`)) && !document.querySelector('#inicioHoy [data-grupo="semana"]'), masSem ? masSem.textContent : 'sin liga');
+              if (masSem) { masSem.click(); await esperar(() => visible('p-calendario'), 'Calendario desde «Esta semana»'); }
+              R.ok('v0.94.0 (C-14) → v1.0.0: el clic de esa liga aterriza en #calendario', visible('p-calendario') && location.hash === '#calendario', location.hash);
               const ids = new Set(sem.map(x => x.id)); DB.listas.tareas.items = filas('tareas').filter(x => !ids.has(x.id)); await recargarYEsperar(); pestana('inicio'); await dormir(30); }
             // C-20 (v0.145.0): 7 menciones ANTERIORES a la marca (no son «nuevo para ti») llenan «Te mencionaron»: pinta 6 y un «+1 más» que abre Toda la actividad.
             { const modM = await import('../comun.js'); modM.marcarInicioVisto(new Date().toISOString()); const mens = [];
@@ -2068,7 +2111,10 @@ try {
         // ---- v0.10.0: Roadmap · Calendario · Mensajes · Archivos · Reportes (foto de referencia, 12-sep) + titulo con icono + anillo
         {
             const hoyIso = new Date().toISOString();
-            R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-mis', 'p-mensajes', 'p-archivos', 'p-cuenta'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));   // v1.0.0: + Cuenta; cubeta 2: Capital, Gastos y Finanzas pasan a la plantilla (abajo); cubeta 3: Proyectos, Roadmap, Calendario y Reportes también (abajo)
+            R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-archivos', 'p-cuenta'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));   // v1.0.0: + Cuenta; cubeta 2: Capital, Gastos y Finanzas pasan a la plantilla (abajo); cubeta 3: Proyectos, Roadmap, Calendario y Reportes también (abajo); cubeta 4: Inicio, Mis tareas y Mensajes también (abajo)
+            // v1.0.0 (cubeta 4; sustituye a Inicio, Mis tareas y Mensajes en la de arriba): llevan la cabecera de la plantilla (la pintan al entrar)
+            R.ok('v1.0.0 (cubeta 4): Inicio, Mis tareas y Mensajes traen el hueco de la cabecera de la plantilla (#inicioCab, #misCab, #mensajesCab) y ya no la cabecera fija con icono',
+                ['inicioCab', 'misCab', 'mensajesCab'].every(id => !!$(id) && $(id).classList.contains('rp-cuerpo')) && ['p-inicio', 'p-mis', 'p-mensajes'].every(id => !$(id).querySelector('.cabecera > .titulo-ico')));
             // v1.0.0 (cubeta 3; sustituye a Proyectos, Roadmap, Calendario y Reportes en la de arriba): Trabajo lleva la cabecera de la plantilla —
             // la pinta cada pantalla al entrar—; aquí, que su hueco existe y la cabecera fija con icono se fue
             R.ok('v1.0.0 (cubeta 3): Proyectos, Roadmap, Calendario y Reportes traen el hueco de la cabecera de la plantilla (#proyectosCab, #roadmapCab, #calCab, #reportesCuerpo) y ya no la cabecera fija con icono',
@@ -2461,7 +2507,8 @@ try {
             R.ok('v0.42.0: el renglón abre el hilo del frente DENTRO de Mensajes (#mensajes/f/<clave>), alojando el mismo #tab-chat, y la insignia se apaga al leerlo', visible('p-mensajes') && visible('tab-chat') && $('tab-chat').parentNode === $('mensajesHilo') && $('nMensajes').hidden && $('chatHilo').textContent.includes('mensaje nuevo para la bandeja') && document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"]`).classList.contains('is-on'), location.hash);
             R.ok('v0.83.0 (U-01): el hilo dentro de Mensajes lleva cabecera con el icono de la unidad y el título del frente, que liga a #p/<clave>', visible('mensajesTitulo') && !!$('mensajesTitulo').querySelector('.msj-titulo-frente .eqi') && $('mensajesTitulo').querySelector('.msj-titulo-frente .t').textContent === filas('proyectos').find(r => r.id === proyectoId).fields.Title && $('mensajesTitulo').querySelector('a').getAttribute('href') === `#p/${CLAVE}`, $('mensajesTitulo').textContent);
             R.ok('v0.138.0 (C-12/C-13): el frente que se lee no cuenta como nuevo en NINGÚN lugar: su renglón sin is-nuevo ni insignia, y el subtítulo dice lo mismo que la insignia del rail', (() => { const r = document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"]`); return !r.classList.contains('is-nuevo') && !r.querySelector('.mn-rail-hot') && $('mensajesSub').textContent.includes('nada nuevo') && $('nMensajes').hidden; })(), $('mensajesSub').textContent);
-            R.ok('v0.138.0 (U-08): con el hilo abierto en ≤ 900 px la cabecera de la pantalla se esconde y «←» comparte renglón con el título del frente; en escritorio la cabecera sigue', (() => { const cab = document.querySelector('#p-mensajes > .cabecera'); if (!matchMedia('(max-width: 900px)').matches) return cab.offsetParent !== null; const v = $('mensajesVolver').getBoundingClientRect(), t = $('mensajesTitulo').getBoundingClientRect(); return cab.offsetParent === null && Math.abs((v.top + v.bottom) / 2 - (t.top + t.bottom) / 2) < 12; })(), `${innerWidth}px`);
+            // v1.0.0 (cubeta 4): solo selector — la cabecera de la pantalla es la de la plantilla (#mensajesCab; antes `#p-mensajes > .cabecera`)
+            R.ok('v0.138.0 (U-08): con el hilo abierto en ≤ 900 px la cabecera de la pantalla se esconde y «←» comparte renglón con el título del frente; en escritorio la cabecera sigue', (() => { const cab = $('mensajesCab'); if (!matchMedia('(max-width: 900px)').matches) return cab.offsetParent !== null; const v = $('mensajesVolver').getBoundingClientRect(), t = $('mensajesTitulo').getBoundingClientRect(); return cab.offsetParent === null && Math.abs((v.top + v.bottom) / 2 - (t.top + t.bottom) / 2) < 12; })(), `${innerWidth}px`);
             R.ok('v0.83.0 (C-09): el #chatHilo ya no lleva su estado en dataset/expandos (vive en chat.js)', !$('chatHilo').dataset.proyecto && !$('chatHilo').dataset.pintado && $('chatHilo')._nuevos === undefined && $('chatTexto')._selector === undefined);
             clic('mensajesVolver'); await esperar(() => location.hash === '#mensajes' && !visible('mensajesHilo'), '← (volver a la bandeja)'); await dormir(20);
             R.ok('v0.84.0 (C-05): «←» (volver a la bandeja) vuelve a #mensajes, esconde el hilo y la cabecera, y ningún renglón queda marcado', location.hash === '#mensajes' && !visible('mensajesHilo') && !visible('mensajesTitulo') && !document.querySelector('#mensajesLista .msg-proy.is-on'));
@@ -3159,7 +3206,8 @@ try {
         pestana('mis'); await esperar(() => visible('p-mis'), 'mis');
         R.ok('lectura (v0.58.0): Mis tareas trae la sembrada como renglón vencido de la tabla densa, bajo el separador «Vencidas» y con «1 sep» en la columna de la izquierda', document.querySelectorAll('#misLista .tr').length === 1 && document.querySelector('#misLista .tr').classList.contains('is-vencida') && document.querySelector('#misLista > .bloq').dataset.bloque === 'vencidas' && $('misLista').querySelector('.tr .k b').textContent.trim() === '1' && $('misLista').querySelector('.tr .k small').textContent.trim() === 'sep');
         pestana('inicio'); await dormir(50);
-        R.ok('lectura (v0.41.0): Inicio no trae KPI; la vencida la dice el contador rojo del rail', !document.getElementById('inicioKpis') && !$('nMis').hidden && $('nMis').textContent === '1', $('nMis').textContent);
+        // v1.0.0 (cubeta 4): sustituye a «lectura (v0.41.0): Inicio no trae KPI; la vencida la dice el contador rojo del rail» — la fila de KPIs volvió por rol
+        R.ok('lectura (v1.0.0, cubeta 4): Inicio trae UN KPI (tareas abiertas: Operación y Dinero no le traen nada); la vencida la sigue diciendo el contador rojo del rail', [...document.querySelectorAll('#inicioKpis .ini-kpi')].map(b => b.dataset.kpi).join() === 'abiertas' && !$('nMis').hidden && $('nMis').textContent === '1', `${$('nMis').textContent} · ${[...document.querySelectorAll('#inicioKpis .ini-kpi')].map(b => b.dataset.kpi).join()}`);
         clic('btnEquipo'); await esperar(() => visible('p-cuenta') && location.hash === '#cuenta/equipo', 'Equipo y roles en Cuenta');   // v1.0.0: página, no diálogo
         R.ok('A2 (lectura): Equipo trae tabla y fichas con la misma gente', document.querySelectorAll('#eqFichas .eq-ficha').length === document.querySelectorAll('#eqLista tr').length);
         pestana('inicio'); await dormir(30);
@@ -3558,7 +3606,7 @@ try {
         const ventanas = [];
         const openReal = window.open;
         window.open = () => { const w = { location: {}, closed: false, close() { this.closed = true; } }; ventanas.push(w); return w; };
-        const archivoFalso = (nombre, tipo) => new File(['bytes de prueba del comprobante'], nombre, { type: tipo });
+        const archivoFalso = (nombre, tipo) => archivoDePrueba('bytes de prueba del comprobante', nombre, tipo);
         const ponerArchivoEn = (id, f) => { const dt = new DataTransfer(); dt.items.add(f); $(id).files = dt.files; $(id).dispatchEvent(new Event('change', { bubbles: true })); };
         const tabOn = () => document.querySelector('#tabsGastos .tab.is-on')?.dataset.tab;
         R.ok('Gastos (v1.0.0; antes «el rail lo trae, también en la barra del celular»): el panel de Dinero lo trae a todo rol, y su chip también', !!$('panelGastos') && !$('panelGastos').closest('.oculto') && !!$('chipGastos') && !$('chipGastos').classList.contains('oculto'));
@@ -3884,8 +3932,9 @@ try {
                 && ['hace30', 'hace60', 'hace180', 'hace365'].every(k => !!kpi(k)) && $('rpMoneda').dataset.moneda === 'USD' && !!$('rpCorte'), [...document.querySelectorAll('#rpKpis .rp-kpi')].map(k => k.textContent).join(' | '));
             // sustituye a «corte de 2 días = al día» (v0.165.0)
             R.ok('v1.0.0 (cubeta 2): el chip «corte: fecha» de la cabecera — 2 días = al día (verde)', $('rpCorte').classList.contains('is-ok') && $('rpCorte').dataset.dias === '2' && /^corte: \d{1,2} [a-z]{3} \d{4}$/.test($('rpCorte').textContent), $('rpCorte').textContent);
-            R.ok('v1.0.0 (cubeta 2): la cabecera de la plantilla — título, «?», corte, filtro, ojo, guardar y rango; el hueco de PREGUNTAR oculto',
-                !!document.querySelector('#finanzasCuerpo .rp-top .rp-qm') && !!$('rpFiltro') && !!$('rpOjo') && !!$('rpGuardar') && !!$('rpRango') && document.querySelector('#finanzasCuerpo .rp-ask').hidden);
+            // v1.0.0 (cubeta 4): sustituye a «… el hueco de PREGUNTAR oculto» — PREGUNTAR ya abre el panel «Preguntar» (preguntar.js)
+            R.ok('v1.0.0 (cubeta 2 → 4): la cabecera de la plantilla — título, «?», corte, filtro, ojo, guardar y rango; PREGUNTAR visible y ligado al panel (aria-controls=preguntar)',
+                !!document.querySelector('#finanzasCuerpo .rp-top .rp-qm') && !!$('rpFiltro') && !!$('rpOjo') && !!$('rpGuardar') && !!$('rpRango') && !document.querySelector('#finanzasCuerpo .rp-ask').hidden && document.querySelector('#finanzasCuerpo .rp-ask').getAttribute('aria-controls') === 'preguntar');
             document.querySelector('#finanzasCuerpo .rp-qm').click(); await dormir(10);
             R.ok('v1.0.0 (cubeta 2): el «?» dice cómo se calcula', /Cómo se calcula/.test(document.querySelector('.rp-menu.rp-ayuda')?.textContent || ''));
             document.body.click(); await dormir(10);
@@ -4448,6 +4497,162 @@ try {
         pestana('inicio'); await dormir(30);
     }
     // ==================================================================================================================
+    // v1.0.0 (rediseño 2026-10-02, cubeta 4 «Inicio + Avisos + Buscador + Preguntar»): la fila de KPIs POR ROL de Inicio y sus ligas, «Requiere
+    // atención» con los renglones de Operación y Dinero, Mis tareas y Mensajes con la cabecera de la plantilla, la campana (no vistos con
+    // PROY_Roles.Visto.avisos y la fuente de otro módulo), el buscador global (índice local, bibliotecas, flechas, `/` y Ctrl+K) y «Preguntar».
+    // Va DESPUÉS de los bloques de Dinero y Operación: sus JSON ya se leyeron (las cifras se cotejan contra el estado de cada módulo).
+    {
+        for (const d of document.querySelectorAll('dialog[open]')) d.close();
+        document.querySelector('#avisos .cerrar')?.click();
+        ESTADO.filtroEquipo = null;
+        const C4 = await import('../comun.js'), IR = await import('../inicio-reglas.js'), INI = await import('../inicio.js'), AV = await import('../armazon.js');
+        const PQ = await import('../preguntar.js'), PR = await import('../preguntar-reglas.js'), BS = await import('../buscador.js');
+        const SV = (await import('../servicios.js')).estadoServicios(), KC = (await import('../compras.js')).estadoCompras(), VG = (await import('../vigencias.js')).estadoVigencias(), CB = (await import('../cobranza.js')).estadoCobranza();
+        const celular = matchMedia('(max-width: 720px)').matches, PUEDE_TAREA = () => ['gerencia', 'colaborador'].includes(ROL);
+        await irHash('#inicio'); await esperar(() => visible('p-inicio') && document.querySelector('#inicioKpis .ini-kpi'), 'inicio con KPIs');
+        // (a) la fila de KPIs: las del rol, con el valor que dan las reglas sobre lo que cada módulo ya leyó, su corte o «sin datos», y su ruta
+        { const ab = ESTADO.tareas.filter(t => t.Columna !== 'hecho' && ESTADO.proyectos.some(p => p.id === Number(t.ProyectoId) && p.Estado === 'activo')).length;
+          const ks = IR.kpisInicio({ ...INI.contextoDatos(false), abiertas: ab }), bs = [...document.querySelectorAll('#inicioKpis .ini-kpi')];
+          R.ok('cubeta 4: cada KPI de Inicio dice lo que dan las reglas (inicio-reglas.js) sobre los datos leídos, con su ruta, y abiertas = las tarjetas abiertas de los frentes activos',
+              bs.length === ks.length && ks.every((k, i) => bs[i].dataset.kpi === k.clave && bs[i].querySelector('b').textContent === k.valor && bs[i].dataset.ir === k.ir) && bs.find(b => b.dataset.kpi === 'abiertas').querySelector('b').textContent === String(ab), bs.map(b => `${b.dataset.kpi}=${b.querySelector('b').textContent}`).join(' '));
+          R.ok('cubeta 4: lo que sale de un JSON trae su corte («corte: fecha», con el color de su antigüedad) o «sin datos»; «Tareas abiertas» no lleva corte',
+              bs.every(b => { const k = ks.find(x => x.clave === b.dataset.kpi), c = b.querySelector('.ini-corte'); return k.clave === 'abiertas' ? !c : k.estado === 'datos' ? !!c && /^corte: /.test(c.textContent) && /is-(ok|warn|danger)/.test(c.className) : !!c && /sin datos|leyendo/.test(c.textContent); }), bs.map(b => b.querySelector('.ini-corte')?.textContent || '-').join(' | '));
+          if (PUEDE_TAREA()) { const ser = bs.find(b => b.dataset.kpi === 'servicios');
+            R.ok('cubeta 4: «Servicios en curso» = los expedientes de servicios.json (o «sin datos» si este rol no tiene la biblioteca)', SV.datos ? ser.querySelector('b').textContent === String(SV.datos.expedientes.length) : /sin datos/.test(ser.textContent)); }
+          // sin un JSON el KPI dice «sin datos» y Inicio no se rompe (se fuerza el estado de Compras y se devuelve)
+          if (PUEDE_TAREA()) { const antes = { datos: KC.datos, error: KC.error }; KC.datos = null; KC.error = 'HTTP 500 de prueba';
+            await recargarYEsperar(); await dormir(20); const oc = document.querySelector('#inicioKpis [data-kpi="oc"]');
+            R.ok('cubeta 4: si compras.json falló, «O.C. del mes» dice «—» y «sin datos», y el resto de Inicio se pinta', !!oc && oc.querySelector('b').textContent === '—' && /sin datos/.test(oc.textContent) && !!document.querySelector('#inicioHoy') && document.querySelectorAll('#inicioKpis .ini-kpi').length === bs.length);
+            KC.datos = antes.datos; KC.error = antes.error; await recargarYEsperar(); await dormir(20); }
+          document.querySelector('#inicioKpis [data-kpi="abiertas"]').click(); await esperar(() => visible('p-reportes'), 'Avance desde el KPI');
+          R.ok('cubeta 4: tocar un KPI abre su reporte («Tareas abiertas» → #reportes/avance)', location.hash === '#reportes/avance' && visible('p-reportes'), location.hash);
+          await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); }
+        // (b) «Requiere atención»: etiqueta + ABRIR en cada renglón y los renglones de Operación y Dinero por rol, con su ruta
+        { const op = IR.atencionDeOperacion({ ...INI.contextoDatos(false), proyectos: ESTADO.proyectos.filter(p => p.Estado === 'activo') });
+          const bot = [...document.querySelectorAll('#inicioHoy button.hoy-r')];
+          R.ok('cubeta 4: cada renglón de «Requiere atención» trae su etiqueta (.etq) y «ABRIR» al final (maqueta), sin dejar de ser UN botón', bot.length > 0 && bot.every(r => r.querySelector('.etq')?.textContent.trim() && r.querySelector('.abrir')?.textContent === 'ABRIR' && r.lastElementChild.classList.contains('abrir')), bot.map(r => r.querySelector('.etq')?.textContent).join(','));
+          const cuenta = g => document.querySelectorAll(`#inicioHoy .hoy-r[data-atencion="${g}"]`).length;
+          R.ok('cubeta 4: los grupos de Operación y Dinero pintan lo que dicen las reglas para el rol (hasta 6) y su llave es «r:<ruta>»',
+              [['detenidos', op.detenidos], ['vigencias', op.vigencias], ['cobro', op.cobro], ['no-cuadra', op.noCuadra], ['frentes', op.frentes]].every(([g, xs]) => cuenta(g) === Math.min(6, xs.length) && (!xs.length || document.querySelector(`#inicioHoy [data-grupo="${g}"] .n`)?.textContent === String(xs.length)))
+              && [...document.querySelectorAll('#inicioHoy .hoy-r[data-atencion]')].every(r => /^r:#[a-z]/.test(r.dataset.abre)), ['detenidos', 'vigencias', 'cobro', 'no-cuadra', 'frentes'].map(g => g + ':' + cuenta(g)).join(' '));
+          if (ROL === 'lectura') R.ok('cubeta 4 (lectura): «Requiere atención» no trae nada de Operación ni de Dinero', !document.querySelector('#inicioHoy .hoy-r[data-atencion]'));
+          const det = document.querySelector('#inicioHoy .hoy-r[data-atencion="detenidos"]');
+          if (det) { const ir = det.dataset.abre.slice(2); det.click(); await esperar(() => visible('p-servicios'), 'servicio detenido desde Inicio');
+            R.ok('cubeta 4: un servicio detenido de «Requiere atención» abre SU expediente', location.hash === ir && /^#servicios\/E\d+$/.test(ir), `${location.hash} vs ${ir}`);
+            await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); } }
+        // (c) Mis tareas y Mensajes con la cabecera de la plantilla (y PREGUNTAR); la lógica de siempre intacta
+        { await irHash('#mis'); await esperar(() => visible('p-mis') && $('misTitulo'), 'mis');
+          R.ok('cubeta 4: Mis tareas lleva la cabecera de la plantilla («Mis tareas · Nombre» = #misTitulo, «?», PREGUNTAR, #misSub), los contadores en la tarjeta de KPIs y la lista en otra tarjeta',
+              $('misTitulo').closest('#misCab') && /^Mis tareas · /.test($('misTitulo').textContent) && !!document.querySelector('#misCab .rp-qm') && !!document.querySelector('#misCab [data-preguntar]') && !!$('misSub').closest('#misCab') && !!$('filtroMis').closest('.rp-card.mis-kpis') && !!$('misLista').closest('.rp-card.mis-hoja') && document.querySelectorAll('#filtroMis .kpi').length === 5);
+          await irHash(`#mensajes/f/${CLAVE}`); await esperar(() => visible('p-mensajes') && visible('mensajesHilo'), 'hilo en Mensajes');
+          const ent = document.querySelector(`#panelArbol [data-modulo="inicio"] [data-ir="#mensajes/f/${CLAVE}"]`);
+          R.ok('cubeta 4: Mensajes lleva la cabecera de la plantilla («Mensajes» + «?» + PREGUNTAR, #mensajesSub) y la bandeja + hilo en una tarjeta; el hilo va al centro',
+              document.querySelector('#mensajesCab .rp-h')?.textContent === 'Mensajes' && !!$('mensajesSub').closest('#mensajesCab') && /conversaci/.test($('mensajesSub').textContent) && getComputedStyle($('msj')).borderTopStyle === 'solid' && $('tab-chat').parentNode === $('mensajesHilo'));
+          R.ok('cubeta 4: el panel de Inicio trae la bandeja (los frentes con no leídos) y el frente cuyo hilo está abierto, resaltado', !!ent && ent.classList.contains('on') && ent.getAttribute('aria-current') === 'page', ent ? ent.className : 'sin entrada');
+          await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); }
+        // (d) la campana: no vistos con la marca compartida, una mención nueva cuenta, abrir la sube; la fuente de otro módulo (enganche de la cubeta 5)
+        { const cuenta = () => $('nAvisos').hidden ? 0 : Number($('nAvisos').textContent);
+          const cMen = { id: DB.siguienteId++, fields: { Title: '@persona revisa la campana, por favor', Accion: 'comentar', Quien: 'colega@example.invalid', Cuando: new Date(Date.now() + 2000).toISOString(), ProyectoId: proyectoId } };
+          filas('actividad').push(cMen); await recargarYEsperar(); await dormir(20);
+          const n1 = cuenta(), it = AV.avisosDe().find(x => x.tipo === 'mencion' && x.texto.includes('revisa la campana'));
+          R.ok('cubeta 4: una mención nueva entra a la campana (con su frente) y cuenta como NO vista', !!it && it.ir === `#mensajes/f/${CLAVE}` && n1 >= 1 && n1 === AV.avisosDe().filter(x => x.cuando && x.cuando > C4.avisosVistoHasta()).length, `contador ${n1}`);
+          let fuenteViva = true; const enSubida = new Date(Date.now() + 3000).toISOString();
+          AV.registrarFuenteAvisos(() => fuenteViva ? [{ tipo: 'subida', cuando: enSubida, cls: 'danger', texto: 'prueba.pdf no se subió', sub: 'Mis subidas', ir: '#archivos/mias' }] : []);
+          await recargarYEsperar(); await dormir(20);
+          R.ok('cubeta 4: la fuente de otro módulo (registrarFuenteAvisos, para las subidas de la cubeta 5) suma su aviso al contador', cuenta() === n1 + 1, `${n1} → ${cuenta()}`);
+          clic(celular ? 'btnAvisosMovil' : 'btnAvisos'); await esperar(() => $('dlgAvisos').open, 'avisos');
+          const rM = [...$('avLista').querySelectorAll('[data-aviso="mencion"]')].find(r => r.textContent.includes('revisa la campana')), rS = $('avLista').querySelector('[data-aviso="subida"]');
+          const ordenCuando = [...$('avLista').querySelectorAll('[data-aviso]')].map(r => r.dataset.cuando || '');
+          R.ok('cubeta 4: Avisos lista la mención y la subida como NUEVAS (lo más nuevo arriba: ningún aviso propio queda «del futuro») y el subtítulo cuenta las nuevas', !!rM && rM.classList.contains('es-nuevo') && !!rS && rS.classList.contains('es-nuevo') && ordenCuando.every((c, i) => i === 0 || c <= ordenCuando[i - 1]) && AV.avisosDe().every(x => x.tipo === 'subida' || !x.cuando || x.cuando <= new Date().toISOString()) && /nuevos? desde la última vez/.test($('avSub').textContent), `${$('avSub').textContent} · ${AV.avisosDe().slice(0, 4).map(x => `${x.tipo}@${x.cuando}`).join(', ')} · subida@${enSubida} · rM=${!!rM} rS=${!!rS}`);
+          R.ok('cubeta 4: abrir la campana sube la marca hasta lo más nuevo y el contador queda en 0', C4.avisosVistoHasta() >= enSubida && cuenta() === 0, `marca ${C4.avisosVistoHasta()}`);
+          // S-04 (v0.73.0, arriba) deja la escritura compartida APAGADA el resto de la carga en los roles que escriben: ahí la marca vive en este equipo
+          if (C4.vistoCompartidoApagado()) R.ok('cubeta 4: con la escritura compartida apagada (S-04), la marca de la campana queda en este equipo (localStorage por cuenta) y no se pide lista nueva', (localStorage.getItem(C4.llaveVistoAvisos()) || '') >= enSubida && !DB.llamadas.some(c => /lista-avisos/.test(c)));
+          else { await esperar(() => { try { return JSON.parse(filas('roles').find(r => r.fields.Title === YO).fields.Visto || '{}').avisos >= enSubida; } catch (_) { return false; } }, 'Visto.avisos compartido');
+            R.ok('cubeta 4: la marca de la campana viaja en MI renglón de PROY_Roles (Visto.avisos, la columna de siempre; sin lista nueva)', JSON.parse(filas('roles').find(r => r.fields.Title === YO).fields.Visto).avisos >= enSubida && !DB.llamadas.some(c => /lista-avisos/.test(c))); }
+          if (gerencia) { const vs = VG.datos ? VG.datos.vigencias : []; const hoyL = new Date(); const prox = vs.some(v => { const [a, m, d] = v.vence.split('-').map(Number); return Math.round((Date.UTC(a, m - 1, d) - Date.UTC(hoyL.getFullYear(), hoyL.getMonth(), hoyL.getDate())) / 864e5) <= 30; });
+            R.ok('cubeta 4 (gerencia): las vigencias vencidas o a ≤ 30 días entran a la campana', !!$('avLista').querySelector('[data-aviso="vigencia"]') === prox); }
+          rS.click(); await esperar(() => !$('dlgAvisos').open && visible('p-archivos'), 'aviso de la fuente');
+          R.ok('cubeta 4: el aviso de la fuente abre su destino (#archivos/mias)', location.hash === '#archivos/mias', location.hash);
+          fuenteViva = false; DB.listas.actividad.items = filas('actividad').filter(a => a.id !== cMen.id); await recargarYEsperar();
+          await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); }
+        // (e) el buscador global: Ctrl+K y `/` (no desde un campo de texto ni en Proyectos), índice sin acentos por grupos y por rol, flechas y Enter, bibliotecas
+        { document.activeElement && document.activeElement.blur();
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true })); await dormir(10);
+          R.ok('cubeta 4: Ctrl+K abre el buscador global con el foco en su campo (combobox)', $('dlgBuscar').open && document.activeElement === $('bsTexto') && $('bsTexto').getAttribute('role') === 'combobox');
+          C4.cerrarDialogo('dlgBuscar'); await dormir(10); document.activeElement && document.activeElement.blur();
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true })); await dormir(10);
+          R.ok('cubeta 4: «/» también lo abre (fuera de Proyectos)', $('dlgBuscar').open); C4.cerrarDialogo('dlgBuscar'); await dormir(10);
+          await irHash('#mis'); await esperar(() => visible('p-mis'), 'mis'); $('textoMis').focus();
+          for (const ev of [{ key: '/' }, { key: 'k', ctrlKey: true }]) document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { ...ev, bubbles: true, cancelable: true }));
+          await dormir(10);
+          R.ok('cubeta 4: escribiendo en un campo, ni «/» ni Ctrl+K abren el buscador (no se roban)', !$('dlgBuscar').open && document.activeElement === $('textoMis')); $('textoMis').blur();
+          await irHash('#proyectos'); await esperar(() => visible('p-proyectos'), 'proyectos'); document.activeElement && document.activeElement.blur();
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true })); await dormir(10);
+          R.ok('cubeta 4: en Proyectos «/» sigue siendo SU buscador (R-04) y no abre el global', !$('dlgBuscar').open && document.activeElement === $('textoProyectos')); $('textoProyectos').blur();
+          clic(celular ? 'btnBuscarMovil' : 'btnBuscar'); await esperar(() => $('dlgBuscar').open, 'buscar');
+          poner('bsTexto', 'LÁU');
+          const grupos = () => [...$('bsResultados').querySelectorAll('.bs-grupo')].map(g => g.dataset.grupo);
+          R.ok('cubeta 4: «LÁU» (mayúsculas y acento) encuentra el proyecto y sus tareas, agrupados en el orden del plan', grupos()[0] !== undefined && grupos().includes('Proyectos') && grupos().indexOf('Proyectos') < (grupos().includes('Tareas') ? grupos().indexOf('Tareas') : 99) && !!$('bsResultados').querySelector(`[data-ir="#p/${CLAVE}"]`), grupos().join(' | '));
+          const ops = () => [...$('bsResultados').querySelectorAll('[role="option"]')];
+          $('bsTexto').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })); $('bsTexto').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+          R.ok('cubeta 4: las flechas mueven la opción resaltada (aria-activedescendant) por los grupos', ops().length >= 2 && ops()[1].classList.contains('is-activa') && $('bsTexto').getAttribute('aria-activedescendant') === ops()[1].id && ops()[1].getAttribute('aria-selected') === 'true');
+          $('bsTexto').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+          const destino = ops()[0].dataset.ir; $('bsTexto').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+          await esperar(() => !$('dlgBuscar').open && location.hash === destino, 'Enter en el buscador');
+          R.ok('cubeta 4: Enter abre la opción resaltada y cierra el buscador', !$('dlgBuscar').open && location.hash === destino, `${location.hash} vs ${destino}`);
+          clic(celular ? 'btnBuscarMovil' : 'btnBuscar'); await esperar(() => $('dlgBuscar').open, 'buscar');
+          poner('bsTexto', 'jefa');
+          const per = $('bsResultados').querySelector('[data-persona="jefa@example.invalid"]');
+          R.ok('cubeta 4: las personas del equipo entran al índice (por nombre o correo)', !!per && per.dataset.grupo === 'Personas');
+          if (per) { per.click(); await esperar(() => $('dlgPersona').open, 'carga de la persona'); R.ok('cubeta 4: una persona abre sus tarjetas abiertas (la misma ficha de «Carga por persona»)', $('dlgPersona').open && !$('dlgBuscar').open); C4.cerrarDialogo('dlgPersona'); }
+          clic(celular ? 'btnBuscarMovil' : 'btnBuscar'); await esperar(() => $('dlgBuscar').open, 'buscar');
+          const orden = KC.datos && KC.datos.ordenes && KC.datos.ordenes[0], exp = SV.datos && SV.datos.expedientes && SV.datos.expedientes[0], vig = VG.datos && VG.datos.vigencias && VG.datos.vigencias[0];
+          const hay = (q, grupo) => { poner('bsTexto', q); return !!$('bsResultados').querySelector(`.bs-grupo[data-grupo="${grupo}"]`); };
+          if (orden) R.ok(`cubeta 4: una orden de compra (${orden.folio}) sale en «Órdenes» solo si el rol ve Operación`, hay(orden.folio, 'Órdenes') === PUEDE_TAREA());
+          if (exp) R.ok(`cubeta 4: un expediente (${exp.clave}) sale en «Expedientes» solo si el rol ve Operación`, hay(exp.clave + ' ' + (exp.tipo || ''), 'Expedientes') === PUEDE_TAREA());
+          if (vig) R.ok('cubeta 4: una vigencia sale en «Vigencias» solo para gerencia', hay(String(vig.titulo).split(' ')[0], 'Vigencias') === gerencia);
+          R.ok('cubeta 4: las pantallas siguen al rol — «Capital» solo para gerencia', hay('capital', 'Pantallas y reportes') === gerencia || (!gerencia && !$('bsResultados').querySelector('[data-ir^="#capital"]')));
+          const nBus = () => DB.llamadas.filter(c => c.includes('/drive/root/search(')).length, n0 = nBus();
+          poner('bsTexto', 'co'); await dormir(500);
+          R.ok('cubeta 4: con menos de 3 letras no se busca en las bibliotecas', nBus() === n0);
+          poner('bsTexto', 'contingencia'); await esperar(() => nBus() > n0 && !BS.estadoBuscador().remoto.buscando && [...$('bsResultados').querySelectorAll('a.bs-r[data-url]')].some(a => a.textContent.includes('plan-contingencia_rev01')), 'archivo de la biblioteca', 4000).catch(() => {});
+          const arch = [...$('bsResultados').querySelectorAll('a.bs-r[data-url]')].find(a => a.textContent.includes('Ambiental-CALYTEK · 04_SGI/') && a.textContent.includes('plan-contingencia_rev01'));
+          R.ok('cubeta 4: desde 3 letras busca por nombre en las bibliotecas con permiso (la de «Ligar»): el archivado de CALYTEK abre en SharePoint en pestaña nueva y el del buzón no sale; las de 403 no se pintan',
+              !!arch && arch.dataset.grupo === 'Archivos' && arch.target === '_blank' && arch.rel === 'noopener' && arch.textContent.includes('plan-contingencia_rev01') && !$('bsResultados').textContent.includes('plan-contingencia-viejo') && nBus() > n0, arch ? arch.textContent : $('bsResultados').textContent.slice(0, 200));
+          C4.cerrarDialogo('dlgBuscar'); await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); }
+        // (f) «Preguntar» (sin IA): cerrado por defecto, PREGUNTAR de la cabecera lo abre; sugeridas por rol; respuestas con su liga; lo que no entiende
+        { R.ok('cubeta 4: el panel «Preguntar» nace CERRADO', $('preguntar').hidden && !document.body.classList.contains('con-preguntar'));
+          document.querySelector('#inicioCab [data-preguntar]').click(); await dormir(20);
+          const ancho = $('preguntar').getBoundingClientRect().width, esperado = matchMedia('(max-width: 720px)').matches ? innerWidth : matchMedia('(max-width: 1100px)').matches ? Math.min(420, innerWidth) : matchMedia('(max-width: 1380px)').matches ? 380 : 440;
+          R.ok('cubeta 4: PREGUNTAR abre el panel (440 px en escritorio, 380 bajo 1380, encima en tableta, hoja entera en celular) con «Pregunta lo que sea», el input con el foco y el pie literal',
+              !$('preguntar').hidden && Math.abs(ancho - esperado) <= 1 && document.querySelector('#pqCuerpo .pq-h')?.textContent === 'Pregunta lo que sea' && document.activeElement === $('pqTexto') && $('pqPie').textContent === 'Respuestas calculadas con los datos de la app (no es IA)' && document.querySelector('#inicioCab [data-preguntar]').getAttribute('aria-expanded') === 'true', `${ancho} vs ${esperado}`);
+          const sug = [...document.querySelectorAll('#pqCuerpo .pq-sug [data-sugerida]')].map(b => b.dataset.sugerida), sugEsp = PR.sugeridasPara(INI.contextoDatos(false));
+          R.ok('cubeta 4: las preguntas sugeridas son las del rol, calculadas con los datos cargados (gerencia con Dinero; lectura solo Trabajo)', sug.join('|') === sugEsp.join('|') && sug.includes('¿Qué tengo vencido?') && sug.some(x => /nos debe/.test(x)) === gerencia && sug.includes('¿En qué paso va cada servicio?') === (PUEDE_TAREA() && !!(SV.datos && SV.datos.expedientes.length)), sug.join(' | '));
+          document.querySelector('#pqCuerpo [data-sugerida="¿Qué tengo vencido?"]').click(); await esperar(() => document.querySelector('#pqCuerpo .pq-msg.is-resp[data-intento="mis-vencidas"]'), 'respuesta de mis vencidas');
+          const rV = document.querySelector('#pqCuerpo .pq-msg.is-resp[data-intento="mis-vencidas"]');
+          R.ok('cubeta 4: una sugerida pregunta y contesta (texto + liga «Abrir»), con la pregunta como burbuja propia', !!document.querySelector('#pqCuerpo .pq-msg.is-yo') && /tarjeta|vencidas/.test(rV.textContent) && !!rV.querySelector('.pq-liga'));
+          poner('pqTexto', '¿En qué paso va cada servicio?'); $('pqForma').requestSubmit(); await esperar(() => document.querySelector('#pqCuerpo .pq-msg.is-resp[data-intento="servicios"]'), 'respuesta de servicios');
+          const rS = [...document.querySelectorAll('#pqCuerpo .pq-msg.is-resp[data-intento="servicios"]')].pop();
+          R.ok('cubeta 4: «¿En qué paso va cada servicio?» respeta el rol (lectura: es de Operación) y el dato (sin biblioteca: no hay servicios.json)',
+              ROL === 'lectura' ? /gerencia y colaboradores/.test(rS.textContent) : SV.datos ? /expedientes? abiertos?/.test(rS.textContent) && rS.querySelectorAll('.pq-tabla tr').length >= 1 : /servicios\.json/.test(rS.textContent), rS.textContent.slice(0, 160));
+          poner('pqTexto', '¿cuál es el sentido de la vida?'); $('pqForma').requestSubmit(); await esperar(() => document.querySelector('#pqCuerpo .pq-msg.is-resp.is-no'), 'no entendida');
+          R.ok('cubeta 4: lo que no entiende lo dice y ofrece las sugeridas (no inventa)', /No entendí/.test(document.querySelector('#pqCuerpo .pq-msg.is-no').textContent) && !!document.querySelector('#pqCuerpo .pq-msg.is-no .pq-sug [data-sugerida]'));
+          if (gerencia && CB.datos && Array.isArray(CB.datos.clientes) && CB.datos.revision >= 2) {
+              const q = sugEsp.find(x => /nos debe/.test(x)), nSeg = CB.seg.cobrar.length;
+              poner('pqTexto', q); $('pqForma').requestSubmit(); await esperar(() => document.querySelector('#pqCuerpo .pq-msg.is-resp[data-intento="debe"]'), 'respuesta de Dinero');
+              const rD = [...document.querySelectorAll('#pqCuerpo .pq-msg.is-resp[data-intento="debe"]')].pop();
+              R.ok(`cubeta 4 (gerencia): «${q}» contesta el saldo sin pago probado de esa contraparte y ofrece abrirlo como segmento`, /nos debe .* sin pago probado/.test(rD.textContent) && rD.querySelector('.pq-liga')?.textContent === 'Abrir como segmento', rD.textContent.slice(0, 160));
+              rD.querySelector('.pq-liga').click(); await esperar(() => visible('p-finanzas') && CB.seg.cobrar.length === nSeg + 1, 'segmento desde Preguntar');
+              R.ok('cubeta 4 (gerencia): «Abrir como segmento» suma el segmento de esa contraparte a Por cobrar · Saldo (interpretarFrase, sin IA)', location.hash === '#finanzas/cobrar/saldo' && CB.seg.cobrar.length === nSeg + 1 && CB.seg.cobrar[CB.seg.cobrar.length - 1].conds[0].p === 'cli', location.hash);
+              CB.seg.cobrar.length = nSeg; }
+          clic('pqNueva'); await dormir(10);
+          R.ok('cubeta 4: «Pregunta nueva» vuelve a la portada con las preguntas RECIENTES de este equipo', !!document.querySelector('#pqCuerpo .pq-h') && [...document.querySelectorAll('#pqCuerpo .pq-rec [data-reciente]')].some(b => b.dataset.reciente === '¿En qué paso va cada servicio?'));
+          $('preguntar').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); await dormir(10);
+          R.ok('cubeta 4: Esc cierra el panel y PREGUNTAR vuelve a aria-expanded=false', $('preguntar').hidden && !document.body.classList.contains('con-preguntar') && [...document.querySelectorAll('[data-preguntar]')].every(b => b.getAttribute('aria-expanded') === 'false'));
+          R.ok('cubeta 4: responder(pregunta) es la función aislada del panel (el punto de enchufe de un agente) y devuelve la respuesta de las reglas', typeof PQ.responder === 'function' && (await PQ.responder('¿Quién tiene más carga?')).intento === 'carga');
+          await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); }
+    }
+    // ==================================================================================================================
     // v1.0.0 (rediseño 2026-10-02, cubeta 1 «Armazón»): rail de 5 módulos, panel, chips, hoja, «+ Nuevo», ámbito, «Mi día», Avisos, Buscar y
     // Cuenta, y UNA prueba por cada ruta de hoy (las 14 pantallas de RE_HASH + #p/<clave>, con sus sufijos vigentes) → pantalla y módulo.
     // Va AL FINAL a propósito: visita pantallas que leen JSON (Finanzas, Servicios, Compras…) y sus bloques de arriba parten de no haberlas leído.
@@ -4575,10 +4780,13 @@ try {
           a.click(); await esperar(() => visible('p-mis'), 'mis desde el anillo');
           R.ok('v1.0.0: el anillo lleva a Mis tareas', location.hash === '#mis' && moduloOn() === 'inicio'); }
         // (i) Avisos (mínimo de la cubeta 1): la lista y el contador de la campana
-        { const nV = $('nMis').hidden ? 0 : Number($('nMis').textContent), nM = $('nMensajes').hidden ? 0 : Number($('nMensajes').textContent), nA = $('nAvisos').hidden ? 0 : Number($('nAvisos').textContent);
+        // v1.0.0 (cubeta 4): sustituye a «la campana cuenta mis vencidas + mensajes sin leer» — el contador es de NO VISTOS (posteriores a la marca compartida
+        // PROY_Roles.Visto.avisos) y abrir la campana lo deja en 0
+        { const nV = $('nMis').hidden ? 0 : Number($('nMis').textContent), nA = $('nAvisos').hidden ? 0 : Number($('nAvisos').textContent);
+          const AV = await import('../armazon.js'), items = AV.avisosDe(), marca = C.avisosVistoHasta(), esperado = items.filter(x => x.cuando && x.cuando > marca).length;
           clic(celular ? 'btnAvisosMovil' : 'btnAvisos'); await esperar(() => $('dlgAvisos').open, 'avisos');
           const filas = [...$('avLista').querySelectorAll('[data-aviso]')];
-          R.ok('v1.0.0: la campana cuenta mis vencidas + mensajes sin leer, y Avisos los lista (o dice que no hay nada)', nA === nV + nM && (filas.length ? filas.every(f => f.dataset.ir && f.querySelector('b').textContent.length > 3) : !!$('avLista').querySelector('.vacio')) && (nV === 0 || filas.some(f => f.dataset.aviso === 'vencidas')), `campana ${nA} = ${nV} + ${nM} · ${filas.map(f => f.dataset.aviso).join()}`);
+          R.ok('v1.0.0 (cubeta 4): la campana cuenta los avisos NO vistos (los posteriores a PROY_Roles.Visto.avisos), Avisos los lista todos (o dice que no hay nada) y abrirla deja el contador en 0', nA === esperado && filas.length === items.length && (filas.length ? filas.every(f => f.dataset.ir && f.querySelector('b').textContent.length > 3) : !!$('avLista').querySelector('.vacio')) && (nV === 0 || filas.some(f => f.dataset.aviso === 'vencidas')) && $('nAvisos').hidden, `campana ${nA} (esperado ${esperado}) · ${filas.map(f => f.dataset.aviso).join()} · después ${$('nAvisos').textContent}/${$('nAvisos').hidden}`);
           if (filas.length) { const ir = filas[0].dataset.ir; filas[0].click(); await esperar(() => !$('dlgAvisos').open, 'aviso elegido');
               R.ok('v1.0.0: tocar un aviso cierra la lista y lleva a su pantalla', !$('dlgAvisos').open && location.hash.startsWith(ir), `${location.hash} vs ${ir}`); }
           else { clic('avCerrar'); await esperar(() => !$('dlgAvisos').open, 'avisos cerrado'); } }

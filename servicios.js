@@ -41,7 +41,8 @@ export async function cargarServicios() {
         S.datos = leido.datos; S.error = null;
     } catch (e) { S.error = motivo(e); }
 }
-function asegurarCarga() {
+/** v1.0.0 (cubeta 4): exportada — Inicio la llama para su KPI y «Requiere atención» (la misma lectura única por sesión). */
+export function asegurarCarga() {
     if (S.datos !== null || S.cargando || S.error) return;
     S.cargando = cargarServicios().finally(() => { S.cargando = null; alCambiar(); });
 }

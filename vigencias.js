@@ -37,7 +37,8 @@ export async function cargarVigencias() {
         V.datos = leido.datos; V.error = null;
     } catch (e) { V.error = motivo(e); }
 }
-function asegurarCarga() {
+/** v1.0.0 (cubeta 4): exportada — Inicio la llama para su KPI y «Requiere atención» (la misma lectura única por sesión). */
+export function asegurarCarga() {
     if (V.datos !== null || V.cargando || V.error) return;
     V.cargando = cargarVigencias().finally(() => { V.cargando = null; alCambiar(); });
 }

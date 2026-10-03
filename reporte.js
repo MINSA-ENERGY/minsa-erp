@@ -73,7 +73,7 @@ function opcionMenu(texto, on, alClic, datos = {}) {
 
 /**
  * La cabecera de la plantilla (maqueta .top): título + «?» (cómo se calcula) · chip «corte: fecha» (ámbar > 8 días, rojo > 15) · filtro y ojo ·
- * guardar · rango de fechas · el hueco de PREGUNTAR (oculto: cubeta 4) · acciones propias (p. ej. «Nueva partida»). Cada botón solo si
+ * guardar · rango de fechas · PREGUNTAR (cubeta 4: abre el panel de preguntar.js) · acciones propias (p. ej. «Nueva partida»). Cada botón solo si
  * `def` lo trae. Sirve sola (Capital, Gastos) o dentro de pintarReporte.
  */
 export function cabecera(def, v, repintar) {
@@ -121,7 +121,9 @@ export function cabecera(def, v, repintar) {
         b.appendChild(el('span', '', textoRango(v.rango, finRango, def.primera))); b.appendChild(icono('chev'));
         caja.appendChild(b); lado.appendChild(caja);
     }
-    const ask = el('button', 'ask rp-ask'); ask.type = 'button'; ask.hidden = true; ask.dataset.preguntar = def.id || '';   // hueco de «Preguntar» (cubeta 4)
+    // v1.0.0 (cubeta 4): PREGUNTAR (maqueta .ask) abre y cierra el panel «Preguntar» (preguntar.js, un listener delegado sobre [data-preguntar])
+    const ask = el('button', 'ask rp-ask'); ask.type = 'button'; ask.dataset.preguntar = def.id || '';
+    ask.setAttribute('aria-controls', 'preguntar'); ask.setAttribute('aria-expanded', String(document.body.classList.contains('con-preguntar'))); ask.title = 'Pregunta lo que sea sobre los datos de la app';
     ask.appendChild(icono('ai')); ask.appendChild(document.createTextNode('PREGUNTAR')); lado.appendChild(ask);
     for (const a of def.acciones || []) lado.appendChild(a);
     top.appendChild(lado);

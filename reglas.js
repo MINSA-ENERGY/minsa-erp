@@ -992,13 +992,17 @@ export function vistosDe(actividad, comentarioId) {
 export function leerVisto(celda) {
     let v = {}; try { v = JSON.parse(String(celda || '') || '{}'); } catch (_) { v = {}; }
     if (!v || typeof v !== 'object') v = {};
-    return { inicio: typeof v.inicio === 'string' ? v.inicio : '', chat: v.chat && typeof v.chat === 'object' ? { ...v.chat } : {} };
+    // v1.0.0 (rediseño, cubeta 4): + `avisos` — hasta dónde vio la persona la campana (el contador cuenta lo posterior). Misma columna, misma regla.
+    return { inicio: typeof v.inicio === 'string' ? v.inicio : '', chat: v.chat && typeof v.chat === 'object' ? { ...v.chat } : {}, avisos: typeof v.avisos === 'string' ? v.avisos : '' };
 }
 export function fundirVisto(a, b) {
     const x = leerVisto(a && typeof a === 'object' ? JSON.stringify(a) : a), y = leerVisto(b && typeof b === 'object' ? JSON.stringify(b) : b);
     const chat = { ...x.chat };
     for (const [k, iso] of Object.entries(y.chat)) if (String(iso) > String(chat[k] || '')) chat[k] = iso;
-    return { inicio: x.inicio > y.inicio ? x.inicio : y.inicio, chat };
+    const r = { inicio: x.inicio > y.inicio ? x.inicio : y.inicio, chat };
+    const avisos = x.avisos > y.avisos ? x.avisos : y.avisos;
+    if (avisos) r.avisos = avisos;   // sin marca de avisos la celda sale como antes (no se reescribe un renglón por una llave vacía)
+    return r;
 }
 
 // ---------------------------------------------------------------- v0.21.0: Inicio «Hoy» (iteracion 3 del artifact del 13-sep)
@@ -1250,3 +1254,57 @@ export function miDia(tareas, correo, hoy = new Date()) {
     const deHoy = misAbiertas(tareas, correo).filter(t => { const d = diasPara(t.Vence, hoy); return d !== null && d <= 0; }).length;
     return { hechas, total: hechas + deHoy };
 }
+
+// ---------------------------------------------------------------- v1.0.0 (rediseño, cubeta 4): buscador global, frentes quietos, avisos
+// Plan, «Buscador global»: índice LOCAL normalizado sin acentos (sin dependencia nueva) + la búsqueda por nombre en cada biblioteca con permiso.
+
+/** Los grupos del buscador global, en su orden (plan). */
+export const GRUPOS_BUSQUEDA = ['Pantallas y reportes', 'Proyectos', 'Tareas', 'Archivos', 'Personas', 'Órdenes', 'Expedientes', 'Vigencias'];
+/** Para comparar: minúsculas, sin acentos, los signos sueltos como espacio y un solo espacio. Conserva lo que arma un folio, una clave o un
+ *  correo (`PDH-008`, `lau-demo`, `ana@x.com`): «Órdenes  de compra» → «ordenes de compra». */
+export const normalizarBusqueda = s => sinAcentos(s).replace(/[^a-z0-9@._#/-]+/g, ' ').replace(/\s+/g, ' ').trim();
+/** El índice: cada entrada { grupo, texto, sub, ir | url, extra, orden } con `pajar` (texto + sub + extra) y `cabeza` (el texto) ya normalizados.
+ *  Una entrada sin texto o de un grupo que no existe no entra. */
+export function indiceBusqueda(entradas) {
+    return (entradas || []).filter(e => e && e.texto && GRUPOS_BUSQUEDA.includes(e.grupo))
+        .map(e => ({ ...e, pajar: normalizarBusqueda([e.texto, e.sub, ...[].concat(e.extra || [])].join(' ')), cabeza: normalizarBusqueda(e.texto) }));
+}
+/**
+ * Busca `q` en el índice: TODAS sus palabras deben aparecer en el pajar, en cualquier orden. Dentro de cada grupo: primero el título que
+ * EMPIEZA con q, luego el que tiene una palabra que empieza con la primera de q, luego el resto; a igualdad, `orden` (menor primero: lo
+ * abierto antes que lo hecho), el título más corto y el alfabético. Devuelve [{ grupo, items, mas }] en el orden de GRUPOS_BUSQUEDA.
+ */
+export function buscarEnIndice(indice, q, tope = 6) {
+    const s = normalizarBusqueda(q); if (!s) return [];
+    const pal = s.split(' ');
+    const puntos = e => e.cabeza.startsWith(s) ? 0 : e.cabeza.split(' ').some(w => w.startsWith(pal[0])) ? 1 : 2;
+    const hay = (indice || []).filter(e => pal.every(w => e.pajar.includes(w)));
+    return GRUPOS_BUSQUEDA.map(grupo => {
+        const xs = hay.filter(e => e.grupo === grupo).map(e => ({ e, p: puntos(e) }))
+            .sort((a, b) => a.p - b.p || (a.e.orden || 0) - (b.e.orden || 0) || a.e.cabeza.length - b.e.cabeza.length || a.e.cabeza.localeCompare(b.e.cabeza)).map(x => x.e);
+        return { grupo, items: xs.slice(0, tope), mas: Math.max(0, xs.length - tope) };
+    }).filter(g => g.items.length);
+}
+/**
+ * Frentes sin movimiento (Inicio «Requiere atención» y Preguntar): los ACTIVOS cuyo último movimiento —lo más reciente de su bitácora
+ * PROY_Actividad sin los ✓ «visto», o su alta si no hay nada— tiene `dias` días o más. [{ proyecto, dias }] del más quieto al menos;
+ * `dias` null = ni bitácora en la ventana leída ni fecha de alta (también es «no se mueve»).
+ */
+export function frentesQuietos(proyectos, actividad, dias = 10, ahora = new Date()) {
+    const ult = new Map();
+    for (const a of actividad || []) {
+        if (a.Accion === 'visto') continue;
+        const k = Number(a.ProyectoId), c = String(a.Cuando || '');
+        if (k && c > (ult.get(k) || '')) ult.set(k, c);
+    }
+    const out = [];
+    for (const p of proyectos || []) {
+        if (p.Estado !== 'activo') continue;
+        const ref = ult.get(Number(p.id)) || String(p._creado || ''), t = ref ? Date.parse(ref) : NaN;
+        const d = Number.isNaN(t) ? null : Math.max(0, Math.floor((ahora.getTime() - t) / 86400000));
+        if (d === null || d >= dias) out.push({ proyecto: p, dias: d });
+    }
+    return out.sort((a, b) => (b.dias ?? 1e9) - (a.dias ?? 1e9) || String(a.proyecto.Title || '').localeCompare(String(b.proyecto.Title || ''), 'es'));
+}
+/** Avisos (la campana): cuántos son POSTERIORES a la marca de visto (PROY_Roles.Visto.avisos). Uno sin `cuando` no cuenta como nuevo. */
+export const avisosNoVistos = (items, marca) => (items || []).filter(x => x && x.cuando && String(x.cuando) > String(marca || '')).length;

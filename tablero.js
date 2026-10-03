@@ -13,6 +13,7 @@ import { abrirPartida } from './capital.js';   // v0.103.0: «Nueva partida» de
 import { abrirLigar, abrirSubir, abrirEnlace, quitarLiga, puedeLigarEn, puedeEnlazarEn } from './docs.js';
 import { esConflicto } from './graph.js';
 import { engancharSelectorMenciones } from './chat.js';
+import { cabecera, vistaDe, soltarIdsFuera } from './reporte.js';   // v1.0.0 (cubeta 4): Mis tareas con la cabecera de la plantilla
 
 let alCambiar = () => {};   // app.js la pone: repinta la pantalla actual tras una escritura
 export function alCambiarTareas(fn) { alCambiar = fn; }
@@ -393,10 +394,18 @@ export function pintarLista(proyecto) {
 const FILTROS_MIS = [[null, 'abiertas'], ['vencidas', 'vencidas'], ['pronto', 'vencen en 7 días'], ['sinfecha', 'sin fecha'], ['delegadas', 'las que delegué']];   // v0.15.0: quien reparte no las pierde de vista; v0.58.0: «sin fecha» nace con los contadores
 // C-07 (mejorar-app mis, 2-oct): el clic en un contador y el refresco de 120 s recrean los .kpi y los renglones; conservarFoco devuelve
 // el foco al mismo control (data-mis / data-t) en vez de dejarlo caer al body, como ya hacen Inicio, Proyectos y Capital.
-export function pintarMisTareas() { conservarFoco($('p-mis'), ['mis', 't'], pintarMisAhora); }
+export function pintarMisTareas() { conservarFoco($('p-mis'), ['mis', 't', 'rp', 'preguntar'], pintarMisAhora); }
+const AYUDA_MIS = 'Tus tarjetas abiertas de todos los frentes, de la que vence antes a la que vence después: Vencidas, Esta semana, Después y Sin fecha. Los contadores de arriba filtran; «las que delegué» son las abiertas de otros que tú creaste o asignaste. El círculo marca una tarjeta como hecha (con «Deshacer»), «Posponer» mueve una vencida y al pie quedan las que hiciste hoy.';
+/** v1.0.0 (cubeta 4): la cabecera de la plantilla —«Mis tareas · Nombre» (#misTitulo) + «?» + PREGUNTAR y el subtítulo (#misSub)—. */
+function pintarCabeceraMis(titulo) {
+    const cont = $('misCab');
+    soltarIdsFuera(cont); cont.textContent = '';
+    cont.appendChild(cabecera({ id: 'mis', titulo, ayuda: AYUDA_MIS, sub: ' ', subId: 'misSub' }, vistaDe('mis'), () => {}));
+    const h = cont.querySelector('.rp-h'); if (h) h.id = 'misTitulo';
+}
 function pintarMisAhora() {
     const yo = estado.cuenta.username.toLowerCase();
-    $('misTitulo').textContent = 'Mis tareas · ' + nombreDe(yo, estado.roles);
+    pintarCabeceraMis('Mis tareas · ' + nombreDe(yo, estado.roles));
     const propias = misAbiertas(estado.tareas, yo).sort(porVence);   // C-03 (v0.90.0): la misma regla que la insignia del rail (app.js)
     // v0.15.0: «Las que delegué» = abiertas de OTRO que yo cree o asigne (createdBy o la bitacora); el renglón enseña a quien. Ya vienen en orden de fecha.
     const delego = estado.filtroMis === 'delegadas';

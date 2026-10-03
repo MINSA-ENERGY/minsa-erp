@@ -38,7 +38,8 @@ export async function cargarCompras() {
         K.datos = leido.datos; K.error = null;
     } catch (e) { K.error = motivo(e); }
 }
-function asegurarCarga() {
+/** v1.0.0 (cubeta 4): exportada — Inicio la llama para su KPI y «Requiere atención» (la misma lectura única por sesión). */
+export function asegurarCarga() {
     if (K.datos !== null || K.cargando || K.error) return;
     K.cargando = cargarCompras().finally(() => { K.cargando = null; alCambiar(); });
 }

@@ -607,7 +607,17 @@ function leyendoAhora() {
 }
 const nuevosSinLeer = (pid, leyendo) => pid === leyendo ? 0 : nuevosDe(pid);   // C-04: nuevosDe sale del indice
 
+const AYUDA_MENSAJES = 'Un chat por frente: la bandeja lista los frentes con conversación (el más reciente arriba) y los que aún no tienen; el número azul son los mensajes nuevos desde tu última visita. Al elegir uno, su hilo ocupa el centro. Los frentes con mensajes nuevos también salen en el panel de Inicio. Lo que se escribe aquí lo lee todo el equipo.';
+/** v1.0.0 (cubeta 4): la cabecera de la plantilla —«Mensajes» + «?» + PREGUNTAR y el subtítulo (#mensajesSub, lo llena pintarListaMensajes)—. */
+function pintarCabeceraMensajes() {
+    const cont = $('mensajesCab'), sub = $('mensajesSub') ? $('mensajesSub').textContent : '';
+    conservarFoco(cont, ['rp', 'preguntar'], () => {
+        soltarIdsFuera(cont); cont.textContent = '';
+        cont.appendChild(cabecera({ id: 'mensajes', titulo: 'Mensajes', ayuda: AYUDA_MENSAJES, sub: sub || ' ', subId: 'mensajesSub' }, vistaDe('mensajes'), () => {}));
+    });
+}
 export function pintarMensajes() {
+    pintarCabeceraMensajes();
     const sel = estado.mensajesSel || null;
     const leyendo = leyendoAhora();
     const { ult, sinChat } = pintarListaMensajes(sel, leyendo);

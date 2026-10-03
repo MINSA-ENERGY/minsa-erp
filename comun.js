@@ -799,7 +799,7 @@ const LLAVE_VISTO = llaveVisto, LLAVE_VISTO_INICIO = llaveVistoInicio;
 export function olvidarVistosLocales() {
     try {
         const yo = `proy.chatVisto.${cuentaVisto()}.`, yoInicio = llaveVistoInicio();
-        const borrar = k => (k.startsWith(yo) && /^\d+$/.test(k.slice(yo.length))) || k === yoInicio ||   // solo digitos tras el prefijo: a@x.com no borra las de a@x.com.mx
+        const borrar = k => (k.startsWith(yo) && /^\d+$/.test(k.slice(yo.length))) || k === yoInicio || k === `proy.avisosVisto.${cuentaVisto()}` ||   // solo digitos tras el prefijo: a@x.com no borra las de a@x.com.mx; v1.0.0: + la marca de la campana
             /^proy\.chatVisto\.\d+$/.test(k) || k === 'proy.inicioVisto';
         for (const k of Object.keys(localStorage)) if (borrar(k)) localStorage.removeItem(k);
     } catch (_) {}
@@ -824,6 +824,11 @@ export function inicioVistoHasta() { const local = leerLocal(LLAVE_VISTO_INICIO(
 // S-12 (24-sep): la marca nunca sube por encima de la hora actual (un Cuando del futuro la dejaba arriba para siempre)
 export function marcarChatVisto(pid, iso) { iso = iso && marcaFiable(iso); if (!iso || !(iso > chatVistoHasta(pid))) return; guardarLocal(LLAVE_VISTO(pid), iso); encolarVisto({ chat: { [String(pid)]: iso } }); }
 export function marcarInicioVisto(iso) { iso = iso && marcaFiable(iso); if (!iso || !(iso > inicioVistoHasta())) return; guardarLocal(LLAVE_VISTO_INICIO(), iso); encolarVisto({ inicio: iso }); }
+// v1.0.0 (rediseño, cubeta 4): la campana de Avisos usa la MISMA marca compartida (PROY_Roles.Visto, llave `avisos`; plan: «marca PROY_Roles.Visto
+// existente», sin lista nueva) con su caché por cuenta en este dispositivo. El contador cuenta los avisos posteriores; abrir la campana la sube.
+export const llaveVistoAvisos = () => `proy.avisosVisto.${cuentaVisto()}`;
+export function avisosVistoHasta() { const local = leerLocal(llaveVistoAvisos()); const c = vistoCompartido().avisos; return c > local ? c : local; }
+export function marcarAvisosVisto(iso) { iso = iso && marcaFiable(iso); if (!iso || !(iso > avisosVistoHasta())) return; guardarLocal(llaveVistoAvisos(), iso); encolarVisto({ avisos: iso }); }
 let vistoPendiente = null, vistoTimer = 0, vistoApagado = false;
 function encolarVisto(cambio) { vistoPendiente = fundirVisto(vistoPendiente || {}, cambio); clearTimeout(vistoTimer); vistoTimer = setTimeout(guardarVisto, 1500); }
 /** Manda al tenant lo encolado (app.js lo llama tambien al ocultarse la pagina). Devuelve true si escribio. */

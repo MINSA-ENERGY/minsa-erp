@@ -959,8 +959,7 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
   .densa .tr .eqc, .densa .tr .cu { display: none; }
   /* U-06 (v0.90.0): a 390 la cabecera gastaba media pantalla (tile del icono solo en su linea + h1 + subtitulo de dos lineas) y el
      primer renglon caia en y≈450 de 844. Fuera el tile; el subtitulo se queda solo para el lector de pantalla (misma receta que .mn-sr). */
-  #p-mis .titulo-ico { display: none; }
-  #p-mis .cabecera .sub { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #p-mis #misSub { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }   /* v1.0.0 (cubeta 4): el subtítulo de la cabecera de la plantilla */
   .kpi { min-width: 0; flex: 1 1 30%; padding: 6px 10px; }
   .kpi b { font-size: 1.25rem; }
 }
@@ -1499,7 +1498,7 @@ body.sin-scroll { overflow: hidden; }
 /* U-08 (v0.138.0): con el hilo abierto en ≤ 900 px la cabecera de la pantalla (Mensajes + subtítulo de la bandeja) sale y «←» va
    en el renglón del título del frente: el hilo gana esa altura (ajustarHilo mide lo que queda arriba). */
 @media (max-width: 900px) {
-  #p-mensajes:has(> .msj.is-hilo) > .cabecera { display: none; }
+  #p-mensajes:has(> .msj.is-hilo) > #mensajesCab { display: none; }   /* v1.0.0 (cubeta 4): la cabecera es la de la plantilla */
   .msj.is-hilo .msj-der { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
   .msj.is-hilo .msj-der > .msj-vacio, .msj.is-hilo .msj-der > .msj-hilo { grid-column: 1 / -1; }
 }
@@ -2950,4 +2949,148 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
   #p-proyecto .dos-columnas.ancha > .apilado:not(.lateral) { padding: 4px 12px 14px; }
   .proyectos-hoja > .lista, .proyectos-hoja > .cerrados { margin: 0 12px; }
   .proyectos-hoja > .rp-dh .buscador { width: 100%; }
+}
+
+/* ==== INICIO + AVISOS + BUSCADOR + PREGUNTAR v1.0.0 (rediseño 2026-10-02, cubeta 4; maqueta «MINSA ERP Reportes»: V.ini —fila de KPIs y
+   «Requiere atención» con etiqueta + ABRIR—, #chat —el panel «Pregunta lo que sea», .sug, .rec, .msg, .typing, .chf— y la .srch del buscador).
+   Inicio, Mis tareas y Mensajes llevan la cabecera de la plantilla y sus tarjetas; la lógica de la cola, del chat y de Mis tareas no cambia. ==== */
+:root { --sug: #eef1f5; --sug-line: #dce1e8; --send: #8db4ef; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sug: #1f2939; --sug-line: #2c3a50; --send: #3b5b96; } }
+:root[data-theme="dark"] { --sug: #1f2939; --sug-line: #2c3a50; --send: #3b5b96; }
+#p-inicio, #p-mis, #p-mensajes { gap: 22px; }
+#p-inicio > .bandas { gap: 22px; container-type: inline-size; }
+/* con «Preguntar» abierto (o en una ventana angosta) el centro de Inicio mide ~640 px: las dos mitades de la cola y las fichas pasan a una
+   columna por el ANCHO DE LA BANDA, no de la ventana (antes solo bajo 900 px de ventana), y los KPIs se acomodan en renglones */
+@container (max-width: 760px) { #inicioHoy.cola-dos, #p-inicio .dosmitad, #inicioProyectos.dosc .fichas { grid-template-columns: minmax(0, 1fr); } }
+#inicioKpisCard { container-type: inline-size; }
+@media (min-width: 721px) { #inicioKpis { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 16px; } }   /* angosto: 3 + 2, como la maqueta bajo 1100 */
+@container (min-width: 900px) { #inicioKpis { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: minmax(0, 1fr); } }   /* ancho: todos en UNA fila */
+/* ---- Inicio: la fila de KPIs por rol (botones que llevan a su reporte; el corte o «sin datos» debajo) */
+.inicio-kpis .rp-kpis, .mis-kpis .resumen { margin-top: 0; padding: 18px 0 20px; border-top: 0; }
+#inicioKpis .ini-kpi { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; min-width: 0; padding-top: 4px; padding-bottom: 4px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 4px; }   /* flex en columna: un <button> centra su contenido en vertical y los KPIs de rótulo corto bajaban */
+#inicioKpis .ini-kpi:hover b, #inicioKpis .ini-kpi:focus-visible b { color: var(--blue); }
+#inicioKpis .ini-kpi:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+#inicioKpis .ini-kpi.is-sin b { color: var(--ink-3); }
+.ini-corte { display: inline-flex; align-items: center; height: 20px; margin-top: 6px; padding: 0 8px; border-radius: 10px; font-size: 11.5px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ini-corte.is-ok { background: var(--ok-bg); color: var(--ok-fg); } .ini-corte.is-warn { background: var(--warn-bg); color: var(--warn-fg); }
+.ini-corte.is-danger { background: var(--bad-bg); color: var(--bad-fg); } .ini-corte.is-sin { background: var(--idle-bg); color: var(--idle-fg); }
+/* ---- las tarjetas de Inicio con la piel de la plantilla (.rp-card: borde, radio 5, título de «Datos del reporte») */
+#p-inicio .bandas > .mn-card, #p-inicio .dosmitad > .mn-card { border: 1px solid var(--line); border-radius: 5px; background: var(--card); padding: 20px 26px 22px 28px; box-shadow: none; }
+#p-inicio .bandas > .mn-card > h2, #p-inicio .dosmitad > .mn-card > h2, #p-inicio .cola-cab h2 { margin: 0 0 12px; font-family: var(--f-ui); font-size: 18px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink); }
+#p-inicio .cola-cab { margin-bottom: 14px; } #p-inicio .cola-cab h2 { margin: 0; }
+#p-inicio .cola-cab h2 .n:not(:empty) { color: var(--ink-3); font-weight: 400; }
+/* «Requiere atención» (maqueta .vg: etiqueta · texto · ABRIR): la columna de fecha de siempre, la etiqueta como renglón chico de color sobre el
+   título (texto de color, v0.98.0 «sin burbujas») y «ABRIR» al final con el borde de .dd */
+#inicioHoy .hoy-r { grid-template-columns: 46px minmax(0, 1fr) auto; min-height: 52px; padding: 9px 4px 9px 0; }
+#inicioHoy .hoy-r .etq { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); line-height: 1.2; }
+#inicioHoy .hoy-r.is-danger .etq { color: var(--bad-fg); } #inicioHoy .hoy-r.is-warn .etq { color: var(--warn-fg); } #inicioHoy .hoy-r.is-info .etq { color: var(--info-fg); } #inicioHoy .hoy-r.is-ok .etq { color: var(--ok-fg); }
+#inicioHoy .hoy-r .t { font-size: 14.5px; font-weight: 500; color: var(--ink); }
+#inicioHoy .hoy-r .p { font-size: 13px; color: var(--ink-3); }
+#inicioHoy .hoy-r .abrir { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border: 1px solid var(--campo); border-radius: 3px; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: var(--ink); white-space: nowrap; }
+#inicioHoy button.hoy-r:hover .abrir, #inicioHoy button.hoy-r:focus-visible .abrir { background: var(--hover); border-color: var(--ink-3); }
+#inicioHoy .hoy-g { margin-top: 14px; padding-bottom: 6px; font-size: 11.5px; letter-spacing: .06em; }
+#inicioHoy .hoy-semana { margin-top: 8px; }
+/* ---- Mis tareas: los cinco contadores como la fila de KPIs de la maqueta (siguen siendo botones que filtran) y la lista en una tarjeta */
+.mis-kpis .resumen { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; }
+.mis-kpis .kpi { min-width: 0; padding: 6px 6px 6px clamp(18px, 3.4vw, 48px); border: 0; border-radius: 0; background: none; gap: 3px; }
+.mis-kpis .kpi b { font-family: var(--f-ui); font-size: 20px; font-weight: 500; }
+.mis-kpis .kpi small { font-size: 13.5px; font-weight: 400; color: var(--ink-2); }
+.mis-kpis .kpi:hover b { color: var(--blue); }
+.mis-kpis .kpi.is-on { background: none; box-shadow: inset 0 -2px 0 var(--navy); }
+.mis-kpis .kpi.is-on small { color: var(--ink); font-weight: 600; }
+.mis-hoja { padding-bottom: 20px; }
+.mis-hoja > .rp-dh { flex-wrap: wrap; gap: 12px 20px; }
+.mis-hoja > .rp-dh .buscador { width: min(18rem, 100%); min-height: 36px; border-color: var(--campo); border-radius: 3px; }
+.mis-hoja > .bloques { margin: 0 20px; }
+/* ---- Mensajes: bandeja + hilo en UNA tarjeta */
+#p-mensajes > .msj { padding: 18px 20px 20px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); }
+/* ---- Avisos (la campana): lo nuevo desde la última vez, en fuerte y con su marca */
+.av-sub { margin: 0 0 var(--sp-2); }
+.av-r .av-ico { width: 24px; height: 24px; flex: none; }
+.av-r.es-nuevo b { font-weight: 700; color: var(--ink); }
+.av-r.is-ok b { color: var(--ok-fg); } .av-r.is-warn b { color: var(--warn-fg); }
+.av-nuevo { flex: none; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--info-fg); }
+/* ---- el buscador global (combobox → listbox): grupos, la opción resaltada con las flechas y lo que abre en SharePoint */
+#dlgBuscar { width: min(680px, 96vw); }
+#dlgBuscar .bs-res { max-height: min(62vh, 560px); overflow-y: auto; }
+#dlgBuscar .bs-grupo { display: grid; gap: 1px; }
+#dlgBuscar .bs-g { margin: 12px 0 4px; }
+#dlgBuscar .bs-grupo:first-child .bs-g { margin-top: 2px; }
+#dlgBuscar .bs-r { text-decoration: none; }
+#dlgBuscar .bs-r.is-activa { background: var(--side-on); box-shadow: inset 2px 0 0 var(--blue); }
+#dlgBuscar .bs-ext { flex: none; font-size: 11.5px; color: var(--ink-3); }
+#dlgBuscar .bs-ayuda { margin: -4px 0 8px; font-size: 12.5px; }
+#dlgBuscar kbd { padding: 0 5px; border: 1px solid var(--campo); border-bottom-width: 2px; border-radius: 3px; font: 600 11px/1.5 var(--f-ui); color: var(--ink-2); background: var(--card); }
+#dlgBuscar .bs-buscando, #dlgBuscar .bs-mas, #dlgBuscar .bs-pista { margin: 4px 8px; font-size: 12.5px; }
+/* ---- PREGUNTAR (maqueta #chat): el botón de la cabecera y el panel derecho de 440 px, cerrado por defecto */
+.rp-ask[aria-expanded="true"] { box-shadow: inset 0 0 0 2px #8fb0e8; }
+body.con-preguntar .app:not(.sin-sesion) { grid-template-columns: 64px 284px minmax(0, 1fr) 440px; }
+body.con-preguntar .app.panel-plegado:not(.sin-sesion) { grid-template-columns: 64px minmax(0, 1fr) 440px; }
+#preguntar { position: sticky; top: 0; height: 100dvh; min-width: 0; z-index: 4; display: flex; flex-direction: column; background: var(--card); border-left: 1px solid var(--line); }
+#preguntar .pq-cab { display: flex; align-items: center; gap: 6px; height: 52px; flex: none; padding: 0 12px 0 20px; border-bottom: 1px solid var(--line); font-size: 14.5px; font-weight: 500; color: var(--ink); }
+#preguntar .pq-btn { width: 36px; height: 36px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+#preguntar .pq-btn:hover { background: var(--hover); }
+#preguntar .pq-btn .ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+#preguntar .pq-cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 0 24px 16px; display: flex; flex-direction: column; }
+#preguntar .pq-h { margin: 56px 0 6px; text-align: center; font-family: var(--f-ui); font-size: 21px; font-weight: 400; color: var(--ink); }
+#preguntar .pq-sub { margin: 0 0 24px; text-align: center; font-size: 13.5px; color: var(--ink-3); }
+#preguntar .pq-inp { position: relative; flex: none; }
+#preguntar .pq-inp input { width: 100%; box-sizing: border-box; padding: 15px 50px 15px 14px; border: 1px solid var(--campo); border-radius: 4px; background: var(--card); color: var(--ink); font: inherit; font-size: 17px; }
+#preguntar .pq-inp input::placeholder { color: var(--ink-3); }
+#preguntar .pq-enviar { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: var(--send); color: #ffffff; display: grid; place-items: center; cursor: pointer; }
+#preguntar .pq-inp input:not(:placeholder-shown) + .pq-enviar { background: var(--blue); }
+#preguntar .pq-enviar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+#preguntar .pq-sug { margin-top: 32px; padding: 14px 24px 16px; border: 1px solid var(--sug-line); border-radius: 5px; background: var(--sug); }
+#preguntar .pq-sug.is-dentro { margin-top: 10px; padding: 8px 12px 10px; background: var(--card); }
+#preguntar .pq-sug small, #preguntar .pq-rec small { display: block; margin-bottom: 4px; color: var(--ink-2); font-size: 14px; }
+#preguntar .pq-q { display: block; width: 100%; min-height: 36px; padding: 6px 0; border: 0; background: none; color: var(--ink); font: inherit; font-size: 15.5px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+#preguntar .pq-q:hover, #preguntar .pq-q:focus-visible { color: var(--blue); }
+#preguntar .pq-rec { margin-top: 32px; }
+#preguntar .pq-msgs { display: flex; flex-direction: column; gap: 14px; padding: 22px 0 16px; }
+#preguntar .pq-msg { padding: 11px 14px; border-radius: 6px; font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; }
+#preguntar .pq-msg.is-yo { align-self: flex-end; max-width: 85%; background: var(--navy); color: #ffffff; }
+#preguntar .pq-msg.is-resp { border: 1px solid var(--sug-line); background: var(--sug); color: var(--ink); }
+#preguntar .pq-texto { margin: 0; }
+#preguntar .pq-tabla { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+#preguntar .pq-tabla td { padding: 5px 0; border-bottom: 1px solid var(--sug-line); vertical-align: top; }
+#preguntar .pq-tabla td.pq-v { padding-left: 10px; text-align: right; color: var(--ink-2); }
+#preguntar .pq-liga { margin-top: 10px; }
+#preguntar .pq-typing { display: flex; gap: 4px; padding: 4px 0; }
+#preguntar .pq-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: pq-parpadeo 1s infinite; }
+#preguntar .pq-typing i:nth-child(2) { animation-delay: .15s; } #preguntar .pq-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes pq-parpadeo { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+#preguntar .pq-pie { flex: none; margin: 0; padding: 12px 26px 14px; border-top: 1px solid var(--line-2); text-align: center; color: var(--ink-2); font-size: 13px; line-height: 1.45; }
+@media (prefers-reduced-motion: reduce) { #preguntar .pq-typing i { animation: none; } }
+@media (max-width: 1380px) {
+  body.con-preguntar .app:not(.sin-sesion) { grid-template-columns: 64px 284px minmax(0, 1fr) 380px; }
+  body.con-preguntar .app.panel-plegado:not(.sin-sesion) { grid-template-columns: 64px minmax(0, 1fr) 380px; }
+}
+/* tableta: el panel derecho se abre ENCIMA (maqueta ≤ 1100), como el panel del módulo */
+@media (max-width: 1100px) {
+  body.con-preguntar .app:not(.sin-sesion), body.con-preguntar .app.panel-plegado:not(.sin-sesion) { grid-template-columns: 56px minmax(0, 1fr); }
+  #preguntar { position: fixed; top: 0; right: 0; bottom: 0; height: auto; width: min(420px, 100vw); z-index: 45; box-shadow: -6px 0 22px rgba(20, 30, 50, .18); }
+}
+/* celular: Inicio, Mis tareas, Requiere atención y Preguntar a una columna; el panel es la hoja ENTERA (encima de la barra de módulos) */
+@media (max-width: 720px) {
+  body.con-preguntar .app:not(.sin-sesion), body.con-preguntar .app.panel-plegado:not(.sin-sesion) { grid-template-columns: minmax(0, 1fr); }
+  #preguntar { left: 0; width: 100%; border-left: 0; box-shadow: none; z-index: 70; }
+  #preguntar .pq-cuerpo { padding: 0 16px 12px; }
+  #preguntar .pq-h { margin-top: 28px; }
+  #preguntar .pq-sug { padding: 12px 16px 14px; margin-top: 22px; }
+  #preguntar .pq-pie { padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); }
+  body.con-preguntar .fab-nuevo { display: none; }
+  #p-inicio, #p-mis, #p-mensajes, #p-inicio > .bandas { gap: 14px; }
+  #p-inicio .bandas > .mn-card, #p-inicio .dosmitad > .mn-card { padding: 16px; }
+  #inicioHoy .hoy-r { grid-template-columns: 40px minmax(0, 1fr); }
+  #inicioHoy .hoy-r .abrir { display: none; }
+  .mis-kpis .resumen { grid-auto-columns: minmax(40%, 1fr); overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 12px 0 14px; }
+  .mis-kpis .resumen::-webkit-scrollbar { display: none; }
+  .mis-kpis .kpi { flex: none; padding-left: 16px; scroll-snap-align: start; }
+  .mis-hoja > .rp-dh .buscador { width: 100%; }
+  .mis-hoja > .bloques { margin: 0 12px; }
+  #p-mensajes > .msj { padding: 12px; }
+  #dlgBuscar .bs-ayuda, #dlgBuscar .bs-ext { display: none; }
+  /* con PREGUNTAR a la vista, en celular el subtítulo va pegado al título y las acciones (corte, filtros, rango, PREGUNTAR) debajo */
+  .rp-top > .rp-sub { order: 1; margin-top: -6px; }
+  .rp-top > .rp-top-der { order: 2; }
 }

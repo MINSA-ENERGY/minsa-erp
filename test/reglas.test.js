@@ -475,4 +475,45 @@ assert.equal(plural(1, 'mensaje nuevo', 'mensajes nuevos'), 'mensaje nuevo'); n+
     ok('miDia: sin nada para hoy = 0 de 0', JSON.stringify(miDia([], yo, hoy)) === '{"hechas":0,"total":0}');
 }
 
+// --- v1.0.0 (rediseño, cubeta 4): buscador global (índice local sin acentos), frentes quietos, marca de avisos
+{
+    const { GRUPOS_BUSQUEDA, normalizarBusqueda, indiceBusqueda, buscarEnIndice, frentesQuietos, avisosNoVistos, leerVisto: lv, fundirVisto: fv } = await import('../reglas.js');
+    ok('normalizarBusqueda: minúsculas, sin acentos, signos como espacio, un solo espacio; conserva folios, claves y correos',
+        normalizarBusqueda('  Órdenes   de COMPRA, ¿ya? ') === 'ordenes de compra ya' && normalizarBusqueda('PDH-008') === 'pdh-008' && normalizarBusqueda('Ana@Minsa.com') === 'ana@minsa.com' && normalizarBusqueda(null) === '');
+    ok('GRUPOS_BUSQUEDA: los 8 del plan, en su orden', GRUPOS_BUSQUEDA.join('|') === 'Pantallas y reportes|Proyectos|Tareas|Archivos|Personas|Órdenes|Expedientes|Vigencias');
+    const IDX = indiceBusqueda([
+        { grupo: 'Pantallas y reportes', texto: 'Calendario', sub: 'Trabajo · Vistas', ir: '#calendario' },
+        { grupo: 'Proyectos', texto: 'Licencia ambiental única', sub: 'Proyecto', ir: '#p/lau', extra: 'lau' },
+        { grupo: 'Tareas', texto: 'Llenar la cédula de la LAU', sub: 'Licencia ambiental única', ir: '#p/lau/t/1', orden: 1 },
+        { grupo: 'Tareas', texto: 'Licencia: subir el acuse', sub: 'Licencia ambiental única', ir: '#p/lau/t/2' },
+        { grupo: 'Órdenes', texto: 'PDH-008', sub: 'PRODEOS · xileno', ir: '#compras' },
+        { grupo: 'Personas', texto: 'Jefa Demo', sub: 'jefa@x.com · gerencia', ir: '#cuenta/equipo' },
+        { grupo: 'Inventado', texto: 'no entra', ir: '#x' }, { grupo: 'Tareas', texto: '', ir: '#y' }
+    ]);
+    ok('indiceBusqueda: deja fuera lo de un grupo que no existe o sin texto, y normaliza pajar y cabeza', IDX.length === 6 && IDX[1].pajar === 'licencia ambiental unica proyecto lau' && IDX[1].cabeza === 'licencia ambiental unica');
+    { const r = buscarEnIndice(IDX, 'calendário'); ok('buscarEnIndice: sin acentos («calendário» → Calendario)', r.length === 1 && r[0].grupo === 'Pantallas y reportes' && r[0].items[0].ir === '#calendario'); }
+    { const r = buscarEnIndice(IDX, 'licencia'); ok('buscarEnIndice: agrupa en el orden del plan (Proyectos antes que Tareas)', r.map(g => g.grupo).join('|') === 'Proyectos|Tareas');
+      ok('buscarEnIndice: dentro del grupo, el título que EMPIEZA con lo buscado va primero (aunque otro tenga menor `orden`)', r[1].items.map(i => i.ir).join() === '#p/lau/t/2,#p/lau/t/1'); }
+    ok('buscarEnIndice: todas las palabras, en cualquier orden y contra texto + sub + extra', buscarEnIndice(IDX, 'unica LAU')[0].items.length === 1 && buscarEnIndice(IDX, 'cedula ambiental').map(g => g.grupo).join() === 'Tareas' && buscarEnIndice(IDX, 'xileno')[0].items[0].texto === 'PDH-008');
+    ok('buscarEnIndice: el correo de una persona la encuentra', buscarEnIndice(IDX, 'jefa@x')[0].grupo === 'Personas');
+    ok('buscarEnIndice: vacío o sin coincidencias = []', buscarEnIndice(IDX, '  ').length === 0 && buscarEnIndice(IDX, 'zzz').length === 0);
+    { const muchas = indiceBusqueda(Array.from({ length: 9 }, (_, i) => ({ grupo: 'Tareas', texto: `Tarea ${i}`, ir: '#t' + i })));
+      const r = buscarEnIndice(muchas, 'tarea', 6); ok('buscarEnIndice: tope por grupo y cuántas quedan fuera (`mas`)', r[0].items.length === 6 && r[0].mas === 3); }
+    // frentes quietos
+    const AH = new Date('2026-10-02T18:00:00Z');
+    const PS = [{ id: 1, Title: 'Activo movido', Estado: 'activo' }, { id: 2, Title: 'Activo quieto', Estado: 'activo' }, { id: 3, Title: 'Cerrado quieto', Estado: 'cerrado' },
+        { id: 4, Title: 'Nuevo sin bitácora', Estado: 'activo', _creado: '2026-09-30T12:00:00Z' }, { id: 5, Title: 'Sin nada', Estado: 'activo' }];
+    const AC = [{ ProyectoId: 1, Accion: 'comentar', Cuando: '2026-10-01T10:00:00Z' }, { ProyectoId: 2, Accion: 'crear-tarea', Cuando: '2026-09-10T10:00:00Z' },
+        { ProyectoId: 2, Accion: 'visto', Cuando: '2026-10-02T10:00:00Z' }, { ProyectoId: 3, Accion: 'comentar', Cuando: '2026-08-01T10:00:00Z' }];
+    const fq = frentesQuietos(PS, AC, 10, AH);
+    ok('frentesQuietos: los ACTIVOS sin movimiento en 10 días o más, el ✓ «visto» no cuenta como movimiento, sin fecha al principio', fq.map(x => x.proyecto.id).join() === '5,2' && fq[1].dias === 22 && fq[0].dias === null);
+    ok('frentesQuietos: sin bitácora cuenta desde el alta (_creado); con 0 días de umbral entra todo lo activo', !fq.some(x => x.proyecto.id === 4) && frentesQuietos(PS, AC, 0, AH).length === 4);
+    // la marca de avisos en PROY_Roles.Visto
+    ok('leerVisto: + `avisos` (texto; lo que no es texto = vacío)', lv('{"avisos":"2026-10-01T00:00:00Z"}').avisos === '2026-10-01T00:00:00Z' && lv('{"avisos":5}').avisos === '' && lv('').avisos === '');
+    const f1 = fv('{"inicio":"a","chat":{"1":"b"}}', { avisos: '2026-10-02T01:00:00Z' }), f0 = fv('{"inicio":"a","chat":{}}', { inicio: 'b' });
+    ok('fundirVisto: la marca de avisos se funde por la mayor y SOLO viaja si existe (la celda de siempre no cambia de forma)', f1.avisos === '2026-10-02T01:00:00Z' && f1.chat['1'] === 'b' && !('avisos' in f0) && JSON.stringify(f0) === '{"inicio":"b","chat":{}}');
+    ok('fundirVisto: gana la marca de avisos mayor de los dos lados', fv('{"avisos":"2026-10-03"}', { avisos: '2026-10-01' }).avisos === '2026-10-03');
+    ok('avisosNoVistos: cuenta lo posterior a la marca; sin marca, todo lo que trae fecha', avisosNoVistos([{ cuando: '2026-10-02' }, { cuando: '2026-09-01' }, {}], '2026-09-15') === 1 && avisosNoVistos([{ cuando: '2026-10-02' }, { cuando: '2026-09-01' }, {}], '') === 2);
+}
+
 console.log(`reglas: ok (${n} comprobaciones)`);

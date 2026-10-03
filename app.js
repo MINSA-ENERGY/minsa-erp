@@ -29,6 +29,9 @@ import { cabecera, vistaDe, soltarIdsFuera, filaKpis } from './reporte.js';   //
 import { pintarVigencias, alCambiarVigencias } from './vigencias.js';   // v0.166.0: Vigencias (solo gerencia)
 import { pintarServicios, alCambiarServicios } from './servicios.js';   // v0.168.0: Servicios (gerencia y colaborador)
 import { pintarCompras, alCambiarCompras } from './compras.js';   // v0.169.0: Compras (gerencia y colaborador)
+import { pintarCabeceraInicio, pintarKpisInicio, atencionDeInicio, fijarNavInicio } from './inicio.js';   // v1.0.0 (cubeta 4): cabecera, KPIs por rol y «Requiere atención» de Operación y Dinero
+import { engancharBuscador } from './buscador.js';   // v1.0.0 (cubeta 4): buscador global (lupa, / y Ctrl+K)
+import { engancharPreguntar, fijarNavPreguntar, refrescarPreguntar } from './preguntar.js';   // v1.0.0 (cubeta 4): «Preguntar» sin IA
 import { pintarRoadmap, pintarRoadmapProyecto, roadmapFull, engancharRoadmap, olvidarLugarRoadmap, pintarCalendario, engancharCalendario, enfocarCal, pintarMensajes, engancharMensajes, devolverChat, mensajesNuevos, proyectoDeMensajes, pintarArchivos, engancharArchivos, pintarReportes, engancharReportes, fijarRepintarReportes, anillo, abrirCargaPersona, pintarCargaPersona } from './vistas.js';
 
 // NO llamar `msal` a esta variable: taparia el global del bundle UMD.
@@ -443,6 +446,7 @@ function repintar() {
     else if (estado.pestana === 'cuenta') pintarCuenta();   // v1.0.0
     if ($('dlgPersona').open) pintarCargaPersona();   // R-02 (v0.131.0): el refresco sigue con las abiertas de la persona abiertas
     if ($('dlgActividad').open) pintarActividad();   // C-12 (v0.94.0): el refresco sigue con «Toda la actividad» abierta (E4); acCtx conserva filtro y pagina
+    refrescarPreguntar();   // v1.0.0 (cubeta 4): con el panel en su portada, las sugeridas siguen a los datos que llegan
 }
 alCambiarTareas(repintar);
 alCambiarDocs(repintar);
@@ -559,6 +563,7 @@ const llaveTarea = t => hashTarea(t.id) ? `t:${t.id}` : null;
 const llaveEvento = (a, pid) => hashEvento(a, pid) ? `a:${a.id}${pid ? ':' + pid : ''}` : null;
 document.addEventListener('click', ev => {
     const b = ev.target.closest('[data-abre]'); if (!b) return;
+    if (b.dataset.abre.startsWith('r:')) { const h = b.dataset.abre.slice(2); if (leerRuta(h)) irARuta(h); return; }   // v1.0.0 (cubeta 4): «Requiere atención» de Operación y Dinero (solo rutas de la app)
     const [tipo, id, pid] = b.dataset.abre.split(':');
     if (tipo === 'pe') { abrirCargaPersona(b.dataset.abre.slice(3)); return; }   // R-02 (v0.131.0): una persona de Carga por persona (Reportes); el correo entero, sin partirlo por ':'
     if (tipo === 'sd') { irASinDueno(); return; }   // U-12 (v0.129.0): «Sin dueño» de Carga por persona (Reportes)
@@ -682,12 +687,13 @@ function pintarInicio() {
     const ahora = new Date();
     const yo = nombreDe(estado.cuenta.username, estado.roles);
     const vivos = activos(), nAct = vivos.length;   // C-07 (mejorar-app, 16-sep): activos() se filtraba cuatro veces por pintado
-    $('inicioSaludo').textContent = `${saludoDe(ahora)}, ${yo.split(' ')[0]}`;   // C-09 (v0.133.0): el saludo NO pasa por nombreCorto, a proposito: a uno mismo no hay a quien confundir
-    // U-08: el rol va en su propio span; en celular la barra de arriba ya lo dice junto al logo y .rol-sub se oculta (estilo.css)
-    const sub = $('inicioSub'); sub.textContent = `${fechaLarga(ahora)} · ${nAct} ${plural(nAct, 'frente')} ${plural(nAct, 'activo')}`; sub.appendChild(el('span', 'rol-sub', ` · ${estado.rol}`));
+    // v1.0.0 (cubeta 4): el saludo es el título de la cabecera de la plantilla (#inicioSaludo, con «?» y PREGUNTAR); debajo fecha · frentes · rol (#inicioSub)
+    // C-09 (v0.133.0): el saludo NO pasa por nombreCorto, a proposito: a uno mismo no hay a quien confundir. U-08: el rol va en su propio span (.rol-sub)
+    conservarFoco($('inicioCab'), ['rp', 'preguntar'], () => pintarCabeceraInicio(`${saludoDe(ahora)}, ${yo.split(' ')[0]}`, `${fechaLarga(ahora)} · ${nAct} ${plural(nAct, 'frente')} ${plural(nAct, 'activo')}`, estado.rol));
     const abiertas = abiertasInicio(vivos);   // C-11 (v0.95.0): la misma cuenta que el conmutador y «Sin dueño» repiten al clic
-    // v0.41.0 (Carlos, 14-sep): la fila de KPI (mías abiertas · vencen en 7 d · vencidas · sin dueño · sin movimiento) SALIO
-    // de Inicio. Lo mio vive en Mis tareas (y el rojo del rail), lo global en la cola y en Reportes; «sin movimiento» en su tarjeta.
+    // v1.0.0 (cubeta 4; plan «fila de KPIs por rol», supera v0.41.0 «la fila de KPI salió»): gerencia 5, colaborador 3, lectura 1; cada uno abre su
+    // reporte y lo que sale de un JSON lleva su corte (inicio.js / inicio-reglas.js). Pintarla pide la lectura única de esos JSON.
+    conservarFoco($('inicioKpis'), ['kpi'], () => pintarKpisInicio(abiertas.length));
     // C-05 (mejorar-app, 16-sep): el piso de «Nuevo para ti» se congela AQUI, al entrar, y la marca de visto sube AQUI — antes eran
     // efectos colaterales de pintarCola (que se repinta con cada clic de «solo mías») y pintarActividadInicio dependia de ese orden.
     if (!estado.nuevosInicio) estado.nuevosInicio = { desde: inicioVistoHasta() };
@@ -758,15 +764,24 @@ const kHora = iso => { const d = diasPara(iso), m = mesDia(iso); return { a: HOR
  * de Vence en las tarjetas, hora + dia relativo en lo que viene de la bitacora, «—» sin fecha— y el color del estado lo lleva el
  * numero (`.k b`), no un circulo. `k` = { a: linea fuerte, b: linea tenue }; `datos` van a data-*.
  */
-function renglonCola(estadoCls, titulo, sub, k, abre, datos) {
+function renglonCola(estadoCls, titulo, sub, k, abre, datos, etq = null) {
     const r = el(abre ? 'button' : 'div', 'hoy-r' + (estadoCls ? ' is-' + estadoCls : '')); if (abre) { r.type = 'button'; r.dataset.abre = abre; }   // C-11 (v0.95.0): llave, no closure
     // U-11 (v0.94.0): la columna .k es aria-hidden; el nombre accesible del renglon trae la fecha u hora que ella enseña
-    if (abre) r.setAttribute('aria-label', [titulo, sub, k.a === '—' ? 'sin fecha' : `${k.a} ${k.b}`.trim()].filter(Boolean).join(' · '));
+    if (abre) r.setAttribute('aria-label', [titulo, etq, sub, k.a === '—' ? 'sin fecha' : `${k.a} ${k.b}`.trim()].filter(Boolean).join(' · '));
     const f = el('span', 'k'); f.setAttribute('aria-hidden', 'true'); f.appendChild(el('b', '', k.a)); f.appendChild(el('small', '', k.b)); r.appendChild(f);
-    const c = el('span', 'cuerpo'); c.appendChild(el('span', 't', titulo)); c.appendChild(el('span', 'p', sub)); c.querySelector('.t').title = titulo; r.appendChild(c);
+    // v1.0.0 (cubeta 4; maqueta «Requiere atención»): la ETIQUETA del renglón (vencida · hoy · sin dueño · nuevo · mención · bloqueado · vence · cobro ·
+    // revisar · sin movimiento) va antes del título, como texto de color (v0.98.0 «sin burbujas», igual que las cubetas 2 y 3); y «ABRIR» al final.
+    // Todo el renglón sigue siendo el botón: «ABRIR» es la señal visual de la maqueta (aria-hidden), no otro botón.
+    const c = el('span', 'cuerpo');
+    if (etq) { const e = el('span', 'etq', etq); e.setAttribute('aria-hidden', 'true'); c.appendChild(e); }
+    c.appendChild(el('span', 't', titulo)); c.appendChild(el('span', 'p', sub)); c.querySelector('.t').title = titulo; r.appendChild(c);
+    if (abre) { const a = el('span', 'abrir', 'ABRIR'); a.setAttribute('aria-hidden', 'true'); r.appendChild(a); }
     for (const [kk, v] of Object.entries(datos || {})) r.dataset[kk] = v;
     return r;
 }
+/** v1.0.0 (cubeta 4): la etiqueta de un renglón de tarjeta según su grupo de la cola. */
+const ETQ_GRUPO = { vencidas: 'vencida', hoy: 'hoy', 'sin-dueno': 'sin dueño', semana: 'esta semana' };
+const etqHoy = t => diasPara(t.Vence) === 1 ? 'mañana' : 'hoy';
 /** El encabezado de un grupo («Vencidas · 3»); con `ir` (una llave de IR_COLA) es boton. Devuelve el elemento ya colgado de `lista`.
  *  C-22 (v0.145.0): el destino es una llave data-ir que resuelve el delegado al clic, como data-abre en los renglones (antes un closure por boton).
  *  U-17 (v0.145.0): el rotulo sin boton es encabezado de nivel 3 para el lector de pantalla (la cola se recorre por grupos); el de
@@ -786,9 +801,12 @@ function extraCola(t, ahora = new Date(), nNotas = null) {   // C-21 (v0.145.0):
 /** El renglon de una tarjeta. U-04: el subtitulo ya NO repite la fecha —la columna `.k` la trae y el grupo dice vencida/hoy/semana—
  *  y asi el nombre del frente cabe a 390 px. U-10 (v0.94.0): los datos van ANTES del frente, que se repite renglon tras renglon:
  *  a 390 px el «…» se come el nombre repetido y no el dato que distingue. `datos` extra (p. ej. sinDueno) se suman al data-t. */
-const renglonTarea = (t, cls, datos, ctx = {}) => renglonCola(cls, t.Title, [ctx.motivo, ...extraCola(t, undefined, ctx.nNotas), tituloFrenteDe(t)].filter(Boolean).join(' · '), kFecha(t.Vence), llaveTarea(t), { t: String(t.id), ...datos });   // U-16 (v0.145.0): `ctx.motivo` («nuevo · Jefa te asignó») va primero
+const renglonTarea = (t, cls, datos, ctx = {}) => renglonCola(cls, t.Title, [ctx.motivo, ...extraCola(t, undefined, ctx.nNotas), tituloFrenteDe(t)].filter(Boolean).join(' · '), kFecha(t.Vence), llaveTarea(t), { t: String(t.id), ...datos }, ctx.etq);   // U-16 (v0.145.0): `ctx.motivo` («nuevo · Jefa te asignó») va primero
 /** El renglon de un evento de la bitacora (nuevo para ti / te mencionaron): quien (nombre de pila) y el frente en el subtitulo. */
-const renglonEvento = (a, titulo, datos, pid = a.ProyectoId) => { const p = porId(estado.proyectos, pid); return renglonCola('info', titulo, `${nombreCorto(a.Quien, estado.roles)}${p ? ' · ' + p.Title : ''}`, kHora(a.Cuando), llaveEvento(a, pid), datos); };
+const renglonEvento = (a, titulo, datos, pid = a.ProyectoId, etq = 'nuevo') => { const p = porId(estado.proyectos, pid); return renglonCola('info', titulo, `${nombreCorto(a.Quien, estado.roles)}${p ? ' · ' + p.Title : ''}`, kHora(a.Cuando), llaveEvento(a, pid), datos, etq); };
+/** v1.0.0 (cubeta 4): un renglón de Operación, Dinero o Trabajo que no es tarjeta (inicio-reglas.js: { etiqueta, cls, titulo, sub, ir, k }). Su llave
+ *  es «r:<ruta>»: el delegado de data-abre lleva a esa ruta al clic, como una liga pegada. */
+const renglonAtencion = it => renglonCola(it.cls, it.titulo, it.sub, it.k, 'r:' + it.ir, { atencion: it.grupo }, it.etiqueta);
 /** Los grupos por fecha se recortan a TOPE_COLA renglones con un «+N más» que lleva a donde estan todas (Mis tareas, Reportes o Calendario). */
 const TOPE_COLA = 6, TOPE_NUEVOS = 8;
 function masCola(lista, n, texto, ir) { const b = el('button', 'hoy-mas'); b.type = 'button'; b.textContent = `+${n} más · ${texto} →`; b.dataset.ir = ir; lista.appendChild(b); return b; }   // C-22: `ir` es llave de IR_COLA
@@ -799,14 +817,25 @@ const IR_COLA = {
     calendario: () => irA('calendario'),
     actividad: () => abrirActividad(null),
     'sin-dueno': () => irASinDueno(),
+    // v1.0.0 (cubeta 4): «Esta semana» vive en Mis tareas (lo mío: «vencen en 7 días») o en el Calendario (todo el frente); y los «+N más» de Operación
+    semana: () => { if (estado.hoySoloMias) { estado.filtroMisAlLlegar = 'pronto'; irA('mis'); } else irA('calendario'); },
+    servicios: () => irARuta('#servicios'), vigencias: () => irARuta('#vigencias'), compras: () => irARuta('#compras'), frentes: () => irARuta('#reportes/actividad')
 };
 document.addEventListener('click', ev => { const b = ev.target.closest && ev.target.closest('#inicioHoy [data-ir]'); const ir = b && IR_COLA[b.dataset.ir.split(':')[0]]; if (ir) ir(); });
 /** Un grupo por fecha entero: encabezado, hasta TOPE_COLA tarjetas y el «+N más». `arr` viene de gruposHoy ({ tarea, dias }).
  *  `ctx` = { nNotas, motivos }: las notas contadas una vez y el aviso «nuevo» que absorbe cada tarjeta (U-16). */
 function pintarGrupoCola(lista, clave, texto, arr, cls, textoMas, ir, ctx = {}) {
     grupoCola(lista, clave, texto, arr.length, cls);
-    for (const { tarea: t } of arr.slice(0, TOPE_COLA)) { const m = ctx.motivos && ctx.motivos.get(Number(t.id)); lista.appendChild(renglonTarea(t, cls, m ? { motivo: m.tipo } : {}, { nNotas: ctx.nNotas, motivo: m && m.texto })); }
+    for (const { tarea: t } of arr.slice(0, TOPE_COLA)) { const m = ctx.motivos && ctx.motivos.get(Number(t.id)); lista.appendChild(renglonTarea(t, cls, m ? { motivo: m.tipo } : {}, { nNotas: ctx.nNotas, motivo: m && m.texto, etq: clave === 'hoy' ? etqHoy(t) : ETQ_GRUPO[clave] })); }
     if (arr.length > TOPE_COLA) masCola(lista, arr.length - TOPE_COLA, textoMas, ir);
+}
+/** v1.0.0 (cubeta 4): un grupo de «Requiere atención» que no es de tarjetas (servicios, vigencias, cobro, O.C., frentes): encabezado, hasta
+ *  TOPE_COLA renglones y el «+N más» a su página (llave de IR_COLA). */
+function pintarGrupoAtencion(lista, clave, texto, items, cls, textoMas, ir) {
+    if (!items.length) return;
+    grupoCola(lista, clave, texto, items.length, cls);
+    for (const it of items.slice(0, TOPE_COLA)) lista.appendChild(renglonAtencion(it));
+    if (items.length > TOPE_COLA) masCola(lista, items.length - TOPE_COLA, textoMas, ir);
 }
 /** Las tarjetas abiertas de los frentes activos: lo que miran la cola «Hoy», «Sin movimiento» y el salto de «Sin dueño».
  *  C-11 (v0.95.0): el conmutador y el salto la recalculan al clic; antes capturaban el arreglo del ultimo pintado. */
@@ -858,7 +887,7 @@ function pintarCola(abiertas, eventos) {   // `eventos` = el de eventosCola() de
     // U-16 (v0.145.0; el «reason label» de GitHub, R-01): un aviso «te asignó» / «cambió tu tarjeta» sobre una tarjeta que ya se PINTA en
     // un grupo por fecha no sale aparte en «Nuevo para ti»: va como motivo en el subtitulo de ese renglon y el total la cuenta una vez.
     // Las notas y menciones siguen como evento: su texto es lo nuevo. El mas reciente gana (nuevos viene del mas nuevo al mas viejo).
-    const pintadasFecha = new Set([g.vencidas, g.hoy, g.semana].flatMap(arr => arr.slice(0, TOPE_COLA).map(x => Number(x.tarea.id))));
+    const pintadasFecha = new Set([g.vencidas, g.hoy].flatMap(arr => arr.slice(0, TOPE_COLA).map(x => Number(x.tarea.id))));   // v1.0.0 (cubeta 4): «Esta semana» ya no pinta renglones aquí
     const motivos = new Map();
     for (const x of nuevos) if ((x.tipo === 'asignada' || x.tipo === 'cambio') && x.tarea && pintadasFecha.has(Number(x.tarea.id)) && !motivos.has(Number(x.tarea.id)))
         motivos.set(Number(x.tarea.id), { tipo: x.tipo, a: x.a, texto: `nuevo · ${nombreCorto(x.a.Quien, estado.roles)} ${VERBO_NUEVO[x.tipo]}` });
@@ -871,9 +900,14 @@ function pintarCola(abiertas, eventos) {   // `eventos` = el de eventosCola() de
     // aterriza en el proyecto que mas tiene con el filtro «sin dueño» puesto (el mismo salto que tenia el KPI).
     if (huerfanas.length) {
         grupoCola(urgente, 'sin-dueno', 'Sin dueño', huerfanas.length, 'warn', 'sin-dueno').dataset.kpi = 'sin-dueno';
-        for (const t of huerfanas.slice(0, TOPE_COLA)) urgente.appendChild(renglonTarea(t, 'warn', { sinDueno: '1' }, { nNotas }));   // U-04: ni «sin dueño ·» (lo dice el grupo) ni la fecha (la columna)
+        for (const t of huerfanas.slice(0, TOPE_COLA)) urgente.appendChild(renglonTarea(t, 'warn', { sinDueno: '1' }, { nNotas, etq: ETQ_GRUPO['sin-dueno'] }));   // U-04: ni «sin dueño ·» (lo dice el grupo) ni la fecha (la columna)
     }
-    // Derecha: nuevo para ti · te mencionaron · esta semana.
+    // v1.0.0 (cubeta 4; plan «Requiere atención» por rol): lo de Operación y Dinero que pide algo (inicio-reglas.js) — izquierda lo que está detenido o
+    // vence; derecha el cobro, la O.C. que no cuadra y los frentes sin movimiento. Lectura no ve nada de esto; colaborador, sin vigencias, cobranza ni frentes.
+    const op = atencionDeInicio();
+    pintarGrupoAtencion(urgente, 'detenidos', 'Servicios detenidos', op.detenidos, 'danger', 'ver en Servicios', 'servicios:detenidos');
+    pintarGrupoAtencion(urgente, 'vigencias', 'Vigencias a 30 días o menos', op.vigencias, 'warn', 'ver en Vigencias', 'vigencias:atencion');
+    // Derecha: nuevo para ti · te mencionaron · cobro · O.C. que no cuadra · frentes sin movimiento (y la liga a «Esta semana»).
     if (nuevosAparte.length) {
         grupoCola(resto, 'nuevo', 'Nuevo para ti', nuevosAparte.length, 'info');
         for (const x of nuevosAparte.slice(0, TOPE_NUEVOS)) {
@@ -885,15 +919,20 @@ function pintarCola(abiertas, eventos) {   // `eventos` = el de eventosCola() de
     }
     if (menciones.length) {
         grupoCola(resto, 'mencion', 'Te mencionaron', menciones.length, 'info');
-        for (const a of menciones.slice(0, TOPE_COLA)) resto.appendChild(renglonEvento(a, `«${a.Title}»`, { mencion: String(a.id) }));
+        for (const a of menciones.slice(0, TOPE_COLA)) resto.appendChild(renglonEvento(a, `«${a.Title}»`, { mencion: String(a.id) }, a.ProyectoId, 'mención'));
         if (menciones.length > TOPE_COLA) masCola(resto, menciones.length - TOPE_COLA, 'ver en Toda la actividad', 'actividad:mencion');   // U-09
     }
-    if (g.semana.length) pintarGrupoCola(resto, 'semana', 'Esta semana', g.semana, null, 'ver en el Calendario', 'calendario:semana', ctx);
-    const total = g.vencidas.length + g.hoy.length + huerfanas.length + nuevosAparte.length + menciones.length + g.semana.length;
+    pintarGrupoAtencion(resto, 'cobro', 'Cobro', op.cobro, 'info', 'ver en Servicios', 'servicios:cobro');
+    pintarGrupoAtencion(resto, 'no-cuadra', 'O.C. que no cuadra', op.noCuadra, 'warn', 'ver en Compras', 'compras:atencion');
+    pintarGrupoAtencion(resto, 'frentes', 'Frentes sin movimiento', op.frentes, 'warn', 'ver en Actividad 30 días', 'frentes:atencion');
+    // v1.0.0 (cubeta 4; plan: «la cola "esta semana / después" vive en Mis tareas»): «Esta semana» ya no lista sus tarjetas aquí; queda UNA liga con
+    // su cifra — a Mis tareas («vencen en 7 días») con «solo mías», al Calendario con «todo el frente». Antes (v0.21.0–v0.173.0): el grupo con 6 renglones.
+    if (g.semana.length) { const b = el('button', 'hoy-mas hoy-semana', `Esta semana ${plural(g.semana.length, 'vence', 'vencen')} ${g.semana.length} · ver en ${estado.hoySoloMias ? 'Mis tareas' : 'el Calendario'} →`); b.type = 'button'; b.dataset.ir = 'semana'; resto.appendChild(b); }
+    const total = g.vencidas.length + g.hoy.length + huerfanas.length + nuevosAparte.length + menciones.length + op.detenidos.length + op.vigencias.length + op.cobro.length + op.noCuadra.length + op.frentes.length;
     $('nHoy').textContent = total ? String(total) : '';
     // Cada mitad vacia lo dice en su lugar; el «solo mías» sigue mandando en el texto de la izquierda.
     if (!urgente.children.length) urgente.appendChild(el('p', 'vacio', estado.hoySoloMias ? 'Nada urgente de lo tuyo: ni vencidas ni para hoy.' : 'Nada urgente: ni vencidas ni para hoy, y todo tiene dueño.'));
-    if (!resto.children.length) resto.appendChild(el('p', 'vacio', estado.hoySoloMias ? 'Nada nuevo para ti ni tuyo por vencer esta semana.' : 'Nada nuevo para ti ni por vencer esta semana.'));
+    if (!resto.children.length) resto.appendChild(el('p', 'vacio', 'Nada nuevo para ti.'));
     // C-18 (v0.145.0): los ids de tarjeta que se pintaron van a «Sin movimiento», que ya no lee el DOM. `nuevos` entero (con los
     // absorbidos) sube la marca de visto: el motivo en el renglon TAMBIEN se vio.
     const enCola = new Set([...pintadasFecha, ...huerfanas.slice(0, TOPE_COLA).map(t => Number(t.id))]);
@@ -1485,6 +1524,10 @@ $('btnActualizar').addEventListener('click', recargar);
 // v1.0.0: el armazón (rail de módulos, panel, chips, hoja, «+ Nuevo», Buscar, Avisos, Cuenta) navega con las funciones de aquí.
 fijarNavArmazon({ irARuta, irA, repintar, abrirProyecto: id => abrirProyecto(id) });
 engancharArmazon();
+// v1.0.0 (cubeta 4): Inicio (KPIs que llevan a su reporte), el buscador global y «Preguntar» navegan como una liga pegada (irARuta, síncrono)
+fijarNavInicio(irARuta);
+engancharBuscador({ irARuta, abrirProyecto: id => abrirProyecto(id) });
+fijarNavPreguntar({ irARuta, irA }); engancharPreguntar();
 for (const b of document.querySelectorAll('.tab')) b.addEventListener('click', () => { estado.tab = b.dataset.tab; olvidarLugarRoadmap(); pintarPestanasAbierto(); fijarHash(hashDe()); });   // C-12 (v0.115.0): solo lo que cambia con la pestaña
 // U-35 (v0.123.0): las pestañas del proyecto como tablist de verdad — una sola parada de Tab (tabindex rotativo, lo pone pintarPestanas)
 // y flechas izquierda/derecha entre las visibles (Capital se salta cuando esta oculta).

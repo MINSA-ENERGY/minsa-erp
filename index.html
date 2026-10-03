@@ -108,19 +108,25 @@
 
     <!-- Inicio -->
     <section id="p-inicio" class="pantalla oculto">
-      <!-- v0.21.0 (iteracion 3, «Inicio Hoy»): el titulo es el saludo con nombre; la fecha, los frentes activos y el rol van debajo -->
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v10H3z"/><path d="M9 21v-6h6v6"/></svg></span><h1 id="inicioSaludo">Inicio</h1><p class="sub" id="inicioSub"></p></header>
+      <!-- v1.0.0 (rediseño, cubeta 4; plan «Contenido por módulo › Inicio»; maqueta V.ini): la cabecera de la plantilla (#inicioCab: el SALUDO
+           —#inicioSaludo— con «?» y PREGUNTAR, y debajo la fecha, los frentes activos y el rol —#inicioSub—) · la fila de KPIs POR ROL (#inicioKpis;
+           supera «sin KPI en Inicio», v0.41.0: cada KPI abre su reporte y lo que sale de un JSON lleva su corte) · «Requiere atención» (la cola de
+           siempre, con etiqueta + ABRIR por renglón y los renglones de Operación y Dinero por rol) · proyectos activos · actividad | sin movimiento.
+           Antes (v0.21.0): header.cabecera con el icono de casa. -->
+      <div class="rp-cuerpo" id="inicioCab"></div>
       <!-- v0.39.0 («Una sola columna», corte 5 del artifact S7pfEtW6, Carlos 2026-09-14): se fue la lateral de 340 px. Inicio son
            BANDAS a todo lo ancho: la cola partida en dos mitades (urgente | resto) · proyectos a 2 columnas · actividad | sin
            movimiento. «Fines de frente» salio (la hoja de calendario de cada ficha ya trae la fecha y el color). -->
       <div class="bandas">
-        <!-- v0.41.0 (Carlos, 14-sep): la fila de KPI (#inicioKpis: 3 de lo mio + 2 globales) salio entera. -->
-        <!-- v0.21.0: UNA cola por urgencia — vencidas · hoy y manana · nuevo para ti · te mencionaron · esta semana · sin dueño —
+        <section class="rp-card rp-graf inicio-kpis" id="inicioKpisCard"><div class="rp-kpis" id="inicioKpis" role="group" aria-label="Indicadores"></div></section>
+        <!-- v0.21.0: UNA cola por urgencia — vencidas · hoy y manana · nuevo para ti · te mencionaron · sin dueño —
              que sustituye a «Nuevo para ti», «Te mencionaron» y «Proximos vencimientos» (tres tarjetas con tres formatos).
-             v0.39.0: la misma cola en DOS mitades lado a lado — izquierda lo urgente (vencidas · hoy y manana · sin dueño), derecha
-             el resto (nuevo para ti · te mencionaron · esta semana); #inicioHoy sigue envolviendo a las dos. -->
+             v0.39.0: la misma cola en DOS mitades lado a lado — izquierda lo urgente, derecha el resto; #inicioHoy sigue envolviendo a las dos.
+             v1.0.0 (cubeta 4): se titula «Requiere atención» (maqueta); «Esta semana» ya no lista renglones aquí (la cola «esta semana / después»
+             vive en Mis tareas): queda una liga con su cifra. Por rol se suman servicios detenidos, vigencias ≤ 30 días, cobro, O.C. que no cuadra
+             y frentes sin movimiento (inicio-reglas.js). -->
         <section class="mn-card cola" id="cardHoy">
-          <div class="cola-cab"><h2>Hoy <span class="n" id="nHoy"></span></h2><div class="filtros grupo" id="hoyFiltro" role="group" aria-label="Qué tarjetas entran a la cola"></div></div>
+          <div class="cola-cab"><h2>Requiere atención <span class="n" id="nHoy"></span></h2><div class="filtros grupo" id="hoyFiltro" role="group" aria-label="Qué tarjetas entran a la cola"></div></div>
           <div class="cola-dos" id="inicioHoy"><div class="cola-lista" id="inicioUrgente"></div><div class="cola-lista" id="inicioResto"></div></div>
         </section>
         <section class="mn-card"><h2>Proyectos activos</h2><div class="lista dosc" id="inicioProyectos"></div></section>
@@ -269,7 +275,9 @@
          v0.43.0 (Carlos, 15-sep): SOLO chat por frente; la sección Personas y la ficha con liga a Teams salieron
          (la bitácora la lee todo el equipo: aquí nada es privado). «Te mencionaron» vive en Inicio. -->
     <section id="p-mensajes" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.6-4.5A8 8 0 1 1 21 12z"/><path d="M8.5 11h7M8.5 14h4"/></svg></span><h1>Mensajes</h1><p class="sub" id="mensajesSub"></p></header>
+      <!-- v1.0.0 (rediseño, cubeta 4): la cabecera de la plantilla (#mensajesCab: «Mensajes» + «?» + PREGUNTAR y el subtítulo #mensajesSub) y la
+           bandeja + hilo en UNA tarjeta. La bandeja de frentes con no leídos va además en el panel de Inicio (armazon.js); el hilo, al centro. -->
+      <div class="rp-cuerpo" id="mensajesCab"></div>
       <!-- v0.56.0 (Carlos, 15-sep; artifact MHCmeJw5, opción C «bandeja plegable»): la bandeja se pliega a una columna de
            iconos de unidad con insignia (#mensajesRail) y el hilo crece; «‹» pliega, «›» despliega; se recuerda por
            dispositivo (localStorage `bandeja`). En ≤ 900 px el pliegue no aplica: sigue bandeja O hilo con «←» (v0.138.0). -->
@@ -379,11 +387,16 @@
 
     <!-- Mis tareas -->
     <section id="p-mis" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6"/></svg></span><h1 id="misTitulo">Mis tareas</h1><p class="sub" id="misSub">Tus tarjetas abiertas, en todos los proyectos, en orden de fecha. Las vencidas arriba.</p></header>
+      <!-- v1.0.0 (rediseño, cubeta 4): la cabecera de la plantilla (#misCab: «Mis tareas · Nombre» —#misTitulo— + «?» + PREGUNTAR y el subtítulo
+           #misSub), los cinco contadores en la tarjeta de KPIs de la maqueta y la lista en una tarjeta. La lógica (círculo, Deshacer, Posponer,
+           Hechas hoy) no cambia. -->
+      <div class="rp-cuerpo" id="misCab"></div>
       <!-- v0.58.0 (Carlos, 15-sep; artifact CrSMdQaxRzctu9VFqrU1dP, corte C): lista densa con contadores — #filtroMis trae los cinco .kpi que filtran; #misLista es la tabla .densa (cabecera + separadores por bloque + un .tr por tarjeta). v0.66.0: fecha en columna a la izquierda, sin filete ni pastillas. v0.67.0: #misLista es .bloques, una tarjeta .densa por bloque con su rótulo fuera. -->
-      <div class="resumen" id="filtroMis"></div>
-      <input id="textoMis" class="buscador" type="search" placeholder="Buscar en mis tareas" aria-label="Buscar en mis tareas" autocomplete="off">
-      <div class="bloques" id="misLista"></div>
+      <section class="rp-card rp-graf mis-kpis"><div class="resumen" id="filtroMis"></div></section>
+      <section class="rp-card mis-hoja">
+        <div class="rp-dh"><h3>Tus tarjetas</h3><input id="textoMis" class="buscador" type="search" placeholder="Buscar en mis tareas" aria-label="Buscar en mis tareas" autocomplete="off"></div>
+        <div class="bloques" id="misLista"></div>
+      </section>
     </section>
 
     <!-- v1.0.0 (armazón; decisiones 9 y 10 del plan): Cuenta = página (#cuenta). Nombre y rol · tema Claro|Oscuro (sustituye al segmento del pie
@@ -410,6 +423,17 @@
 
     <p class="pie mn-mono" id="pie"></p>
   </main>
+  <!-- v1.0.0 (rediseño, cubeta 4; plan «Preguntar (sin IA)»; maqueta #chat): panel derecho de 440 px (hoja completa en celular), CERRADO por
+       defecto; lo abre PREGUNTAR de la cabecera de la plantilla. «Pregunta lo que sea», preguntas sugeridas por rol calculadas en vivo, preguntas
+       recientes (este equipo) y la respuesta con su liga «Abrir». preguntar.js lo pinta; la respuesta sale de responder(pregunta), aislada para
+       enchufarle después un agente de Copilot Studio. -->
+  <aside class="preguntar" id="preguntar" aria-labelledby="pqTitulo" hidden>
+    <div class="pq-cab"><span class="pq-tit" id="pqTitulo">Preguntar</span><span class="cab-esp"></span>
+      <button type="button" class="pq-btn" id="pqNueva" title="Pregunta nueva" aria-label="Pregunta nueva"><span class="ico" data-icono="mas"></span></button>
+      <button type="button" class="pq-btn" id="pqCerrar" title="Cerrar" aria-label="Cerrar Preguntar"><span class="ico" data-icono="x"></span></button></div>
+    <div class="pq-cuerpo" id="pqCuerpo"></div>
+    <p class="pq-pie" id="pqPie">Respuestas calculadas con los datos de la app (no es IA)</p>
+  </aside>
   <!-- v1.0.0: «+ Nuevo» del celular, flotando sobre la barra (sustituye al FAB de «Nueva tarea», que sigue en el menú como «Tarea»). El menú es UNO
        para el rail y para este botón; armazon.js lo coloca junto a quien lo abrió. -->
   <button type="button" class="fab-nuevo" id="fabNuevo" aria-haspopup="menu" aria-expanded="false" aria-controls="menuNuevo" aria-label="Nuevo"><span class="ico" data-icono="mas"></span><span>Nuevo</span></button>
@@ -644,20 +668,24 @@
 </dialog>
 
 <!-- v1.0.0: Equipo (F13) dejó de ser diálogo: es la tarjeta «Equipo y roles» de la página Cuenta (#cuenta/equipo). -->
-<!-- v1.0.0 (armazón): Buscar — versión mínima (pantallas, proyectos y tarjetas en memoria, sin acentos). El buscador global completo
-     (archivos, personas, órdenes, expedientes, vigencias, `/` y Ctrl+K) es de la cubeta 4: se engancha en armazon.js `buscar()`. -->
+<!-- v1.0.0 (rediseño, cubeta 4; plan «Buscador global»): la lupa del rail, `/` y Ctrl+K abren este diálogo con el input de la maqueta (.srch).
+     Resultados AGRUPADOS (Pantallas y reportes · Proyectos · Tareas · Archivos · Personas · Órdenes · Expedientes · Vigencias), navegables con
+     flechas y Enter (combobox → listbox). Índice local sin acentos (reglas.js indiceBusqueda/buscarEnIndice) + la búsqueda por nombre en cada
+     biblioteca con permiso (la de «Ligar», docs.js), con retardo y desde 3 letras. buscador.js lo pinta. -->
 <dialog id="dlgBuscar" class="mn-dialog dlg-buscar" aria-labelledby="bsTitulo">
   <div class="mn-dialog-head"><h2 id="bsTitulo">Buscar</h2><button class="mn-btn is-ghost is-sm" id="bsCerrar" type="button">Cerrar</button></div>
   <div class="mn-dialog-body">
-    <div class="srch"><input id="bsTexto" type="search" placeholder="Busca una pantalla, un proyecto o una tarjeta" aria-label="Buscar en la app" autocomplete="off"><span class="ico" data-icono="lupa"></span></div>
-    <div class="bs-res" id="bsResultados" role="list"></div>
+    <div class="srch"><input id="bsTexto" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bsResultados" placeholder="Busca una pantalla, un proyecto, una tarea, un archivo…" aria-label="Buscar en la app" autocomplete="off"><span class="ico" data-icono="lupa"></span></div>
+    <p class="mn-help bs-ayuda" id="bsAyuda">↑ ↓ para moverte · Enter abre · Esc cierra. También con <kbd>/</kbd> o <kbd>Ctrl</kbd>+<kbd>K</kbd>.</p>
+    <div class="bs-res" id="bsResultados" role="listbox" aria-label="Resultados"></div>
   </div>
 </dialog>
-<!-- v1.0.0 (armazón): Avisos — versión mínima (mis vencidas, mensajes nuevos por frente, te mencionaron). La marca de «visto» compartida
-     (PROY_Roles.Visto), las vigencias y los lotes archivados son de la cubeta 4: se enganchan en armazon.js `avisosDe()`. -->
+<!-- v1.0.0 (rediseño, cubeta 4; plan «Avisos»): la campana — menciones, mensajes nuevos por frente, te asignaron, mis vencidas, vigencias (gerencia),
+     lotes ya archivados y lo que registre otro módulo (registrarFuenteAvisos: subidas con error o «¿duplicado?», cubeta 5). Contador = no vistos,
+     con la marca compartida de siempre (PROY_Roles.Visto, llave `avisos`); abrir la campana la sube. armazon.js lo pinta. -->
 <dialog id="dlgAvisos" class="mn-dialog dlg-avisos-app" aria-labelledby="avTitulo">
   <div class="mn-dialog-head"><h2 id="avTitulo">Avisos</h2><button class="mn-btn is-ghost is-sm" id="avCerrar" type="button">Cerrar</button></div>
-  <div class="mn-dialog-body"><div class="av-lista" id="avLista" role="list"></div></div>
+  <div class="mn-dialog-body"><p class="mn-help av-sub" id="avSub"></p><div class="av-lista" id="avLista" role="list"></div></div>
 </dialog>
 
 <!-- Confirmacion propia (sustituye a confirm()) -->

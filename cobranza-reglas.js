@@ -213,6 +213,12 @@ export function valoresDe(prop, facturas, ctx) {
 const STOP = new Set(['constructora', 'perforadora', 'servicios', 'servicio', 'comercializadora', 'solutions', 'perforacion', 'holding', 'energy', 'oil', 'gas', 'transporte',
     'proyectos', 'nacionales', 'de', 'del', 'y', 'los', 'las', 'sa', 'cv', 'rl', 'sapi', 'facturas', 'factura', 'con', 'sin', 'mas', 'menos', 'que', 'para', 'por', 'una', 'uno']);
 const palabras = s => sinAcentos(s).split(/[^a-z0-9ñ]+/).filter(w => w.length >= 3 && !STOP.has(w));
+/** v1.0.0 (cubeta 4, «Preguntar»): el nombre CORTO con que interpretarFrase reconoce a una contraparte — su primera palabra que no es de
+ *  relleno («CPL Servicios de Perforación» → «CPL»; «Constructora y Perforadora Latina» → «Latina»). Sin ninguna, el nombre entero. */
+export function nombreClave(nombre) {
+    const ws = String(nombre || '').split(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9&]+/).filter(Boolean);
+    return ws.find(w => palabras(w).length) || String(nombre || '').trim();
+}
 /**
  * El intérprete de «armar con frase» (maqueta parseIA; SIN IA: reglas). De «facturas de CPL sin REP de más de 180 días» arma
  * [Cliente es uno de CPL…] + [Estado de la evidencia es uno de Sin REP] + [Antigüedad es uno de 181–365, Más de 365]. Reconoce

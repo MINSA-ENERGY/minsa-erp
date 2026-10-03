@@ -491,6 +491,22 @@ async function buscarDocumento() {
     finally { $('lgBuscar').disabled = false; }
 }
 
+/**
+ * v1.0.0 (rediseño, cubeta 4; plan «Buscador global»): la MISMA búsqueda por nombre de «Ligar» (buscarEnDrive, fuera del buzón) en CADA
+ * biblioteca de unidad con permiso (`piloto`), para el buscador global. La que contesta 403/404 (sin Sites.Selected) o falla se salta sin
+ * aviso: «las de 403 no se pintan». Devuelve [{ clave, nombre, items: [{ id, nombre, ruta, url, modificado }] }] en el orden de CONFIG.
+ */
+export async function buscarEnBibliotecas(texto) {
+    const bibs = Object.entries(CONFIG.bibliotecas).filter(([, b]) => b.piloto !== false);
+    const r = await Promise.all(bibs.map(async ([clave, b]) => {
+        try {
+            const s = await sitioDe({ clave, ...b }); if (!s.id) return null;
+            return { clave, nombre: b.nombre, items: await estado.cliente.buscarEnDrive(s.id, texto, CONFIG.buzon) };
+        } catch (_) { return null; }
+    }));
+    return r.filter(Boolean);
+}
+
 async function ligarDocumento(x) {
     const p = proyectoCtx(); if (!p) { avisar('Ese proyecto ya no existe.', 'ojo'); return; } const bib = bibliotecaDe(p);
     if (!PUEDE.ligar(estado.rol)) { avisar('Tu rol es de lectura: no puedes ligar documentos.', 'error'); return; }

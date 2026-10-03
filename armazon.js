@@ -8,19 +8,22 @@
 // Todo DOM con el() / iconoSvg() (test/sw.test.js prohíbe innerHTML y la CSP exige Trusted Types).
 //
 // Puntos de enganche para las cubetas que siguen (declarados en la bitácora):
-//   · buscar(q)      → el buscador global completo (cubeta 4: archivos, personas, órdenes, expedientes, vigencias; `/` y Ctrl+K).
-//   · avisosDe()     → la campana completa (cubeta 4: marca de visto en PROY_Roles.Visto, vigencias, lotes, subidas).
-//   · arbolDe(m)     → las entradas con página propia (cubetas 2, 3 y 5) y los «Guardados» de ERP_Vistas (hoy, el texto de vacío).
-//   · #btnPreguntar  → el panel «Preguntar» (cubeta 4); hoy oculto.
+//   · arbolDe(m)     → las entradas con página propia (cubetas 2, 3 y 5) y los «Guardados» de ERP_Vistas.
+//   · registrarFuenteAvisos(fn) → la cubeta 5 suma a la campana las subidas con error o «¿duplicado?» (mismo formato que avisosDe()).
+// v1.0.0 (cubeta 4): el buscador global vive en buscador.js (lupa, `/` y Ctrl+K) y «Preguntar» en preguntar.js (PREGUNTAR de la cabecera de la
+// plantilla; #btnPreguntar de la barra del armazón queda como hueco oculto). La campana (avisosDe) cuenta lo no visto con PROY_Roles.Visto.avisos.
 
 import { CONFIG } from './config.js';
-import { PUEDE, MODULOS, MODULO_DE, modulosDe, principalDe, leerRuta, rutaActiva, miDia, infoVence, misAbiertas, plural, sinAcentos, ordenarProyectos, nombreDe, HECHO } from './reglas.js';
-import { $, estado, el, boton, chip, iconoSvg, TRAZOS, iconoEquipo, activos, visibles, abrirDialogo, cerrarDialogo, proyectoAbierto, porId, equipoDe, nuevosDe, mencionesA, conservarFoco, opciones, hashDe, VERSION } from './comun.js';
+import { PUEDE, MODULOS, MODULO_DE, modulosDe, principalDe, leerRuta, rutaActiva, miDia, infoVence, misAbiertas, plural, sinAcentos, ordenarProyectos, nombreDe, nombreCorto, HECHO, diaDe, sumarDias, nuevoParaMi, desdeHaceDias, avisosNoVistos } from './reglas.js';
+import { $, estado, el, boton, chip, iconoSvg, TRAZOS, iconoEquipo, activos, visibles, abrirDialogo, cerrarDialogo, proyectoAbierto, porId, equipoDe, nuevosDe, mencionesA, comentariosDe, haceCuanto, avisosVistoHasta, marcarAvisosVisto, conservarFoco, opciones, hashDe, VERSION } from './comun.js';
+import { ordenarVigencias } from './vigencias-reglas.js';
+import { DIAS_VIGENCIA_ATENCION } from './inicio-reglas.js';
+import { datosPublicados } from './inicio.js';   // v1.0.0 (cubeta 4): las vigencias de la campana (gerencia)
 import { abrirNuevaTarea } from './tablero.js';
 import { abrirSubir, puedeLigarEn } from './docs.js';
 import { abrirNuevoGasto, estadoGastos, misRolesErp } from './gastos.js';
 import { estadoServicios } from './servicios.js';
-import { mensajesNuevos } from './vistas.js';
+import { mensajesNuevos, proyectoDeMensajes } from './vistas.js';
 import { guardadosDe, puedeAbrir, abrirGuardado, iconoDe, estadoGuardados, asegurarGuardados } from './guardados.js';   // v1.0.0 (cubeta 2): «Guardados» del panel
 
 // app.js pasa su navegacion: irARuta(hash) escribe el hash y aplica la ruta (sincrono, sin popstate: no cierra dialogos ajenos);
@@ -43,7 +46,9 @@ export function arbolDe(m) {
     const rol = estado.rol, g = PUEDE.capital(rol), t = PUEDE.tarea(rol);
     if (m === 'inicio') {
         const nm = mensajesNuevos();
-        const frentes = activos().filter(p => nuevosDe(p.id) > 0).map(p => ({ texto: p.Title, ir: `#mensajes/f/${p.Clave}`, eq: equipoDe(p), sub: true, n: nuevosDe(p.id), nCls: 'is-info' }));
+        // la BANDEJA de frentes con no leídos va aquí (plan, «Panel por módulo»: el hilo al centro); v1.0.0 (cubeta 4): + el frente cuyo hilo está abierto
+        const abierto = estado.pestana === 'mensajes' ? proyectoDeMensajes() : null;
+        const frentes = activos().filter(p => nuevosDe(p.id) > 0 || (abierto && abierto.id === p.id)).map(p => ({ texto: p.Title, ir: `#mensajes/f/${p.Clave}`, eq: equipoDe(p), sub: true, n: nuevosDe(p.id), nCls: 'is-info' }));
         return [{ titulo: 'Mi día', clave: 'midia', entradas: [
             { texto: 'Resumen del día', ir: '#inicio', p: 'inicio' },
             { texto: 'Mis tareas', ir: '#mis', p: 'mis' },
@@ -315,73 +320,89 @@ function pintarAnillo() {
     b.setAttribute('aria-label', tx); b.title = tx; b.dataset.hechas = String(hechas); b.dataset.total = String(total);
 }
 
-// ---------------------------------------------------------------- Avisos (versión mínima; la cubeta 4 la completa)
+// ---------------------------------------------------------------- Avisos (la campana; v1.0.0 cubeta 4, plan «Avisos»)
 
-/** Lo que la campana enseña hoy: mis vencidas, los mensajes nuevos por frente y las menciones recientes. */
+/** Fuentes de avisos de otros módulos (cubeta 5: subidas con error o «¿duplicado?»). Cada una devuelve [{ tipo, cuando, cls, texto, sub, ir }]. */
+const fuentesAvisos = [];
+export function registrarFuenteAvisos(fn) { if (typeof fn === 'function') fuentesAvisos.push(fn); }
+const corta = (s, n = 90) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+/** El instante en que una tarjeta pasó a vencida: el día siguiente a su Vence, 00:00 de México (06:00 Z). */
+const vencioEl = t => { const d = diaDe(t.Vence); return d ? `${sumarDias(d, 1)}T06:00:00.000Z` : ''; };
+const diaIsoUtc = d => d ? `${d}T12:00:00.000Z` : '';
+/**
+ * Lo que la campana enseña, del más nuevo al más viejo: las menciones (14 días), los mensajes nuevos por frente, lo que te asignaron (14 días),
+ * mis vencidas (un renglón), las vigencias vencidas o a ≤ 30 días (gerencia), los lotes que la skill ya archivó (14 días) y lo de otros
+ * módulos. `cuando` es lo que compara la marca de visto (PROY_Roles.Visto.avisos): lo posterior cuenta en el contador.
+ */
 export function avisosDe() {
-    const yo = estado.cuenta && estado.cuenta.username;
-    const items = [];
-    const venc = misAbiertas(estado.tareas, yo).filter(t => infoVence(t, CONFIG.vencePronto, CONFIG.semaforoDias).e === 'danger').length;
-    if (venc) items.push({ tipo: 'vencidas', n: venc, cls: 'danger', texto: `${venc} ${plural(venc, 'tarjeta tuya vencida', 'tarjetas tuyas vencidas')}`, sub: 'Mis tareas', ir: '#mis', antes: () => { estado.filtroMisAlLlegar = 'vencidas'; } });
-    for (const p of activos()) { const n = nuevosDe(p.id); if (n) items.push({ tipo: 'mensajes', n, cls: 'info', eq: equipoDe(p), texto: `${n} ${plural(n, 'mensaje nuevo', 'mensajes nuevos')}`, sub: p.Title, ir: `#mensajes/f/${p.Clave}` }); }
-    const menc = mencionesA(yo).length;
-    if (menc) items.push({ tipo: 'menciones', n: menc, cls: 'info', texto: `Te ${plural(menc, 'mencionaron una vez', `mencionaron ${menc} veces`)}`, sub: `en los chats de los últimos ${CONFIG.mencionesDias} días · Inicio`, ir: '#inicio' });
-    return items;
+    const yo = estado.cuenta && estado.cuenta.username, items = [];
+    const proy = id => porId(estado.proyectos, id);
+    for (const a of mencionesA(yo)) {
+        const p = proy(a.ProyectoId); if (!p) continue;
+        items.push({ tipo: 'mencion', cuando: a.Cuando, cls: 'info', eq: equipoDe(p), texto: `«${corta(a.Title)}»`, sub: `${nombreCorto(a.Quien, estado.roles)} te mencionó · ${p.Title}`, ir: `#mensajes/f/${p.Clave}` });
+    }
+    for (const p of activos()) {
+        const n = nuevosDe(p.id); if (!n) continue;
+        const ult = comentariosDe(p.id).reduce((m, c) => (String(c.Cuando || '') > m ? String(c.Cuando) : m), '');
+        items.push({ tipo: 'mensajes', n, cuando: ult, cls: 'info', eq: equipoDe(p), texto: `${n} ${plural(n, 'mensaje nuevo', 'mensajes nuevos')}`, sub: p.Title, ir: `#mensajes/f/${p.Clave}` });
+    }
+    for (const x of nuevoParaMi(estado.actividad, estado.tareas, estado.roles, yo, desdeHaceDias(CONFIG.mencionesDias))) {
+        if (x.tipo !== 'asignada' || !x.tarea || x.tarea.Columna === HECHO) continue;
+        const p = proy(x.tarea.ProyectoId); if (!p) continue;
+        items.push({ tipo: 'asignada', cuando: x.a.Cuando, cls: 'info', eq: equipoDe(p), texto: `«${corta(x.tarea.Title)}»`, sub: `${nombreCorto(x.a.Quien, estado.roles)} te asignó · ${p.Title}`, ir: `#p/${p.Clave}/t/${x.tarea.id}` });
+    }
+    const venc = misAbiertas(estado.tareas, yo).filter(t => infoVence(t, CONFIG.vencePronto, CONFIG.semaforoDias).e === 'danger');
+    if (venc.length) items.push({ tipo: 'vencidas', n: venc.length, cuando: venc.map(vencioEl).sort().pop(), sinHora: true, cls: 'danger', texto: `${venc.length} ${plural(venc.length, 'tarjeta tuya vencida', 'tarjetas tuyas vencidas')}`, sub: 'Mis tareas', ir: '#mis', antes: () => { estado.filtroMisAlLlegar = 'vencidas'; } });
+    if (PUEDE.capital(estado.rol)) {
+        const v = datosPublicados(false).vigencias.datos;
+        for (const x of v ? ordenarVigencias(v.vigencias || [], new Date()) : []) {
+            if (x.dias > DIAS_VIGENCIA_ATENCION) continue;
+            const n = Math.abs(x.dias);
+            items.push({ tipo: 'vigencia', sinHora: true, cuando: x.dias < 0 ? diaIsoUtc(x.vence) : diaIsoUtc(sumarDias(x.vence, -DIAS_VIGENCIA_ATENCION)), cls: x.dias < 0 ? 'danger' : 'warn', texto: String(x.titulo), sub: x.dias < 0 ? `Vigencia vencida hace ${n} ${plural(n, 'día')}` : `Vigencia: faltan ${n} ${plural(n, 'día')}`, ir: '#vigencias' });
+        }
+    }
+    const piso = desdeHaceDias(CONFIG.mencionesDias) || '';
+    for (const a of estado.actividad) {
+        if (a.Accion !== 'ligar' || !/\(archivado por la skill\)$/.test(String(a.Title || '')) || String(a.Cuando || '') < piso) continue;
+        const p = proy(a.ProyectoId); if (!p) continue;
+        items.push({ tipo: 'lote', cuando: a.Cuando, cls: 'ok', eq: equipoDe(p), texto: String(a.Title).replace(/^ligó /, 'Archivado: ').replace(/ \(archivado por la skill\)$/, ''), sub: `La skill lo archivó · ${p.Title}`, ir: `#p/${p.Clave}/docs` });
+    }
+    // S-12 (24-sep) aplicado a la campana: ningún aviso propio es «del futuro» (un Cuando adelantado o la fecha de calendario de una vigencia):
+    // se topa en ahora, o se quedaría «nuevo» hasta esa fecha y empujaría la marca de visto por encima de la hora real
+    const ahora = new Date().toISOString();
+    for (const x of items) if (x.cuando && String(x.cuando) > ahora) x.cuando = ahora;
+    for (const f of fuentesAvisos) { try { for (const x of f() || []) if (x && x.ir && x.texto) items.push(x); } catch (e) { console.warn('una fuente de avisos falló:', e && e.message ? e.message : e); } }
+    return items.sort((a, b) => String(b.cuando || '').localeCompare(String(a.cuando || '')));
 }
 function pintarContadorAvisos() {
-    const yo = estado.cuenta && estado.cuenta.username;
-    const venc = misAbiertas(estado.tareas, yo).filter(t => infoVence(t, CONFIG.vencePronto, CONFIG.semaforoDias).e === 'danger').length;
-    const n = venc + mensajesNuevos();   // lo que pide atención: vencidas mías + mensajes sin leer (la marca de «visto» compartida es de la cubeta 4)
-    const tx = n ? `${n} ${plural(n, 'aviso')}: ${venc} ${plural(venc, 'vencida')} y ${n - venc} ${plural(n - venc, 'mensaje')} sin leer` : 'Sin avisos';
+    const items = avisosDe(), n = avisosNoVistos(items, avisosVistoHasta());
+    const tx = n ? `${n} ${plural(n, 'aviso nuevo', 'avisos nuevos')} desde la última vez que abriste Avisos` : items.length ? `Avisos: ${items.length}, ya vistos` : 'Sin avisos';
     for (const id of ['nAvisos', 'nAvisosMovil']) { const b = $(id); b.textContent = String(n); b.hidden = !n; b.setAttribute('aria-label', tx); b.title = tx; }
     $('btnAvisos').title = tx; $('btnAvisosMovil').title = tx;
 }
 function abrirAvisos() {
+    datosPublicados(true);   // gerencia: las vigencias entran en cuanto vigencias.json se lee
     const l = $('avLista'); l.textContent = '';
-    const items = avisosDe();
+    const items = avisosDe(), marca = avisosVistoHasta(), nuevos = avisosNoVistos(items, marca);
+    $('avSub').textContent = items.length ? (nuevos ? `${nuevos} ${plural(nuevos, 'nuevo')} desde la última vez que abriste Avisos.` : 'Nada nuevo desde la última vez que abriste Avisos.') : '';
     if (!items.length) l.appendChild(el('p', 'vacio', 'Nada pide tu atención ahora.'));
     for (const a of items) {
-        const b = boton('', 'av-r is-' + a.cls, () => { cerrarDialogo('dlgAvisos'); if (a.antes) a.antes(); nav.irARuta(a.ir); }, { aviso: a.tipo, ir: a.ir });
-        b.setAttribute('role', 'listitem');
-        if (a.eq) b.appendChild(iconoEquipo(a.eq, 'sm'));
-        const t = el('span', 't'); t.appendChild(el('b', '', a.texto)); t.appendChild(el('small', '', a.sub)); b.appendChild(t);
+        const nuevo = !!a.cuando && String(a.cuando) > String(marca || '');
+        const b = boton('', 'av-r is-' + a.cls + (nuevo ? ' es-nuevo' : ''), () => { cerrarDialogo('dlgAvisos'); if (a.antes) a.antes(); nav.irARuta(a.ir); }, { aviso: a.tipo, ir: a.ir });
+        b.setAttribute('role', 'listitem'); if (a.cuando) b.dataset.cuando = String(a.cuando);
+        if (a.eq) b.appendChild(iconoEquipo(a.eq, 'sm')); else b.appendChild(el('span', 'av-ico'));
+        // `sinHora`: el instante es de calendario (vencidas, vigencias), no un evento: no se le pone hora
+        const t = el('span', 't'); t.appendChild(el('b', '', a.texto)); t.appendChild(el('small', '', a.sub + (a.cuando && !a.sinHora ? ` · ${haceCuanto(a.cuando)}` : ''))); b.appendChild(t);
+        if (nuevo) { const p = el('span', 'av-nuevo', 'nuevo'); b.appendChild(p); }
         b.appendChild(iconoSvg(TRAZOS.chevr, 'flecha'));
         l.appendChild(b);
     }
     abrirDialogo('dlgAvisos');
+    // abrir la campana es «ya los vi»: la marca sube hasta el aviso más nuevo (compartida en PROY_Roles.Visto, best-effort) y el contador baja
+    const hasta = items.map(a => String(a.cuando || '')).filter(Boolean).sort().pop();
+    if (hasta) marcarAvisosVisto(hasta);
+    pintarContadorAvisos();
 }
-
-// ---------------------------------------------------------------- Buscar (versión mínima; la cubeta 4 la completa)
-
-/** Pantallas (las entradas del panel que el rol ve), proyectos y tarjetas que casan con `q` (sin acentos). Tope de 8 por grupo. */
-export function buscar(q) {
-    const s = sinAcentos(String(q || '').trim()); if (!s) return [];
-    const casa = t => sinAcentos(t).includes(s);
-    const pantallas = []; const vistas = new Set();
-    for (const m of [...modulosDe(estado.rol).map(x => x.clave), 'cuenta'])
-        for (const g of arbolDe(m)) if (!g.oculto) for (const e of g.entradas) if (e.ir && !e.oculto && !e.eq && !vistas.has(e.ir) && (casa(e.texto) || casa(g.titulo))) { vistas.add(e.ir); pantallas.push({ texto: e.texto, sub: `${NOMBRE_MODULO[m]} · ${g.titulo}`, ir: e.ir }); }
-    const proyectos = ordenarProyectos(estado.proyectos.filter(p => casa(p.Title || '') || casa(p.Clave || ''))).map(p => ({ texto: p.Title, sub: p.Estado === 'cerrado' ? 'Proyecto cerrado' : 'Proyecto', ir: `#p/${p.Clave}`, eq: equipoDe(p) }));
-    const tareas = estado.tareas.filter(t => casa(t.Title || '')).sort((a, b) => (a.Columna === HECHO) - (b.Columna === HECHO) || String(a.Vence || '9').localeCompare(String(b.Vence || '9')))
-        .map(t => { const p = porId(estado.proyectos, t.ProyectoId); return p ? { texto: t.Title, sub: `${t.Columna === HECHO ? 'Hecha · ' : ''}${p.Title}`, ir: `#p/${p.Clave}/t/${t.id}`, eq: equipoDe(p) } : null; }).filter(Boolean);
-    return [['Pantallas y reportes', pantallas], ['Proyectos', proyectos], ['Tarjetas', tareas]].filter(([, xs]) => xs.length).map(([titulo, xs]) => ({ titulo, items: xs.slice(0, 8), mas: Math.max(0, xs.length - 8) }));
-}
-function pintarBusqueda() {
-    const r = $('bsResultados'); r.textContent = '';
-    const q = $('bsTexto').value; const grupos = buscar(q);
-    if (!q.trim()) { r.appendChild(el('p', 'mn-help', 'Escribe parte del nombre de una pantalla, de un proyecto o de una tarjeta.')); return; }
-    if (!grupos.length) { r.appendChild(el('p', 'vacio', 'Nada casa con ese texto.')); return; }
-    for (const g of grupos) {
-        r.appendChild(el('p', 'mn-label bs-g', g.titulo));
-        for (const it of g.items) {
-            const b = boton('', 'bs-r', () => { cerrarDialogo('dlgBuscar'); nav.irARuta(it.ir); }, { ir: it.ir }); b.setAttribute('role', 'listitem');
-            if (it.eq) b.appendChild(iconoEquipo(it.eq, 'sm'));
-            const t = el('span', 't'); t.appendChild(el('b', '', it.texto)); t.appendChild(el('small', '', it.sub)); b.appendChild(t);
-            r.appendChild(b);
-        }
-        if (g.mas) r.appendChild(el('p', 'mn-help', `y ${g.mas} más: afina el texto.`));
-    }
-}
-function abrirBuscar() { $('bsTexto').value = ''; pintarBusqueda(); abrirDialogo('dlgBuscar'); $('bsTexto').focus(); }
 
 // ---------------------------------------------------------------- «+ Nuevo»
 
@@ -526,7 +547,7 @@ export function engancharArmazon() {
     for (const s of document.querySelectorAll('[data-icono]')) s.replaceWith(iconoSvg(TRAZOS[s.dataset.icono] || [], 'ico'));
     for (const b of document.querySelectorAll('#modulos [data-m]')) b.addEventListener('click', () => alModulo(b.dataset.m));
     $('anilloDia').addEventListener('click', () => { cerrarHoja(); nav.irA('mis'); });
-    for (const id of ['btnBuscar', 'btnBuscarMovil']) $(id).addEventListener('click', () => { cerrarHoja(); abrirBuscar(); });
+    // v1.0.0 (cubeta 4): la lupa la engancha buscador.js (con `/` y Ctrl+K)
     for (const id of ['btnAvisos', 'btnAvisosMovil']) $(id).addEventListener('click', () => { cerrarHoja(); abrirAvisos(); });
     for (const id of ['btnCuenta', 'btnCuentaMovil']) $(id).addEventListener('click', () => { cerrarHoja(); nav.irARuta('#cuenta'); });
     for (const id of ['btnNuevo', 'fabNuevo']) $(id).addEventListener('click', ev => { ev.stopPropagation(); if (menuAbierto() && menuDe === $(id)) cerrarMenuNuevo(true); else { cerrarMenuNuevo(); abrirMenuNuevo($(id)); } });
@@ -534,9 +555,6 @@ export function engancharArmazon() {
     $('btnCerrarHoja').addEventListener('click', () => { cerrarHoja(); $('btnHoja').focus(); });
     $('hojaFondo').addEventListener('click', cerrarHoja);
     $('panelBusca').addEventListener('input', filtrarPanel);
-    $('bsTexto').addEventListener('input', pintarBusqueda);
-    $('bsTexto').addEventListener('keydown', ev => { if (ev.key === 'Enter') { const b = $('bsResultados').querySelector('.bs-r'); if (b) { ev.preventDefault(); b.click(); } } });
-    $('bsCerrar').addEventListener('click', () => cerrarDialogo('dlgBuscar'));
     $('avCerrar').addEventListener('click', () => cerrarDialogo('dlgAvisos'));
     // el menú «+ Nuevo» se cierra al tocar fuera y con Esc (el foco vuelve a su botón); la hoja también se cierra con Esc
     // (un clic DENTRO que repinta el menú —«Tarea» lo vuelve selector de proyecto— deja su botón fuera del DOM: eso no es «tocar fuera»)

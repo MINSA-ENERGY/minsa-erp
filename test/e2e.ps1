@@ -21,16 +21,29 @@ foreach ($i in 1..25) {
 }
 if (-not $puerto) { Write-Host ('SERVIDOR SIN PUERTO: murio al arrancar o no anuncio "PUERTO n" en 5 s (ver ' + $log + ').'); if (-not $srv.HasExited) { Stop-Process -Id $srv.Id -Force }; exit 2 }
 Write-Host "servidor en el puerto $puerto"
+# Reloj VIRTUAL de cada corrida (cubeta 4 del rediseno, 2026-10-03): al agotarse, Edge vuelca el DOM a media prueba y no hay resumen.
+# Medido al cierre de la cubeta 3: gerencia 117 s y colaborador 98 s de 120 (casi todo son las pausas de 10.5 s del tope de pushState);
+# con 120 una corrida cargada de colaborador se corto en 800 de 958. Con el reloj ocioso, Edge adelanta el tiempo virtual: un
+# presupuesto mayor no alarga la corrida real. Cada escenario imprime lo que uso y avisa al pasar del 80 %.
+$presupuesto = 240000
 $fallas = 0
 try {
     foreach ($rol in $Roles) {
         $out = Join-Path $env:TEMP "proy-e2e-$rol.html"
         $q = if ($consulta.ContainsKey($rol)) { $consulta[$rol] } else { "rol=$rol" }
-        & $edge --headless=new --disable-gpu --virtual-time-budget=120000 --dump-dom "http://localhost:$puerto/?$q&refresco=0" 2>$null | Out-File -Encoding utf8 $out
+        & $edge --headless=new --disable-gpu --virtual-time-budget=$presupuesto --dump-dom "http://localhost:$puerto/?$q&refresco=0" 2>$null | Out-File -Encoding utf8 $out
         Start-Sleep -Seconds 1
         $s = Get-Content $out -Raw -Encoding UTF8
         Write-Host "=== $rol"
-        if ($s -match 'PRUEBAS TERMINADAS: ([^<]+)') { Write-Host ("  " + $Matches[1]); if ($Matches[1] -notmatch ' 0 falla') { $fallas++ } } else { Write-Host "  SIN RESUMEN (largo $($s.Length))"; $fallas++ }
+        # El resumen se busca en el <title>: el texto 'PRUEBAS TERMINADAS: ' tambien esta en el codigo de pruebas.html y, sin resumen,
+        # la busqueda suelta imprimia un pedazo de ese codigo en vez de decir que la corrida no termino.
+        if ($s -match '<title>PRUEBAS TERMINADAS: ([^<]+)') { Write-Host ("  " + $Matches[1]); if ($Matches[1] -notmatch ' 0 falla') { $fallas++ } }
+        else {
+            $ultima = [regex]::Matches($s, '\[(OK|FALLA)\][^\n]*') | Select-Object -Last 1
+            Write-Host ("  SIN RESUMEN: la corrida no termino (se acabo el reloj virtual de " + ($presupuesto / 1000) + " s o la pagina se colgo). Ultima linea: " + $(if ($ultima) { $ultima.Value } else { '(ninguna)' }))
+            $fallas++
+        }
+        if ($s -match 'al terminar: (\d+) s') { $usados = [int]$Matches[1]; $tope = $presupuesto / 1000; Write-Host ("  reloj virtual: $usados s de $tope"); if ($usados -gt 0.8 * $tope) { Write-Host "  AVISO: paso del 80 % del reloj virtual; sube `$presupuesto antes de que se corte una corrida" } }
         [regex]::Matches($s, '\[FALLA\][^\n]*') | ForEach-Object { Write-Host ("  " + $_.Value) }
     }
 } finally { Stop-Process -Id $srv.Id -Force }
