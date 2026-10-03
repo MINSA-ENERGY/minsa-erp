@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" id="metaTema" content="#f7f8fa">
 <!-- CSP estricta, misma que calytek-planta-app: sin scripts ni estilos en linea. Las fuentes van
-     vendorizadas en ./vendor/fuentes (OFL), por eso font-src sigue en 'self'. -->
+     vendorizadas en ./vendor/fuentes (OFL), por eso font-src sigue en 'self'. v1.0.0 (cubeta 5): frame-src suma SOLO el host del tenant,
+     para la vista previa de un archivo (POST …/preview → getUrl en un <iframe> con sandbox; archivos.js la valida antes de pintarla). -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
   script-src 'self';
@@ -13,7 +14,7 @@
   img-src 'self' blob: data:;
   font-src 'self';
   connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://minsaenergy.sharepoint.com;
-  frame-src https://login.microsoftonline.com;
+  frame-src https://login.microsoftonline.com https://minsaenergy.sharepoint.com;
   form-action 'none';
   base-uri 'none';
   object-src 'none';
@@ -209,6 +210,10 @@
           <div id="tab-lista" class="tabla oculto"></div>
           <div id="tab-roadmap" class="roadmap oculto"></div>
           <div id="tab-docs" class="docs oculto">
+            <!-- v1.0.0 (rediseño, cubeta 5): arriba, la CARPETA DEL PROYECTO en ERP_Proyectos (archivos.js pintarCarpetaProyecto: zona de arrastrar y
+                 soltar, Elegir archivos, Foto, la cola y la tabla con su menú «⋯»); es el mismo componente que #archivos/proyecto/<clave>. Abajo, las
+                 ligas de siempre (archivado · en el buzón · enlace). -->
+            <div class="docs-carpeta" id="docsCarpeta"></div>
             <!-- v0.102.0 (Carlos, 25-sep): sin Ligar / Subir al buzón / Pegar un enlace aquí — redundantes con los de cada tarjeta del tablero -->
             <!-- v0.17.0: chips de estado + conteo «N de M» + buscador, sobre la tabla de documentos -->
             <div class="docs-barra"><div class="filtros grupo" id="docsFiltro"></div><!-- v0.34.0: abrir / plegar todas las carpetas del árbol --><span class="arbol-todo" id="docsTodo" hidden><button id="docsAbrirTodo" class="mn-btn is-ghost is-sm" type="button" title="Desplegar todas las carpetas">Abrir todo</button><button id="docsPlegarTodo" class="mn-btn is-ghost is-sm" type="button" title="Plegar todas las carpetas">Plegar todo</button></span><span class="p" id="docsResumen"></span><input id="docsBusca" class="buscador" type="search" placeholder="Buscar en los documentos" aria-label="Buscar en los documentos" autocomplete="off" hidden></div>
@@ -305,11 +310,19 @@
       </div>
     </section>
 
-    <!-- v0.10.0: Archivos = todas las ligas de todos los frentes -->
+    <!-- v0.10.0: Archivos = todas las ligas de todos los frentes.
+         v1.0.0 (rediseño, cubeta 5 «Archivos opción A»): el módulo Archivos con la cabecera de la plantilla (#archivosCab) y una sección por ruta
+         (#archivosSeccion, archivos.js): Por proyecto (#archivos: las carpetas de ERP_Proyectos y, abajo, las ligas de todos los frentes de
+         siempre), la carpeta de UN proyecto (#archivos/proyecto/<clave>: el mismo componente que la pestaña Documentos), Recientes (este
+         equipo), Fijados (ERP_Vistas), Bibliotecas (las de unidad con permiso, solo leer + ligar) y Mis subidas (la cola y lo enviado). -->
     <section id="p-archivos" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><h1>Archivos</h1><p class="sub" id="archivosSub"></p></header>
-      <div class="archivos-filtros"><div class="filtros grupo" id="archivosTipo"></div><select id="archivosProyecto" aria-label="Proyecto"></select><!-- v0.36.0: abrir / plegar todas las carpetas del árbol, como en Documentos --><span class="arbol-todo" id="archivosTodo" hidden><button id="archivosAbrirTodo" class="mn-btn is-ghost is-sm" type="button" title="Desplegar todas las carpetas">Abrir todo</button><button id="archivosPlegarTodo" class="mn-btn is-ghost is-sm" type="button" title="Plegar todas las carpetas">Plegar todo</button></span><input id="textoArchivos" class="buscador" type="search" placeholder="Buscar por nombre, ruta o dirección" aria-label="Buscar un archivo" autocomplete="off"></div>
-      <div class="docs"><div class="lista" id="archivosLista"></div></div>
+      <div class="rp-cuerpo" id="archivosCab"></div>
+      <div class="arch-seccion" id="archivosSeccion"></div>
+      <section class="rp-card archivos-ligas" id="archivosLigasCard">
+        <div class="rp-dh"><h3>Ligas a documentos</h3><p class="sub" id="archivosSub"></p></div>
+        <div class="archivos-filtros"><div class="filtros grupo" id="archivosTipo"></div><select id="archivosProyecto" aria-label="Proyecto"></select><!-- v0.36.0: abrir / plegar todas las carpetas del árbol, como en Documentos --><span class="arbol-todo" id="archivosTodo" hidden><button id="archivosAbrirTodo" class="mn-btn is-ghost is-sm" type="button" title="Desplegar todas las carpetas">Abrir todo</button><button id="archivosPlegarTodo" class="mn-btn is-ghost is-sm" type="button" title="Plegar todas las carpetas">Plegar todo</button></span><input id="textoArchivos" class="buscador" type="search" placeholder="Buscar por nombre, ruta o dirección" aria-label="Buscar un archivo" autocomplete="off"></div>
+        <div class="docs"><div class="lista" id="archivosLista"></div></div>
+      </section>
     </section>
 
     <!-- v0.10.0: Reportes -->
@@ -587,19 +600,21 @@
   </div>
 </dialog>
 
-<!-- Subir al buzon -->
+<!-- Subir al buzon. v1.0.0 (rediseño, cubeta 5): el MISMO diálogo sube a la carpeta del proyecto en ERP_Proyectos cuando la biblioteca está
+     aprovisionada (docs.js abrirSubir modo 'proyecto': sin concepto ni lote); se le pueden ARRASTRAR archivos encima. -->
 <dialog id="dlgSubir" class="mn-dialog">
   <form id="formSubir" method="dialog" class="forma" novalidate>
-    <div class="mn-dialog-head"><h2>Subir al buzón</h2></div>
+    <div class="mn-dialog-head"><h2 id="sbTitulo">Subir al buzón</h2></div>
     <div class="mn-dialog-body">
       <div class="dlg-avisos"></div>
       <p class="mn-help" id="sbBiblioteca"></p>
-      <div class="mn-field"><label for="sbConcepto">Qué es (concepto)</label><input id="sbConcepto" required maxlength="120" placeholder="Borrador de filosofía de operación"></div>
+      <div class="mn-field" id="sbConceptoCampo"><label for="sbConcepto">Qué es (concepto)</label><input id="sbConcepto" required maxlength="120" placeholder="Borrador de filosofía de operación"></div>
       <div class="mn-row">
         <div class="mn-field"><label for="sbTarea">Tarjeta (opcional)</label><select id="sbTarea"></select></div>
         <div class="mn-field"><label for="sbArchivos">Archivos</label><input id="sbArchivos" type="file" multiple required></div>
       </div>
-      <p class="mn-help">Se deposita en <code>99_Pendiente-Archivar</code> de la biblioteca de la unidad, en una carpeta con fecha y con <code>_lote.json</code> al final. La skill de archivar lo acomoda después; la liga dice «en el buzón» hasta entonces.</p>
+      <p class="mn-help" id="sbAyudaBuzon">Se deposita en <code>99_Pendiente-Archivar</code> de la biblioteca de la unidad, en una carpeta con fecha y con <code>_lote.json</code> al final. La skill de archivar lo acomoda después; la liga dice «en el buzón» hasta entonces.</p>
+      <p class="mn-help" id="sbAyudaProyecto" hidden>Sube a la carpeta de trabajo del proyecto; también puedes arrastrar los archivos aquí. Antes de subir se revisa si ya existe (mismo nombre o mismo contenido) y, si sí, se retiene para que decidas. Lo formal se manda a archivar después desde el menú «⋯» del archivo.</p>
       <p class="progreso mn-mono" id="sbProgreso"></p>
     </div>
     <div class="mn-dialog-foot"><button class="mn-btn is-sm" id="sbCancelar" type="button">Cancelar</button><button class="mn-btn is-primary is-sm" id="sbGuardar" type="submit">Subir</button></div>
@@ -720,6 +735,33 @@
       <p id="gaProgreso" class="progreso" role="status" aria-live="polite"></p>
     </div>
     <div class="mn-dialog-foot"><button id="gaCancelar" class="mn-btn" type="button">Cancelar</button><button id="gaGuardar" class="mn-btn" type="submit" disabled>Falta el monto</button></div>
+  </form>
+</dialog>
+
+<!-- v1.0.0 (rediseño, cubeta 5 «Archivos»): la vista previa de un archivo (POST …/preview). El <iframe> solo recibe una URL https del host
+     del tenant (archivos.js urlVistaPrevia; la CSP frame-src dice lo mismo) y va con sandbox; si no se puede, queda «Abrir en una pestaña nueva». -->
+<dialog id="dlgVistaPrevia" class="mn-dialog dlg-vista" aria-labelledby="vpTitulo">
+  <div class="mn-dialog-head"><h2 id="vpTitulo">Vista previa</h2><a id="vpAbrir" class="mn-btn is-ghost is-sm" target="_blank" rel="noopener noreferrer" hidden>Abrir en una pestaña nueva</a><button class="mn-btn is-ghost is-sm" id="vpCerrar" type="button">Cerrar</button></div>
+  <div class="mn-dialog-body"><p class="mn-help" id="vpEstado"></p><iframe id="vpMarco" title="Vista previa del archivo" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads" referrerpolicy="no-referrer" hidden></iframe></div>
+</dialog>
+<!-- v1.0.0 (cubeta 5): las versiones de un archivo de la carpeta del proyecto (lista + restaurar) -->
+<dialog id="dlgVersiones" class="mn-dialog" aria-labelledby="vrTitulo">
+  <div class="mn-dialog-head"><h2 id="vrTitulo">Versiones</h2><button class="mn-btn is-ghost is-sm" id="vrCerrar" type="button">Cerrar</button></div>
+  <div class="mn-dialog-body"><div class="dlg-avisos"></div><p class="mn-help" id="vrSub"></p><div class="vr-lista" id="vrLista" role="list"></div></div>
+</dialog>
+<!-- v1.0.0 (cubeta 5): al CERRAR un proyecto con archivos sin archivar, gerencia ve la lista y decide (plan, «Disciplina») -->
+<dialog id="dlgSinArchivar" class="mn-dialog" aria-labelledby="saTitulo">
+  <div class="mn-dialog-head"><h2 id="saTitulo">Archivos sin archivar</h2></div>
+  <div class="mn-dialog-body"><div class="dlg-avisos"></div><p id="saTexto"></p><ul class="sa-lista" id="saLista"></ul><p class="progreso mn-mono" id="saProgreso"></p></div>
+  <div class="mn-dialog-foot"><button class="mn-btn is-sm" id="saCancelar" type="button">Cancelar</button><button class="mn-btn is-sm" id="saSeguir" type="button">Cerrar sin archivar</button><button class="mn-btn is-primary is-sm" id="saTodo" type="button">Mandar a archivar todo</button></div>
+</dialog>
+<!-- v1.0.0 (cubeta 5): ligar un archivo de una biblioteca de unidad (Archivos › Bibliotecas) a un proyecto de esa unidad -->
+<dialog id="dlgLigarA" class="mn-dialog" aria-labelledby="laTitulo">
+  <form id="formLigarA" method="dialog" class="forma" novalidate>
+    <div class="mn-dialog-head"><h2 id="laTitulo">Ligar a un proyecto</h2></div>
+    <div class="mn-dialog-body"><div class="dlg-avisos"></div><p class="mn-help" id="laArchivo"></p>
+      <div class="mn-row"><div class="mn-field"><label for="laProyecto">Proyecto</label><select id="laProyecto"></select></div><div class="mn-field"><label for="laTarea">Tarjeta (opcional)</label><select id="laTarea"></select></div></div></div>
+    <div class="mn-dialog-foot"><button class="mn-btn is-sm" id="laCancelar" type="button">Cancelar</button><button class="mn-btn is-primary is-sm" id="laGuardar" type="submit">Ligar</button></div>
   </form>
 </dialog>
 

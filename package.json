@@ -5,7 +5,7 @@
   "type": "module",
   "description": "PWA de proyectos multiusuario de MINSA ENERGY: tablero por proyecto, tareas asignadas y ligas a documentos, sobre listas de SharePoint",
   "scripts": {
-    "test": "python ../../marca/minsa-design/ui/vendorizar.py minsa-ui.css --sin-paleta --verificar && python ../../.claude/skills/_compartido/scripts/selectores-duplicados.py estilo.css && python ../../.claude/skills/_compartido/scripts/comentario-a-media-linea.py . && node test/reglas.test.js && node test/lote.test.js && node test/gastos.test.js && node test/cobranza.test.js && node test/reporte.test.js && node test/trabajo.test.js && node test/inicio.test.js && node test/preguntar.test.js && node test/vigencias.test.js && node test/compras.test.js && node test/servicios.test.js && node test/sw.test.js && node test/datos.test.js",
+    "test": "python ../../marca/minsa-design/ui/vendorizar.py minsa-ui.css --sin-paleta --verificar && python ../../.claude/skills/_compartido/scripts/selectores-duplicados.py estilo.css && python ../../.claude/skills/_compartido/scripts/comentario-a-media-linea.py . && node test/reglas.test.js && node test/lote.test.js && node test/archivos.test.js && node test/imagen.test.js && node test/gastos.test.js && node test/cobranza.test.js && node test/reporte.test.js && node test/trabajo.test.js && node test/inicio.test.js && node test/preguntar.test.js && node test/vigencias.test.js && node test/compras.test.js && node test/servicios.test.js && node test/sw.test.js && node test/datos.test.js",
     "test:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File test/e2e.ps1",
     "vendor:vigente": "node test/vendor-vigente.js",
     "serve": "node servidor-local.js index.html",

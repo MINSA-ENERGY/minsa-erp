@@ -1210,7 +1210,7 @@ const SUFIJOS = {
     reportes: s => /^[a-z0-9-]+$/.test(s),
     servicios: s => s === 'ciclo' || /^e\d+$/i.test(s),
     compras: s => s === 'partidas',
-    archivos: s => /^(recientes|fijados|proyecto|bibliotecas|mias)(\/[A-Za-z0-9._-]+)*$/.test(s),
+    archivos: s => /^(recientes|fijados|proyecto|bibliotecas|mias)(\/[A-Za-z0-9._~%!'()*-]+)*$/.test(s),   // v1.0.0 (cubeta 5): las carpetas de una biblioteca van con encodeURIComponent (espacios, paréntesis, acentos)
     cuenta: s => s === 'equipo'
 };
 /**

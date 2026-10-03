@@ -458,7 +458,7 @@ button.cab.grupo-proy { cursor: pointer; } button.cab.grupo-proy:hover { filter:
   .dtabla tr.doc { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-2); align-items: center; padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); border: 1px solid var(--border-hairline); border-radius: var(--r-md); background: var(--surface-card); }
   .dtabla tr.doc td { display: block; padding: 0; border: 0 !important; background: none !important; }
   .dtabla tr.doc .c-nombre { grid-column: 1; grid-row: 1; width: auto; }
-  .dtabla tr.doc .c-acc { grid-column: 2; grid-row: 1; }
+  .dtabla tr.doc .c-acc { grid-column: 2; grid-row: 1; justify-self: end; width: auto; }   /* v1.0.0 (cubeta 5): con width 1% el «⋯» quedaba al INICIO de la columna y bailaba con el ancho del sello («ENVIADO A ARCHIVAR») */
   .dtabla tr.doc .c-tipo, .dtabla tr.doc .c-estado, .dtabla tr.doc .c-del { display: inline-block; grid-column: 1 / -1; grid-row: auto; width: auto; margin-right: var(--sp-2); }
   .dtabla tr.doc td { white-space: normal; }   /* v0.29.0: en ficha apilada si envuelve */
   /* v0.19.0: la fecha del documento va con el TIPO (renglon 2: «PDF … 01/07/2025» se lee como la fecha del archivo) y no junto a quien
@@ -468,7 +468,7 @@ button.cab.grupo-proy { cursor: pointer; } button.cab.grupo-proy:hover { filter:
   .dtabla tr.doc .c-tarjeta { grid-column: 1 / -1; grid-row: 4; }
   .dtabla tr.doc .c-tarjeta select { max-width: 100%; width: 100%; }
   .dtabla tr.pest { display: block; } .dtabla tr.pest td { display: block; padding: var(--sp-2) 0 var(--sp-1); }
-  .dtabla .t { white-space: normal; overflow-wrap: anywhere; }
+  .dtabla .t, .dtabla td .t { white-space: normal; overflow-wrap: anywhere; }   /* v1.0.0 (cubeta 5): `.dtabla td .t` (nowrap, arriba) le ganaba por especificidad y la ficha cortaba el nombre a «2026-10-01_CALYTEK_Of…» a 390 */
 }
 @media (max-width: 720px) {
   .docs-barra .buscador { flex-basis: 100%; }
@@ -3093,4 +3093,113 @@ body.con-preguntar .app.panel-plegado:not(.sin-sesion) { grid-template-columns: 
   /* con PREGUNTAR a la vista, en celular el subtítulo va pegado al título y las acciones (corte, filtros, rango, PREGUNTAR) debajo */
   .rp-top > .rp-sub { order: 1; margin-top: -6px; }
   .rp-top > .rp-top-der { order: 2; }
+}
+/* ==== ARCHIVOS v1.0.0 (rediseño, cubeta 5 «Archivos opción A»; archivos.js): la carpeta del proyecto en ERP_Proyectos (Documentos y
+   #archivos/proyecto/<clave>), la zona de arrastrar y soltar, la cola de subidas, Por proyecto, Recientes, Fijados, Bibliotecas, Mis subidas y
+   los diálogos de vista previa, versiones, cerrar con archivos sin archivar y ligar desde una biblioteca. Piezas de la maqueta (.rp-card, .rp-dh,
+   la tabla .dtabla de Documentos); los estados como texto de color (v0.98.0, igual que las cubetas 2-4), los sellos de la tabla como siempre. ==== */
+.arch-seccion { display: grid; gap: var(--sp-4); min-width: 0; }
+.arch-seccion:empty { display: none; }
+.archivos-ligas { padding-bottom: 18px; }
+.archivos-ligas > .rp-dh { flex-wrap: wrap; gap: 6px 20px; }
+.archivos-ligas > .rp-dh .sub { margin: 0; color: var(--ink-2); font-size: 13.5px; }
+.archivos-ligas > .archivos-filtros, .archivos-ligas > .docs { margin: 0 20px; }
+.archivos-ligas > .archivos-filtros { margin-bottom: var(--sp-3); }
+#tab-docs > .docs-carpeta:empty { display: none; }
+.arch-carpeta, .arch-proyectos, .arch-ligas, .arch-recientes, .arch-fijados, .arch-bibliotecas, .arch-mias, .arch-subidas, .arch-enviados { padding-bottom: 18px; min-width: 0; }
+.arch-carpeta > .rp-dh, .arch-proyectos > .rp-dh, .arch-ligas > .rp-dh, .arch-recientes > .rp-dh, .arch-fijados > .rp-dh, .arch-mias > .rp-dh, .arch-subidas > .rp-dh, .arch-enviados > .rp-dh, .arch-bibliotecas > .rp-dh { flex-wrap: wrap; gap: 6px 16px; padding-bottom: 12px; }
+.arch-n { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; }
+.arch-n.is-pend { color: var(--warn-fg); font-weight: 600; }
+.arch-ruta { color: var(--ink-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.arch-carpeta > .zona-subir, .arch-carpeta > .arch-cola, .arch-carpeta > .docs, .arch-carpeta > .vacio, .arch-carpeta > .arch-error { margin-left: 20px; margin-right: 20px; }
+.arch-carpeta > .docs, .arch-ligas > .docs { margin-top: var(--sp-3); }
+.arch-ligas > .docs { margin-left: 20px; margin-right: 20px; }
+.arch-carpeta .vacio, .arch-proyectos .vacio, .arch-ligas .vacio { padding: 6px 0; }
+/* la zona de arrastrar y soltar: contorno punteado; al pasar archivos encima se marca con el azul de la maqueta */
+.zona-subir { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 16px; border: 1.5px dashed var(--campo); border-radius: 5px; background: var(--banda); }
+.zona-subir.is-sobre, #formSubir.is-sobre { border-color: var(--blue); background: var(--info-bg); }
+#formSubir.is-sobre { outline: 2px dashed var(--blue); outline-offset: -6px; }
+.zona-subir .zs-ico { width: 24px; height: 24px; flex: none; fill: none; stroke: var(--ink-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.zona-subir .zs-t { flex: 1 1 220px; min-width: 0; display: grid; }
+.zona-subir .zs-t b { font-weight: 600; color: var(--ink); }
+.zona-subir .zs-t small { color: var(--ink-3); font-size: 12.5px; }
+.zona-subir .zs-acc { display: flex; flex-wrap: wrap; gap: 8px; }
+.zona-subir .mn-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+/* la cola: un renglón por archivo con su estado y su barra de avance */
+.arch-cola { display: grid; gap: 6px; margin-top: var(--sp-3); }
+.arch-cola-r { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(80px, 160px) auto; align-items: center; gap: 4px 12px; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 4px; background: var(--card); }
+.arch-cola-r .tx { display: grid; min-width: 0; }
+.arch-cola-r .tx b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arch-cola-r .tx small { color: var(--ink-3); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arch-cola-r.is-retenido .estado-txt { color: var(--warn-fg); font-weight: 600; }
+.arch-cola-r.is-error .estado-txt { color: var(--bad-fg); font-weight: 600; }
+.arch-cola-r progress { width: 100%; height: 6px; accent-color: var(--blue); }
+.arch-cola-r .acc { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; grid-column: 4; }
+.arch-cola-r:not(:has(progress)) .acc { grid-column: 3 / 5; }
+/* Por proyecto, Recientes, Fijados, Bibliotecas y Mis subidas: renglones como los de Avisos */
+.arch-filas { display: grid; gap: 1px; margin: 0 12px; }
+.arch-fila { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 6px 8px; border: 0; border-radius: 3px; background: none; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.arch-fila.is-estatica { cursor: default; }
+.arch-fila:not(.is-estatica):hover, .arch-fila:not(.is-estatica):focus-visible { background: var(--hover); }
+.arch-fila.is-estatica:hover { background: var(--hover); }
+.arch-fila .tx { flex: 1; min-width: 0; display: grid; }
+.arch-fila .tx b, .arch-fila .tx a { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); text-decoration: none; }
+.arch-fila .tx a:hover { text-decoration: underline; color: var(--blue); }
+.arch-fila .tx small { color: var(--ink-3); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arch-fila .carp { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--ink-2); stroke-width: 1.5; }
+.arch-fila .flecha { width: 14px; height: 14px; flex: none; fill: none; stroke: var(--ink-3); stroke-width: 2; }
+.arch-fila .arch-sin { flex: none; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-3); }
+.arch-fila .arch-sin.is-pend { color: var(--warn-fg); font-weight: 600; }
+.arch-fila .acc { flex: none; display: flex; gap: 6px; align-items: center; }
+.arch-fila .fila-menu .menu { min-width: 220px; }
+.arch-migas { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; padding: 16px 20px 10px; }
+.arch-migas .miga { border: 0; background: none; padding: 4px 6px; border-radius: 3px; font: inherit; font-size: 14px; color: var(--lk); cursor: pointer; }
+.arch-migas .miga:hover, .arch-migas .miga:focus-visible { background: var(--hover); color: var(--blue); }
+.arch-migas .miga:last-child { font-weight: 600; color: var(--ink); }
+.arch-migas .sep { color: var(--ink-3); }
+.arch-bibliotecas > .vacio, .arch-bibliotecas > .arch-error { margin: 0 20px; }
+.arch-mias > .arch-nota, .arch-mias > .arch-error, .arch-mias > .vacio, .arch-mias > .arch-cola { margin-left: 20px; margin-right: 20px; }
+.arch-subidas > .vacio, .arch-enviados > .vacio, .arch-recientes > .vacio, .arch-fijados > .vacio, .arch-fijados > .arch-nota { margin: 0 20px; }
+.arch-nota { margin-top: 0; font-size: 13px; }
+.arch-error { color: var(--bad-fg); font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* «Falta preparar ERP_Proyectos» */
+.arch-falta { display: grid; gap: 8px; justify-items: start; padding: 18px 22px; }
+.arch-falta h3 { margin: 0; font-size: 18px; font-weight: 500; }
+.arch-falta p { margin: 0; color: var(--ink-2); max-width: 80ch; }
+.arch-falta code { font-family: var(--f-data); font-size: 12.5px; overflow-wrap: anywhere; }
+.arch-falta .arch-acc { display: flex; flex-wrap: wrap; gap: 8px; }
+/* la ficha de la tarjeta: un archivo de la carpeta del proyecto, con su botón de mandar a archivar */
+#tDocs .tdoc-archivo .mn-chip.is-warn { color: var(--warn-fg); }
+#tDocs .tdoc-archivo .mn-btn.is-icono svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+/* vista previa: el marco ocupa el diálogo */
+#dlgVistaPrevia { width: min(1100px, 96vw); }
+#dlgVistaPrevia .mn-dialog-head { gap: 8px; }
+#dlgVistaPrevia .mn-dialog-head h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#dlgVistaPrevia .mn-dialog-head a.mn-btn { text-decoration: none; }
+/* a 390 px el nombre se comía a «acta-r…»: en angosto el título va en su renglón y las dos acciones debajo */
+@media (max-width: 560px) { #dlgVistaPrevia .mn-dialog-head { flex-wrap: wrap; } #dlgVistaPrevia .mn-dialog-head h2 { flex-basis: 100%; white-space: normal; overflow-wrap: anywhere; } }
+#vpMarco { display: block; width: 100%; height: min(72vh, 760px); border: 1px solid var(--line); border-radius: 4px; background: var(--card); }
+#vpMarco[hidden] { display: none; }
+/* versiones */
+#dlgVersiones { width: min(620px, 96vw); }
+.vr-lista { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; }   /* sin minmax(0) la pista crecía al ancho del texto y «Restaurar» se salía del diálogo a 390 */
+.vr-r { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px; border-bottom: 1px solid var(--line-2); }
+.vr-r b { font-variant-numeric: tabular-nums; min-width: 3.2em; }
+.vr-r .tx { flex: 1; min-width: 0; color: var(--ink-2); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* cerrar con archivos sin archivar */
+.sa-lista { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; max-height: 40vh; overflow-y: auto; }
+.sa-lista li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sa-lista li > span:not(.fico) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* el icono también es <span>: sin el :not se estiraba a la mitad del renglón */
+.sa-lista li small { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) {
+  .arch-carpeta > .zona-subir, .arch-carpeta > .arch-cola, .arch-carpeta > .docs, .arch-carpeta > .vacio, .arch-carpeta > .arch-error, .arch-ligas > .docs, .archivos-ligas > .archivos-filtros, .archivos-ligas > .docs,
+  .arch-mias > .arch-nota, .arch-mias > .arch-error, .arch-mias > .vacio, .arch-mias > .arch-cola { margin-left: 12px; margin-right: 12px; }
+  .arch-filas { margin: 0 4px; }
+  .arch-cola-r { grid-template-columns: auto minmax(0, 1fr); }
+  .arch-cola-r progress { grid-column: 1 / -1; }
+  .arch-cola-r .acc, .arch-cola-r:not(:has(progress)) .acc { grid-column: 1 / -1; justify-content: flex-start; }
+  .zona-subir { padding: 12px; }
+  .zona-subir .zs-t small { display: none; }
+  #vpMarco { height: 70vh; }
+  .arch-migas { padding: 12px 12px 8px; }
 }

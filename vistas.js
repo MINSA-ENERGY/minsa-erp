@@ -10,6 +10,7 @@ import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fr
 import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, comentariosDe, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo, conservarFoco, filtroArchivosVacio } from './comun.js';
 import { pintarChat, irAlComentario } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
 import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';
+import { pintarSeccionArchivos } from './archivos.js';   // v1.0.0 (rediseño, cubeta 5): las secciones del módulo Archivos
 // v1.0.0 (rediseño 2026-10-02, cubeta 3): los 5 reportes de Trabajo con la plantilla de reporte, su tendencia y «Guardados» de Trabajo
 import { REPORTES_TRABAJO, paginaReporte, serieNivel, pctAvanceAl, abiertasAl, vencidasAl, avanceAl, flujoMensual, flujoEnDias, actividadPorDia, accionesEnVentana, actividadDesglose,
     diasVencida, primerMes, textoPuntos, DIAS_KPI_TRABAJO } from './trabajo-reglas.js';
@@ -748,6 +749,9 @@ export function mensajesNuevos() {
 // el foco al control con la misma llave, y el menu «⋯» que estaba abierto se reabre en su renglon nuevo.
 const FOCO_ARCHIVOS = ['nodo', 'irRaiz', 'tipo', 'sort', 'menu', 'copiar', 'abrirTarjeta', 'irDocs', 'filtro'];
 export function pintarArchivos() {
+    // v1.0.0 (rediseño, cubeta 5): el módulo Archivos pinta su cabecera y la sección de la ruta (archivos.js); el árbol de ligas de siempre
+    // queda en «Por proyecto» (#archivos a secas), debajo de las carpetas de ERP_Proyectos.
+    if (!pintarSeccionArchivos().conLigas) return;
     const abierto = document.querySelector('#archivosLista .fila-menu[open]'); const ligaAbierta = abierto ? abierto.closest('tr').dataset.liga : null;
     conservarFoco($('p-archivos'), FOCO_ARCHIVOS, () => {
         pintarArchivosCuerpo();

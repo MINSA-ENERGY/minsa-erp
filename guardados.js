@@ -132,4 +132,4 @@ registrarAbridor('reporte', v => {
     irA(r.pantalla, r.sub);
 });
 /** El icono con que el panel pinta una vista (por su tipo). */
-export const iconoDe = v => (v && v.definicion && v.definicion.tipo === 'segmento') ? 'filtro' : 'rep';
+export const iconoDe = v => { const t = v && v.definicion && v.definicion.tipo; return t === 'segmento' ? 'filtro' : t === 'fijado' ? 'clip' : 'rep'; };   // v1.0.0 (cubeta 5): un archivo fijado lleva el clip

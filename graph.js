@@ -107,6 +107,7 @@ export function crearCliente(graph, token) {
     const listasPorNombre = new Map();
     const urlPorNombre = new Map();   // webUrl de cada lista (F13: «Ver en SharePoint»)
     let cargandoListas = null;   // C-01 (v0.87.0): la promesa de listas() en vuelo; 5 renglones() en paralelo hacian 5 GET /lists
+    let listasLeidas = false;    // v1.0.0 (cubeta 5): ya hubo un GET /lists completo (listaConocida)
     // Si Graph rechazara la cabecera If-Match con 400 (no se pudo medir contra el tenant desde el
     // harness), se reintenta sin ella y se deja de mandar en esta sesion: la app sigue escribiendo.
     let ifMatchSirve = true;
@@ -134,12 +135,21 @@ export function crearCliente(graph, token) {
             const r = await pedir(`${graph}/sites/${siteId}/lists?$select=id,name,displayName,webUrl&$top=200`);
             if (!r.ok) throw new Error('no se pudieron ver las listas del sitio: ' + await motivo(r));
             const v = (await r.json()).value;
+            // v1.0.0 (cubeta 5): la lista de listas se REARMA en cada lectura (antes solo sumaba): una biblioteca que ya no está deja de «existir»
+            // para listaConocida/existeLista en vez de quedarse conocida toda la sesión. Lo de antes de este GET no se mezcla con lo de ahora.
+            listasPorNombre.clear(); urlPorNombre.clear();
             for (const l of v) { listasPorNombre.set(l.displayName, l.id); listasPorNombre.set(l.name, l.id); if (l.webUrl) { urlPorNombre.set(l.displayName, l.webUrl); urlPorNombre.set(l.name, l.webUrl); } }
+            listasLeidas = true;
             return v;
         },
 
         /** La URL web de una lista ya vista por `listas()` (o null): es lo que abre Microsoft Lists, con su vista Tablero. */
         urlDeLista(nombre) { return urlPorNombre.get(nombre) || null; },
+
+        /** v1.0.0 (cubeta 5): ¿la lista (o biblioteca) está en lo que YA se leyó de GET /lists? Sin pedir nada: null si aún no se ha leído.
+         *  existeLista vuelve a pedir la lista de listas cada vez que el nombre no está; para una biblioteca que FALTA, eso era un GET /lists
+         *  por consulta (lo cazó la prueba C-01). */
+        listaConocida(nombre) { return listasLeidas ? listasPorNombre.has(nombre) : null; },
 
         async idDeLista(siteId, nombre) {
             if (!listasPorNombre.has(nombre)) {
@@ -404,7 +414,97 @@ export function crearCliente(graph, token) {
          */
         async leerJson(siteId, ruta, avisar) { return bajarJson(`${graph}/sites/${siteId}/drive/root:/${rutaUrl(ruta)}`, ruta, avisar, 256 * 1024); },
         /** v0.165.0: lo mismo en OTRA biblioteca del sitio (por su drive, como «Gastos»); `maxBytes` porque cobranza.json pesa ~100 KB y crece. */
-        async leerJsonDeDrive(driveId, ruta, avisar, maxBytes = 256 * 1024) { return bajarJson(`${graph}/drives/${driveId}/root:/${rutaUrl(ruta)}`, ruta, avisar, maxBytes); }
+        async leerJsonDeDrive(driveId, ruta, avisar, maxBytes = 256 * 1024) { return bajarJson(`${graph}/drives/${driveId}/root:/${rutaUrl(ruta)}`, ruta, avisar, maxBytes); },
+
+        // ------------------------------------------------------------ v1.0.0 (rediseño, cubeta 5): Archivos — ERP_Proyectos y las bibliotecas de unidad
+        // `base` es el drive al que se habla: baseDrive(driveId) = /drives/{id} (ERP_Proyectos, del sitio Administración) o baseSitio(siteId) =
+        // /sites/{id}/drive (la biblioteca Documentos de una unidad). Lo que no es Graph —el uploadUrl de una upload session y el monitor de una
+        // copia— va por subirFragmento / leerMonitorCopia (abajo), SIN la cabecera Authorization: el token no sale de graph.microsoft.com.
+
+        /** El drive (biblioteca Documentos) de un sitio de unidad: { id, url }. Es el destino de «Mandar a archivar» (parentReference.driveId). */
+        async driveDeSitio(siteId, avisar) {
+            const r = await pedir(`${graph}/sites/${siteId}/drive?$select=id,webUrl`, {}, avisar);
+            if (!r.ok) throw errorHttp('no se pudo abrir la biblioteca de la unidad: ' + await motivo(r), r.status);
+            const j = await r.json(); return { id: j.id, url: j.webUrl || '' };
+        },
+
+        /** Los hijos de una carpeta por su ruta ('' = la raíz). Con `conCampos` trae las columnas del listItem (ERP_Proyectos: ProyectoClave,
+         *  TareaId, EnviadoArchivar, Lote) y su webUrl directo. Sigue @odata.nextLink. 404 (la carpeta aún no existe) = null. */
+        async hijos(base, ruta, { conCampos = false } = {}, avisar) {
+            let url = `${graph}${base}/${ruta ? `root:/${rutaUrl(ruta)}:/children` : 'root/children'}?$top=200${conCampos ? '&$expand=listItem($expand=fields)' : ''}`;
+            const todos = [];
+            while (url) {
+                const r = await pedir(url, {}, avisar);
+                if (r.status === 404) return null;
+                if (!r.ok) throw errorHttp(`no se pudo leer la carpeta ${ruta || '(raíz)'}: ` + await motivo(r), r.status);
+                const j = await r.json(); todos.push(...(j.value || []));
+                url = j['@odata.nextLink'] || null;
+            }
+            return todos;
+        },
+
+        /** Sube hasta 10 MiB por ruta. `conflicto`: fail (409 = ya existe) · replace (versión nueva) · rename. Devuelve el driveItem. */
+        async subirEnDrive(base, ruta, bytes, tipoMime, conflicto = 'fail', avisar) {
+            const r = await pedir(`${graph}${base}/root:/${rutaUrl(ruta)}:/content?@microsoft.graph.conflictBehavior=${encodeURIComponent(conflicto)}`, {
+                method: 'PUT', headers: { 'Content-Type': tipoMime || 'application/octet-stream' }, body: bytes
+            }, avisar);
+            if (r.status === 409) throw errorHttp(`ya existe ${ruta}`, 409);
+            if (!r.ok) throw errorHttp(`no se pudo subir ${ruta}: ` + await motivo(r), r.status);
+            return await r.json();
+        },
+
+        /** Abre una upload session (más de 10 MiB): { uploadUrl, expira }. */
+        async crearSesionSubida(base, ruta, conflicto = 'fail', avisar) {
+            const r = await pedir(`${graph}${base}/root:/${rutaUrl(ruta)}:/createUploadSession`, {
+                method: 'POST', headers: json, body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': conflicto } })
+            }, avisar);
+            if (r.status === 409) throw errorHttp(`ya existe ${ruta}`, 409);
+            if (!r.ok) throw errorHttp(`no se pudo abrir la subida de ${ruta}: ` + await motivo(r), r.status);
+            const j = await r.json(); return { uploadUrl: j.uploadUrl, expira: j.expirationDateTime || null };
+        },
+
+        /** Escribe columnas del listItem de un archivo (ERP_Proyectos: ProyectoClave, TareaId, EnviadoArchivar, Lote). */
+        async camposDeArchivo(base, itemId, campos, avisar) {
+            const r = await pedir(`${graph}${base}/items/${idItemUrl(itemId)}/listItem/fields`, { method: 'PATCH', headers: json, body: JSON.stringify(campos) }, avisar);
+            if (!r.ok) throw errorHttp('no se pudieron marcar las columnas del archivo: ' + await motivo(r), r.status);
+            return await r.json();
+        },
+
+        /** Vista previa embebible (POST …/preview): { getUrl }. */
+        async vistaPrevia(base, itemId, avisar) {
+            const r = await pedir(`${graph}${base}/items/${idItemUrl(itemId)}/preview`, { method: 'POST', headers: json, body: '{}' }, avisar);
+            if (!r.ok) throw errorHttp('no se pudo abrir la vista previa: ' + await motivo(r), r.status);
+            const j = await r.json(); return { getUrl: j.getUrl || null };
+        },
+
+        /** Las versiones de un archivo, de la actual a la más vieja: [{ id, cuando, quien, tamano }]. */
+        async versiones(base, itemId, avisar) {
+            const r = await pedir(`${graph}${base}/items/${idItemUrl(itemId)}/versions`, {}, avisar);
+            if (!r.ok) throw errorHttp('no se pudieron leer las versiones: ' + await motivo(r), r.status);
+            return ((await r.json()).value || []).map(v => ({ id: String(v.id), cuando: v.lastModifiedDateTime || '', quien: (v.lastModifiedBy && v.lastModifiedBy.user && (v.lastModifiedBy.user.displayName || v.lastModifiedBy.user.email)) || '', tamano: Number(v.size) || 0 }));
+        },
+
+        /** Restaura una versión vieja (queda como la versión nueva; la actual no se pierde). */
+        async restaurarVersion(base, itemId, versionId, avisar) {
+            if (!/^[0-9.]{1,20}$/.test(String(versionId))) throw new Error(`versión inválida: ${versionId}`);
+            const r = await pedir(`${graph}${base}/items/${idItemUrl(itemId)}/versions/${encodeURIComponent(versionId)}/restoreVersion`, { method: 'POST' }, avisar);
+            if (!r.ok) throw errorHttp('no se pudo restaurar la versión: ' + await motivo(r), r.status);
+        },
+
+        /** Copia un archivo a otra carpeta (otro drive, otro sitio). Es asíncrona: devuelve la URL del MONITOR (cabecera Location) o null. */
+        async copiarA(base, itemId, destino, nombre, avisar) {
+            const r = await pedir(`${graph}${base}/items/${idItemUrl(itemId)}/copy`, {
+                method: 'POST', headers: json, body: JSON.stringify({ parentReference: { driveId: destino.driveId, id: destino.id }, name: nombre })
+            }, avisar);
+            if (!r.ok && r.status !== 202) throw errorHttp(`no se pudo copiar ${nombre}: ` + await motivo(r), r.status);
+            return r.headers.get('Location') || null;
+        },
+
+        /** Borra un archivo de un drive (404 = ya no estaba). */
+        async borrarDeDrive(base, itemId, avisar) {
+            const r = await pedir(`${graph}${base}/items/${idItemUrl(itemId)}`, { method: 'DELETE' }, avisar);
+            if (!r.ok && r.status !== 404) throw errorHttp('no se pudo borrar el archivo: ' + await motivo(r), r.status);
+        }
     };
 
     async function bajarJson(urlItem, ruta, avisar, maxBytes) {
@@ -418,6 +518,38 @@ export function crearCliente(graph, token) {
         if (!b.ok) throw errorHttp(`no se pudo bajar ${ruta}: HTTP ${b.status}`, b.status);
         return { id: it.id, datos: JSON.parse(await b.text()) };
     }
+}
+
+/** v1.0.0 (cubeta 5): la `base` de un drive para los métodos de Archivos. */
+export const baseDrive = driveId => `/drives/${idItemUrl(driveId)}`;
+export const baseSitio = siteId => `/sites/${siteId}/drive`;   // el siteId lo dio Graph («host,guid,guid»), como en el resto de este cliente
+
+/** Una URL que Graph dio y que NO es Graph (uploadUrl, monitor): solo https y del host del tenant; si no, revienta antes de mandar bytes. */
+function urlDelTenant(url, host) {
+    let u; try { u = new URL(String(url || '')); } catch (_) { throw new Error('dirección de subida inválida'); }
+    if (u.protocol !== 'https:' || (host && u.hostname.toLowerCase() !== String(host).toLowerCase())) throw new Error(`dirección fuera del tenant: ${u.hostname}`);
+    return u.href;
+}
+/**
+ * v1.0.0 (cubeta 5): un fragmento de una upload session. PUT al uploadUrl con Content-Range y SIN Authorization (la URL ya va autorizada; el
+ * token no sale de Graph). Reintenta red y 429/503/504 como todo lo demás. Devuelve { listo, item, siguiente }: `listo` con el driveItem al
+ * terminar (200/201), `siguiente` el próximo byte que espera (202). 409 = ya existe; 404 = la sesión venció.
+ */
+export async function subirFragmento(uploadUrl, trozo, a, b, total, host, avisar) {
+    const url = urlDelTenant(uploadUrl, host);
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { const e = errorHttp('sin conexión: la subida sigue en la cola', 0); e.sinRed = true; throw e; }
+    const r = await conReintento(() => fetch(url, { method: 'PUT', credentials: 'omit', headers: { 'Content-Range': `bytes ${a}-${b}/${total}` }, body: trozo }), avisar);
+    if (r.status === 200 || r.status === 201) return { listo: true, item: await r.json() };
+    if (r.status === 202) { let j = {}; try { j = await r.json(); } catch (_) { /* sin cuerpo */ } const m = /^(\d+)-/.exec(String((j.nextExpectedRanges || [])[0] || '')); return { listo: false, siguiente: m ? Number(m[1]) : b + 1 }; }
+    if (r.status === 409) throw errorHttp('ya existe un archivo con ese nombre', 409);
+    throw errorHttp(`la subida se cortó (HTTP ${r.status})`, r.status);
+}
+/** v1.0.0 (cubeta 5): el monitor de una copia (Location de POST …/copy). Sin Authorization: está pre-autorizado. Devuelve su JSON. */
+export async function leerMonitorCopia(monitorUrl, host) {
+    const url = urlDelTenant(monitorUrl, host);
+    const r = await fetch(url, { credentials: 'omit' });
+    if (!r.ok && r.status !== 202 && r.status !== 303) throw errorHttp(`monitor de la copia: HTTP ${r.status}`, r.status);
+    try { return await r.json(); } catch (_) { return {}; }
 }
 
 /**

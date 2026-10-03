@@ -14,6 +14,7 @@ import { MODULOS, modulosDe, indiceBusqueda, buscarEnIndice, GRUPOS_BUSQUEDA, or
 import { $, estado, el, iconoEquipo, iconoArchivo, abrirDialogo, cerrarDialogo, porId, equipoDe, conRetardo } from './comun.js';
 import { arbolDe, cerrarHoja } from './armazon.js';
 import { buscarEnBibliotecas } from './docs.js';
+import { archivosDe } from './archivos.js';   // v1.0.0 (cubeta 5): los archivos ya leídos de las carpetas de ERP_Proyectos
 import { datosPublicados } from './inicio.js';
 import { abrirCargaPersona } from './vistas.js';
 import { conceptoDe } from './compras-reglas.js';
@@ -46,6 +47,9 @@ export function entradasLocales() {
         const url = l.Tipo !== 'buzon' ? hrefSeguro(l.Url, { tipo: l.Tipo, host: CONFIG.sharepointHost }) : null;
         xs.push({ grupo: 'Archivos', texto: String(l.Title || ''), sub: `${l.Tipo === 'buzon' ? 'Lote en el buzón' : l.Tipo === 'enlace' ? 'Enlace' : 'Archivado'} · ${p.Title}`, url, ir: url ? null : `#p/${p.Clave}/docs`, archivo: l.Title, externo: l.Tipo === 'enlace', extra: l.Ruta });
     }
+    // v1.0.0 (cubeta 5): los archivos de las carpetas de ERP_Proyectos que la sesión ya leyó (sin pedir nada a Graph): abren su carpeta
+    for (const p of estado.proyectos) for (const a of archivosDe(p.Clave))
+        xs.push({ grupo: 'Archivos', texto: a.nombre, sub: `Carpeta del proyecto · ${p.Title}${a.enviado ? ' · enviado a archivar' : ''}`, ir: `#archivos/proyecto/${p.Clave}`, archivo: a.nombre, extra: p.Clave });
     for (const r of estado.roles) {
         if (r.Activo === false || !r.Title) continue;
         const correo = String(r.Title).toLowerCase();

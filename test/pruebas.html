@@ -58,6 +58,41 @@
     window.confirm = () => true;
 })();
 
+// ------------------------------------------------------------------ IndexedDB falso (v1.0.0, cubeta 5: la cola de subidas)
+// TRAMPA medida el 2026-10-03: con --virtual-time-budget, indexedDB.open de Edge headless NO termina nunca (10 s virtuales sondeando de a 25 ms:
+// ni success ni error ni blocked; página de control en el scratchpad de la cubeta 5). La cola de cola.js se prueba contra este IndexedDB en
+// memoria — open/onupgradeneeded, createObjectStore con keyPath, put/delete/getAll(IDBKeyRange) y oncomplete —, como el Graph falso finge
+// SharePoint. Que el IndexedDB REAL guarde un File lo dice el navegador; lo que se prueba aquí es lo que hace la app con él (llave por cuenta, rango).
+(function () {
+    const bases = new Map();   // nombre -> { almacenes: Map(nombre -> { keyPath, datos: Map }) }
+    const tarde = fn => Promise.resolve().then(fn);
+    const peticion = () => ({ result: undefined, error: null, onsuccess: null, onerror: null, onupgradeneeded: null, onblocked: null });
+    function conexion(b) {
+        return {
+            objectStoreNames: { contains: n => b.almacenes.has(n) },
+            createObjectStore(n, o) { b.almacenes.set(n, { keyPath: o.keyPath, datos: new Map() }); return {}; },
+            transaction(n) {
+                const a = b.almacenes.get(n); if (!a) throw new DOMException('no existe el almacén ' + n, 'NotFoundError');
+                const tx = { oncomplete: null, onerror: null, onabort: null };
+                const listo = () => tarde(() => tarde(() => { if (tx.oncomplete) tx.oncomplete(); }));
+                const responde = (r, v) => tarde(() => { r.result = v; if (r.onsuccess) r.onsuccess(); });
+                tx.objectStore = () => ({
+                    put(v) { const r = peticion(); a.datos.set(v[a.keyPath], { ...v }); responde(r, v[a.keyPath]); listo(); return r; },
+                    delete(k) { const r = peticion(); a.datos.delete(k); responde(r, undefined); listo(); return r; },
+                    getAll(rango) { const r = peticion(); responde(r, [...a.datos.entries()].filter(([k]) => !rango || rango.includes(k)).sort(([x], [y]) => (x < y ? -1 : 1)).map(([, v]) => ({ ...v }))); listo(); return r; }
+                });
+                return tx;
+            }
+        };
+    }
+    const falso = {
+        open(nombre) { const r = peticion(); tarde(() => { let b = bases.get(nombre); const nueva = !b; if (nueva) { b = { almacenes: new Map() }; bases.set(nombre, b); } r.result = conexion(b); if (nueva && r.onupgradeneeded) r.onupgradeneeded(); if (r.onsuccess) r.onsuccess(); }); return r; },
+        deleteDatabase(nombre) { const r = peticion(); bases.delete(nombre); tarde(() => { if (r.onsuccess) r.onsuccess(); }); return r; }
+    };
+    Object.defineProperty(window, 'indexedDB', { configurable: true, get: () => falso });
+    window.__IDB = bases;
+})();
+
 // ------------------------------------------------------------------ Graph falso
 (function () {
     const fetchReal = window.fetch.bind(window);
@@ -99,6 +134,78 @@
         }));
     }
 
+    // ---- v1.0.0 (rediseño, cubeta 5 «Archivos»): la biblioteca ERP_Proyectos (drive-proyectos) con carpeta por proyecto, columnas del listItem,
+    // versiones, vista previa, upload session (fragmentos al uploadUrl sin token) y copia al buzón de CALYTEK con su monitor; y el drive de CALYTEK
+    // por carpetas (children) para «Bibliotecas». El quickXorHash de cada archivo lo calcula la función de la app (window.__qxh, la pone el módulo
+    // de abajo): la prueba de que el algoritmo es el de Microsoft es test/archivos.test.js (vectores + la referencia en C#).
+    const SUBIDA = 'https://minsaenergy.sharepoint.com/_subida-falsa/', MONITOR = 'https://minsaenergy.sharepoint.com/_monitor-falso/';
+    const RAIZ_PROY = 'https://minsaenergy.sharepoint.com/sites/Administracion/ERP_Proyectos/';
+    Object.assign(DB, { proy: [], sesiones: {}, fragmentos: [], monitores: {}, monitorAuth: [], previews: [], iframes: [], falloFragmento: 0, pasosCopia: 1 });
+    const bytesDe = body => body ? (body instanceof Uint8Array ? body : new Uint8Array(body.byteLength !== undefined ? body : new TextEncoder().encode(String(body)))) : new Uint8Array(0);
+    const ahoraIso = () => new Date().toISOString();
+    const hashDe = bytes => window.__qxh ? window.__qxh(bytes) : null;   // una vez por contenido (un video de 11 MiB no se re-hashea en cada /children)
+    function itemProy(a) {
+        const url = RAIZ_PROY + encodeURIComponent(a.carpeta) + '/' + encodeURIComponent(a.nombre);
+        return { id: a.id, name: a.nombre, size: a.bytes.length, webUrl: url, createdDateTime: a.creado, lastModifiedDateTime: a.mod,
+            createdBy: { user: { email: a.creadoPor, displayName: a.creadoPor } }, lastModifiedBy: { user: { email: a.creadoPor, displayName: 'Persona de Prueba' } },
+            file: { mimeType: a.tipo || 'application/octet-stream', hashes: { quickXorHash: a.hash || null } }, parentReference: { driveId: 'drive-proyectos', path: '/drive/root:/' + a.carpeta },
+            listItem: { webUrl: url, fields: { ...a.campos } } };
+    }
+    /** Crea o reemplaza un archivo de ERP_Proyectos como lo haría SharePoint: fail = 409 si ya existe; replace = VERSIÓN nueva; rename = «nombre 1.ext». */
+    function guardarProy(carpeta, nombre, bytes, tipo, conflicto) {
+        if (!DB.proy.some(x => x.esCarpeta && x.nombre === carpeta)) DB.proy.push({ id: 'pcarp-' + DB.siguienteId++, esCarpeta: true, nombre: carpeta });   // el PUT por ruta crea la carpeta, como Graph
+        let ya = DB.proy.find(x => !x.esCarpeta && x.carpeta === carpeta && x.nombre.toLowerCase() === nombre.toLowerCase());
+        if (ya && conflicto === 'fail') return { error: 409 };
+        if (ya && conflicto === 'rename') { const m = /^(.*?)(\.[^.]*)?$/.exec(nombre); let n = 1, otro; do { otro = `${m[1]} ${n++}${m[2] || ''}`; } while (DB.proy.some(x => x.carpeta === carpeta && x.nombre === otro)); nombre = otro; ya = null; }
+        if (ya) { ya.bytes = bytes; ya.hash = hashDe(bytes); ya.mod = ahoraIso(); ya.versiones.unshift({ id: `${ya.versiones.length + 1}.0`, bytes, cuando: ya.mod, por: window.__CUENTA.username }); return { item: ya }; }
+        const a = { id: 'parch-' + DB.siguienteId++, carpeta, nombre, bytes, hash: hashDe(bytes), tipo, campos: {}, creadoPor: window.__CUENTA.username, creado: ahoraIso(), mod: ahoraIso() };
+        a.versiones = [{ id: '1.0', bytes, cuando: a.mod, por: a.creadoPor }]; DB.proy.push(a); return { item: a };
+    }
+    async function fragmentoFalso(u, opts) {
+        const sid = u.slice(SUBIDA.length); const s = DB.sesiones[sid];
+        const auth = !!(opts.headers && (opts.headers.Authorization || opts.headers.authorization));
+        const rango = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(String(opts.headers && opts.headers['Content-Range'] || ''));
+        DB.fragmentos.push({ sid, auth, rango: rango ? rango[0] : null, largo: bytesDe(opts.body).length });
+        if (!s) return error(404, 'la sesión no existe');
+        if (DB.falloFragmento > 0) { DB.falloFragmento--; return error(503, 'falla inyectada en un fragmento'); }
+        if (!rango) return error(400, 'sin Content-Range');
+        const [a, b, total] = [Number(rango[1]), Number(rango[2]), Number(rango[3])], trozo = bytesDe(opts.body);
+        if (a !== s.recibido || trozo.length !== b - a + 1) return error(416, `se esperaba el byte ${s.recibido}`);
+        if (b + 1 < total && trozo.length % (320 * 1024) !== 0) return error(400, 'un fragmento intermedio debe ser múltiplo de 320 KiB');
+        s.partes.push(trozo); s.recibido = b + 1;
+        if (s.recibido < total) return json(202, { expirationDateTime: '2099-01-01T00:00:00Z', nextExpectedRanges: [`${s.recibido}-`] });
+        const todo = new Uint8Array(total); let o = 0; for (const p of s.partes) { todo.set(p, o); o += p.length; }
+        delete DB.sesiones[sid];
+        const r = guardarProy(s.carpeta, s.nombre, todo, 'application/octet-stream', s.conflicto);
+        return r.error ? error(409, 'nameAlreadyExists') : json(201, itemProy(r.item));
+    }
+    async function monitorFalso(u, opts) {
+        DB.monitorAuth.push(!!(opts.headers && (opts.headers.Authorization || opts.headers.authorization)));
+        const m = DB.monitores[u.slice(MONITOR.length)]; if (!m) return error(404, 'monitor');
+        if (m.pasos > 0) { m.pasos--; return json(202, { status: 'inProgress', percentageComplete: 50 }); }
+        if (!m.hecho) {
+            const c = DB.carpetas.find(x => x.id === m.destino.id);
+            if (!c || m.destino.driveId !== 'drive-calytek') { m.hecho = 'failed'; }
+            else { const id = 'archivo-' + DB.siguienteId++; DB.archivos.push({ id, ruta: c.ruta + '/' + m.nombre, nombre: m.nombre, bytes: m.bytes.length, texto: new TextDecoder().decode(m.bytes) }); m.hecho = id; }
+        }
+        return m.hecho === 'failed' ? json(200, { status: 'failed' }) : json(200, { status: 'completed', resourceId: m.hecho });
+    }
+    /** Los hijos de una ruta de la biblioteca de CALYTEK (DB.carpetas + DB.archivos), como /children. */
+    function hijosCalytek(ruta) {
+        const pref = ruta ? ruta + '/' : '';
+        if (ruta && !DB.carpetas.some(c => c.ruta === ruta) && !DB.archivos.some(a => a.ruta.startsWith(pref))) return null;
+        const vistos = new Map();
+        for (const x of [...DB.carpetas.map(c => ({ ruta: c.ruta, carpeta: true, id: c.id })), ...DB.archivos.map(a => ({ ruta: a.ruta, carpeta: false, id: a.id, a }))]) {
+            if (!x.ruta.startsWith(pref)) continue;
+            const resto = x.ruta.slice(pref.length); if (!resto) continue;
+            const seg = resto.split('/')[0], hoja = !resto.includes('/') && !x.carpeta;
+            if (hoja) vistos.set(seg, { id: x.id, name: seg, size: x.a.bytes, file: {}, webUrl: 'https://minsaenergy.sharepoint.com/sites/Ambiental-CALYTEK/Documentos/' + x.a.ruta, lastModifiedDateTime: '2026-09-01T12:00:00Z' });
+            else if (!vistos.has(seg)) { const rc = pref + seg; const c = DB.carpetas.find(k => k.ruta === rc); vistos.set(seg, { id: c ? c.id : 'carpeta-v-' + rc.replace(/[^A-Za-z0-9]/g, '-'), name: seg, folder: { childCount: 0 }, webUrl: 'https://minsaenergy.sharepoint.com/sites/Ambiental-CALYTEK/Documentos/' + rc }); }
+            const f = vistos.get(seg); if (f.folder && x.ruta !== pref + seg) f.folder.childCount++;
+        }
+        return [...vistos.values()];
+    }
+
     window.fetch = async function (url, opts = {}) {
         const u = String(url);
         // v0.108.0: la liga de descarga pre-autenticada del recibo (`@microsoft.graph.downloadUrl`). Sin Authorization.
@@ -110,6 +217,9 @@
             const a = DB.archivos.find(x => x.id === decodeURIComponent(u.slice(DESCARGA.length)));
             return a ? new Response(a.texto || '', { status: 200 }) : error(404, 'descarga');
         }
+        // v1.0.0 (cubeta 5): el uploadUrl de una upload session y el monitor de una copia — NO son Graph y van SIN Authorization (se anota).
+        if (u.startsWith(SUBIDA)) return fragmentoFalso(u, opts);
+        if (u.startsWith(MONITOR)) return monitorFalso(u, opts);
         if (!u.startsWith(G)) return fetchReal(url, opts);
         const metodo = (opts.method || 'GET').toUpperCase();
         const ruta = u.slice(G.length);
@@ -246,6 +356,62 @@
             DB.archivos = DB.archivos.filter(a => !a.ruta.startsWith(c.ruta + '/'));
             return new Response(null, { status: 204 });
         }
+        // ---- v1.0.0 (cubeta 5): ERP_Proyectos por su drive
+        if (ruta.startsWith('/drives/drive-proyectos/')) {
+            const qs = ruta.indexOf('?'), sinQ = qs >= 0 ? ruta.slice(0, qs) : ruta, q = qs >= 0 ? ruta.slice(qs + 1) : '';
+            if (sinQ === '/drives/drive-proyectos/root/children' && metodo === 'GET')
+                return json(200, { value: DB.proy.filter(x => x.esCarpeta).map(c => ({ id: c.id, name: c.nombre, folder: { childCount: DB.proy.filter(a => a.carpeta === c.nombre).length } })) });
+            if (sinQ === '/drives/drive-proyectos/root/children' && metodo === 'POST') {
+                const c = JSON.parse(opts.body); if (DB.proy.some(x => x.esCarpeta && x.nombre === c.name)) return error(409, 'nameAlreadyExists');
+                const n = { id: 'pcarp-' + DB.siguienteId++, esCarpeta: true, nombre: c.name }; DB.proy.push(n); return json(201, { id: n.id, name: n.nombre, folder: {} });
+            }
+            if ((m = /^\/drives\/drive-proyectos\/root:\/([^/:]+):\/children$/.exec(sinQ)) && metodo === 'GET') {
+                const carpeta = decodeURIComponent(m[1]);
+                if (!DB.proy.some(x => x.esCarpeta && x.nombre === carpeta)) return error(404, 'itemNotFound');
+                if (!/expand=listItem/.test(decodeURIComponent(q))) return error(400, 'el falso espera $expand=listItem para las columnas');
+                return json(200, { value: DB.proy.filter(a => !a.esCarpeta && a.carpeta === carpeta).map(itemProy) });
+            }
+            if ((m = /^\/drives\/drive-proyectos\/root:\/([^/:]+)\/([^:]+):\/content$/.exec(sinQ)) && metodo === 'PUT') {
+                const conf = (/conflictBehavior=([a-z]+)/.exec(q) || [])[1] || 'fail';
+                const r = guardarProy(decodeURIComponent(m[1]), decodeURIComponent(m[2]), bytesDe(opts.body), opts.headers && opts.headers['Content-Type'], conf);
+                return r.error ? error(409, 'nameAlreadyExists') : json(201, itemProy(r.item));
+            }
+            if ((m = /^\/drives\/drive-proyectos\/root:\/([^/:]+)\/([^:]+):\/createUploadSession$/.exec(sinQ)) && metodo === 'POST') {
+                const cuerpo = JSON.parse(opts.body || '{}'), sid = 's' + DB.siguienteId++;
+                DB.sesiones[sid] = { carpeta: decodeURIComponent(m[1]), nombre: decodeURIComponent(m[2]), conflicto: (cuerpo.item || {})['@microsoft.graph.conflictBehavior'] || 'fail', recibido: 0, partes: [] };
+                return json(200, { uploadUrl: SUBIDA + sid, expirationDateTime: '2099-01-01T00:00:00Z' });
+            }
+            const a = (m = /^\/drives\/drive-proyectos\/items\/([^/]+)/.exec(sinQ)) ? DB.proy.find(x => x.id === decodeURIComponent(m[1])) : null;
+            if (m && !a) return error(404, 'itemNotFound');
+            if (a && /\/listItem\/fields$/.test(sinQ) && metodo === 'PATCH') {
+                const campos = JSON.parse(opts.body); const cols = DB.esquema.bibliotecas.find(b => b.nombre === 'ERP_Proyectos').columnas.map(c => c.nombre);
+                const raro = Object.keys(campos).find(k => !cols.includes(k)); if (raro) return error(400, `Field '${raro}' is not recognized`);
+                for (const k in campos) { if (campos[k] === null) delete a.campos[k]; else a.campos[k] = campos[k]; }
+                return json(200, { ...a.campos });
+            }
+            if (a && /\/preview$/.test(sinQ) && metodo === 'POST') { DB.previews.push(a.id); return json(200, { getUrl: 'https://minsaenergy.sharepoint.com/_vista-falsa/' + a.id }); }
+            if (a && /\/versions$/.test(sinQ) && metodo === 'GET') return json(200, { value: a.versiones.map(v => ({ id: v.id, lastModifiedDateTime: v.cuando, lastModifiedBy: { user: { displayName: v.por } }, size: v.bytes.length })) });
+            if (a && (m = /\/versions\/([^/]+)\/restoreVersion$/.exec(sinQ)) && metodo === 'POST') {
+                const v = a.versiones.find(x => x.id === decodeURIComponent(m[1])); if (!v) return error(404, 'version');
+                a.bytes = v.bytes; a.hash = hashDe(v.bytes); a.mod = ahoraIso(); a.versiones.unshift({ id: `${a.versiones.length + 1}.0`, bytes: v.bytes, cuando: a.mod, por: window.__CUENTA.username, restaurada: v.id });
+                return new Response(null, { status: 204 });
+            }
+            if (a && /\/copy$/.test(sinQ) && metodo === 'POST') {
+                const c = JSON.parse(opts.body); const mid = 'm' + DB.siguienteId++;
+                DB.monitores[mid] = { pasos: DB.pasosCopia, destino: c.parentReference || {}, nombre: c.name || a.nombre, bytes: a.bytes, origen: a.id };
+                return new Response(null, { status: 202, headers: { Location: MONITOR + mid } });
+            }
+            if (a && sinQ === `/drives/drive-proyectos/items/${encodeURIComponent(a.id)}` && metodo === 'DELETE') { DB.proy = DB.proy.filter(x => x !== a); return new Response(null, { status: 204 }); }
+        }
+        // ---- v1.0.0 (cubeta 5): el drive de la biblioteca de CALYTEK (destino de «Mandar a archivar») y sus carpetas («Bibliotecas»)
+        if (ruta === '/sites/sitio-calytek/drive?$select=id,webUrl' && metodo === 'GET') return json(200, { id: 'drive-calytek', webUrl: 'https://minsaenergy.sharepoint.com/sites/Ambiental-CALYTEK/Documentos compartidos' });
+        if ((m = /^\/sites\/sitio-calytek\/drive\/(?:root\/children|root:\/(.+):\/children)\?\$top=200$/.exec(ruta)) && metodo === 'GET') {
+            const hs = hijosCalytek(m[1] ? decodeURIComponent(m[1]) : ''); return hs ? json(200, { value: hs }) : error(404, 'itemNotFound');
+        }
+        if ((m = /^\/sites\/sitio-calytek\/drive\/items\/([^/]+)\/preview$/.exec(ruta)) && metodo === 'POST') {
+            const a = DB.archivos.find(x => x.id === decodeURIComponent(m[1])); if (!a) return error(404, 'itemNotFound');
+            DB.previews.push(a.id); return json(200, { getUrl: 'https://minsaenergy.sharepoint.com/_vista-falsa/' + a.id });
+        }
         return error(500, `el Graph falso no conoce ${metodo} ${ruta}`);
     };
 
@@ -256,8 +422,9 @@
         DB.listas.bibOperacion = { id: 'lista-bibop', nombre: 'ERP_Operacion', items: [], drive: 'drive-operacion' };   // v0.168.0: Servicios
         DB.datos = {};
         DB.listas.bibGastos = { id: 'lista-bibgastos', nombre: 'Gastos', items: [], drive: 'drive-gastos' };   // v0.162.0: la biblioteca de comprobantes (una lista con drive)
+        DB.listas.bibProyectos = { id: 'lista-bibproy', nombre: 'ERP_Proyectos', items: [], drive: 'drive-proyectos' };   // v1.0.0 (cubeta 5): la carpeta de trabajo de cada proyecto
         // v0.162.0: ?gastos=no = el sitio SIN ERP_Gastos, ERP_Roles ni la biblioteca (antes de entrar: la app cachea la lista de listas al iniciar)
-        if (new URLSearchParams(location.search).get('gastos') === 'no') { delete DB.listas.gastos; delete DB.listas.rolesErp; delete DB.listas.bibGastos; delete DB.listas.bibOperacion; delete DB.listas.vistas; }   // v0.168.0: + ERP_Operacion = colaborador sin permiso; v1.0.0 (cubeta 2): + ERP_Vistas = «Guardados» en este equipo
+        if (new URLSearchParams(location.search).get('gastos') === 'no') { delete DB.listas.gastos; delete DB.listas.rolesErp; delete DB.listas.bibGastos; delete DB.listas.bibOperacion; delete DB.listas.vistas; delete DB.listas.bibProyectos; }   // v0.168.0: + ERP_Operacion = colaborador sin permiso; v1.0.0 (cubeta 2): + ERP_Vistas = «Guardados» en este equipo; cubeta 5: + ERP_Proyectos = «Falta preparar» y todo lo demás como antes
         const roles = DB.listas.roles.items;
         roles.push({ id: DB.siguienteId++, fields: { Title: window.__CUENTA.username, Nombre: 'Persona de Prueba', Rol: rol, Activo: true } });
         roles.push({ id: DB.siguienteId++, fields: { Title: 'colega@example.invalid', Nombre: 'Colega Demo', Rol: 'colaborador', Activo: true } });
@@ -298,6 +465,10 @@
 import { diasPara, diaDe } from '../reglas.js';
 import { estado as ESTADO, llaveVisto, llaveVistoInicio, olvidarVistosLocales } from '../comun.js';   // U-04 (v0.79.0): forzar «tactil» (headless no cambia de viewport)
 import { abrirLigar, abrirSubir, abrirEnlace } from '../docs.js';   // v0.102.0: Docs ya no trae los tres botones; la E2E abre los mismos dialogos por la funcion
+import { quickXorHash } from '../archivos-reglas.js';   // v1.0.0 (cubeta 5): el Graph falso da el quickXorHash de cada archivo con la función de la app
+window.__qxh = quickXorHash;
+// v1.0.0 (cubeta 5): el <iframe> de la vista previa NO navega al tenant en la prueba: su src se anota (como el Graph falso anota las llamadas)
+Object.defineProperty(HTMLIFrameElement.prototype, 'src', { configurable: true, get() { return this.getAttribute('data-src-falso') || ''; }, set(v) { window.__DB.iframes.push(String(v)); this.setAttribute('data-src-falso', String(v)); } });
 const R = window.__PRUEBAS;
 const TACTIL = matchMedia('(hover: none)').matches;   // U-04 (v0.79.0): a 390 el driver emula touch y el rombo abre la hoja, no la tarjeta
 const DB = window.__DB;
@@ -330,11 +501,17 @@ let pushes = 0; { const ps = history.pushState.bind(history); history.pushState 
 let blobsEnVuelo = 0;
 const BYTES_DE_PRUEBA = new Map();   // "nombre|tamaño|tipo|lastModified" -> Uint8Array; input.files devuelve otro objeto File, pero con esos 4 datos
 const llaveArchivo = f => `${f.name}|${f.size}|${f.type}|${f.lastModified}`;
-function archivoDePrueba(texto, nombre, tipo) { const bytes = new TextEncoder().encode(texto); const f = new File([bytes], nombre, { type: tipo }); BYTES_DE_PRUEBA.set(llaveArchivo(f), bytes); return f; }
+// cubeta 5: también se aceptan bytes (Uint8Array) — los archivos de más de 10 MiB de la upload session — y un `lastModified` fijo (el que vuelve de
+// IndexedDB es un File NUEVO con los mismos 4 datos)
+function archivoDePrueba(texto, nombre, tipo, lastModified) { const bytes = texto instanceof Uint8Array ? texto : new TextEncoder().encode(texto); const f = new File([bytes], nombre, { type: tipo, ...(lastModified ? { lastModified } : {}) }); BYTES_DE_PRUEBA.set(llaveArchivo(f), bytes); return f; }
+// cubeta 5: un trozo (slice) de un archivo de prueba también se lee de memoria — la upload session lee de a 5 MiB y el quickXorHash de a 4 MiB
+const MEMORIA = new WeakMap();
+const enMemoriaDe = b => MEMORIA.get(b) || (b instanceof File && BYTES_DE_PRUEBA.get(llaveArchivo(b))) || null;
+{ const s0 = Blob.prototype.slice; Blob.prototype.slice = function (...a) { const r = s0.apply(this, a); const m = enMemoriaDe(this); if (m) MEMORIA.set(r, m.slice(a[0] ?? 0, a[1] ?? m.length)); return r; }; }
 for (const k of ['arrayBuffer', 'text']) {
     const f = Blob.prototype[k];
     Blob.prototype[k] = function (...a) {
-        const enMemoria = this instanceof File && BYTES_DE_PRUEBA.get(llaveArchivo(this));
+        const enMemoria = enMemoriaDe(this);
         if (enMemoria) return Promise.resolve(k === 'text' ? new TextDecoder().decode(enMemoria) : enMemoria.slice().buffer);
         blobsEnVuelo++; let p; try { p = f.apply(this, a); } catch (e) { blobsEnVuelo--; throw e; } return p.finally(() => { blobsEnVuelo--; });
     };
@@ -353,6 +530,8 @@ async function esperar(fn, que, ms = 8000) {
     throw new Error('tiempo agotado esperando: ' + que);
 }
 const visible = id => $(id).tagName === 'DIALOG' ? $(id).open : !$(id).classList.contains('oculto') && !$(id).hidden && $(id).offsetParent !== null;
+/** v1.0.0 (cubeta 5): espera una promesa de IndexedDB SONDEANDO (esperar duerme de a 25 ms): con un timer vivo el reloj virtual avanza poco a poco. */
+async function conIdb(p, que) { let r, listo = false; p.then(x => { r = x; listo = true; }, () => { listo = true; }); await esperar(() => listo, que); return r; }
 const avisoCon = texto => [...document.querySelectorAll('#avisos .mensaje, .dlg-avisos .mensaje')].find(m => m.textContent.includes(texto));
 const clic = id => $(id).click();
 const poner = (id, v) => { $(id).value = v; $(id).dispatchEvent(new Event('input', { bubbles: true })); $(id).dispatchEvent(new Event('change', { bubbles: true })); };
@@ -379,6 +558,10 @@ const recargarYEsperar = async () => { clic('btnActualizar'); await esperar(() =
 const irHash = async h => { await respirar(); history.pushState(null, '', h); window.dispatchEvent(new PopStateEvent('popstate')); };
 
 try {
+    // 0. v1.0.0 (cubeta 5): la cola de subidas vive en IndexedDB del origen; la corrida empieza sin lo que dejó la anterior (capturas.mjs corre
+    // varias configuraciones en el mismo perfil y el mismo puerto).
+    // (El IndexedDB es el FALSO de arriba: el real de Edge headless no abre bajo tiempo virtual. conIdb sondea de a 25 ms por si acaso.)
+    await conIdb(new Promise(r => { try { const q = indexedDB.deleteDatabase('minsa-erp'); q.onsuccess = q.onerror = q.onblocked = () => r(); } catch (_) { r(); } }), 'borrar la cola de la corrida anterior').catch(() => {});
     // 1. Montar la app real dentro de esta pagina.
     const html = await (await fetch('./index.html', { cache: 'reload' })).text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -748,7 +931,7 @@ try {
         // v0.70.0 (Carlos, 16-sep): Cancelar en Ligar / Subir / Enlace abiertos desde la tarjeta VUELVE a la tarjeta, no a la pantalla.
         R.ok('v0.70.0: Cancelar en Ligar vuelve a la MISMA tarjeta (diálogo abierto y hash con la tarjeta)', $('dlgTarea').open && $('tTitulo').textContent.startsWith('LISTA DE INSUMOS') && location.hash === `#p/${CLAVE}/t/${t.id}`, location.hash);
         document.querySelector(`#tDocs [data-subir="${t.id}"]`).click(); await esperar(() => $('dlgSubir').open, 'subir desde la tarjeta');
-        R.ok('Subir desde la tarjeta: la tarjeta ya va puesta', $('sbTarea').value === String(t.id) && !$('dlgTarea').open);
+        R.ok('Subir desde la tarjeta: la tarjeta ya va puesta', $('sbTarea').value === String(t.id) && !$('dlgTarea').open, `sbTarea=${$('sbTarea').value} · t=${t.id} · dlgTarea=${$('dlgTarea').open}`);
         clic('sbCancelar'); await esperar(() => $('dlgTarea').open, 'vuelve a la tarjeta');
         R.ok('v0.70.0: Cancelar en Subir vuelve a la tarjeta', $('dlgTarea').open && !$('dlgSubir').open);
         document.querySelector(`#tDocs [data-enlace="${t.id}"]`).click(); await esperar(() => $('dlgEnlace').open, 'enlace desde la tarjeta');
@@ -2111,7 +2294,11 @@ try {
         // ---- v0.10.0: Roadmap · Calendario · Mensajes · Archivos · Reportes (foto de referencia, 12-sep) + titulo con icono + anillo
         {
             const hoyIso = new Date().toISOString();
-            R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-archivos', 'p-cuenta'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));   // v1.0.0: + Cuenta; cubeta 2: Capital, Gastos y Finanzas pasan a la plantilla (abajo); cubeta 3: Proyectos, Roadmap, Calendario y Reportes también (abajo); cubeta 4: Inicio, Mis tareas y Mensajes también (abajo)
+            R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-cuenta'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));   // v1.0.0: + Cuenta; cubeta 2: Capital, Gastos y Finanzas pasan a la plantilla (abajo); cubeta 3: Proyectos, Roadmap, Calendario y Reportes también (abajo); cubeta 4: Inicio, Mis tareas y Mensajes también (abajo); cubeta 5: Archivos también (abajo)
+            // v1.0.0 (cubeta 5; sustituye a Archivos en la de arriba): el módulo Archivos lleva la cabecera de la plantilla (la pinta al entrar) y su
+            // sección por ruta; las ligas de todos los frentes de siempre viven en su tarjeta (#archivosLigasCard)
+            R.ok('v1.0.0 (cubeta 5): Archivos trae el hueco de la cabecera de la plantilla (#archivosCab), el de su sección (#archivosSeccion) y la tarjeta de ligas, y ya no la cabecera fija con icono',
+                $('archivosCab').classList.contains('rp-cuerpo') && !!$('archivosSeccion') && $('archivosLista').closest('#archivosLigasCard') && !$('p-archivos').querySelector('.cabecera > .titulo-ico'));
             // v1.0.0 (cubeta 4; sustituye a Inicio, Mis tareas y Mensajes en la de arriba): llevan la cabecera de la plantilla (la pintan al entrar)
             R.ok('v1.0.0 (cubeta 4): Inicio, Mis tareas y Mensajes traen el hueco de la cabecera de la plantilla (#inicioCab, #misCab, #mensajesCab) y ya no la cabecera fija con icono',
                 ['inicioCab', 'misCab', 'mensajesCab'].every(id => !!$(id) && $(id).classList.contains('rp-cuerpo')) && ['p-inicio', 'p-mis', 'p-mensajes'].every(id => !$(id).querySelector('.cabecera > .titulo-ico')));
@@ -4651,6 +4838,295 @@ try {
           R.ok('cubeta 4: Esc cierra el panel y PREGUNTAR vuelve a aria-expanded=false', $('preguntar').hidden && !document.body.classList.contains('con-preguntar') && [...document.querySelectorAll('[data-preguntar]')].every(b => b.getAttribute('aria-expanded') === 'false'));
           R.ok('cubeta 4: responder(pregunta) es la función aislada del panel (el punto de enchufe de un agente) y devuelve la respuesta de las reglas', typeof PQ.responder === 'function' && (await PQ.responder('¿Quién tiene más carga?')).intento === 'carga');
           await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); }
+    }
+    // ==================================================================================================================
+    // v1.0.0 (rediseño 2026-10-02, cubeta 5 «Archivos opción A»): ERP_Proyectos (una carpeta por proyecto), la zona de subir, PUT ≤ 10 MiB y la
+    // upload session > 10 MiB (fragmentos de 5 MiB al uploadUrl SIN token, con un 503 reintentado), el «¿duplicado?» RETENIDO (nombre y contenido),
+    // la cola SIN RED que se vacía al volver (y su copia en IndexedDB), la foto de la cámara, «Mandar a archivar» (el lote con `_lote.json` al
+    // final, la liga de buzón y EnviadoArchivar), vista previa, versiones y restaurar, ligar a tarjeta, fijar, «Bibliotecas» (la de 403 no se
+    // pinta), Recientes y Mis subidas, borrar, la ficha de la tarjeta (Subir → carpeta), cerrar un proyecto con «N sin archivar» y, sin
+    // ERP_Proyectos (?gastos=no), «Falta preparar» con todo lo demás como antes. Va antes del ARMAZÓN (que va al final a propósito).
+    {
+        for (const d of document.querySelectorAll('dialog[open]')) d.close();
+        document.querySelector('#avisos .cerrar')?.click();
+        ESTADO.filtroEquipo = null;
+        const AR = await import('../archivos.js'), CL = await import('../cola.js'), AV5 = await import('../armazon.js'), CFG = (await import('../config.js')).CONFIG;
+        const SIN_PROY = params.get('gastos') === 'no';
+        const P5 = () => ESTADO.proyectos.find(p => p.Clave === CLAVE);
+        const enDB = (nombre, clave = CLAVE) => DB.proy.find(a => !a.esCarpeta && a.carpeta === clave && a.nombre === nombre);
+        const meter = (sel, archivos) => { const inp = document.querySelector(sel); if (!inp) throw new Error('sin ' + sel); const dt = new DataTransfer(); for (const f of archivos) dt.items.add(f); inp.files = dt.files; inp.dispatchEvent(new Event('change', { bubbles: true })); };
+        const enZona = (tipo, archivos) => meter(`#archivosSeccion .zona-subir[data-zona="${CLAVE}"] input[data-zona-input="${tipo}"]`, archivos);
+        const fila = nombre => [...document.querySelectorAll('#archivosSeccion tr[data-archivo-id]')].find(tr => tr.querySelector('.c-nombre').textContent.includes(nombre));
+        const accion = (nombre, acc) => { const tr = fila(nombre); if (!tr) return null; tr.querySelector('.fila-menu').open = true; return tr.querySelector(`[data-accion-archivo="${acc}"]`); };
+        const enCola = nombre => AR.colaActual().find(r => r.nombre === nombre);
+        const irArchivos = async (h, que) => { await irHash(h); await esperar(() => visible('p-archivos') && location.hash === h, que || h); await dormir(30); };
+        const actividadCon = (acc, txt) => actividad(acc).filter(a => String(a.fields.Title).includes(txt));
+        await esperar(() => ['lista', 'falta', 'error'].includes(AR.estadoBiblioteca().estado), 'ERP_Proyectos revisada');
+        const RUTA_P = `#archivos/proyecto/${CLAVE}`;
+        if (SIN_PROY) {
+            // ---- sin ERP_Proyectos: «Falta preparar», ni una llamada a su drive, y la tarjeta sube al buzón como antes
+            R.ok('cubeta 5 (sin ERP_Proyectos): la biblioteca se sabe AUSENTE con la lista de listas del arranque (sin GET /lists de más) y nadie habla con su drive',
+                AR.estadoBiblioteca().estado === 'falta' && !DB.llamadas.some(c => c.includes('drive-proyectos') || c.includes('lista-bibproy')), AR.estadoBiblioteca().estado);
+            await irArchivos(RUTA_P);
+            const f = document.querySelector('#archivosSeccion .arch-falta');
+            R.ok('cubeta 5 (sin ERP_Proyectos): la carpeta del proyecto dice «Falta preparar ERP_Proyectos» (colaborador: la prepara gerencia, sin la ruta de las instrucciones) y no hay zona de subir',
+                !!f && /Falta preparar ERP_Proyectos/.test(f.textContent) && /La prepara gerencia/.test(f.textContent) && !f.querySelector('[data-falta="copiar"]') && !document.querySelector('#archivosSeccion .zona-subir'), f && f.textContent.slice(0, 160));
+            await irArchivos('#archivos');
+            R.ok('cubeta 5 (sin ERP_Proyectos): Por proyecto dice lo mismo y las ligas de todos los frentes siguen ahí', !!document.querySelector('#archivosSeccion .arch-falta') && !$('archivosLigasCard').hidden && document.querySelectorAll('#archivosLista [data-archivo]').length === filas('ligas').filter(l => ESTADO.proyectos.some(p => p.id === Number(l.fields.ProyectoId))).length);
+            const tS = filas('tareas').find(x => Number(x.fields.ProyectoId) === P5().id && x.fields.Columna !== 'hecho');
+            await irHash(`#p/${CLAVE}/t/${tS.id}`); await esperar(() => visible('p-proyecto') && $('dlgTarea').open, 'tarjeta por su liga');
+            document.querySelector(`#tDocs [data-subir="${tS.id}"]`).click(); await esperar(() => $('dlgSubir').open, 'subir sin ERP_Proyectos');
+            R.ok('cubeta 5 (sin ERP_Proyectos): «Subir» de la tarjeta es el «Subir al buzón» de siempre (concepto visible, ayuda del lote)', $('sbTitulo').textContent === 'Subir al buzón' && !$('sbConceptoCampo').hidden && !$('sbAyudaBuzon').hidden && $('sbAyudaProyecto').hidden && $('sbBiblioteca').textContent.includes(CFG.buzon));
+            clic('sbCancelar'); await esperar(() => $('dlgTarea').open, 'vuelve a la tarjeta'); clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'tarjeta cerrada');
+            R.ok('cubeta 5 (sin ERP_Proyectos): la campana no trae nada de subidas y Salir no habla de la cola', AR.pendientesCola() === 0 && !AV5.avisosDe().some(a => a.tipo === 'subida' || a.tipo === 'duplicado'));
+        } else {
+            R.ok('cubeta 5: ERP_Proyectos encontrada por la lista de listas del arranque y su drive', AR.estadoBiblioteca().estado === 'lista' && AR.estadoBiblioteca().driveId === 'drive-proyectos');
+            if (gerencia) R.ok('cubeta 5: crear el proyecto le creó su carpeta en ERP_Proyectos', DB.proy.some(x => x.esCarpeta && x.nombre === CLAVE));
+            await irArchivos(RUTA_P, 'carpeta del proyecto');
+            const card = () => document.querySelector(`#archivosSeccion .arch-carpeta[data-carpeta="${CLAVE}"]`);
+            await esperar(() => card() && /archivo/.test(card().querySelector('.arch-n').textContent), 'la carpeta leída');
+            R.ok('cubeta 5: #archivos/proyecto/<clave> pinta la cabecera de la plantilla con el nombre del proyecto y la tarjeta «Carpeta del proyecto» con «N archivos · M sin archivar»',
+                document.querySelector('#archivosCab .rp-h')?.textContent === P5().Title && /^\d+ archivos? · \d+ sin archivar$/.test(card().querySelector('.arch-n').textContent) && $('archivosLigasCard').hidden, card().querySelector('.arch-n').textContent);
+            if (!escribe) {
+                // ---- lectura: ve, previsualiza y copia; no sube, no manda, no liga, no borra, no fija
+                const id = 'parch-l' + DB.siguienteId++;
+                DB.proy.push({ id, carpeta: CLAVE, nombre: 'oficio-recibido.pdf', bytes: new TextEncoder().encode('%PDF lectura'), hash: null, tipo: 'application/pdf', campos: { ProyectoClave: CLAVE }, creadoPor: 'jefa@example.invalid', creado: '2026-10-01T10:00:00Z', mod: '2026-10-01T10:00:00Z', versiones: [{ id: '1.0', bytes: new Uint8Array(3), cuando: '2026-10-01T10:00:00Z', por: 'jefa' }] });
+                if (!DB.proy.some(x => x.esCarpeta && x.nombre === CLAVE)) DB.proy.push({ id: 'pcarp-l', esCarpeta: true, nombre: CLAVE });
+                await recargarYEsperar(); await esperar(() => fila('oficio-recibido.pdf'), 'archivo sembrado a la vista');
+                const tr = fila('oficio-recibido.pdf'); tr.querySelector('.fila-menu').open = true;
+                const accs = [...tr.querySelectorAll('[data-accion-archivo]')].map(x => x.dataset.accionArchivo).join(',');
+                R.ok('cubeta 5 (lectura): sin zona de subir, y el menú «⋯» trae solo Vista previa, Abrir, Versiones y Copiar liga', !document.querySelector('#archivosSeccion .zona-subir') && accs === 'vista,abrir,versiones,copiar' && !tr.querySelector('select[data-tarjeta-archivo]'), accs);
+                tr.querySelector('[data-accion-archivo="vista"]').click(); await esperar(() => $('dlgVistaPrevia').open && DB.iframes.length, 'vista previa (lectura)');
+                R.ok('cubeta 5 (lectura): la vista previa abre (POST …/preview) en el marco del tenant', DB.iframes.at(-1) === `https://minsaenergy.sharepoint.com/_vista-falsa/${id}`, DB.iframes.at(-1));
+                clic('vpCerrar'); await esperar(() => !$('dlgVistaPrevia').open, 'vista previa cerrada');
+            } else {
+                // ---- (a) subir chico: PUT a la carpeta, columnas, bitácora, historial y recientes
+                const nP0 = DB.llamadas.filter(c => c.startsWith('PUT /drives/drive-proyectos/')).length;
+                enZona('archivos', [archivoDePrueba('%PDF contenido A', 'acta-recepcion.pdf', 'application/pdf', 1700000000000)]);
+                await esperar(() => enDB('acta-recepcion.pdf') && !enCola('acta-recepcion.pdf'), 'acta subida');
+                await esperar(() => actividadCon('subir', 'acta-recepcion.pdf').length, 'bitácora de la subida').catch(() => {});
+                const aA = enDB('acta-recepcion.pdf');
+                R.ok('cubeta 5: subir chico = UN PUT por ruta con conflictBehavior=fail; quedan ProyectoClave en la columna y «subió … a la carpeta del proyecto» en la bitácora',
+                    DB.llamadas.filter(c => c.startsWith('PUT /drives/drive-proyectos/')).length === nP0 + 1 && DB.llamadas.includes(`PUT /drives/drive-proyectos/root:/${CLAVE}/acta-recepcion.pdf:/content?@microsoft.graph.conflictBehavior=fail`)
+                    && aA.campos.ProyectoClave === CLAVE && new TextDecoder().decode(aA.bytes) === '%PDF contenido A' && actividadCon('subir', 'a la carpeta del proyecto').length >= 1, JSON.stringify(aA.campos));
+                await esperar(() => fila('acta-recepcion.pdf'), 'renglón del acta');
+                R.ok('cubeta 5: la tabla de la carpeta (piel .dtabla de Documentos) lista el archivo con su sello «sin archivar», y Mis subidas / Recientes lo anotan en este equipo',
+                    fila('acta-recepcion.pdf').querySelector('.c-estado').textContent === 'sin archivar' && AR.historial().some(h => h.tipo === 'subida' && h.nombre === 'acta-recepcion.pdf') && AR.recientes().some(x => x.nombre === 'acta-recepcion.pdf'));
+                // ---- (a2) arrastrar y soltar: solo ARCHIVOS (una tarjeta o un texto arrastrados no son una subida)
+                { const z = document.querySelector(`#archivosSeccion .zona-subir[data-zona="${CLAVE}"]`), dt0 = new DataTransfer(); dt0.setData('text/plain', 'una tarjeta');
+                  const ev0 = new DragEvent('dragover', { dataTransfer: dt0, bubbles: true, cancelable: true }); z.dispatchEvent(ev0);
+                  const dt = new DataTransfer(); dt.items.add(archivoDePrueba('arrastrado', 'arrastrado.txt', 'text/plain', 1700000000010));
+                  const ev1 = new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }); z.dispatchEvent(ev1); const sobre = z.classList.contains('is-sobre');
+                  z.dispatchEvent(new DragEvent('drop', { dataTransfer: dt0, bubbles: true, cancelable: true })); await dormir(30); const nadaConTexto = !enCola('arrastrado.txt') && !enDB('arrastrado.txt');
+                  z.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+                  await esperar(() => enDB('arrastrado.txt') && !enCola('arrastrado.txt'), 'arrastrado subido');
+                  R.ok('cubeta 5: arrastrar ARCHIVOS a la zona la marca (is-sobre) y al soltar los sube; arrastrar otra cosa (una tarjeta, un texto) no la marca ni sube nada', !ev0.defaultPrevented && ev1.defaultPrevented && sobre && nadaConTexto); }
+                // ---- (b) upload session: 11 MiB = 5 + 5 + 1 MiB, al uploadUrl SIN Authorization, con un 503 que se reintenta
+                const grande = new Uint8Array(11 * 1048576); for (let i = 0; i < grande.length; i += 4093) grande[i] = (i / 4093) & 255;
+                const nF0 = DB.fragmentos.length; DB.falloFragmento = 1;
+                enZona('archivos', [archivoDePrueba(grande, 'video-recorrido.mp4', 'video/mp4', 1700000000001)]);
+                await esperar(() => enDB('video-recorrido.mp4') && !enCola('video-recorrido.mp4'), 'video subido', 20000);
+                const fr = DB.fragmentos.slice(nF0), ok3 = fr.filter((_, i) => i > 0);
+                R.ok('cubeta 5: más de 10 MiB va por upload session — createUploadSession y fragmentos de 5 MiB (múltiplos de 320 KiB) + el resto, con Content-Range',
+                    DB.llamadas.includes(`POST /drives/drive-proyectos/root:/${CLAVE}/video-recorrido.mp4:/createUploadSession`) && fr.length === 4 && ok3.map(x => x.largo).join() === `${5 * 1048576},${5 * 1048576},${1048576}` && ok3[0].rango === `bytes 0-5242879/${11 * 1048576}` && ok3.slice(0, 2).every(x => x.largo % (320 * 1024) === 0), JSON.stringify(fr));
+                R.ok('cubeta 5: NINGÚN fragmento lleva la cabecera Authorization (el token no sale de Graph) y el 503 se reintentó solo', fr.every(x => !x.auth) && fr[0].largo === 5 * 1048576 && fr[1].rango === fr[0].rango);
+                R.ok('cubeta 5: el archivo armado con los fragmentos es idéntico al original (11 MiB)', enDB('video-recorrido.mp4').bytes.length === grande.length && enDB('video-recorrido.mp4').hash === quickXorHash(grande));
+                // ---- (c) «¿duplicado?»: mismo NOMBRE se retiene (y «Subir como versión nueva» lo reemplaza); mismo CONTENIDO con otro nombre se retiene y se descarta
+                const nPut1 = DB.llamadas.filter(c => c.startsWith('PUT /drives/drive-proyectos/')).length;
+                enZona('archivos', [archivoDePrueba('%PDF contenido B', 'acta-recepcion.pdf', 'application/pdf', 1700000000002)]);
+                await esperar(() => enCola('acta-recepcion.pdf') && enCola('acta-recepcion.pdf').estado === 'retenido', 'retenido por nombre');
+                R.ok('cubeta 5: un archivo con el MISMO NOMBRE no sube solo: queda RETENIDO («ya hay un … en la carpeta»), sin PUT, con su aviso', enCola('acta-recepcion.pdf').dup === 'nombre' && DB.llamadas.filter(c => c.startsWith('PUT /drives/drive-proyectos/')).length === nPut1 && enDB('acta-recepcion.pdf').versiones.length === 1 && !!avisoCon('duplicado'), enCola('acta-recepcion.pdf').motivo);
+                R.ok('cubeta 5: la campana suma el «¿duplicado?» (fuente de la cubeta 4) y lleva a Mis subidas', AV5.avisosDe().some(a => a.tipo === 'duplicado' && /acta-recepcion\.pdf/.test(a.texto) && a.ir === '#archivos/mias'));
+                await esperar(() => document.querySelector(`#archivosSeccion [data-cola="${CSS.escape(enCola('acta-recepcion.pdf').llave)}"] [data-cola-accion="subir"]`), 'botón de subir de todos modos');
+                const bSub = document.querySelector(`#archivosSeccion [data-cola="${CSS.escape(enCola('acta-recepcion.pdf').llave)}"] [data-cola-accion="subir"]`);
+                R.ok('cubeta 5: el renglón retenido ofrece «Subir como versión nueva» y «Descartar»', bSub.textContent === 'Subir como versión nueva' && !!bSub.parentElement.querySelector('[data-cola-accion="descartar"]'));
+                bSub.click(); await esperar(() => enDB('acta-recepcion.pdf').versiones.length === 2 && !enCola('acta-recepcion.pdf'), 'versión nueva');
+                R.ok('cubeta 5: «Subir como versión nueva» = PUT con conflictBehavior=replace: el archivo trae 2 versiones y el contenido nuevo', DB.llamadas.includes(`PUT /drives/drive-proyectos/root:/${CLAVE}/acta-recepcion.pdf:/content?@microsoft.graph.conflictBehavior=replace`) && new TextDecoder().decode(enDB('acta-recepcion.pdf').bytes) === '%PDF contenido B');
+                const nPut2 = DB.llamadas.filter(c => c.startsWith('PUT /drives/drive-proyectos/')).length;
+                enZona('archivos', [archivoDePrueba('%PDF contenido B', 'acta-copia.pdf', 'application/pdf', 1700000000003)]);
+                await esperar(() => enCola('acta-copia.pdf') && enCola('acta-copia.pdf').estado === 'retenido', 'retenido por contenido');
+                R.ok('cubeta 5: el MISMO CONTENIDO con otro nombre (mismo tamaño + quickXorHash) también se retiene', enCola('acta-copia.pdf').dup === 'contenido' && /mismo contenido que «acta-recepcion\.pdf»/.test(enCola('acta-copia.pdf').motivo) && DB.llamadas.filter(c => c.startsWith('PUT /drives/drive-proyectos/')).length === nPut2, enCola('acta-copia.pdf').motivo);
+                AR.decidir(enCola('acta-copia.pdf').llave, 'descartar'); await dormir(30);
+                R.ok('cubeta 5: «Descartar» lo saca de la cola sin subir nada', !enCola('acta-copia.pdf') && !enDB('acta-copia.pdf') && DB.llamadas.filter(c => c.startsWith('PUT /drives/drive-proyectos/')).length === nPut2);
+                // ---- (d) la cola SIN RED: espera en el equipo (IndexedDB) y sube sola al volver la red; «Salir» avisa
+                Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false }); window.dispatchEvent(new Event('offline')); await dormir(20);
+                const nSR = DB.llamadas.length;
+                enZona('archivos', [archivoDePrueba('%PDF sin señal', 'oficio-sin-senal.pdf', 'application/pdf', 1700000000004)]);
+                await esperar(() => enCola('oficio-sin-senal.pdf'), 'en la cola sin red');
+                await dormir(60); const enDisco = await conIdb(CL.leerCola(YO), 'leer la cola del disco');
+                const rD = enDisco.find(x => x.nombre === 'oficio-sin-senal.pdf');
+                R.ok('cubeta 5: sin red el archivo queda PENDIENTE en la cola («sin señal: sube sola…»), ni una llamada a Graph, y su copia (con los bytes) en IndexedDB con la llave de la cuenta',
+                    enCola('oficio-sin-senal.pdf').estado === 'pendiente' && /sin señal/.test(enCola('oficio-sin-senal.pdf').motivo) && DB.llamadas.length === nSR && !!rD && rD.llave.startsWith(YO.toLowerCase() + '|') && rD.archivo && rD.archivo.size === new TextEncoder().encode('%PDF sin señal').length, `${enCola('oficio-sin-senal.pdf').estado} · disco=${enDisco.length} · llamadas +${DB.llamadas.length - nSR}`);
+                R.ok('cubeta 5: lo guardado en el disco es lo que la app necesita para la siguiente sesión (cuenta, proyecto, tarjeta, nombre, tamaño, el archivo) y SIN el avance de la sesión', rD.cuenta === YO.toLowerCase() && rD.clave === CLAVE && rD.nombre === 'oficio-sin-senal.pdf' && rD.tamano === rD.archivo.size && !('progreso' in rD) && rD.estado === 'pendiente');
+                R.ok('cubeta 5: otra cuenta en este equipo no ve esa cola (rango de llaves por cuenta)', (await conIdb(CL.leerCola('otra@example.invalid'), 'la cola de otra cuenta')).length === 0);
+                clic('btnSalir'); await esperar(() => $('dlg').open, 'confirmación de Salir');
+                R.ok('cubeta 5: «Salir» avisa que queda 1 subida en la cola de este equipo (y no se pierde)', /queda 1 subida en la cola de este equipo/.test($('dlgTexto').textContent), $('dlgTexto').textContent);
+                clic('dlgCancelar'); await esperar(() => !$('dlg').open, 'Salir cancelado');
+                await irArchivos('#archivos/mias', 'mis subidas');
+                R.ok('cubeta 5: Mis subidas lista la cola (con su proyecto) y dice que en iPhone solo avanza con la app abierta', !!document.querySelector(`#archivosSeccion [data-cola="${CSS.escape(enCola('oficio-sin-senal.pdf').llave)}"]`) && /En iPhone la cola solo avanza con la app abierta/.test(document.querySelector('#archivosSeccion [data-nota="iphone"]')?.textContent || ''));
+                Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true }); window.dispatchEvent(new Event('online'));
+                await esperar(() => enDB('oficio-sin-senal.pdf') && !enCola('oficio-sin-senal.pdf'), 'subida al volver la red', 15000);
+                await dormir(60);
+                R.ok('cubeta 5: al volver la red la cola se vacía SOLA: el archivo está en la carpeta y ya no en IndexedDB', !(await conIdb(CL.leerCola(YO), 'la cola tras subir')).some(x => x.nombre === 'oficio-sin-senal.pdf') && AR.pendientesCola() === 0);
+                await esperar(() => !$('btnActualizar').disabled, 'la relectura del online');
+                // «se procesa AL ABRIR la app»: lo que una sesión anterior dejó en el disco de este equipo vuelve con iniciarCola (app.js la llama al entrar) y sube
+                { const bd = window.__IDB.get('minsa-erp').almacenes.get('subidas').datos, id0 = 'previa' + DB.siguienteId++, ll = YO.toLowerCase() + '|' + id0;
+                  bd.set(ll, { llave: ll, cuenta: YO.toLowerCase(), id: id0, proyectoId: P5().id, clave: CLAVE, titulo: P5().Title, tareaId: null, nombre: 'de-la-sesion-anterior.pdf', tipo: 'application/pdf', tamano: 9, archivo: archivoDePrueba('%PDF prev', 'de-la-sesion-anterior.pdf', 'application/pdf', 1700000000009), estado: 'subiendo', motivo: '', creado: '2026-10-02T10:00:00Z', cambio: '2026-10-02T10:00:00Z', confirmado: false, reemplazar: false, renombrar: false, foto: false });
+                  await AR.iniciarCola(); await esperar(() => enDB('de-la-sesion-anterior.pdf') && !bd.has(ll), 'la cola de la sesión anterior subió', 10000);
+                  R.ok('cubeta 5: al ABRIR la app, lo que quedó en la cola de este equipo (aun «subiendo» cuando se cerró) vuelve, sube y sale del disco', AR.pendientesCola() === 0 && new TextDecoder().decode(enDB('de-la-sesion-anterior.pdf').bytes) === '%PDF prev'); }
+                // ---- (e) la FOTO: la cámara, comprimida (el compresor del navegador se finge) y con nombre por fecha y hora
+                await irArchivos(RUTA_P);
+                const zf = document.querySelector(`#archivosSeccion .zona-subir[data-zona="${CLAVE}"] input[data-zona-input="foto"]`);
+                R.ok('cubeta 5: «Foto» de la zona es la cámara (accept=image/*, capture=environment)', !!zf && zf.accept === 'image/*' && zf.getAttribute('capture') === 'environment');
+                let comprimida = null; AR.fijarCompresor(async f => { comprimida = f.name; return { bytes: new TextEncoder().encode('JPEG-2048') }; });
+                enZona('foto', [archivoDePrueba('cruda-4032x3024', 'image.jpg', 'image/jpeg', 1700000000005)]);
+                await esperar(() => DB.proy.some(a => /^\d{4}-\d{2}-\d{2}_\d{6}_foto\.jpg$/.test(a.nombre) && a.carpeta === CLAVE), 'foto subida');
+                const foto = DB.proy.find(a => /^\d{4}-\d{2}-\d{2}_\d{6}_foto\.jpg$/.test(a.nombre) && a.carpeta === CLAVE);
+                R.ok('cubeta 5: la foto pasa por el compresor (2048 px) y sube como JPEG con nombre AAAA-MM-DD_HHMMSS_foto.jpg (no «image.jpg»)', comprimida === 'image.jpg' && new TextDecoder().decode(foto.bytes) === 'JPEG-2048' && foto.tipo === 'image/jpeg', foto.nombre);
+                AR.fijarCompresor(f => import('../imagen.js').then(m => m.comprimir(f)));
+                // ---- (f) Office, vista previa y versiones (con restaurar)
+                enZona('archivos', [archivoDePrueba('docx falso', 'propuesta tecnica.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 1700000000006)]);
+                await esperar(() => enDB('propuesta tecnica.docx') && fila('propuesta tecnica.docx'), 'docx subido');
+                const off = accion('propuesta tecnica.docx', 'office');
+                R.ok('cubeta 5: un .docx trae «Abrir en Word» = ms-word:ofe|u|<la ruta del archivo en la biblioteca>; un .pdf no', !!off && off.textContent === 'Abrir en Word' && off.getAttribute('href') === `ms-word:ofe|u|https://minsaenergy.sharepoint.com/sites/Administracion/ERP_Proyectos/${CLAVE}/propuesta%20tecnica.docx` && !accion('acta-recepcion.pdf', 'office'), off && off.getAttribute('href'));
+                accion('acta-recepcion.pdf', 'vista').click(); await esperar(() => $('dlgVistaPrevia').open && DB.iframes.at(-1) === `https://minsaenergy.sharepoint.com/_vista-falsa/${enDB('acta-recepcion.pdf').id}`, 'vista previa');
+                const csp = /frame-src (https:[^;]+);/.exec(await (await fetch('./index.html', { cache: 'reload' })).text());
+                R.ok('cubeta 5: Vista previa = POST …/preview y su getUrl en el <iframe> con sandbox, «Abrir en una pestaña nueva» de respaldo, y la CSP frame-src suma SOLO el host del tenant',
+                    DB.previews.includes(enDB('acta-recepcion.pdf').id) && !$('vpMarco').hidden && $('vpMarco').getAttribute('sandbox').includes('allow-scripts') && !$('vpAbrir').hidden && $('vpAbrir').href.startsWith('https://minsaenergy.sharepoint.com/sites/Administracion/ERP_Proyectos/') && !!csp && csp[1].trim() === 'https://login.microsoftonline.com https://minsaenergy.sharepoint.com', csp && csp[1]);
+                clic('vpCerrar'); await esperar(() => !$('dlgVistaPrevia').open, 'vista previa cerrada');
+                accion('acta-recepcion.pdf', 'versiones').click(); await esperar(() => $('dlgVersiones').open && $('vrLista').querySelectorAll('.vr-r').length === 2, 'versiones');
+                { const r0 = $('vrLista').querySelector('.vr-r'); R.ok('cubeta 5: Versiones lista la actual (sin Restaurar) y la vieja con «Restaurar»', r0.textContent.includes('actual') && !r0.querySelector('[data-restaurar]') && !!$('vrLista').querySelector('[data-restaurar="1.0"]')); }
+                $('vrLista').querySelector('[data-restaurar="1.0"]').click(); await confirmar();
+                await esperar(() => enDB('acta-recepcion.pdf').versiones.length === 3 && new TextDecoder().decode(enDB('acta-recepcion.pdf').bytes) === '%PDF contenido A', 'restaurada');
+                await esperar(() => actividadCon('restaurar-version', 'acta-recepcion.pdf').length, 'bitácora de restaurar').catch(() => {});
+                R.ok('cubeta 5: «Restaurar» vuelve a la versión 1.0 (POST …/restoreVersion: queda como versión nueva) y deja «restauró» en la bitácora', DB.llamadas.some(c => /^POST \/drives\/drive-proyectos\/items\/[^/]+\/versions\/1\.0\/restoreVersion$/.test(c)) && actividadCon('restaurar-version', 'acta-recepcion.pdf').length === 1);
+                clic('vrCerrar'); await esperar(() => !$('dlgVersiones').open, 'versiones cerradas');
+                // ---- (g) ligar a tarjeta (TareaId) y la ficha de la tarjeta lo lista; «Subir» de la tarjeta va a la carpeta
+                const tL = filas('tareas').find(x => Number(x.fields.ProyectoId) === P5().id && x.fields.Columna !== 'hecho');
+                await esperar(() => fila('acta-recepcion.pdf'), 'renglón');
+                fila('acta-recepcion.pdf').querySelector('.fila-menu').open = true;
+                const sT = fila('acta-recepcion.pdf').querySelector('select[data-tarjeta-archivo]'); sT.value = String(tL.id); sT.dispatchEvent(new Event('change', { bubbles: true })); await confirmar();
+                await esperar(() => Number(enDB('acta-recepcion.pdf').campos.TareaId) === tL.id, 'ligado a la tarjeta');
+                await esperar(() => actividadCon('ligar', 'acta-recepcion.pdf').length, 'bitácora de ligar').catch(() => {});
+                R.ok('cubeta 5: «Ligar a tarjeta» escribe TareaId en la columna del archivo y deja «ligó … a …» en la bitácora', actividadCon('ligar', 'acta-recepcion.pdf').some(a => a.fields.Title.includes(tL.fields.Title.slice(0, 20))));
+                await irHash(`#p/${CLAVE}/t/${tL.id}`); await esperar(() => visible('p-proyecto') && $('dlgTarea').open, 'tarjeta por su liga');
+                await esperar(() => document.querySelector(`#tDocs [data-archivo-tarjeta="${enDB('acta-recepcion.pdf').id}"]`), 'el archivo en la ficha');
+                R.ok('cubeta 5: la ficha de la tarjeta lista el archivo de la carpeta ligado a ella («sin archivar · carpeta del proyecto») con «Mandar a archivar»', /sin archivar · carpeta del proyecto/.test(document.querySelector(`#tDocs [data-archivo-tarjeta="${enDB('acta-recepcion.pdf').id}"]`).textContent) && !!document.querySelector(`#tDocs [data-archivar-desde-tarjeta="${enDB('acta-recepcion.pdf').id}"]`));
+                document.querySelector(`#tDocs [data-subir="${tL.id}"]`).click(); await esperar(() => $('dlgSubir').open, 'Subir de la tarjeta');
+                R.ok('cubeta 5: «Subir» de la tarjeta abre el MISMO diálogo en modo carpeta del proyecto (sin concepto) con la tarjeta puesta', $('sbTitulo').textContent === 'Subir a la carpeta del proyecto' && $('sbConceptoCampo').hidden && !$('sbAyudaProyecto').hidden && $('sbTarea').value === String(tL.id) && $('sbBiblioteca').textContent.includes(`ERP_Proyectos/${CLAVE}/`));
+                meter('#sbArchivos', [archivoDePrueba('minuta', 'minuta-junta.pdf', 'application/pdf', 1700000000007)]); clic('sbGuardar');
+                await esperar(() => enDB('minuta-junta.pdf') && !enCola('minuta-junta.pdf'), 'minuta subida desde la tarjeta');
+                await esperar(() => $('dlgTarea').open && document.querySelector(`#tDocs [data-archivo-tarjeta="${enDB('minuta-junta.pdf').id}"]`), 'vuelve a la ficha con el archivo');
+                R.ok('cubeta 5: lo subido desde la tarjeta queda en la carpeta del proyecto LIGADO a ella (TareaId) y la ficha vuelve con el archivo listado', Number(enDB('minuta-junta.pdf').campos.TareaId) === tL.id);
+                // ---- (h) «Mandar a archivar» desde la ficha: lote en el buzón de la unidad, `_lote.json` AL FINAL, liga de buzón y EnviadoArchivar
+                const nLigas = filas('ligas').length, nMon = DB.monitorAuth.length;
+                document.querySelector(`#tDocs [data-archivar-desde-tarjeta="${enDB('minuta-junta.pdf').id}"]`).click();
+                await esperar(() => enDB('minuta-junta.pdf').campos.EnviadoArchivar === true, 'mandado a archivar', 15000);
+                const lote = enDB('minuta-junta.pdf').campos.Lote, piezas = DB.archivos.filter(a => a.ruta.startsWith(lote + '/'));
+                const man = piezas.find(a => a.nombre === '_lote.json'); const mj = man ? JSON.parse(man.texto) : {};
+                R.ok('cubeta 5: «Mandar a archivar» COPIA el archivo (POST …/copy + el monitor, que se lee SIN Authorization) a 99_Pendiente-Archivar/<fecha>_Proyecto_<clave>_<concepto> y sube `_lote.json` AL FINAL',
+                    new RegExp(`^99_Pendiente-Archivar/\\d{4}-\\d{2}-\\d{2}_Proyecto_${CLAVE}_minuta-junta$`).test(lote) && piezas.map(a => a.nombre).join() === 'minuta-junta.pdf,_lote.json' && DB.monitorAuth.length > nMon && DB.monitorAuth.slice(nMon).every(x => !x), `${lote} · ${piezas.map(a => a.nombre)}`);
+                R.ok('cubeta 5: el `_lote.json` es el contrato 1 de minsa-proyectos con su proyecto, su tarjeta, la pieza y un destino que NO es el buzón', mj.app === 'minsa-proyectos' && mj.contrato === 1 && mj.proyecto === CLAVE && mj.tarea === tL.id && mj.archivos.join() === 'minuta-junta.pdf' && !!mj.destino && !mj.destino.startsWith('99_'), JSON.stringify(mj));
+                await esperar(() => actividadCon('archivar', 'minuta-junta').length, 'bitácora de archivar').catch(() => {});
+                const lgB = filas('ligas').find(l => l.fields.Ruta === lote);
+                R.ok('cubeta 5: queda la liga de tipo buzón de siempre (con la tarjeta) para que «en el buzón» y el recibo de la skill la sigan, y «mandó a archivar» en la bitácora', filas('ligas').length === nLigas + 1 && !!lgB && lgB.fields.Tipo === 'buzon' && Number(lgB.fields.TareaId) === tL.id && actividadCon('archivar', 'minuta-junta').length === 1);
+                await esperar(() => /enviado a archivar/.test(document.querySelector(`#tDocs [data-archivo-tarjeta="${enDB('minuta-junta.pdf').id}"]`)?.textContent || ''), 'la ficha dice enviado');
+                R.ok('cubeta 5: la ficha dice «enviado a archivar» y ya no ofrece mandarlo', !document.querySelector(`#tDocs [data-archivar-desde-tarjeta="${enDB('minuta-junta.pdf').id}"]`));
+                clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'ficha cerrada');
+                // ---- (i) la pestaña Documentos del proyecto es el MISMO componente
+                const ids = sel => [...document.querySelectorAll(sel + ' tr[data-archivo-id]')].map(x => x.dataset.archivoId).sort().join();
+                await irArchivos(RUTA_P); await esperar(() => fila('minuta-junta.pdf'), 'la carpeta al día'); const enArch = ids('#archivosSeccion');
+                await irHash(`#p/${CLAVE}/docs`); await esperar(() => visible('tab-docs') && document.querySelector(`#docsCarpeta .arch-carpeta[data-carpeta="${CLAVE}"] tr[data-archivo-id]`), 'carpeta en Documentos');
+                R.ok('cubeta 5: la pestaña Documentos pinta ARRIBA la misma carpeta (mismo componente, mismos archivos) y abajo las ligas de siempre', ids('#docsCarpeta') === enArch && enArch.split(',').length === DB.proy.filter(a => !a.esCarpeta && a.carpeta === CLAVE).length && !!document.querySelector('#docsCarpeta .zona-subir') && $('docsCarpeta').nextElementSibling.classList.contains('docs-barra'), enArch);
+                // ---- (j) fijar (ERP_Vistas o este equipo), Recientes, Mis subidas y Por proyecto
+                await irArchivos(RUTA_P);
+                accion('acta-recepcion.pdf', 'fijar').click(); await esperar(() => AR.fijados().some(v => v.definicion.nombre === 'acta-recepcion.pdf'), 'fijado');
+                await irArchivos('#archivos/fijados', 'fijados');
+                const vistaF = DB.listas.vistas && DB.listas.vistas.items.find(v => v.fields.Modulo === 'archivos');
+                R.ok('cubeta 5: «Fijar» guarda el archivo en Fijados (ERP_Vistas, Modulo «archivos», definición validada) y la sección lo lista', !!document.querySelector('#archivosSeccion [data-entrada]') && document.querySelector('#archivosSeccion .arch-fijados').textContent.includes('acta-recepcion.pdf') && (!DB.listas.vistas || (!!vistaF && JSON.parse(vistaF.fields.Definicion).tipo === 'fijado')));
+                document.querySelector('#archivosSeccion [data-fijado="quitar"]').click(); await esperar(() => !AR.fijados().length, 'fijado quitado');
+                R.ok('cubeta 5: «Quitar» lo saca de Fijados', !document.querySelector('#archivosSeccion [data-fijado="quitar"]'));
+                await irArchivos('#archivos/recientes', 'recientes');
+                R.ok('cubeta 5: Recientes (por dispositivo) lista lo subido y lo previsualizado, del más nuevo al más viejo', document.querySelectorAll('#archivosSeccion .arch-recientes [data-entrada]').length >= 4 && document.querySelector('#archivosSeccion .arch-recientes').textContent.includes('acta-recepcion.pdf'));
+                await irArchivos('#archivos/mias', 'mis subidas');
+                R.ok('cubeta 5: Mis subidas trae «Subidas recientes» y «Enviados a archivar» (con «en el buzón»)', document.querySelector('#archivosSeccion .arch-subidas').textContent.includes('minuta-junta.pdf') && /minuta-junta/.test(document.querySelector('#archivosSeccion .arch-enviados').textContent) && document.querySelector('#archivosSeccion .arch-enviados').textContent.includes('en el buzón'));
+                await irArchivos('#archivos', 'por proyecto');
+                await esperar(() => /sin archivar/.test(document.querySelector(`#archivosSeccion .arch-fila[data-ir="${RUTA_P}"] .arch-sin`)?.textContent || ''), 'conteo por proyecto');
+                const nSin = DB.proy.filter(a => !a.esCarpeta && a.carpeta === CLAVE && !a.campos.EnviadoArchivar).length;
+                R.ok('cubeta 5: Por proyecto = una fila por proyecto activo con «N archivos» y «M sin archivar», y debajo la tarjeta de ligas de siempre', document.querySelector(`#archivosSeccion .arch-fila[data-ir="${RUTA_P}"] .arch-sin`).dataset.sinArchivar === String(nSin) && !$('archivosLigasCard').hidden, `${nSin}`);
+                // ---- (j2) el buscador global encuentra los archivos ya leídos de la carpeta (índice local, sin pedir nada) y lleva a su carpeta
+                { clic(matchMedia('(max-width: 720px)').matches ? 'btnBuscarMovil' : 'btnBuscar'); await esperar(() => $('dlgBuscar').open, 'buscar'); poner('bsTexto', 'acta-recep'); await dormir(40);
+                  const rB = [...$('bsResultados').querySelectorAll('.bs-r')].find(b => b.dataset.ir === RUTA_P && b.textContent.includes('acta-recepcion.pdf'));
+                  R.ok('cubeta 5: el buscador global encuentra un archivo de la carpeta del proyecto (grupo Archivos) y lleva a su carpeta', !!rB && rB.dataset.grupo === 'Archivos');
+                  clic('bsCerrar'); await esperar(() => !$('dlgBuscar').open, 'buscar cerrado'); }
+                // ---- (k) Bibliotecas: solo las que contestan 200 (la de 403 no se pinta), sin el buzón, y «Ligar a un proyecto…»
+                DB.archivos.push({ id: 'archivo-b5', ruta: '02_Planta/2026-10-01_CALYTEK_bitacora-arranque.pdf', nombre: '2026-10-01_CALYTEK_bitacora-arranque.pdf', bytes: 321, guid: 'bbbbbbbb-0000-0000-0000-000000000005' });
+                await irArchivos('#archivos/bibliotecas', 'bibliotecas');
+                await esperar(() => document.querySelector('#archivosSeccion [data-biblioteca]'), 'bibliotecas con permiso');
+                R.ok('cubeta 5: Bibliotecas pinta SOLO las de unidad que contestan 200 (CALYTEK); PITEPEC, RABASA, LEGAL y FINANZAS contestan 403 y no se pintan', [...document.querySelectorAll('#archivosSeccion [data-biblioteca]')].map(b => b.dataset.biblioteca).join() === 'CALYTEK' && DB.llamadas.some(c => c === 'GET /sites/minsaenergy.sharepoint.com:/sites/Quimicos-PITEPEC'));
+                document.querySelector('#archivosSeccion [data-biblioteca="CALYTEK"]').click(); await esperar(() => location.hash === '#archivos/bibliotecas/CALYTEK' && document.querySelector('#archivosSeccion .arch-migas'), 'la raíz de CALYTEK');
+                await esperar(() => document.querySelector('#archivosSeccion .arch-fila[data-ir="#archivos/bibliotecas/CALYTEK/02_Planta"]'), 'carpetas de la raíz');
+                R.ok('cubeta 5: la raíz de la biblioteca lista sus carpetas (children) SIN el buzón 99_Pendiente-Archivar', !document.querySelector('#archivosSeccion .arch-fila[data-ir^="#archivos/bibliotecas/CALYTEK/99_Pendiente-Archivar"]') && !!document.querySelector('#archivosSeccion .arch-fila[data-ir="#archivos/bibliotecas/CALYTEK/04_SGI"]'));
+                document.querySelector('#archivosSeccion .arch-fila[data-ir="#archivos/bibliotecas/CALYTEK/02_Planta"]').click();
+                await esperar(() => document.querySelector('#archivosSeccion [data-item-biblioteca="archivo-b5"]'), 'archivo de la biblioteca');
+                const itB = document.querySelector('#archivosSeccion [data-item-biblioteca="archivo-b5"]'); itB.querySelector('.fila-menu').open = true;
+                R.ok('cubeta 5: un archivo de la biblioteca trae Vista previa, Abrir, Copiar liga, Fijar y «Ligar a un proyecto…» (nada de subir, mover ni borrar)', [...itB.querySelectorAll('[data-accion-archivo]')].map(x => x.dataset.accionArchivo).join() === 'vista,abrir,copiar,fijar,ligar' && document.querySelector('#archivosSeccion .arch-migas').textContent.includes('02_Planta'));
+                itB.querySelector('[data-accion-archivo="vista"]').click(); await esperar(() => $('dlgVistaPrevia').open && DB.iframes.at(-1) === 'https://minsaenergy.sharepoint.com/_vista-falsa/archivo-b5', 'vista previa de la biblioteca');
+                R.ok('cubeta 5: la vista previa de un archivo de la biblioteca va por SU sitio (POST /sites/<sitio>/drive/items/<id>/preview)', DB.llamadas.includes('POST /sites/sitio-calytek/drive/items/archivo-b5/preview'));
+                clic('vpCerrar'); await esperar(() => !$('dlgVistaPrevia').open, 'vista previa cerrada');
+                document.querySelector('#archivosSeccion [data-item-biblioteca="archivo-b5"] [data-accion-archivo="ligar"]').click(); await esperar(() => $('dlgLigarA').open, 'ligar a un proyecto');
+                R.ok('cubeta 5: «Ligar a un proyecto…» ofrece los proyectos activos de ESA unidad', [...$('laProyecto').options].some(o => o.value === String(P5().id)));
+                poner('laProyecto', String(P5().id)); $('formLigarA').requestSubmit();
+                await esperar(() => filas('ligas').some(l => l.fields.DriveItemId === 'archivo-b5'), 'ligado desde la biblioteca');
+                const lB = filas('ligas').find(l => l.fields.DriveItemId === 'archivo-b5');
+                R.ok('cubeta 5: ligar desde Bibliotecas crea la liga «archivado» de siempre (ruta real releída por id, unidad, sin tarjeta)', lB.fields.Tipo === 'archivado' && lB.fields.Ruta === '02_Planta/2026-10-01_CALYTEK_bitacora-arranque.pdf' && lB.fields.Unidad === 'CALYTEK' && !$('dlgLigarA').open, JSON.stringify(lB.fields));
+                // ---- (l) borrar: el autor o gerencia; un archivo ajeno no se le ofrece al colaborador
+                const idAj = 'parch-aj' + DB.siguienteId++;
+                DB.proy.push({ id: idAj, carpeta: CLAVE, nombre: 'ajeno.pdf', bytes: new TextEncoder().encode('ajeno'), hash: null, tipo: 'application/pdf', campos: { ProyectoClave: CLAVE }, creadoPor: 'jefa@example.invalid', creado: '2026-10-01T10:00:00Z', mod: '2026-10-01T10:00:00Z', versiones: [{ id: '1.0', bytes: new Uint8Array(5), cuando: '2026-10-01T10:00:00Z', por: 'jefa' }] });
+                await irArchivos(RUTA_P); await recargarYEsperar(); await esperar(() => fila('ajeno.pdf'), 'archivo ajeno');
+                R.ok(`cubeta 5 (${ROL}): «Borrar» se ofrece en lo propio${gerencia ? ' y, a gerencia, también en lo ajeno' : ', no en lo ajeno'}`, !!accion('propuesta tecnica.docx', 'borrar') && (!!accion('ajeno.pdf', 'borrar') === gerencia));
+                accion('propuesta tecnica.docx', 'borrar').click(); await confirmar();
+                await esperar(() => !enDB('propuesta tecnica.docx'), 'borrado');
+                await esperar(() => actividadCon('borrar-archivo', 'propuesta tecnica.docx').length, 'bitácora de borrar').catch(() => {});
+                R.ok('cubeta 5: «Borrar» quita el archivo de la carpeta (DELETE) y deja «borró» en la bitácora', actividadCon('borrar-archivo', 'propuesta tecnica.docx').length === 1 && !fila('propuesta tecnica.docx'));
+                // ---- (m) una subida que FALLA (403): queda en error con «Reintentar» y su aviso en la campana
+                DB.fallas.push({ metodo: 'PUT', incluye: 'rechazada.pdf', status: 403, veces: 1 });
+                enZona('archivos', [archivoDePrueba('x', 'rechazada.pdf', 'application/pdf', 1700000000008)]);
+                await esperar(() => enCola('rechazada.pdf') && enCola('rechazada.pdf').estado === 'error', 'subida con error');
+                R.ok('cubeta 5: una subida rechazada (403) queda en ERROR con el motivo, «Reintentar» y su aviso en la campana', /sin permiso \(403\)/.test(enCola('rechazada.pdf').motivo) && AV5.avisosDe().some(a => a.tipo === 'subida' && /«rechazada\.pdf» no se subió/.test(a.texto)) && !!document.querySelector(`#archivosSeccion [data-cola="${CSS.escape(enCola('rechazada.pdf').llave)}"] [data-cola-accion="reintentar"]`));
+                document.querySelector(`#archivosSeccion [data-cola="${CSS.escape(enCola('rechazada.pdf').llave)}"] [data-cola-accion="reintentar"]`).click();
+                await esperar(() => enDB('rechazada.pdf') && !enCola('rechazada.pdf'), 'reintento');
+                R.ok('cubeta 5: «Reintentar» la sube (la falla era de una vez)', AR.pendientesCola() === 0);
+                // ---- (n) gerencia: sin ERP_Proyectos ve la ruta de las instrucciones; «Volver a revisar» la encuentra cuando ya existe
+                if (gerencia) {
+                    const bib = DB.listas.bibProyectos; delete DB.listas.bibProyectos; AR.olvidarBiblioteca(); await AR.asegurarBiblioteca(true);
+                    await irArchivos('#archivos'); await irArchivos(RUTA_P); await esperar(() => document.querySelector('#archivosSeccion .arch-falta'), 'falta preparar (gerencia)');
+                    R.ok('cubeta 5 (gerencia): sin la biblioteca, «Falta preparar ERP_Proyectos» con la ruta de las instrucciones, «Copiar la ruta» y «Volver a revisar»', document.querySelector('#archivosSeccion .arch-falta').textContent.includes(CFG.instruccionesRediseno) && !!document.querySelector('#archivosSeccion [data-falta="copiar"]') && !!document.querySelector('#archivosSeccion [data-falta="revisar"]'));
+                    DB.listas.bibProyectos = bib;
+                    document.querySelector('#archivosSeccion [data-falta="revisar"]').click();
+                    await esperar(() => AR.estadoBiblioteca().estado === 'lista' && document.querySelector(`#archivosSeccion .arch-carpeta[data-carpeta="${CLAVE}"]`), 'vuelve a encontrarla');
+                    R.ok('cubeta 5 (gerencia): «Volver a revisar» relee la lista de listas y la carpeta vuelve', AR.estadoBiblioteca().driveId === 'drive-proyectos');
+                    // ---- (o) cerrar un proyecto con archivos SIN ARCHIVAR: la lista y «Mandar a archivar todo» (un lote con las dos piezas)
+                    const idP = DB.siguienteId++; const CL5 = 'cierre-demo';
+                    filas('proyectos').push({ id: idP, fields: { Title: 'CIERRE DEMO', Clave: CL5, Equipo: 'CALYTEK', Estado: 'activo' }, etag: 1 });
+                    DB.proy.push({ id: 'pcarp-c5', esCarpeta: true, nombre: CL5 });
+                    for (const n of ['informe-final.pdf', 'fotos-cierre.zip']) DB.proy.push({ id: 'parch-c5-' + n.replace(/\W/g, ''), carpeta: CL5, nombre: n, bytes: new TextEncoder().encode(n), hash: null, tipo: 'application/octet-stream', campos: { ProyectoClave: CL5 }, creadoPor: YO, creado: '2026-10-02T10:00:00Z', mod: '2026-10-02T10:00:00Z', versiones: [{ id: '1.0', bytes: new Uint8Array(1), cuando: '2026-10-02T10:00:00Z', por: YO }] });
+                    await recargarYEsperar(); await irHash(`#p/${CL5}`); await esperar(() => visible('p-proyecto') && $('pTitulo').textContent === 'CIERRE DEMO', 'proyecto a cerrar');
+                    clic('btnCerrarProyecto'); await esperar(() => $('dlgSinArchivar').open, 'lista de sin archivar');
+                    R.ok('cubeta 5 (gerencia): al CERRAR un proyecto con 2 archivos sin archivar, la app los lista antes de la confirmación y ofrece «Mandar a archivar todo» y «Cerrar sin archivar»', $('saLista').querySelectorAll('li').length === 2 && /2 archivos sin mandar a archivar/.test($('saTexto').textContent) && !$('saTodo').hidden && !$('dlg').open);
+                    clic('saTodo'); await esperar(() => $('dlg').open && $('dlgTitulo').textContent === 'Cerrar el proyecto', 'confirmación de cierre tras archivar', 15000);
+                    const loteC = DB.proy.find(a => a.carpeta === CL5 && a.nombre === 'informe-final.pdf').campos.Lote;
+                    R.ok('cubeta 5 (gerencia): «Mandar a archivar todo» = UN lote con las dos piezas y su `_lote.json`, ambas marcadas EnviadoArchivar, y luego sigue la confirmación de cerrar', !!loteC && DB.archivos.filter(a => a.ruta.startsWith(loteC + '/')).map(a => a.nombre).sort().join() === '_lote.json,fotos-cierre.zip,informe-final.pdf' && DB.proy.filter(a => a.carpeta === CL5 && !a.esCarpeta).every(a => a.campos.EnviadoArchivar === true), loteC);
+                    clic('dlgOk'); await esperar(() => filas('proyectos').find(x => x.id === idP).fields.Estado === 'cerrado', 'cerrado');
+                    R.ok('cubeta 5 (gerencia): y el proyecto se cierra', true);
+                    DB.listas.proyectos.items = filas('proyectos').filter(x => x.id !== idP); DB.listas.ligas.items = filas('ligas').filter(l => Number(l.fields.ProyectoId) !== idP);
+                    await recargarYEsperar(); await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio');
+                }
+            }
+            // ---- lectura y escritura: el aviso de la cola se va con ella (nada queda colgado para el ARMAZÓN)
+            R.ok(`cubeta 5 (${ROL}): al terminar, la cola de este equipo está vacía y la campana no trae subidas pendientes`, AR.pendientesCola() === 0 && !AV5.avisosDe().some(a => a.tipo === 'subida' || a.tipo === 'duplicado'));
+        }
+        await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio');
     }
     // ==================================================================================================================
     // v1.0.0 (rediseño 2026-10-02, cubeta 1 «Armazón»): rail de 5 módulos, panel, chips, hoja, «+ Nuevo», ámbito, «Mi día», Avisos, Buscar y

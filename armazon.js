@@ -20,7 +20,7 @@ import { ordenarVigencias } from './vigencias-reglas.js';
 import { DIAS_VIGENCIA_ATENCION } from './inicio-reglas.js';
 import { datosPublicados } from './inicio.js';   // v1.0.0 (cubeta 4): las vigencias de la campana (gerencia)
 import { abrirNuevaTarea } from './tablero.js';
-import { abrirSubir, puedeLigarEn } from './docs.js';
+import { abrirSubida, puedeSubirEn } from './archivos.js';   // v1.0.0 (cubeta 5): «Subir archivo / Foto» va a la carpeta del proyecto (o al buzón sin ERP_Proyectos)
 import { abrirNuevoGasto, estadoGastos, misRolesErp } from './gastos.js';
 import { estadoServicios } from './servicios.js';
 import { mensajesNuevos, proyectoDeMensajes } from './vistas.js';
@@ -443,7 +443,7 @@ function abrirMenuNuevo(desde) {
 function proyectoDeContexto(k) {
     const p = estado.pestana === 'proyecto' ? proyectoAbierto() : null;
     if (!p || p.Estado !== 'activo') return null;
-    return k === 'tarea' || puedeLigarEn(p) ? p : null;
+    return k === 'tarea' || puedeSubirEn(p) ? p : null;
 }
 function prepararArchivo(foto) {
     const i = $('sbArchivos');
@@ -452,7 +452,7 @@ function prepararArchivo(foto) {
 function hacerNuevo(k, p) {
     cerrarMenuNuevo();
     if (k === 'tarea') { if (estado.pestana !== 'proyecto' || estado.proyectoAbiertoId !== p.id) nav.abrirProyecto(p.id); abrirNuevaTarea(); return; }
-    prepararArchivo(k === 'foto'); abrirSubir({ proyectoId: p.id });
+    prepararArchivo(k === 'foto'); abrirSubida({ proyectoId: p.id });
 }
 function elegirNuevo(k) {
     if (k === 'gasto') {
@@ -464,9 +464,10 @@ function elegirNuevo(k) {
     }
     const p = proyectoDeContexto(k);
     if (p) { hacerNuevo(k, p); return; }
-    // Fuera de un proyecto: ¿en cuál? (tarea: los activos; archivo y foto: los activos con biblioteca habilitada, como «Subir» de Docs)
+    // Fuera de un proyecto: ¿en cuál? (tarea: los activos; archivo y foto: los activos donde se puede subir — con ERP_Proyectos todos, sin ella
+    // los que tienen biblioteca de unidad habilitada, como «Subir» de la tarjeta)
     const m = $('menuNuevo'); m.textContent = '';
-    const lista = ordenarProyectos(visibles()).filter(x => k === 'tarea' || puedeLigarEn(x));
+    const lista = ordenarProyectos(visibles()).filter(x => k === 'tarea' || puedeSubirEn(x));
     m.appendChild(opcionNuevo('volver', 'Volver', 'chevr', () => { pintarMenuNuevo(); const b = m.querySelector('button:not(:disabled)'); if (b) b.focus(); }));
     m.lastChild.classList.add('is-volver');
     m.appendChild(el('p', 'mn-label', k === 'tarea' ? '¿En qué proyecto va la tarea?' : '¿En qué proyecto lo subes?'));

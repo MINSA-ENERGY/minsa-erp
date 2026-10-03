@@ -23,7 +23,9 @@ import { pintarChat, engancharChat, alCambiarChat, fijarAbrirTarjeta, salirDelCh
 import { pintarCapital, pintarCapitalProyecto, pintarCapitalTab, puedeVerCapital, engancharCapital, alCambiarCapital, fijarIrAProyecto } from './capital.js';
 import { pintarFinanzas, alCambiarCobranza, fijarIrDesdeFinanzas } from './cobranza.js';   // v0.165.0: Finanzas > Cobranza (solo gerencia); v1.0.0: Dinero › Por cobrar / Por pagar
 import { fijarNavGuardados } from './guardados.js';   // v1.0.0 (cubeta 2): «Guardados» (ERP_Vistas o este equipo)
-import { pintarArmazon, engancharArmazon, fijarNavArmazon, pintarCuenta, cerrarHoja } from './armazon.js';   // v1.0.0: rail, panel, cabecera, Cuenta (rediseño 2026-10-02)
+import { pintarArmazon, engancharArmazon, fijarNavArmazon, pintarCuenta, cerrarHoja, registrarFuenteAvisos } from './armazon.js';   // v1.0.0: rail, panel, cabecera, Cuenta (rediseño 2026-10-02)
+import { engancharModuloArchivos, alCambiarArchivos, iniciarCola, alRefrescar, pendientesCola, fuenteAvisosArchivos, revisarAntesDeCerrar, alCrearProyecto, pintarCarpetaProyecto } from './archivos.js';   // v1.0.0 (cubeta 5): Archivos (ERP_Proyectos, la cola, mandar a archivar)
+import { repintarDocsDeFicha } from './tablero.js';
 import { leerRuta, puedeVerPantalla } from './reglas.js';
 import { cabecera, vistaDe, soltarIdsFuera, filaKpis } from './reporte.js';   // v1.0.0 (cubeta 3): la cabecera y la fila de KPIs de la plantilla en Proyectos y en el proyecto
 import { pintarVigencias, alCambiarVigencias } from './vigencias.js';   // v0.166.0: Vigencias (solo gerencia)
@@ -105,7 +107,10 @@ async function arrancar() {
     } catch (e) { fallaEntrada(e, 'No se pudo terminar el inicio de sesión'); }
 }
 async function salir() {
-    const { ok } = await confirmar({ titulo: 'Salir de la app', ok: 'Salir', texto: 'Se cierra la sesión de MINSA en este dispositivo. Lo guardado ya está en las listas.' });
+    // v1.0.0 (cubeta 5): «Salir avisa si hay pendientes» — la cola se queda en este equipo (por cuenta) y sube cuando esta cuenta vuelva a entrar
+    const n = pendientesCola();
+    const cola = n ? ` Ojo: ${n === 1 ? 'queda 1 subida' : `quedan ${n} subidas`} en la cola de este equipo; no se pierde${n === 1 ? '' : 'n'}, pero solo ${n === 1 ? 'sube' : 'suben'} cuando vuelvas a entrar con esta cuenta (revísala en Archivos › Mis subidas).` : '';
+    const { ok } = await confirmar({ titulo: 'Salir de la app', ok: 'Salir', texto: 'Se cierra la sesión de MINSA en este dispositivo. Lo guardado ya está en las listas.' + cola });
     if (!ok) return;
     olvidarVistosLocales();   // S-27 (v0.156.0): la siguiente cuenta en este equipo no hereda lo que esta ya leyo
     try { await pca.logoutRedirect({ account: estado.cuenta }); }
@@ -209,6 +214,7 @@ async function sesionIniciada() {
     if (!esHashDeLaApp(location.hash) && destino) fijarHash(destino);
     estado.pestana = null;
     aplicarHash();
+    iniciarCola();   // v1.0.0 (cubeta 5): lo que esta cuenta dejó en la cola de este equipo vuelve y se sube («al abrir la app»)
 }
 
 // ---------------------------------------------------------------- carga
@@ -281,13 +287,14 @@ async function recargar() {
         // intento y se retiro en la revision de v0.4.0 por esas dos razones.
         const y = window.scrollY; repintar(); window.scrollTo({ top: y });
         repintarFicha();   // C-02 (17-sep): la ficha abierta se re-pinta con el objeto VIVO (cargarTodo reemplazo estado.tareas)
+        alRefrescar();   // v1.0.0 (cubeta 5): la cola de subidas vuelve a intentar lo pendiente «en cada refresco»
     } catch (e) { if (!(e && e.sesionCaducada)) avisar('No se pudieron releer las listas: ' + (e && e.message ? e.message : e), 'error'); }   // C-08: con la sesion caducada lo dice la banda; el timer no apila un aviso cada 120 s
     finally { recargando = false; $('btnActualizar').disabled = false; pintarSync(); }
 }
 // Refresco automatico mientras la app esta a la vista; nunca borra un dialogo de EDICION abierto.
 // E4 (v0.6.0): Equipo y Toda la actividad son de lectura y alguien los deja abiertos minutos; con
 // ellos abiertos se sigue releyendo, y al cerrarlos se relee si ya pasaron 60 s (la regla de visibilitychange).
-const DLG_EDICION = ['dlgTarea', 'dlgNuevaTarea', 'dlgProyecto', 'dlgSalud', 'dlgCubetas', 'dlgLigar', 'dlgSubir', 'dlgEnlace', 'dlgPartida', 'dlgGasto', 'dlg'];
+const DLG_EDICION = ['dlgTarea', 'dlgNuevaTarea', 'dlgProyecto', 'dlgSalud', 'dlgCubetas', 'dlgLigar', 'dlgSubir', 'dlgEnlace', 'dlgPartida', 'dlgGasto', 'dlgSinArchivar', 'dlgLigarA', 'dlg'];   // v1.0.0 (cubeta 5): + cerrar con archivos sin archivar y ligar desde Bibliotecas
 const editando = () => DLG_EDICION.some(id => $(id).open);
 const hayBorrador = () => editando() || ['chatTexto', 'tNota'].some(id => $(id).value.trim() !== '');   // C-08 (v0.159.0): #chatTexto no vive en ningun dialogo
 const rancio = () => estado.sesion && Date.now() - estado.cargadoEl > 60000;
@@ -298,7 +305,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 // v0.15.0: la marca de lectura compartida se manda agrupada (1.5 s); al ocultarse la pagina se empuja lo que quede.
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') guardarVisto(); });
 window.addEventListener('pagehide', () => { guardarVisto(); });
-const DLG_LECTURA = ['dlgActividad', 'dlgPersona', 'dlgBuscar', 'dlgAvisos'];   // R-02 (v0.131.0): + las abiertas de una persona (Reportes). v1.0.0: Equipo es página (Cuenta); + Buscar y Avisos
+const DLG_LECTURA = ['dlgActividad', 'dlgPersona', 'dlgBuscar', 'dlgAvisos', 'dlgVistaPrevia', 'dlgVersiones'];   // R-02 (v0.131.0): + las abiertas de una persona (Reportes). v1.0.0: Equipo es página (Cuenta); + Buscar y Avisos; cubeta 5: + vista previa y versiones
 fijarAlCerrar(id => { if (DLG_LECTURA.includes(id) && rancio() && !editando()) recargar(); });
 for (const id of DLG_LECTURA) $(id).addEventListener('close', () => { if (rancio() && !editando()) recargar(); });   // Esc no pasa por cerrarDialogo
 fijarReleer(recargar);   // un 412 (alguien cambio el renglon) se resuelve releyendo: la verdad esta en SharePoint
@@ -1147,7 +1154,7 @@ function pintarPestanas(p) {
     if (estado.tab === 'tablero') pintarTablero(p);
     else if (estado.tab === 'lista') pintarLista(p);
     else if (estado.tab === 'roadmap') pintarRoadmapProyecto(p);   // v0.10.0
-    else if (estado.tab === 'docs') pintarDocs(p);
+    else if (estado.tab === 'docs') { pintarCarpetaProyecto($('docsCarpeta'), p); pintarDocs(p); }   // v1.0.0 (cubeta 5): arriba la carpeta del proyecto (el mismo componente que #archivos/proyecto/<clave>)
     else if (estado.tab === 'chat') pintarChat(p);
     else if (estado.tab === 'capital') pintarCapitalTab(p);   // v0.102.0
 }
@@ -1322,6 +1329,7 @@ async function guardarProyecto(ev) {
     }
     avisar(`Proyecto «${titulo}» creado. Clave: ${clave}.`, 'ok');
     await registrarActividad('crear-proyecto', `creó el proyecto «${titulo.slice(0, 80)}»`, creado.id, null);
+    alCrearProyecto(creado);   // v1.0.0 (cubeta 5): su carpeta en ERP_Proyectos nace ya (best-effort; si no, con la primera subida)
     abrirProyecto(creado.id);
 }
 
@@ -1378,6 +1386,8 @@ async function cerrarProyecto() {
     const p = proyectoAbierto(); if (!p) return;
     if (!PUEDE.proyecto(estado.rol)) { avisar('Solo gerencia cierra proyectos.', 'error'); return; }
     const faltan = tareasDe(p, estado.tareas).filter(t => t.Columna !== HECHO).length;
+    // v1.0.0 (cubeta 5; plan «Disciplina»): con archivos SIN ARCHIVAR en su carpeta, gerencia ve la lista y puede «Mandar a archivar todo» antes
+    if (!await revisarAntesDeCerrar(p)) return;
     const { ok } = await confirmar({ titulo: 'Cerrar el proyecto', ok: 'Cerrar', texto: `«${p.Title}» pasa a cerrado con tu sello. Sale de Inicio; sus tarjetas quedan como registro y nada se borra.${faltan ? ` Ojo: ${plural(faltan, 'queda', 'quedan')} ${faltan} ${plural(faltan, 'tarjeta')} sin terminar.` : ''}` });
     if (!ok) return;
     const campos = { Estado: 'cerrado', CerradoPor: estado.cuenta.username, CerradoEl: new Date().toISOString() };
@@ -1580,6 +1590,9 @@ $('dlgSalud').addEventListener('cancel', ev => { if (slValores() !== slAlAbrir) 
 $('npCancelar').addEventListener('click', cancelarFormaProyecto);   // U-08 (24-sep)
 engancharTablero();
 engancharDocs();
+// v1.0.0 (cubeta 5): Archivos — la cola y Mandar a archivar repintan la pantalla y los Documentos de la ficha abierta; la campana suma las
+// subidas con error y los «¿duplicado?» retenidos
+engancharModuloArchivos(); alCambiarArchivos(() => { repintar(); repintarDocsDeFicha(); }); registrarFuenteAvisos(fuenteAvisosArchivos);
 engancharChat();
 engancharMensajes();   // v0.42.0
 engancharGastos(); alCambiarGastos(repintar);   // v0.162.0
