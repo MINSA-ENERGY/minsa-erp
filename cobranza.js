@@ -180,7 +180,7 @@ function etiquetaFactura(f) {
 }
 function tablaAntiguedad(x) {
     return {
-        columnas: [{ texto: '' }, ...ANTIGUEDAD.map(a => ({ texto: a })), { texto: 'Sin pago probado' }],
+        columnas: [{ texto: '' }, ...ANTIGUEDAD.map(a => ({ texto: a })), { texto: 'Sin pago probado', total: true }],
         filas: v => antiguedadPorContraparte(x.lista, v.moneda, x.corte, x.aparte).filas.map(r => ({
             clave: r.rfc, clase: 'rp-cp', datos: { clave: `${r.rfc}|${v.moneda}`, rfc: r.rfc },
             celdas: [{ t: r.nombre, lk: true, titulo: r.rfc }, ...r.cubetas.map((a, i) => a ? { t: fmtMonto(a, v.moneda, 0), n: r.n[i], rojo: i === 3 } : null), fmtMonto(r.saldo, v.moneda, 0)],
@@ -225,7 +225,9 @@ function cfgSegmentos(x, v) {
         alCambiar: () => alCambiar(),
         interpretar: q => interpretarFrase(q, x.monedas.flatMap(m => facts(x, m)), x.lado),
         alCambiarMoneda: m => fijarMoneda(m),
-        guardados: () => guardadosDe('dinero', d => d.tipo === 'segmento' && d.lado === x.lado),
+        // v1.0.0 (vuelta 1, revisión de seguridad «baja»): lo mal formado (un Miembro edita la lista a mano) no se pinta: antes tronaba la pestaña
+        guardados: () => guardadosDe('dinero', d => d.tipo === 'segmento' && d.lado === x.lado && !problemaSegmento(d, props)),
+        soloEquipo: true,   // v1.0.0 (vuelta 1, revisión de seguridad ALTA): lo de Dinero nunca va a ERP_Vistas (guardados.js vaAlEquipo)
         aplicarGuardado: abrirSegmentoGuardado, borrarGuardado: gv => borrarVista(gv).then(() => alCambiar()), esMia,
         guardar: ({ titulo, compartida, segmento }) => guardarVista({ titulo, compartida, modulo: 'dinero', definicion: { tipo: 'segmento', lado: x.lado, moneda: v.moneda, join: segmento.join, conds: segmento.conds } }).then(() => alCambiar()),
         notaGuardar: g.modo === 'local' ? g.nota : '',
@@ -334,7 +336,7 @@ function pintarPorParte(cont, x, pag) {
             return ks;
         },
         datos: {
-            columnas: [{ texto: x.parte }, { texto: 'Facturado' }, { texto: 'Pagado' }, { texto: 'Sin pago probado' }, { texto: 'Evidencia del saldo' }],
+            columnas: [{ texto: x.parte }, { texto: 'Facturado' }, { texto: 'Pagado' }, { texto: 'Sin pago probado', total: true }, { texto: 'Evidencia del saldo' }],
             filas: v => filasDe(v).map(r => {
                 const ev = el('span', 'cob-ev');
                 if (r.ok > 0.005) ev.appendChild(chip(`${fmtMonto(r.ok, v.moneda)} sana`, 'ok'));
@@ -400,7 +402,7 @@ function pintarEmitido(cont, x, pag) {
                 { clave: 'facturas', valor: String(ps.reduce((a, p) => a + p.n, 0)), texto: 'facturas con saldo en el rango' }];
         },
         datos: {
-            columnas: [{ texto: 'Periodo de emisión' }, { texto: 'Facturas' }, { texto: 'Importe' }, { texto: 'Sin pago probado' }],
+            columnas: [{ texto: 'Periodo de emisión' }, { texto: 'Facturas' }, { texto: 'Importe' }, { texto: 'Sin pago probado', total: true }],
             filas: v => periodos(v).filter(p => p.n).reverse().map(p => ({
                 clave: 'p' + p.k, datos: { periodo: p.k },
                 celdas: [{ t: p.etiqueta, lk: true }, String(p.n), fmtMonto(p.importe, v.moneda, 0), fmtMonto(p.inc, v.moneda, 0)],
@@ -432,7 +434,7 @@ function pintarSinRep(cont, x, pag) {
                 { clave: 'partes', valor: String(new Set(fs.map(f => f.rfc)).size), texto: x.partes }, { clave: 'vieja', valor: vieja ? fechaCorta(vieja.fecha) : '—', texto: vieja ? `la más antigua · ${diasEntre(String(vieja.fecha).slice(0, 10), x.corte)} días` : 'la más antigua' }];
         },
         datos: {
-            columnas: [{ texto: '' }, { texto: 'Facturas sin REP' }, { texto: 'Más antigua' }, { texto: 'Saldo sin REP' }],
+            columnas: [{ texto: '' }, { texto: 'Facturas sin REP' }, { texto: 'Más antigua' }, { texto: 'Saldo sin REP', total: true }],
             filas: v => grupos(v).map(g => {
                 const vieja = g.facturas.reduce((a, f) => (!a || String(f.fecha) < String(a.fecha) ? f : a), null);
                 return { clave: g.rfc, datos: { rfc: g.rfc }, celdas: [{ t: g.nombre, lk: true }, { t: String(g.facturas.length), n: null }, fechaCorta(vieja.fecha), fmtMonto(g.saldo, v.moneda)],
@@ -461,7 +463,7 @@ function guardarReporte(btn, x, pag, id) {
     const v = vistaDe(id), segs = pag.endsWith('/saldo') ? C.seg[x.lado] : [];
     const g = estadoGuardados();
     abrirGuardar(btn, { notaGuardar: g.modo === 'local' ? g.nota : '' }, {
-        sugerido: `${PAGINAS[pag]} · ${v.moneda || ''}`.trim(),
+        sugerido: `${PAGINAS[pag]} · ${v.moneda || ''}`.trim(), soloEquipo: true,
         alGuardar: (titulo, compartida) => guardarVista({ titulo, compartida, modulo: 'dinero', definicion: { tipo: 'reporte', ruta: '#finanzas/' + pag, vistaId: id,
             vista: { moneda: v.moneda, rango: v.rango, grano: v.grano, tipo: v.tipo }, segmentos: segs.map(s => ({ join: s.join, conds: s.conds })) } }).then(() => alCambiar())
     });
@@ -485,9 +487,3 @@ registrarExtra('finanzas', d => {
     C.seg[lado].length = 0;
     for (const s of d.segmentos) if (!problemaSegmento(s, props)) agregarSegmento(C.seg[lado], JSON.parse(JSON.stringify(s.conds)), s.join);
 });
-/** El total de una moneda para Inicio (cubeta 4): lo por cobrar sin pago probado. null si no hay datos leídos. */
-export function totalPorCobrar(moneda = 'USD') {
-    if (!C.datos || !Array.isArray(C.datos.clientes)) return null;
-    const t = totalesCobranza(C.datos.clientes).find(z => z.moneda === moneda);
-    return t ? t.insoluto : 0;
-}

@@ -102,13 +102,6 @@
    con .hidden = true (revisor, 2026-09-12), y las insignias del rail (Mensajes, Mis tareas, Proyectos)
    pintaban «0» aunque el JS las ocultara (`.mn-rail-hot { display: inline-grid }`; Carlos, 2026-09-14). */
 [hidden] { display: none !important; }
-.solo-oscuro { display: none; }
-:root[data-theme="dark"] .solo-claro { display: none; }
-:root[data-theme="dark"] .solo-oscuro { display: inline; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .solo-claro { display: none; }
-  :root:not([data-theme="light"]) .solo-oscuro { display: inline; }
-}
 
 /* ==== ARMAZÓN v1.0.0 (maqueta «MINSA ERP Reportes»): rail 64 px oscuro · panel del módulo 284 px · contenido.
    La pagina sigue rodando con el BODY (no con un <main> de alto fijo, como la maqueta): las pantallas de hoy, el arnés y las capturas
@@ -183,7 +176,7 @@
 .panel .ch .n { flex: none; font: 500 .72rem var(--f-data); color: var(--ink-3); }
 .panel .ch .n.is-info { color: var(--info-fg); }
 .panel .ch-accion { color: var(--blue); }
-.panel .panel-vacio { margin: 0; padding: 0 18px; color: var(--ink-3); font-size: 13px; }
+.panel .panel-vacio { margin: 0; padding: 0 18px; color: var(--ink-2); font-size: 13px; }
 #panelArbol .no-casa { display: none !important; }
 .panel .fo-hijos[hidden][data-busca] { display: block !important; }   /* buscando, se ven las entradas que casan aunque su carpeta esté plegada */
 .hoja-ambito { display: none; }
@@ -237,7 +230,7 @@
 .bs-r:hover, .av-r:hover, .bs-r:focus-visible, .av-r:focus-visible { background: var(--hover); }
 .bs-r .t, .av-r .t { flex: 1; min-width: 0; display: grid; }
 .bs-r b, .av-r b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bs-r small, .av-r small { color: var(--ink-3); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bs-r small, .av-r small { color: var(--ink-2); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .av-r.is-danger b { color: var(--bad-fg); }
 .av-r .flecha { width: 14px; height: 14px; flex: none; fill: none; stroke: var(--ink-3); stroke-width: 2; }
 
@@ -595,11 +588,6 @@ body:has(#pantallaEntrar:not(.oculto)) #pie { display: none; }
 .acc-menu > summary::-webkit-details-marker { display: none; }
 .acc-menu .acciones { position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-pop); display: grid; gap: 2px; min-width: 200px; margin: 0; padding: var(--sp-2); background: var(--surface-card); border: 1px solid var(--border-hairline); border-radius: var(--r-md); box-shadow: var(--shadow-pop); }
 .acc-menu .acciones .mn-btn { justify-content: flex-start; width: 100%; }
-.acc-sub > summary { list-style: none; display: flex; align-items: center; justify-content: space-between !important; cursor: pointer; }
-.acc-sub > summary::-webkit-details-marker { display: none; }
-.acc-sub > summary svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }
-.acc-sub[open] > summary svg { transform: rotate(90deg); }
-.acc-sub .acc-sub-caja { display: grid; gap: 2px; margin-top: 2px; padding-left: var(--sp-3); border-left: 2px solid var(--border-hairline); }
 .acc-menu .acciones .mn-btn.is-danger { color: var(--status-danger-loud); border-color: transparent; }
 .acc-menu .acciones .mn-btn.is-danger:hover { background: var(--status-danger-bg); }
 /* La linea-resumen era solo de CELULAR (en escritorio la lateral decia lo mismo); desde v0.30.0 (L6) la lateral
@@ -723,9 +711,6 @@ body:has(#pantallaEntrar:not(.oculto)) #pie { display: none; }
 .buscador:focus { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
 /* C8: el reloj del frente junto al % de la cabecera */
 .proyecto-cab .reloj:empty { display: none; }
-/* U3: los KPI de Inicio son botones */
-button.mn-kpi { font: inherit; text-align: left; color: inherit; cursor: pointer; display: block; width: 100%; }
-button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
 
 /* ---- mini listas (vencimientos, actividad, quienes)
    2026-09-12: dos columnas (avatar · cuerpo), no tres. Con la hora como tercera columna nowrap, la frase se
@@ -1128,12 +1113,6 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
   .doc .tarjeta-de select { flex: 1; min-width: 0; }
   /* B7: «Origen en la KB» lo trae 1 de 17 tarjetas y se comia una columna de la Lista */
   /* ---- v0.6.0 ---- */
-  /* B3: Inicio media 2,400 px a 390 px; los 4 KPI en 2 x 2 ocupaban 370. Una fila de «mini»
-     (numero + etiqueta a 2 lineas); el 5.o («sin dueño», solo si hay) cae a la fila de abajo. */
-  .mn-kpis { grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: var(--sp-1); }
-  .mn-kpi { padding: var(--sp-2) var(--sp-2) var(--sp-2) calc(var(--sp-2) + 3px); }
-  .mn-kpi .mn-kpi-label { font-size: .66rem; letter-spacing: .04em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.25; }
-  .mn-kpi .mn-kpi-val { font-size: 1.5rem; margin-top: 2px; }
   /* C4: el boton «Anotar» debajo del textarea, a todo el ancho; el contador arriba del boton a la derecha */
   .nota-forma { grid-template-columns: 1fr; }
   .nota-forma .cont { justify-self: end; padding-bottom: 0; }
@@ -1714,8 +1693,6 @@ button.hoy-r:focus-visible { outline: 2px solid var(--brand-primary); outline-of
   /* En celular el titulo de la cola parte en 2 lineas. */
   .hoy-r .t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 }
-/* Equipo: la tabla de 5 columnas se cortaba en «Abiertas» a 1366 (auditoria 13-sep): el dialogo crece y el correo parte. */
-#dlgEquipo { width: min(96vw, 760px); }
 .eq-tabla td, .eq-tabla th { overflow-wrap: anywhere; }
 @media (max-width: 720px) {
   /* El FAB «Nueva tarea» tapaba el ultimo mensaje y el redactor quedaba bajo la barra: en el chat no hay FAB y el hilo mide menos. */
@@ -2399,60 +2376,17 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 .gastos-card { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 .gastos-cab { display: flex; align-items: center; gap: var(--sp-2); }
 .gastos-cab h2 { margin: 0; }
-/* v0.165.0: Finanzas > Cobranza (cobranza.js). KPI por moneda + corte; tabla por cliente con detalle plegable; monedas nunca se suman. */
-.cob-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-3); }
-.cob-kpi { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
-.cob-k { font-size: .85rem; color: var(--text-muted); }
-.cob-v { font-size: 1.35rem; font-weight: 500; color: var(--text-strong); font-variant-numeric: tabular-nums; }
-.cob-pie, .cob-ev { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
-.cob-caja { padding: 0; overflow-x: auto; }
-.cob-tabla { width: 100%; min-width: 640px; border-collapse: collapse; }
-.cob-tabla th, .cob-tabla td { text-align: left; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--border-hairline); vertical-align: top; }
-.cob-tabla th { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 600; }
-.cob-tabla .n { text-align: right; white-space: nowrap; }
+/* v0.165.0: Finanzas > Cobranza (cobranza.js). v1.0.0 (vuelta 1): su tabla y sus KPI propios se fueron con la plantilla de reporte; quedan las piezas que cobranza.js todavia pinta. */
+.cob-ev { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 .cob-ins { font-weight: 600; color: var(--text-strong); }
-.cob-abrir { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--text-link); cursor: pointer; text-align: left; }
-.cob-abrir::before { content: '▸'; display: inline-block; width: 1.1em; color: var(--text-muted); }
-.cob-cliente.is-abierto .cob-abrir::before { content: '▾'; }
-.cob-sub { display: block; font-size: .8rem; color: var(--text-muted); }
-/* v0.171.0: Por pagar — lo marcado aparte (TKC) va en su tarjeta y al final de la tabla, sin color de alarma: no suma */
-.cob-kpi.cob-aparte { background: var(--surface-sunken); }
-.cob-aparte-tit td { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 600; padding-top: var(--sp-4); }
-.cob-tabla tr.is-aparte { opacity: .85; }
-.cob-detalle td { background: var(--surface-sunken); }
-.cob-facturas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
-.cob-facturas li { display: grid; grid-template-columns: 7em 6.5em minmax(0, 1fr) auto auto; gap: var(--sp-2); align-items: center; font-size: .9rem; }
-.cob-fecha { color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.cob-concepto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cob-monto { text-align: right; white-space: nowrap; }
-.cob-facturas li.is-cancelada .cob-monto { text-decoration: line-through; color: var(--text-muted); }
-.cob-nota { margin: 0; font-size: .85rem; max-width: 80ch; }
-.cob-acciones { display: flex; justify-content: flex-end; }
-/* En celular la tabla cabe en el ancho: Facturado y Pagado se ocultan (el saldo y su evidencia son lo que se lee) y cada factura
-   va en dos renglones: folio · fecha arriba, concepto, y saldo con su semaforo abajo a la derecha. */
-@media (max-width: 640px) {
-  .cob-tabla, .cob-tabla tbody, .cob-tabla tr, .cob-tabla td { display: block; min-width: 0; }
-  .cob-tabla thead, .cob-cliente td:nth-child(2), .cob-cliente td:nth-child(3) { display: none; }
-  .cob-tabla tr.cob-cliente { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); }
-  .cob-tabla td { border-bottom: 0; padding: var(--sp-2); }
-  .cob-cliente td.cob-ev { grid-column: 1 / -1; padding-top: 0; display: flex; }
-  .cob-detalle { border-bottom: 1px solid var(--border-hairline); }
-  .cob-abrir { overflow-wrap: anywhere; }
-  .cob-facturas li { grid-template-columns: minmax(0, 1fr) auto; row-gap: 2px; padding-block: var(--sp-1); border-bottom: 1px solid var(--border-hairline); }
-  .cob-facturas li:last-child { border-bottom: 0; }
-  .cob-concepto { grid-column: 1 / -1; white-space: normal; }
-  .cob-fecha { text-align: right; }
-  .cob-monto { grid-column: 1 / 2; text-align: left; }
-  .cob-facturas li > .mn-chip { justify-self: end; }
-}
-/* v0.166.0: Vigencias (vigencias.js). Reusa la tabla y los KPI de Cobranza (.cob-*); aqui solo lo propio. */
+/* v0.166.0: Vigencias (vigencias.js): lo propio de sus celdas (la tabla es la de la plantilla de reporte). */
 .vig-vence { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .vig-titulo { color: var(--text-strong); font-weight: 600; overflow-wrap: anywhere; }
 .vig-fila.is-vencida .vig-vence { color: var(--status-danger-fg); font-weight: 600; }
 .vig-faltan { white-space: nowrap; }
 /* En celular: el documento arriba a todo el ancho, abajo la fecha y lo que falta; la unidad se omite (la dice el titulo). */
 @media (max-width: 640px) {
-  .vig-tabla tr.vig-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); }
   .vig-fila .vig-que { grid-column: 1 / -1; order: -1; padding-bottom: 0; }
   .vig-fila .vig-unidad { display: none; }
   .vig-fila .vig-resp { grid-column: 1 / -1; order: 1; padding-top: 0; font-size: .8rem; color: var(--text-muted); }
@@ -2480,31 +2414,18 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 .srv-guia-lista li::marker { font-family: var(--font-data); color: var(--text-muted); }
 /* En celular: el expediente y su barra a todo el ancho; abajo el paso, a quién espera y desde cuándo. */
 @media (max-width: 640px) {
-  .srv-tabla tr.srv-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); }
   .srv-fila .srv-exp, .srv-fila .srv-avance, .srv-fila .srv-actual { grid-column: 1 / -1; padding-bottom: 0; }
   .srv-fila .srv-pasos { min-width: 0; }
   .srv-fila .srv-espera { font-size: .8rem; color: var(--text-muted); }
   .srv-fila .srv-espera::before { content: 'Espera a: '; }
 }
 /* ---- v0.169.0: Compras — el folio es el boton que abre las partidas; el total, a la derecha en mono. */
-.cmp-folio .cmp-abrir { font-family: var(--font-data); font-weight: 600; padding-inline: var(--sp-2); }
 .cmp-fecha, .cmp-total { white-space: nowrap; }
 .cmp-concepto { overflow-wrap: anywhere; }
-.cmp-detalle td { background: var(--surface-sunken, var(--banda)); }
-.cmp-partidas { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); }
-.cmp-partidas li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: baseline; }
-.cmp-cant { color: var(--text-muted); font-size: .85rem; white-space: nowrap; }
-.cmp-imp { white-space: nowrap; }
-.cmp-totales { margin: var(--sp-2) 0 0; }
-.cmp-partidas li .mn-chip { grid-column: 1 / -1; justify-self: start; }
 .cmp-concepto .mn-chip { margin-left: var(--sp-2); }
 /* En celular: folio y total arriba; el concepto a todo el ancho; el proveedor se omite (hoy es uno solo y lo dice el concepto). */
 @media (max-width: 640px) {
-  .cmp-tabla tr.cmp-fila { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); align-items: baseline; }
-  .cmp-fila .cmp-prov { display: none; }
   .cmp-fila .cmp-concepto { grid-column: 1 / -1; order: 1; padding-top: 0; font-size: .85rem; color: var(--text-muted); }
-  .cmp-partidas li { grid-template-columns: minmax(0, 1fr) auto; }
-  .cmp-partidas .cmp-cant { grid-column: 1 / -1; order: 1; }
 }
 .gastos-resumen { margin: 0; font-size: .9rem; }
 .gastos-lista { display: flex; flex-direction: column; }
@@ -2662,7 +2583,7 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 .rp-globo small { display: block; color: var(--ink-3); }
 .rp-g-r { display: flex; align-items: center; gap: 6px; }
 .rp-ley { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.rp-vacio { margin: 0; padding: 26px 20px; color: var(--ink-3); font-size: 13.5px; }
+.rp-vacio { margin: 0; padding: 26px 20px; color: var(--ink-2); font-size: 13.5px; }
 /* la fila de KPIs (maqueta .kpis): tantos como haya, en una fila */
 .rp-kpis { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); margin-top: 18px; padding: 22px 0 26px; border-top: 1px solid var(--line-2); }
 .rp-pag > .rp-graf:not(:has(.rp-grafica)) .rp-kpis { margin-top: 0; border-top: 0; }
@@ -2701,8 +2622,8 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 .rp-tabla tr.is-cancelada td { color: var(--ink-3); text-decoration: line-through; }
 .rp-tabla .rp-sub { display: block; margin-top: 2px; color: var(--ink-3); font-size: 12.5px; }
 .rp-tabla .cob-ev { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-.rp-vacio-td { color: var(--ink-3); }
-.rp-nota { max-width: 92ch; margin: 0; padding: 14px 28px 18px; color: var(--ink-3); font-size: 13px; line-height: 1.45; }
+.rp-vacio-td { color: var(--ink-2); }
+.rp-nota { max-width: 92ch; margin: 0; padding: 14px 28px 18px; color: var(--ink-2); font-size: 13px; line-height: 1.45; }
 .rp-pie-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 28px 18px; }
 .rp-pie-nota { margin-right: auto; color: var(--ink-3); font-size: 12.5px; }
 .rp-aviso { display: grid; justify-items: start; gap: 10px; padding: 20px 26px; }
@@ -3326,4 +3247,61 @@ body { font-variant-numeric: tabular-nums; }
   #inicioHoy.is-plegada .pliega { display: none; }
   #inicioHoy.is-plegada .cola-lista:not(:has(> :not(.pliega))) { display: none; }
   .cola-ver { display: flex; width: 100%; justify-content: center; margin-top: 10px; }
+}
+/* ==================================================================================================================
+   v1.0.0 — VUELTA 1 de correcciones (2026-10-03; informes de los revisores de UI/UX y de código tras la cubeta 6)
+   ================================================================================================================== */
+/* «Datos del reporte»: la columna del TOTAL (marcada por la definición del reporte: `total: true`) va FIJA a la derecha bajo 720 px, junto a la
+   primera, que ya es fija — a 390 junto a «Total clientes USD» se leía la cubeta 0–90 y el total quedaba tres columnas a la derecha. */
+@media (max-width: 720px) {
+  .rp-tabla .rp-col-total { position: sticky; right: 0; z-index: 1; background: var(--card); box-shadow: inset 1px 0 0 var(--line); }
+  .rp-tabla th.rp-col-total { background: var(--th); }
+  .rp-tabla tr.hijo td.rp-col-total { background: var(--hijo); }
+}
+/* Mis tareas a 390: el título usa hasta dos renglones (las insignias bajan) y «Posponer» va en su propio renglón bajo el de la vencida */
+@media (max-width: 720px) {
+  .densa .tr .t { flex-wrap: wrap; row-gap: 2px; }
+  .densa .tr .t .tit { flex: 1 1 100%; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .densa .fila { grid-template-columns: 36px minmax(0, 1fr); }
+  .densa .fila > .pos { grid-column: 2; justify-self: start; margin: -4px 0 8px; }
+}
+/* El detalle del expediente a 390: los 12 pasos en FICHAS, como la lista — paso y estado arriba; de quién depende y la nota debajo */
+@media (max-width: 720px) {
+  #servicioPasosTabla thead { display: none; }
+  #servicioPasosTabla tr.srv-paso-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--line-2); }
+  #servicioPasosTabla tr.srv-paso-fila td { padding: 8px 16px 0; border: 0; text-align: left; white-space: normal; position: static; box-shadow: none; background: none; }
+  #servicioPasosTabla tr.srv-paso-fila td:first-child { padding-left: 16px; padding-top: 12px; }
+  #servicioPasosTabla tr.srv-paso-fila td:nth-child(3) { padding-top: 12px; justify-self: end; }
+  #servicioPasosTabla tr.srv-paso-fila td:nth-child(2) { grid-column: 1 / -1; order: 3; color: var(--ink-2); font-size: 13px; }
+  #servicioPasosTabla tr.srv-paso-fila td:nth-child(2)::before { content: 'Depende de: '; }
+  #servicioPasosTabla tr.srv-paso-fila td:nth-child(4) { grid-column: 1 / -1; order: 4; padding-bottom: 12px; color: var(--ink-2); font-size: 13px; }
+  #servicioPasosTabla tr.srv-paso-fila td:nth-child(2):last-child, #servicioPasosTabla tr.srv-paso-fila td:nth-child(4):empty { padding: 0 0 6px; }
+}
+/* La barra de 12 pasos en OSCURO con 3:1 (WCAG 1.4.11): pendiente HUECO con filete visible, hecho relleno claro; en curso, detenido y a medias
+   siguen en su color (antes: pendiente 1.36:1 contra la tarjeta y hecho 1.71:1 contra pendiente) */
+:root[data-theme="dark"] .srv-p { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+:root[data-theme="dark"] .srv-p.is-hecho { background: var(--lk); box-shadow: none; }
+:root[data-theme="dark"] .srv-p.is-actual { background: var(--blue); box-shadow: none; }
+:root[data-theme="dark"] .srv-p.is-bloqueado { background: var(--red); box-shadow: none; }
+:root[data-theme="dark"] .srv-p.is-rebotado { background: var(--amber); box-shadow: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .srv-p { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+  :root:not([data-theme="light"]) .srv-p.is-hecho { background: var(--lk); box-shadow: none; }
+  :root:not([data-theme="light"]) .srv-p.is-actual { background: var(--blue); box-shadow: none; }
+  :root:not([data-theme="light"]) .srv-p.is-bloqueado { background: var(--red); box-shadow: none; }
+  :root:not([data-theme="light"]) .srv-p.is-rebotado { background: var(--amber); box-shadow: none; }
+}
+/* Avisos a 390: sin la columna «NUEVO» (lo nuevo ya va en negrita) y el título en dos renglones */
+@media (max-width: 720px) {
+  .av-nuevo { display: none; }
+  .av-r b { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }   /* anywhere: un nombre de archivo sin espacios también parte */
+}
+/* El proyecto a 390: sin la fila de chips del módulo (su «Roadmap» de todos los frentes chocaba con la pestaña Roadmap del frente; ☰ y la barra
+   de abajo ya llevan a Proyectos) y «Filtrar» baja a su renglón para que las cinco pestañas —Chat incluida— quepan */
+@media (max-width: 720px) {
+  body[data-pantalla="proyecto"] .chips-modulo { display: none; }
+  #p-proyecto .tabs-fila { flex-wrap: wrap; border-bottom: 0; }
+  #p-proyecto .tabs-fila > .tabs { flex: 1 1 100%; border-bottom: 1px solid var(--border-hairline); }
+  #p-proyecto .tabs .tab { padding: 8px 9px; font-size: 14px; }
+  #p-proyecto .tabs-fila > #btnFiltros { margin: 8px 0 0 auto; }
 }

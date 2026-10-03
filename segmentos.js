@@ -50,7 +50,7 @@ export function renglonesSegmento(cfg) {
         const g = accion('segguardar', 'disco', 'Guardar segmento', ev => {
             ev.stopPropagation();
             if (!s.conds.length) { avisar('El segmento no tiene condiciones.', 'ojo'); return; }
-            abrirGuardar(g, cfg, { sugerido: nombreSegmento(s, cfg.props, cfg.moneda).slice(0, 80), alGuardar: (titulo, compartida) => cfg.guardar({ titulo, compartida, segmento: s }) });
+            abrirGuardar(g, cfg, { sugerido: nombreSegmento(s, cfg.props, cfg.moneda).slice(0, 80), soloEquipo: !!cfg.soloEquipo, alGuardar: (titulo, compartida) => cfg.guardar({ titulo, compartida, segmento: s }) });
         });
         accion('segdup', 'dup', 'Duplicar segmento', () => { if (agregarSegmento(cfg.segs, JSON.parse(JSON.stringify(s.conds)), s.join)) cfg.alCambiar(); });
         accion('segquitar', 'x', 'Quitar segmento', () => { cfg.segs.splice(i, 1); cfg.alCambiar(); });
@@ -99,10 +99,14 @@ export function abrirEditor(ancla, cfg, i, j) {
     const c = cfg.segs[i].conds[j];
     abrir(ancla, cfg, 'editor', { target: i, ed: { p: c.p, op: c.op, v: Array.isArray(c.v) ? [...c.v] : c.v, cond: [i, j], qv: '' } });
 }
-/** «Guardar»: nombre + Solo yo | Equipo. `alGuardar(titulo, compartida)` es una promesa. */
-export function abrirGuardar(ancla, cfg, { sugerido = '', alGuardar }) {
-    abrir(ancla, cfg || {}, 'guardar', { guardar: { titulo: sugerido, compartida: false, alGuardar, enVuelo: false } });
+/** «Guardar»: nombre + «Solo en mi panel» | «Equipo». `alGuardar(titulo, compartida)` es una promesa. `soloEquipo` (Dinero): sin la elección,
+ *  se guarda en este equipo y la ventana dice por qué. */
+export function abrirGuardar(ancla, cfg, { sugerido = '', alGuardar, soloEquipo = false }) {
+    abrir(ancla, cfg || {}, 'guardar', { guardar: { titulo: sugerido, compartida: false, alGuardar, enVuelo: false, soloEquipo } });
 }
+// v1.0.0 (vuelta 1, revisión de seguridad ALTA): ERP_Vistas la LEEN todos los Miembros del sitio — «solo yo» prometía una privacidad que no hay
+export const NOTA_DINERO = 'Los guardados de Dinero se quedan en este equipo: la lista de vistas la leen todos los Miembros del sitio.';
+export const NOTA_PANEL = '«Solo en mi panel» no la esconde: la lista de vistas la leen todos los Miembros del sitio.';
 
 function mini(texto, clase, alClic, datos) { const b = boton(texto, 'rp-mini' + (clase ? ' ' + clase : ''), alClic, datos); return b; }
 function pintarPop() {
@@ -188,7 +192,7 @@ function pintarGuardados(c) {
         const lv = el('span', 'rp-lv'); lv.style.background = `var(--seg-${(i % 7) + 1})`; r.appendChild(lv);
         const tx = el('div', 'tx'); tx.appendChild(el('span', '', v.titulo));
         const d = v.definicion || {};
-        tx.appendChild(el('small', '', nombreSegmento(d, cfg.props, d.moneda || cfg.moneda) + (d.moneda ? ' · en ' + d.moneda : '') + (v.compartida ? ' · equipo' : ' · solo yo')));
+        tx.appendChild(el('small', '', nombreSegmento(d, cfg.props, d.moneda || cfg.moneda) + (d.moneda ? ' · en ' + d.moneda : '') + (v.local ? ' · en este equipo' : v.compartida ? ' · equipo' : ' · solo en mi panel')));
         r.appendChild(tx);
         r.appendChild(mini('APLICAR', '', () => { cerrarPop(); cfg.aplicarGuardado(v); }, { aplicar: String(v.id) }));
         if (cfg.esMia && cfg.esMia(v)) r.appendChild(mini('QUITAR', 'rojo', async () => { try { await cfg.borrarGuardado(v); avisar(`«${v.titulo}» ya no está en Guardados.`, 'ok'); if (pop) pintarPop(); } catch (e) { avisar('No se pudo quitar: ' + (e && e.message ? e.message : e), 'error'); } }, { quitar: String(v.id) }));
@@ -272,9 +276,14 @@ function pintarGuardar(c) {
     i.addEventListener('input', () => { g.titulo = i.value; });
     i.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); hacerGuardar(); } });
     c.appendChild(i);
-    const quien = el('div', 'rp-seg rp-quien'); quien.setAttribute('role', 'group'); quien.setAttribute('aria-label', 'Quién la ve');
-    for (const [k, t] of [[false, 'SOLO YO'], [true, 'EQUIPO']]) { const b = boton(t, g.compartida === k ? 'on' : '', () => { g.compartida = k; pintarPop(); }, { compartida: String(k) }); b.setAttribute('aria-pressed', String(g.compartida === k)); quien.appendChild(b); }
-    c.appendChild(quien);
+    if (!g.soloEquipo) {
+        const quien = el('div', 'rp-seg rp-quien'); quien.setAttribute('role', 'group'); quien.setAttribute('aria-label', 'En qué panel aparece');
+        for (const [k, t, tt] of [[false, 'SOLO EN MI PANEL', 'Aparece solo en tu panel «Guardados» (la lista de vistas la pueden leer todos los Miembros del sitio)'], [true, 'EQUIPO', 'Aparece en el panel de todo el equipo']]) {
+            const b = boton(t, g.compartida === k ? 'on' : '', () => { g.compartida = k; pintarPop(); }, { compartida: String(k) }); b.title = tt; b.setAttribute('aria-pressed', String(g.compartida === k)); quien.appendChild(b);
+        }
+        c.appendChild(quien);
+    }
+    const n = el('p', 'rp-pop-nota', g.soloEquipo ? NOTA_DINERO : NOTA_PANEL); n.id = 'rpGuNota'; c.appendChild(n);
     if (pop.cfg.notaGuardar) c.appendChild(el('p', 'rp-pop-nota', pop.cfg.notaGuardar));
     const z = el('div', 'rp-ed-z'); z.appendChild(el('span', 'rp-esp'));
     z.appendChild(mini('CANCELAR', '', () => cerrarPop(), { rp: 'gucancelar' }));
@@ -285,6 +294,6 @@ async function hacerGuardar() {
     const g = pop.guardar; if (g.enVuelo) return;
     const t = String(g.titulo || '').trim(); if (!t) { avisar('Ponle un nombre.', 'ojo'); return; }
     g.enVuelo = true; pintarPop();
-    try { await g.alGuardar(t, g.compartida); cerrarPop(); avisar(`Guardado en «Guardados»: ${t}${g.compartida ? ' (lo ve el equipo)' : ''}.`, 'ok'); }
+    try { await g.alGuardar(t, g.compartida); cerrarPop(); avisar(`Guardado en «Guardados»: ${t}${g.soloEquipo ? ' (en este equipo)' : g.compartida ? ' (lo ve el equipo)' : ''}.`, 'ok'); }
     catch (e) { g.enVuelo = false; if (pop) pintarPop(); avisar('No se pudo guardar: ' + (e && e.message ? e.message : e), 'error'); }
 }

@@ -717,6 +717,18 @@ export function fechaDia(x) {
     const d = x instanceof Date ? diaDe(x) : /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : /^\d{4}-\d{2}-\d{2}T/.test(s) ? diaDe(s) : null;
     return d ? `${Number(d.slice(8, 10))} ${MESES_FECHA[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}` : '—';
 }
+/** El día AAAA-MM-DD de una fecha: un día suelto es ESE día (sin pasar por Date: su medianoche UTC es el día anterior en México); un ISO con
+ *  hora o un Date, el día de México (diaDe). null si no es fecha. */
+const diaSuelto = x => (typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : diaDe(x));
+/** v1.0.0 (vuelta 1, revisión UI/UX «fondo»): la fecha como hoja de calendario —{ mes: 'oct', dia: 31 }—; null sin fecha. Antes (comun.js mesDia)
+ *  un AAAA-MM-DD se volvía a leer con diaDe y el tablero y la ficha decían el vencimiento UN DÍA ANTES que la Lista. */
+export function mesDiaDe(x) { const d = diaSuelto(x); return d ? { mes: MESES_FECHA[Number(d.slice(5, 7)) - 1], dia: Number(d.slice(8, 10)) } : null; }
+/** U-40 (v0.141.0): «26 sep» con espacio duro (la celda Vence de la ficha partía «26 / sep»), y el año solo si no es el de `hoy`; null sin fecha. */
+export function fechaVenceDe(x, hoy = new Date()) {
+    const d = diaSuelto(x); if (!d) return null;
+    const md = mesDiaDe(d);
+    return `${md.dia} ${md.mes}` + (Number(d.slice(0, 4)) !== hoy.getFullYear() ? ` ${d.slice(0, 4)}` : '');
+}
 /** Suma `n` dias a un YYYY-MM-DD. */
 export function sumarDias(dia, n) { const f = new Date(dia + 'T00:00:00Z'); f.setUTCDate(f.getUTCDate() + n); return f.toISOString().slice(0, 10); }
 /** Dias enteros de `a` a `b` (YYYY-MM-DD); negativo si b es antes. */

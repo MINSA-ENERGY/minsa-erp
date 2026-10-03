@@ -6,7 +6,7 @@
 //     más se le compra, los meses en que algo vence).
 //   · interpretarPregunta(q, ctx): { entendida, intento, texto, filas: [{ a, b, c? }], liga: { texto, ir, filtroMis? } | { texto, segmento } }.
 // Respeta los roles: lectura no ve Operación; colaborador no ve cobrar, pagar ni vigencias (lo dice en vez de contestar).
-// `ctx` = { rol, yo, hoy (Date), hoyDia, tareas, proyectos, roles, actividad, sinMovimientoDias, cobranza, servicios, compras, vigencias }
+// `ctx` = { rol, yo, hoy (Date), hoyDia, tareas, proyectos, roles, actividad, sinMovimientoDias, aparte (CONFIG.porPagarAparte), cobranza, servicios, compras, vigencias }
 // (cada JSON como { datos, error }: null = aún no leído · false = no hay). Sin DOM: lo prueba test/preguntar.test.js.
 
 import { PUEDE, sinAcentos, misAbiertas, infoVence, frentesQuietos, cargaPorPersona, nombreDe, plural, HECHO, diasPara } from './reglas.js';
@@ -42,10 +42,19 @@ export function ventanaDias(s) {
     if (u.startsWith('ano')) return { dias: n * 365, texto: n === 1 ? 'el próximo año' : `los próximos ${n} años` };
     return { dias: Math.round(n * 30.5), texto: `los próximos ${n} ${plural(n, 'mes', 'meses')}` };
 }
-/** Las facturas con saldo de un lado, en TODAS sus monedas (planas, de facturasDe; nunca se suman entre monedas). */
-function facturasLado(d, lado) {
+/** Las facturas con saldo de un lado, en TODAS sus monedas (planas, de facturasDe; nunca se suman entre monedas). v1.0.0 (vuelta 1, revisión de
+ *  código «fondo»): sin lo que va APARTE (`ap` = CONFIG.porPagarAparte, solo Por pagar: TKC, v0.171.0), como la página; `soloAparte` deja solo eso. */
+function facturasLado(d, lado, ap = {}, soloAparte = false) {
     const cs = contrapartesDe(d, lado);
-    return monedasDe(cs).flatMap(m => facturasDe(cs, m));
+    return monedasDe(cs).flatMap(m => facturasDe(cs, m, ap, soloAparte));
+}
+/** Lo que va aparte en Por pagar (CONFIG.porPagarAparte llega en ctx.aparte); Por cobrar no tiene aparte. */
+const aparteDe = (ctx, lado) => (lado === 'pagar' && ctx.aparte) || {};
+/** « TKC Oil va aparte: $90,000.00 (motivo).» — lo de aparte con saldo, dicho aparte; '' si no hay. */
+function textoAparte(d, lado, ap, moneda) {
+    const fs = Object.keys(ap).length ? facturasLado(d, lado, ap, true).filter(f => !moneda || f.moneda === moneda) : [];
+    const porRfc = new Map(); for (const f of fs) { if (!porRfc.has(f.rfc)) porRfc.set(f.rfc, []); porRfc.get(f.rfc).push(f); }
+    return [...porRfc.entries()].map(([rfc, xs]) => ` ${xs[0].nombre} va aparte: ${unir(porMoneda(xs))} (${ap[rfc]}).`).join('');
 }
 /** «US$1.00 y $2.00» — un total por moneda, USD primero. */
 function porMoneda(fs, campo = 'saldo') {
@@ -114,10 +123,12 @@ function misVencidas(q, s, ctx) {
         filas: ts.slice(0, TOPE_FILAS).map(t => { const d = -diasPara(t.Vence, ctx.hoy); const pr = p(t.ProyectoId); return { a: String(t.Title || ''), b: `venció hace ${d} ${plural(d, 'día')}${pr ? ' · ' + pr.Title : ''}` }; }), liga };
 }
 
-/** La contraparte (y la moneda) que nombra la pregunta, con interpretarFrase sobre las facturas del lado. */
-function contraparteDe(q, d, lado) {
-    const fs = facturasLado(d, lado), r = interpretarFrase(q, fs, lado), c = r.conds.find(x => x.p === 'cli');
-    return { fs, r, nombres: c ? c.v : [], moneda: r.moneda };
+/** La contraparte (y la moneda) que nombra la pregunta, con interpretarFrase sobre las facturas del lado. Sin nombre, `fs` va SIN lo de aparte;
+ *  nombrarla (¿cuánto le debemos a TKC?) sí la encuentra. */
+function contraparteDe(q, d, lado, ap = {}) {
+    const todas = facturasLado(d, lado), r = interpretarFrase(q, todas, lado), c = r.conds.find(x => x.p === 'cli');
+    const nombres = c ? c.v : [];
+    return { fs: nombres.length ? todas : facturasLado(d, lado, ap), r, nombres, moneda: r.moneda };
 }
 function ladoDe(s) { return /\bdebemos\b|\bpor pagar\b|\bproveedor|\ble pagamos\b/.test(s) ? 'pagar' : 'cobrar'; }
 function ligaDinero(d, lado, conds, moneda, pagina) {
@@ -127,19 +138,19 @@ function ligaDinero(d, lado, conds, moneda, pagina) {
 function debe(q, s, ctx) {
     if (!PUEDE.capital(ctx.rol)) return { texto: SIN_PERMISO.dinero };
     const f = faltaJson(ctx.cobranza, 'cobranza.json'); if (f) return { texto: f };
-    const d = ctx.cobranza.datos, lado = ladoDe(s);
-    const { fs, nombres, moneda } = contraparteDe(q, d, lado);
+    const d = ctx.cobranza.datos, lado = ladoDe(s), ap = aparteDe(ctx, lado);
+    const { fs, nombres, moneda } = contraparteDe(q, d, lado, ap);
     const corte = corteDe(d) ? ` (corte del ${fechaServicio(corteDe(d))})` : '';
     if (!nombres.length) {
         const sumas = porMoneda(fs.filter(x => !moneda || x.moneda === moneda));
-        return { texto: lado === 'pagar' ? `Por pagar sin pago probado: ${unir(sumas) || '$0.00'}${corte}. Las monedas no se suman.` : `Por cobrar sin pago probado: ${unir(sumas) || 'US$0.00'}${corte}. Las monedas no se suman.`,
+        return { texto: (lado === 'pagar' ? `Por pagar sin pago probado: ${unir(sumas) || '$0.00'}${corte}. Las monedas no se suman.` : `Por cobrar sin pago probado: ${unir(sumas) || 'US$0.00'}${corte}. Las monedas no se suman.`) + textoAparte(d, lado, ap, moneda),
             liga: { texto: 'Abrir', ir: `#finanzas/${lado}/saldo` } };
     }
     const de = fs.filter(x => nombres.includes(x.nombre) && (!moneda || x.moneda === moneda));
     const ricas = conFacturasRicas(d), sinRep = sinRepDe(de, ricas).length;
-    const nom = unir(nombres);
+    const nom = unir(nombres), aparte = [...new Set(de.filter(f => ap[f.rfc]).map(f => ap[f.rfc]))];
     if (!de.length) return { texto: `${nom} no tiene saldo sin pago probado${moneda ? ' en ' + moneda : ''}${corte}.`, liga: ligaDinero(d, lado, [{ p: 'cli', op: 'es uno de', v: nombres }], moneda, lado === 'pagar' ? 'proveedor' : 'cliente') };
-    return { texto: `${lado === 'pagar' ? `A ${nom} le debemos` : `${nom} nos debe`} ${unir(porMoneda(de))} sin pago probado${corte}: ${de.length} ${plural(de.length, 'factura')}, ${sinRep} sin REP.`,
+    return { texto: `${lado === 'pagar' ? `A ${nom} le debemos` : `${nom} nos debe`} ${unir(porMoneda(de))} sin pago probado${corte}: ${de.length} ${plural(de.length, 'factura')}, ${sinRep} sin REP${aparte.length ? `; va aparte de «Por pagar» (${aparte.join('; ')})` : ''}.`,
         filas: de.slice().sort((a, b) => b.saldo - a.saldo).slice(0, TOPE_FILAS).map(x => ({ a: `${x.id} · ${fechaServicio(String(x.fecha).slice(0, 10))}`, b: fmtMonto(x.saldo, x.moneda) })),
         liga: ligaDinero(d, lado, [{ p: 'cli', op: 'es uno de', v: nombres }], moneda || (de[0] && de[0].moneda), lado === 'pagar' ? 'proveedor' : 'cliente') };
 }
@@ -147,7 +158,7 @@ function sinRep(q, s, ctx) {
     if (!PUEDE.capital(ctx.rol)) return { texto: SIN_PERMISO.dinero };
     const f = faltaJson(ctx.cobranza, 'cobranza.json'); if (f) return { texto: f };
     const d = ctx.cobranza.datos, lado = ladoDe(s), ricas = conFacturasRicas(d);
-    const { fs, nombres, moneda } = contraparteDe(q, d, lado);
+    const { fs, nombres, moneda } = contraparteDe(q, d, lado, aparteDe(ctx, lado));
     const sin = sinRepDe(fs, ricas).filter(x => (!nombres.length || nombres.includes(x.nombre)) && (!moneda || x.moneda === moneda)).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
     const de = nombres.length ? `De ${unir(nombres)}, ` : '';
     const conds = [...(nombres.length ? [{ p: 'cli', op: 'es uno de', v: nombres }] : []), { p: 'est', op: 'es uno de', v: ['Sin REP'] }];

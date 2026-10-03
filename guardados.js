@@ -4,9 +4,13 @@
 //   - Lee ERP_Vistas (sitio Administración) UNA vez por sesión, la primera vez que alguien la necesita (una pantalla de Dinero, el panel).
 //     Sin la lista (todavía no se aprovisiona: cubeta 5) o si la lectura falla, todo se guarda en ESTE equipo (localStorage, una llave por
 //     cuenta) y la app lo dice en una nota discreta; ningún error a la vista.
-//   - Cada vista es { id, titulo, dueno, compartida, modulo, definicion }. «Solo yo» la ve su dueño; «Equipo», todos (decisión de la
-//     maqueta). La definición la escribe la app, pero la lista la puede editar cualquier Miembro: se valida al leer y al abrir (el módulo que
-//     la abre la vuelve a validar) y se pinta solo como texto.
+//   - Cada vista es { id, titulo, dueno, compartida, modulo, definicion, local }. «Solo en mi panel» la PINTA solo su dueño; «Equipo», todos
+//     (decisión de la maqueta). La lista la LEEN todos los Miembros del sitio: «solo en mi panel» no es privado (vuelta 1, revisión de
+//     seguridad). La definición la escribe la app, pero la lista la puede editar cualquier Miembro: se valida al leer y al abrir (el módulo que
+//     la abre la vuelve a validar) y se pinta solo como texto; un renglón SIN Dueno solo se pinta si es Compartida.
+//   - v1.0.0 (vuelta 1, revisión de seguridad ALTA): lo de DINERO (segmentos y vistas) se guarda SIEMPRE en este equipo — nunca en ERP_Vistas: sus
+//     contrapartes, folios, «sin REP» y umbrales salen de cobranza.json, que solo ve gerencia, y la lista la leen los colaboradores y las cuentas
+//     de lectura. Y lo guardado en este equipo NO desaparece cuando la lista responde (revisión de código «fondo»): se pinta junto, marcado.
 //   - Quién sabe ABRIR cada tipo de vista lo registra su módulo (registrarAbridor): Dinero abre segmentos y reportes; la cubeta 5 fijados.
 // Nada de innerHTML: este módulo no pinta.
 
@@ -36,10 +40,10 @@ export function normalizarVista(r) {
     return { id: r.id, titulo, dueno: String(r.Dueno ?? r.dueno ?? '').trim().toLowerCase(), compartida: (r.Compartida ?? r.compartida) === true, modulo, definicion: def };
 }
 
-/** Lee ERP_Vistas (o el respaldo local). Nunca lanza: un error deja el modo local con su nota. */
+/** Lee ERP_Vistas (o el respaldo local). Nunca lanza: un error deja el modo local con su nota. Lo de este equipo se suma SIEMPRE (`local`). */
 export async function cargarGuardados() {
     const c = estado.cliente, s = estado.siteId;
-    const local = () => leerLocal().map(normalizarVista).filter(Boolean);
+    const local = () => leerLocal().map(normalizarVista).filter(Boolean).map(v => ({ ...v, local: true }));
     try {
         if (!c || !await c.existeLista(s, L.vistas)) {
             G.modo = 'local'; G.items = local();
@@ -47,7 +51,7 @@ export async function cargarGuardados() {
             return;
         }
         const rs = await c.renglones(s, L.vistas);
-        G.items = rs.map(normalizarVista).filter(Boolean); G.modo = 'lista'; G.nota = ''; G.error = null;
+        G.items = [...rs.map(normalizarVista).filter(Boolean), ...local()]; G.modo = 'lista'; G.nota = ''; G.error = null;
     } catch (e) {
         G.modo = 'local'; G.items = local(); G.error = motivo(e);
         G.nota = `Se guardan en este equipo: no se pudo leer ${L.vistas} (${G.error}).`;
@@ -65,18 +69,21 @@ export function releerGuardados(alListo) { G.modo = null; G.items = []; return a
 /** Las vistas que esta persona ve de un módulo: las suyas y las compartidas; `filtro(definicion)` acota (p. ej. solo segmentos). */
 export function guardadosDe(modulo, filtro = null) {
     const y = yo();
-    return G.items.filter(x => x.modulo === modulo && (x.compartida || !x.dueno || x.dueno === y || G.modo === 'local') && (!filtro || filtro(x.definicion)))
+    // un renglón de la lista SIN Dueno solo se pinta si es Compartida (vuelta 1, revisión de seguridad «baja»: antes lo veían todos)
+    return G.items.filter(x => x.modulo === modulo && (x.local || x.compartida || (!!x.dueno && x.dueno === y)) && (!filtro || filtro(x.definicion)))
         .sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
 }
-export const esMia = x => !!x && (G.modo === 'local' || x.dueno === yo());
+export const esMia = x => !!x && (!!x.local || x.dueno === yo());
+/** ¿Esta vista se guarda en el equipo y no en la lista? Lo de Dinero, siempre (vuelta 1); lo demás, solo sin la lista. */
+export const vaAlEquipo = modulo => modulo === 'dinero' || G.modo !== 'lista';
 
-/** Guarda una vista. En la lista, un renglón nuevo de ERP_Vistas; sin ella, en este equipo. Devuelve la vista (o lanza con el motivo). */
+/** Guarda una vista. En la lista, un renglón nuevo de ERP_Vistas; lo de Dinero o sin la lista, en este equipo. Devuelve la vista (o lanza con el motivo). */
 export async function guardarVista({ titulo, compartida = false, modulo, definicion }) {
     const t = String(titulo || '').trim().slice(0, 120);
     if (!t) throw new Error('ponle un nombre');
     if (!MODULOS.includes(modulo)) throw new Error('módulo desconocido: ' + modulo);
     if (G.modo === null) await cargarGuardados();
-    if (G.modo === 'lista') {
+    if (!vaAlEquipo(modulo)) {
         const r = await estado.cliente.crearRenglon(estado.siteId, L.vistas, { Title: t, Dueno: yo(), Compartida: !!compartida, Modulo: modulo, Definicion: JSON.stringify(definicion) });
         const v = normalizarVista({ ...r, Title: t, Dueno: yo(), Compartida: !!compartida, Modulo: modulo, Definicion: definicion });
         if (v && !G.items.some(x => x.id === v.id)) G.items.push(v);
@@ -85,13 +92,14 @@ export async function guardarVista({ titulo, compartida = false, modulo, definic
     const v = { id: 'l' + Date.now() + Math.floor(Math.random() * 1000), titulo: t, dueno: yo(), compartida: false, modulo, definicion };
     const xs = leerLocal(); xs.push(v);
     if (!escribirLocal(xs)) throw new Error('este navegador no deja guardar (almacenamiento bloqueado)');
-    G.items.push(v);
-    return v;
+    const enMemoria = { ...v, local: true };
+    G.items.push(enMemoria);
+    return enMemoria;
 }
-/** Borra una vista PROPIA (en la lista, su renglón; en local, de este equipo). */
+/** Borra una vista PROPIA (de la lista, su renglón; de este equipo, del localStorage de la cuenta). */
 export async function borrarVista(v) {
     if (!esMia(v)) throw new Error('solo quien la guardó la puede quitar');
-    if (G.modo === 'lista' && typeof v.id === 'number') await estado.cliente.borrarRenglon(estado.siteId, L.vistas, v.id);
+    if (!v.local && G.modo === 'lista' && typeof v.id === 'number') await estado.cliente.borrarRenglon(estado.siteId, L.vistas, v.id);
     else escribirLocal(leerLocal().filter(x => x.id !== v.id));
     G.items = G.items.filter(x => x.id !== v.id);
 }

@@ -6,7 +6,7 @@
 
 import { esConflicto } from './graph.js';
 import { PUEDE, CAPITAL_CATEGORIAS, CAPITAL_TIPOS, formatoMXN, leerMonto, validarPartida, resumenCapital, capitalPorProyecto, totalCapital, capitalPorMes, ordenarPartidas, ordenarProyectos, activosDe, diaDe, partidaVencida, plural } from './reglas.js';
-import { $, L, estado, el, avisar, abrirDialogo, cerrarDialogo, confirmar, fijarGuarda, opciones, porId, aplicarVivo, agregarSinDuplicar, pedirRelectura, fechaCorta, aIsoDia, diaInput, fechaInput, limpiar, equipoDe, iconoEquipo, iconoSvg, fijarHash, hashDe, mayusculasEnVivo, conservarFoco } from './comun.js';
+import { $, L, estado, el, avisar, abrirDialogo, cerrarDialogo, confirmar, fijarGuarda, opciones, porId, aplicarVivo, agregarSinDuplicar, pedirRelectura, fechaCorta, aIsoDia, fechaInput, limpiar, fijarHash, hashDe, mayusculasEnVivo, conservarFoco } from './comun.js';
 // v1.0.0 (rediseño, cubeta 2): la piel de la plantilla de reporte — cabecera, tarjetas y, en «Por mes» (#capital/mes), la gráfica con sus KPIs
 import { cabecera, pintarReporte, vistaDe, descargar, ultimoCsv, soltarIdsFuera } from './reporte.js';
 import { agrupar, fmtCorto, csv, nombreCsv, diaIso } from './reporte-reglas.js';
@@ -103,7 +103,7 @@ function pintarMes(cont, acciones, partidas, sub) {
     const meses = capitalPorMes(partidas), conFecha = meses.filter(m => m.mes), sinFecha = meses.find(m => !m.mes);
     const guardar = b => {
         const g = estadoGuardados(), w = vistaDe('capital-mes');
-        abrirGuardar(b, { notaGuardar: g.modo === 'local' ? g.nota : '' }, { sugerido: 'Capital por mes', alGuardar: (titulo, compartida) => guardarVista({ titulo, compartida, modulo: 'dinero', definicion: { tipo: 'reporte', ruta: '#capital/mes', vistaId: 'capital-mes', vista: { grano: w.grano, tipo: w.tipo } } }).then(() => repintar()) });
+        abrirGuardar(b, { notaGuardar: g.modo === 'local' ? g.nota : '' }, { sugerido: 'Capital por mes', soloEquipo: true, alGuardar: (titulo, compartida) => guardarVista({ titulo, compartida, modulo: 'dinero', definicion: { tipo: 'reporte', ruta: '#capital/mes', vistaId: 'capital-mes', vista: { grano: w.grano, tipo: w.tipo } } }).then(() => repintar()) });
     };
     pintarReporte(cont, {
         id: 'capital-mes', titulo: 'Capital por mes', ayuda: AYUDA_MES, acciones, sub, subId: 'capitalSub', ojo: true, guardar,

@@ -12,7 +12,7 @@ import { estadoVigencias, asegurarCarga as asegurarVigencias } from './vigencias
 import { estadoCobranza, asegurarCarga as asegurarCobranza } from './cobranza.js';
 import { kpisInicio, atencionDeOperacion } from './inicio-reglas.js';
 import { cabecera, vistaDe, soltarIdsFuera } from './reporte.js';
-import { colorCorte, fechaCorta } from './reporte-reglas.js';
+import { colorCorte, fechaCorta, diasDelCorte } from './reporte-reglas.js';
 
 let irARuta = () => {};
 /** app.js pasa su navegación (un KPI lleva a la ruta de su reporte, como una liga pegada). */
@@ -43,7 +43,7 @@ export function datosPublicados(cargar = false) {
 export function contextoDatos(cargar = false) {
     const hoy = new Date();
     return { rol: estado.rol, yo: estado.cuenta && estado.cuenta.username, hoy, hoyDia: diaDe(hoy), tareas: estado.tareas, proyectos: estado.proyectos, roles: estado.roles,
-        actividad: estado.actividad, sinMovimientoDias: CONFIG.sinMovimientoDias, ...datosPublicados(cargar) };
+        actividad: estado.actividad, sinMovimientoDias: CONFIG.sinMovimientoDias, aparte: CONFIG.porPagarAparte || {}, ...datosPublicados(cargar) };   // aparte: vuelta 1 (Preguntar como la página)
 }
 
 const AYUDA_INICIO = 'Arriba, los indicadores de los módulos que ves (cada uno abre su reporte; los que salen de un archivo publicado traen su corte). «Requiere atención» junta lo que pide algo hoy: tus vencidas y lo de hoy, lo nuevo para ti y las menciones, las tarjetas sin dueño y, según tu rol, servicios detenidos o en cobro, vigencias a 30 días o menos, órdenes de compra que no cuadran y frentes sin movimiento. Lo de esta semana y después vive en Mis tareas.';
@@ -69,7 +69,7 @@ export function pintarKpisInicio(abiertas) {
         b.appendChild(el('small', '', k.texto));
         let pie = '';
         if (k.corte) {
-            const dias = Math.max(0, Math.floor((Date.now() - Date.parse(k.corte + 'T12:00:00')) / 86400000));
+            const dias = diasDelCorte(k.corte);   // v1.0.0 (vuelta 1): la MISMA cuenta que el chip de la página (antes: desde el mediodía)
             const c = el('span', 'ini-corte is-' + colorCorte(dias), `corte: ${fechaCorta(k.corte)}`); c.title = dias === 0 ? 'Publicado hoy' : `Publicado hace ${dias} ${plural(dias, 'día')}${dias > 8 ? ': hay que re-publicar' : ''}`; b.appendChild(c);
             pie = c.textContent;
         } else if (k.estado !== 'datos') { const s = el('span', 'ini-corte is-sin', k.estado === 'leyendo' ? 'leyendo…' : 'sin datos'); b.appendChild(s); pie = s.textContent; }

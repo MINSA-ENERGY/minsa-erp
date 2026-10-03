@@ -61,7 +61,7 @@ ok('monto: dos decimales con separador de miles y moneda', monto(2610748.3, 'USD
     const { ANTIGUEDAD } = await import('../reporte-reglas.js');
     const fr = (id, fecha, ins, extra = {}) => f(id, extra.moneda || 'USD', ins, extra.estado || 'SIN', { fecha, total: ins, reps: 0, cadena: false, producto: 'Cajas de recorte', ...extra });
     const D2 = { version: 1, revision: 2, generado: '2026-10-05T08:00:00', clientes: [
-        { rfc: 'CPL801111PS2', nombre: 'CPL Servicios de Perforacion', monedas: [m('USD', 1000, 200, 0, 0, 800)], facturas: [fr('C1', '2026-09-20', 300), fr('C2', '2025-08-01', 500, { reps: 1, estado: 'DUDA', producto: 'Supersacos (RME)' })] },
+        { rfc: 'CPD010101AAA', nombre: 'CPL Servicios de Perforacion', monedas: [m('USD', 1000, 200, 0, 0, 800)], facturas: [fr('C1', '2026-09-20', 300), fr('C2', '2025-08-01', 500, { reps: 1, estado: 'DUDA', producto: 'Supersacos (RME)' })] },
         { rfc: 'LAT', nombre: 'Constructora Demo', monedas: [m('USD', 400, 0, 0, 0, 400), m('MXN', 90, 0, 0, 0, 90)], facturas: [fr('L1', '2026-03-10', 400, { pagado: 50 }), fr('L2', '2026-01-10', 90, { moneda: 'MXN' }), fr('L3', '2026-02-01', 10, { cancelada: true })] },
         { rfc: 'TOS', nombre: 'TKC Demo', monedas: [m('USD', 70, 0, 0, 0, 70)], facturas: [fr('T1', '2024-01-01', 70)] }
     ], historial: [
@@ -77,7 +77,7 @@ ok('monto: dos decimales con separador de miles y moneda', monto(2610748.3, 'USD
     ok('facturasDe: de UNA moneda, sin canceladas ni lo aparte, con saldo, contraparte, abiertas y % pagado', fs.map(x => x.id).join() === 'C1,C2,L1' && fs[0].saldo === 300 && fs[0].nab === 2 && fs[0].pct === 20 && fs[2].nombre === 'Constructora Demo');
     ok('facturasDe con soloAparte: solo lo que va aparte', R2.facturasDe(D2.clientes, 'USD', aparte, true).map(x => x.id).join() === 'T1');
     const ant = R2.antiguedadPorContraparte(D2.clientes, 'USD', '2026-10-05', aparte);
-    ok('antigüedad por contraparte: cubetas e importes al corte, la mayor primero, total que cuadra', ant.filas.map(x => x.rfc).join() === 'CPL801111PS2,LAT'
+    ok('antigüedad por contraparte: cubetas e importes al corte, la mayor primero, total que cuadra', ant.filas.map(x => x.rfc).join() === 'CPD010101AAA,LAT'
         && ant.filas[0].cubetas.join() === '300,0,0,500' && ant.filas[0].n.join() === '1,0,0,1' && ant.filas[1].cubetas[2] === 400 && ant.total.saldo === 1200 && ant.total.n.join() === '1,0,1,1' && ant.total.facturado === 1400);
     const se = R2.serieSaldoEmision(fs, '2026-10-05');
     ok('serie por emisión: acumulada desde la factura más vieja hasta el mes del corte', se[0].k === '2025-08' && se[se.length - 1].k === '2026-10' && se[se.length - 1].v === 1200 && se.find(p => p.k === '2026-03').inc === 400);

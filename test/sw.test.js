@@ -96,4 +96,30 @@ for (const [txt, n] of [['x.innerHTML = t', 1], ['x.innerHTML += t', 1], ["x['in
     ["const u = 'https://a.example/c'; x.innerHTML = t", 1],
     ['// nada de innerHTML = x (todo textContent)', 0], ['/* x.innerHTML = t */ const a = 1', 0], ['if (x.innerHTML == t) {}', 0], ['x.textContent = t', 0], ["x.setAttribute('aria-label', t)", 0]])
   assert.equal(sumiderosEn(txt).length, n, `sumideros contra ${JSON.stringify(txt)}`);
+// v1.0.0 (vuelta 1, revision de codigo «baja»): ningun import con nombre que el modulo no use (al mudar el rail quedaron tres en app.js, y
+// otros de antes): confunden a quien busca donde se calcula algo. Un `...nombre` cuenta como uso; `x.nombre` no. Se lee el texto CRUDO: quitar
+// comentarios con regex se come codigo despues de un 'image/*' (un falso «sin uso»); una mencion en un comentario cuenta como uso (falla hacia el «si»).
+{
+  const sinUso = [];
+  for (const m of modulos) {
+    const t = readFileSync(join(raiz, m), 'utf8');
+    for (const imp of t.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"][^'"]+['"]/g)) {
+      const resto = t.slice(0, imp.index) + t.slice(imp.index + imp[0].length);
+      for (const parte of imp[1].split(',').map(s => s.trim()).filter(Boolean)) {
+        const local = parte.split(/\s+as\s+/).pop().trim();
+        if (!new RegExp('(?<![\\w$])(?<![^.]\\.)' + local.replace(/\$/g, '\\$') + '(?![\\w$])').test(resto)) sinUso.push(`${m}: ${local}`);
+      }
+    }
+  }
+  assert.deepEqual(sinUso, [], 'imports sin uso:\n  ' + sinUso.join('\n  '));
+}
+// v1.0.0 (vuelta 1, revision de codigo «baja»): las pieles de las tablas que la plantilla de reporte reemplazo (Cobranza v0.165, Compras v0.169,
+// Vigencias y Servicios en .cob-*/.srv-tabla/.vig-tabla), el dialogo Equipo (ahora pagina de Cuenta), los KPI .mn-kpi de Inicio (v0.41.0) y el
+// submenu .acc-sub no vuelven a estilo.css: una regla vieja con el mismo nombre ya piso una nueva sin error (cubeta 3, KPIs de Operacion).
+{
+  const css = readFileSync(join(raiz, 'estilo.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const muertos = ['.cob-tabla', '.cob-kpi', '.cob-abrir', '.cob-detalle', '.cob-facturas', '.cmp-tabla', '.cmp-detalle', '.cmp-partidas', '.cmp-totales', '.cmp-abrir', '#dlgEquipo', '.srv-tabla', '.vig-tabla', '.mn-kpi', '.acc-sub', '.solo-oscuro']
+    .filter(s => new RegExp(s.replace('.', '\\.') + '(?![\\w-])').test(css));
+  assert.deepEqual(muertos, [], 'estilo.css trae otra vez selectores que ningun modulo pinta: ' + muertos.join(', '));
+}
 console.log('sw: ok');

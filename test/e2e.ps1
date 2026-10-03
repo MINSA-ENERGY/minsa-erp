@@ -4,8 +4,10 @@
 # v0.162.0 (Gastos, de la ERP v1): gerencia juega tesoreria y colaborador contabilidad (ERP_Roles, por default en pruebas.html);
 # 'sin-gastos' = colaborador SIN ERP_Gastos/ERP_Roles/biblioteca: todo lo demas debe pasar igual.
 # 'sin-rol-gastos' = colaborador con las listas pero SIN rol en ERP_Roles: registra y ve lo suyo, sin pestanas.
-param([string[]]$Roles = @('gerencia', 'colaborador', 'lectura', 'sin-gastos', 'sin-rol-gastos'))
-$consulta = @{ 'sin-gastos' = 'rol=colaborador&gastos=no'; 'sin-rol-gastos' = 'rol=colaborador&erp=ninguno' }
+# 'csp' (v1.0.0, vuelta 1 de correcciones) = corrida de HUMO de gerencia con la CSP REAL de index.html inyectada antes de importar app.js:
+# arranque, Dinero (grafica SVG), Archivos (PUT y upload session de 11 MiB) y vista previa; cualquier securitypolicyviolation es FALLA.
+param([string[]]$Roles = @('gerencia', 'colaborador', 'lectura', 'sin-gastos', 'sin-rol-gastos', 'csp'))
+$consulta = @{ 'sin-gastos' = 'rol=colaborador&gastos=no'; 'sin-rol-gastos' = 'rol=colaborador&erp=ninguno'; 'csp' = 'rol=gerencia&csp=1' }
 $app = Split-Path -Parent $PSScriptRoot
 $edge = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 if (-not (Test-Path $edge)) { Write-Host "No esta Edge en $edge"; exit 1 }

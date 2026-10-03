@@ -19,7 +19,9 @@ export async function conReintento(hacer, alAvisar) {
         try {
             r = await hacer();
         } catch (e) {
-            if (intento === REINTENTOS) throw e;
+            // v1.0.0 (vuelta 1): un fetch que no llegó tras los reintentos (TypeError: «Failed to fetch» / «Load failed») se MARCA sin red; quien
+            // llama clasifica por esSinRed, no por cualquier TypeError (un error de pintado no es la red)
+            if (intento === REINTENTOS) { if (e instanceof TypeError && e.status === undefined) e.sinRed = true; throw e; }
             if (alAvisar) alAvisar(`sin conexión, reintentando (${intento}/${REINTENTOS - 1})`);
             await dormir(espera); espera *= 2;
             continue;

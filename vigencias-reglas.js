@@ -47,9 +47,13 @@ export function ordenarVigencias(lista, hoy = new Date()) {
 }
 
 /** Conteos para el resumen: vencidas, en rojo (sin vencer) y en ambar. */
+/** v1.0.0 (vuelta 1, revisión UI/UX «media»): «vencidas o a ≤ 30 días» — la ventana de «Requiere atención» y del KPI de Inicio (plan), que la
+ *  página de Vigencias también enseña: el número de Inicio tiene que estar donde su KPI lleva. */
+export const VIG_ATENCION = 30;
 export function resumenVigencias(ordenadas) {
-    const r = { vencidas: 0, rojo: 0, ambar: 0, total: ordenadas.length };
+    const r = { vencidas: 0, rojo: 0, ambar: 0, atencion: 0, total: ordenadas.length };
     for (const v of ordenadas) {
+        if (v.dias <= VIG_ATENCION) r.atencion++;
         if (v.dias < 0) r.vencidas++;
         else if (v.dias <= VIG_ROJO) r.rojo++;
         else if (v.dias <= VIG_AMBAR) r.ambar++;

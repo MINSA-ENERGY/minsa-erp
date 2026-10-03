@@ -154,6 +154,15 @@ export function cubetaAntiguedad(fecha, corteDia) {
 }
 /** El color del chip «corte: fecha» (plan): ámbar con más de 8 días, rojo con más de 15. */
 export const colorCorte = dias => dias > 15 ? 'danger' : dias > 8 ? 'warn' : 'ok';
+/** v1.0.0 (vuelta 1, revisión de código «baja»): días de CALENDARIO del corte (su día tal como viene: hora local sin zona) a hoy (el día local de
+ *  `ahora`); nunca negativo, 0 sin corte. UNA cuenta para el chip de la cabecera y el de los KPIs de Inicio — antes la página contaba desde la hora
+ *  del corte y Inicio desde su mediodía, y el día del umbral (8 o 15 días) salían de colores distintos. */
+export function diasDelCorte(corte, ahora = new Date()) {
+    const d = typeof corte === 'string' ? diaIso(corte) : null;
+    if (!d) return 0;
+    const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+    return Math.max(0, diasEntre(d, hoy));
+}
 
 // ---------------------------------------------------------------- montos (maqueta fmt / corto / eje)
 

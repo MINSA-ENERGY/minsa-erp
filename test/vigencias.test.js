@@ -56,4 +56,14 @@ ok('cosechador: escribe cada campo que lee la app', ['version', 'generado', 'vig
 const plantilla = readFileSync(join(raiz, '..', '..', 'minsa-energy', '_plantilla-unidad.md'), 'utf8');
 ok('plantilla: documenta el marcador 📅 VIGENCIA', /^> 📅 \*\*VIGENCIA\*\* · \w+ · vence: \d{4}-\d{2}-\d{2} · título: /m.test(plantilla));
 
+// v1.0.0 (vuelta 1, revisión UI/UX «media»): el KPI de Inicio «vencidas o a ≤ 30 días» tiene SU cifra en la página de Vigencias (antes la
+// página solo cortaba a 15 y a 60 días: el 2 de Inicio no estaba en ningún lado al llegar)
+{
+    const { VIG_ATENCION } = await import('../vigencias-reglas.js');
+    const { kpisInicio } = await import('../inicio-reglas.js');
+    const vs = [vg('2026-09-18', 'vencida'), vg('2026-10-20', 'en 18 días'), vg('2026-10-31', 'en 29 días'), vg('2026-11-20', 'en 49 días'), vg('2027-03-01', 'lejos')];
+    const r = resumenVigencias(ordenarVigencias(vs, HOY));
+    const k = kpisInicio({ rol: 'gerencia', hoy: HOY, hoyDia: '2026-10-02', abiertas: 0, cobranza: { datos: null }, servicios: { datos: null }, compras: { datos: null }, vigencias: { datos: { ...DATOS, vigencias: vs }, error: null } }).find(x => x.clave === 'vigencias');
+    ok('resumenVigencias.atencion = vencidas + las que vencen en VIG_ATENCION (30) días o menos, la MISMA cifra que el KPI de Inicio', VIG_ATENCION === 30 && r.atencion === 3 && !!k && k.valor === String(r.atencion));
+}
 console.log(`vigencias.test.js: ${n} aserciones OK`);

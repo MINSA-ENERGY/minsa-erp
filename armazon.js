@@ -22,6 +22,7 @@ import { datosPublicados } from './inicio.js';   // v1.0.0 (cubeta 4): las vigen
 import { abrirNuevaTarea } from './tablero.js';
 import { abrirSubida, puedeSubirEn } from './archivos.js';   // v1.0.0 (cubeta 5): «Subir archivo / Foto» va a la carpeta del proyecto (o al buzón sin ERP_Proyectos)
 import { abrirNuevoGasto, estadoGastos, misRolesErp } from './gastos.js';
+import { PUEDE_GASTO } from './gastos-reglas.js';   // v1.0.0 (vuelta 1): «+ Nuevo › Gasto» con el mismo permiso que Gastos
 import { estadoServicios } from './servicios.js';
 import { mensajesNuevos, proyectoDeMensajes } from './vistas.js';
 import { guardadosDe, puedeAbrir, abrirGuardado, iconoDe, estadoGuardados, asegurarGuardados } from './guardados.js';   // v1.0.0 (cubeta 2): «Guardados» del panel
@@ -196,9 +197,11 @@ function pintarGuardados(m) {
     const xs = guardadosDe(m).filter(puedeAbrir), g = estadoGuardados();
     if (!xs.length) { caja.appendChild(el('p', 'panel-vacio', 'Aquí quedarán las vistas que guardes.')); return caja; }
     for (const v of xs) {
-        const b = el('button', 'sv'); b.type = 'button'; b.dataset.vista = String(v.id); b.title = v.compartida ? `${v.titulo} · la ve el equipo` : v.titulo;
+        const enEquipo = v.local && g.modo === 'lista';   // v1.0.0 (vuelta 1): lo de este equipo junto a lo de la lista, marcado (Dinero, siempre)
+        const b = el('button', 'sv'); b.type = 'button'; b.dataset.vista = String(v.id); b.title = enEquipo ? `${v.titulo} · guardada en este equipo` : v.compartida ? `${v.titulo} · la ve el equipo` : v.titulo;
         b.appendChild(iconoSvg(TRAZOS[iconoDe(v)] || [], 'em')); b.appendChild(el('span', 'tx', v.titulo));
-        if (v.compartida) b.appendChild(el('span', 'n', 'equipo'));
+        if (enEquipo) b.appendChild(el('span', 'n', 'este equipo'));
+        else if (v.compartida) b.appendChild(el('span', 'n', 'equipo'));
         b.addEventListener('click', () => { cerrarHoja(); abrirGuardado(v); });
         caja.appendChild(b);
     }
@@ -402,7 +405,8 @@ function abrirAvisos() {
         b.setAttribute('role', 'listitem'); if (a.cuando) b.dataset.cuando = String(a.cuando);
         if (a.eq) b.appendChild(iconoEquipo(a.eq, 'sm')); else b.appendChild(el('span', 'av-ico'));
         // `sinHora`: el instante es de calendario (vencidas, vigencias), no un evento: no se le pone hora
-        const t = el('span', 't'); t.appendChild(el('b', '', a.texto)); t.appendChild(el('small', '', a.sub + (a.cuando && !a.sinHora ? ` · ${haceCuanto(a.cuando)}` : ''))); b.appendChild(t);
+        // v1.0.0 (vuelta 1, revisión UI/UX «media»): la hora va al PRINCIPIO del subtítulo (a 390 el final se cortaba y se perdía cuándo pasó)
+        const t = el('span', 't'); t.appendChild(el('b', '', a.texto)); t.appendChild(el('small', '', (a.cuando && !a.sinHora ? `${haceCuanto(a.cuando)} · ` : '') + a.sub)); b.appendChild(t);
         if (nuevo) { const p = el('span', 'av-nuevo', 'nuevo'); b.appendChild(p); }
         b.appendChild(iconoSvg(TRAZOS.chevr, 'flecha'));
         l.appendChild(b);
@@ -436,13 +440,17 @@ function opcionNuevo(clave, texto, icono, alClic, deshabilitado) {
     if (deshabilitado) { b.disabled = true; b.title = deshabilitado; }
     return b;
 }
+/** Por qué una opción de «+ Nuevo» no le sirve a esta persona ('' si sí). v1.0.0 (vuelta 1, revisión UI/UX «media»): «Gasto» mira el mismo
+ *  permiso que Gastos (PUEDE_GASTO.registrar) — antes era la única viva para lectura y terminaba en «no puedes registrar gastos». */
+function motivoSinNuevo(k) {
+    if (k === 'gasto') return PUEDE_GASTO.registrar(estado.rol, misRolesErp()) ? '' : 'Tu rol no registra gastos';
+    return PUEDE.tarea(estado.rol) ? '' : 'Tu rol es de lectura';
+}
+/** ¿Le queda alguna opción? Sin ninguna, ni el «+ Nuevo» del rail ni el flotante se pintan (tapaban renglones para nada). */
+export const hayNuevo = () => OPCIONES_NUEVO.some(([k]) => !motivoSinNuevo(k));
 function pintarMenuNuevo() {
     const m = $('menuNuevo'); m.textContent = '';
-    const lectura = !PUEDE.tarea(estado.rol);
-    for (const [k, texto, icono] of OPCIONES_NUEVO) {
-        const sinRol = (k === 'tarea' || k === 'subir' || k === 'foto') && lectura ? 'Tu rol es de lectura' : '';
-        m.appendChild(opcionNuevo(k, texto, icono, () => elegirNuevo(k), sinRol));
-    }
+    for (const [k, texto, icono] of OPCIONES_NUEVO) m.appendChild(opcionNuevo(k, texto, icono, () => elegirNuevo(k), motivoSinNuevo(k)));
 }
 function abrirMenuNuevo(desde) {
     menuDe = desde; pintarMenuNuevo();
@@ -551,6 +559,10 @@ export function pintarArmazon() {
     if (moduloActual() === 'trabajo' && estado.sesion) asegurarGuardados(() => nav.repintar());   // v1.0.0 (cubeta 3): los «Guardados» de Trabajo se leen al entrar al módulo (una vez por sesión)
     pintarModulos(); pintarUnidades(); pintarArbol(); pintarChips(); pintarChipAmbito(); pintarAnillo(); pintarContadorAvisos();
     document.body.dataset.modulo = moduloActual();
+    document.body.dataset.pantalla = estado.pestana || '';   // v1.0.0 (vuelta 1): el CSS del celular quita los chips del módulo dentro de un proyecto
+    const nuevo = estado.sesion && hayNuevo();   // v1.0.0 (vuelta 1): sin ninguna opción para el rol, ni rail ni flotante
+    for (const id of ['btnNuevo', 'fabNuevo']) $(id).hidden = !nuevo;
+    if (!nuevo) cerrarMenuNuevo();
     if (menuAbierto() && menuDe) colocarMenu();
 }
 

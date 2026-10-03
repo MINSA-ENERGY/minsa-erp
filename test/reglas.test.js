@@ -524,4 +524,15 @@ assert.equal(plural(1, 'mensaje nuevo', 'mensajes nuevos'), 'mensaje nuevo'); n+
     ok('fechaDia: lo que no es fecha es «—»', fechaDia('') === '—' && fechaDia(null) === '—' && fechaDia('ayer') === '—');
 }
 
+// --- v1.0.0 (vuelta 1, revisión UI/UX «fondo» #1): el tablero y la ficha decían el vencimiento UN DÍA ANTES — fechaVence le pasaba a mesDia un
+// AAAA-MM-DD ya convertido, mesDia lo volvía a leer con diaDe y «2026-10-01» es la medianoche UTC: en México, el 30 de septiembre.
+{
+    const { mesDiaDe, fechaVenceDe } = await import('../reglas.js');
+    const hoy = new Date(2026, 9, 3, 12, 0);
+    ok('mesDiaDe: un día suelto (AAAA-MM-DD) es ESE día, no el anterior', typeof mesDiaDe === 'function' && JSON.stringify(mesDiaDe('2026-10-01')) === '{"mes":"oct","dia":1}' && JSON.stringify(mesDiaDe('2027-01-17')) === '{"mes":"ene","dia":17}');
+    ok('mesDiaDe: un ISO con hora se lee en el día de México (las 02:00 UTC del 2 son el 1); sin fecha, null', typeof mesDiaDe === 'function' && JSON.stringify(mesDiaDe('2026-10-02T02:00:00Z')) === '{"mes":"oct","dia":1}' && mesDiaDe('') === null && mesDiaDe(null) === null);
+    ok('fechaVenceDe: la tarjeta que vence el 1 de octubre dice «1 oct» (antes «30 sep»), con el día suelto o con hora, y el año solo si no es el de hoy',
+        typeof fechaVenceDe === 'function' && fechaVenceDe('2026-10-01T18:00:00Z', hoy) === '1 oct' && fechaVenceDe('2026-10-01', hoy) === '1 oct' && fechaVenceDe('2027-01-17T18:00:00Z', hoy) === '17 ene 2027' && fechaVenceDe('', hoy) === null);
+}
+
 console.log(`reglas: ok (${n} comprobaciones)`);

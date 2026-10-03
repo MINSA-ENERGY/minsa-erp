@@ -13,7 +13,7 @@
 import { PUEDE, frentesQuietos, plural } from './reglas.js';
 import { fmtCorto, fmtMonto, diaIso, diasEntre } from './reporte-reglas.js';
 import { resumenServicios, detenido, N_PASOS } from './servicios-reglas.js';
-import { ordenarVigencias } from './vigencias-reglas.js';
+import { ordenarVigencias, resumenVigencias, VIG_ATENCION } from './vigencias-reglas.js';
 import { facturasDe, sinRepDe, conFacturasRicas, totalesCobranza } from './cobranza-reglas.js';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -22,7 +22,7 @@ export const kDeFecha = iso => { const d = diaIso(iso); return d ? { a: String(N
 /** El estado de un JSON para un KPI: 'datos' · 'leyendo' (null sin error) · 'sin datos' (false o error). */
 const estadoDe = j => j && j.datos ? 'datos' : j && (j.error || j.datos === false) ? 'sin datos' : 'leyendo';
 /** Días de vigencia que «requieren atención» (plan: «vigencias vencidas/≤ 30 d»). */
-export const DIAS_VIGENCIA_ATENCION = 30;
+export const DIAS_VIGENCIA_ATENCION = VIG_ATENCION;   // v1.0.0 (vuelta 1): la define vigencias-reglas.js, la misma que corta la página de Vigencias
 
 /**
  * La fila de KPIs de Inicio para `ctx.rol`. `ctx` = { rol, hoy (Date), hoyDia ('AAAA-MM-DD'), abiertas (n), cobranza, servicios, compras,
@@ -55,8 +55,8 @@ export function kpisInicio(ctx) {
         const k = base('vigencias', `Vigencias vencidas o a ≤ ${DIAS_VIGENCIA_ATENCION} días`, '#vigencias', ctx.vigencias);
         if (k.estado === 'datos') {
             const vs = ordenarVigencias(ctx.vigencias.datos.vigencias || [], ctx.hoy);
-            const venc = vs.filter(v => v.dias < 0).length, prox = vs.filter(v => v.dias >= 0 && v.dias <= DIAS_VIGENCIA_ATENCION).length;
-            k.valor = String(venc + prox); k.clase = venc ? 'neg' : '';
+            const r = resumenVigencias(vs), venc = r.vencidas, prox = r.atencion - r.vencidas;   // v1.0.0 (vuelta 1): la cifra de la página de Vigencias
+            k.valor = String(r.atencion); k.clase = venc ? 'neg' : '';
             k.titulo = `${venc} ${plural(venc, 'vencida')} y ${prox} que ${plural(prox, 'vence', 'vencen')} en ${DIAS_VIGENCIA_ATENCION} días o menos`;
         }
         out.push(k);

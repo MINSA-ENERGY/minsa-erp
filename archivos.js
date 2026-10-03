@@ -23,15 +23,19 @@ import { baseDrive, baseSitio, subirFragmento, leerMonitorCopia, esSinRed } from
 import { construirManifiesto, validarManifiesto, bytesDelManifiesto, nombreCarpetaLote, NOMBRE_MANIFIESTO } from './lote.js';
 import { crearQuickXor, comoSubir, FRAGMENTO, leerMonitor, nombreSubible, nombreFoto, tamanoLegible, necesitaHash, buscarDuplicado, archivoDeGraph, sinArchivar,
     appOffice, nombreAppOffice, uriOffice, urlVistaPrevia, pendientesAlSalir, avisosDeCola, agregarAlFrente, leerSeccion, rutaSeccion, validarFijado, TOPE_RECIENTES, TOPE_HISTORIAL } from './archivos-reglas.js';
-import { leerCola, guardarEnCola, quitarDeCola, llaveDe, hayDisco } from './cola.js';
+import { leerCola, guardarEnCola, guardarBytes, existeEnCola, quitarDeCola, llaveDe, hayDisco } from './cola.js';
 import { comprimir } from './imagen.js';
 import { bibliotecaDe, puedeLigarEn, sitioDe, abrirSubir, fijarSubidaProyecto, ligarArchivadoA, tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';
 import { cabecera, vistaDe, soltarIdsFuera } from './reporte.js';
 import { guardadosDe, guardarVista, borrarVista, registrarAbridor, asegurarGuardados, estadoGuardados, esMia } from './guardados.js';
 
 let alCambiar = () => {};
-/** app.js: qué repintar cuando algo de Archivos cambia (la pantalla y, si está abierta, la ficha de la tarjeta). */
-export function alCambiarArchivos(fn) { alCambiar = fn; }
+/** app.js: qué repintar cuando algo de Archivos cambia (la pantalla y, si está abierta, la ficha de la tarjeta). Devuelve el anterior (la E2E lo
+ *  envuelve para fingir un repintado que truena y luego lo regresa). */
+export function alCambiarArchivos(fn) { const antes = alCambiar; alCambiar = fn; return antes; }
+/** v1.0.0 (vuelta 1, revisión de código «media»): el repintado y la bitácora van FUERA del try de una operación con efectos — un error de pintado
+ *  no es una falla de la subida ni del archivado (antes regresaba a «pendiente» un archivo ya subido, o borraba el lote ya en el buzón). */
+function repintarSeguro() { try { alCambiar(); } catch (e) { console.warn('Archivos: el repintado falló; la operación ya quedó.', motivoDe(e)); } }
 const motivoDe = e => (e && e.message ? e.message : String(e));
 const yo = () => String((estado.cuenta && estado.cuenta.username) || '').trim().toLowerCase();
 const enLinea = () => typeof navigator === 'undefined' || navigator.onLine !== false;
@@ -151,9 +155,15 @@ export const colaActual = () => cola;
 export const pendientesCola = () => pendientesAlSalir(cola);
 /** La fuente de la campana (armazon.js registrarFuenteAvisos): subidas con error y «¿duplicado?». */
 export const fuenteAvisosArchivos = () => avisosDeCola(cola);
-function persistir(r) { if (disco === false) return; const { progreso, ...guardable } = r; guardarEnCola(guardable).catch(() => {}); }
+/** Los DATOS del registro al disco (sin bytes: van una vez, al encolar). Un registro que ya salió de la cola (subido, descartado) no se
+ *  re-persiste: antes un cambio tardío lo revivía en IndexedDB y reaparecía al abrir la app. */
+function persistir(r) { if (disco === false || !cola.includes(r)) return Promise.resolve(false); const { progreso, enDisco, ...guardable } = r; return guardarEnCola(guardable).catch(() => false); }
 function cambiar(r, cambios) { Object.assign(r, cambios, { cambio: new Date().toISOString() }); persistir(r); }
 function sacarDeCola(r) { cola = cola.filter(x => x !== r); quitarDeCola(r.llave).catch(() => {}); }
+const SIN_DISCO = 'no se guardó en este equipo: no cierres la app hasta que suba';
+/** v1.0.0 (vuelta 1, revisión de código «media»): UNA cola para todas las pestañas o ventanas de la app — sin el candado, dos pestañas subían el
+ *  mismo registro (un 409 «¿duplicado?» falso que volvía en cada arranque, o dos copias). Sin navigator.locks (navegador viejo) corre directo. */
+const conCandado = fn => (typeof navigator !== 'undefined' && navigator.locks && navigator.locks.request ? navigator.locks.request('minsa-erp-cola', fn) : fn());
 
 /** Al entrar (app.js, tras cargar las listas): lo que esta cuenta dejó en la cola de este equipo vuelve y se procesa. */
 export async function iniciarCola() {
@@ -164,7 +174,8 @@ export async function iniciarCola() {
         if (!r || !r.llave || cola.some(x => x.llave === r.llave)) continue;
         if (r.estado === 'subido') { quitarDeCola(r.llave).catch(() => {}); continue; }
         if (r.estado === 'subiendo') r.estado = 'pendiente';   // la sesión anterior se cerró a media subida: se empieza de nuevo
-        r.progreso = 0; cola.push(r); n++;
+        if (!r.archivo) { quitarDeCola(r.llave).catch(() => {}); continue; }   // sin bytes no hay qué subir (la escritura de los bytes falló)
+        r.progreso = 0; r.enDisco = true; cola.push(r); n++;
     }
     if (n) alCambiar();
     asegurarBiblioteca().then(() => procesarCola());
@@ -179,7 +190,7 @@ export async function encolar(p, archivos, { tareaId = null, foto = false } = {}
     if (!p || p.Estado !== 'activo') { avisar('El proyecto está cerrado: ya no recibe archivos.', 'error'); return 0; }
     await asegurarBiblioteca();
     if (!bibliotecaLista()) { avisar(`Falta preparar ${CONFIG.bibliotecaProyectos}: la carpeta del proyecto todavía no existe.`, 'error'); return 0; }
-    const ahora = new Date(); let n = 0;
+    const ahora = new Date(); let n = 0, sinDisco = 0;
     for (const [i, f] of [...archivos].entries()) {
         let archivo = f, nombre = nombreSubible(f.name), tipo = f.type || 'application/octet-stream';
         if (foto && (!f.type || /^image\//.test(f.type))) {
@@ -190,10 +201,15 @@ export async function encolar(p, archivos, { tareaId = null, foto = false } = {}
         const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}${i}`;
         const iso = new Date().toISOString();
         const r = { llave: llaveDe(yo(), id), cuenta: yo(), id, proyectoId: p.id, clave: p.Clave, titulo: p.Title, tareaId: tareaId ? Number(tareaId) : null, nombre, tipo,
-            tamano: archivo.size, archivo, estado: 'pendiente', motivo: enLinea() ? '' : 'sin señal: sube sola al volver la red', creado: iso, cambio: iso, confirmado: false, reemplazar: false, renombrar: false, foto: !!foto, progreso: 0 };
-        cola.push(r); persistir(r); n++;
+            tamano: archivo.size, archivo, estado: 'pendiente', motivo: enLinea() ? '' : 'sin señal: sube sola al volver la red', creado: iso, cambio: iso, confirmado: false, reemplazar: false, renombrar: false, foto: !!foto, progreso: 0, enDisco: false };
+        cola.push(r); n++;
+        // v1.0.0 (vuelta 1, revisión de código «fondo»): la cola existe para que lo de sin señal NO se pierda — se MIRA si IndexedDB guardó (datos y
+        // bytes; los bytes UNA vez). Si no (cuota llena, modo privado, un File que el navegador no clona), el renglón y el aviso lo dicen.
+        r.enDisco = disco === false ? false : (await Promise.all([persistir(r), guardarBytes(r.llave, archivo)])).every(Boolean);
+        if (!r.enDisco) { sinDisco++; if (cola.includes(r) && r.estado === 'pendiente') r.motivo = enLinea() ? SIN_DISCO : `sin señal y ${SIN_DISCO}`; }
     }
-    if (n) avisar(enLinea() ? `${n} ${plural(n, 'archivo')} en camino a la carpeta del proyecto.` : `Sin señal: ${n === 1 ? 'el archivo queda' : `los ${n} archivos quedan`} en la cola de este equipo y ${n === 1 ? 'sube' : 'suben'} al volver la red.`, enLinea() ? 'ok' : 'ojo');
+    if (n) avisar(sinDisco ? `${n === 1 ? 'El archivo' : `${n} archivos`} ${enLinea() ? 'en camino' : 'esperan la red'}, pero este navegador no ${n === 1 ? 'lo' : 'los'} guardó en el equipo: no cierres la app hasta que suba${n === 1 ? '' : 'n'}.`
+        : enLinea() ? `${n} ${plural(n, 'archivo')} en camino a la carpeta del proyecto.` : `Sin señal: ${n === 1 ? 'el archivo queda' : `los ${n} archivos quedan`} en la cola de este equipo y ${n === 1 ? 'sube' : 'suben'} al volver la red.`, sinDisco ? 'error' : enLinea() ? 'ok' : 'ojo');
     alCambiar();
     procesarCola();
     return n;
@@ -206,7 +222,7 @@ async function encolarDesdeDialogo({ proyectoId, tareaId, archivos, foto }) { re
  *  vuelta termina sin ningún await (nada pendiente) y dejaba el candado puesto para siempre — la cola ya no subía nada (lo cazó la E2E). */
 export function procesarCola() {
     if (procesando) { otraVuelta = true; return procesando; }
-    const vuelta = vueltasDeCola();
+    const vuelta = Promise.resolve(conCandado(() => vueltasDeCola()));
     procesando = vuelta;
     vuelta.finally(() => { if (procesando === vuelta) procesando = null; }).catch(() => {});
     return vuelta;
@@ -220,11 +236,19 @@ async function vueltasDeCola() {
             for (const r of cola.filter(x => x.estado === 'pendiente')) cambiar(r, { estado: 'error', motivo: `falta preparar ${CONFIG.bibliotecaProyectos}` });
             alCambiar(); return;
         }
+        // la lista es una COPIA: subirRegistro resuelve cada uno por su llave al empezar (lo descartado a media tanda ya no sube)
         for (const r of cola.filter(x => x.estado === 'pendiente')) {
             if (!enLinea() || !estado.sesion) break;
             if (await subirRegistro(r) === 'parar') break;
         }
     } while (otraVuelta);
+}
+/** v1.0.0 (vuelta 1, revisión de código «fondo»): ¿este registro sigue por subir? — en la cola de esta pestaña, pendiente, y (si se guardó en el
+ *  disco) todavía en el disco: otra pestaña pudo subirlo o descartarlo. Lo que ya no está se suelta sin subir. */
+async function sigueVivo(r) {
+    if (!cola.includes(r) || r.estado !== 'pendiente') return false;
+    if (r.enDisco && disco !== false && (await existeEnCola(r.llave)) === false) { cola = cola.filter(x => x !== r); repintarSeguro(); return false; }
+    return cola.includes(r) && r.estado === 'pendiente';
 }
 /** quickXorHash de un archivo local, leído en trozos (un video de 200 MB no se carga entero). */
 async function hashDe(archivo) {
@@ -240,9 +264,11 @@ function pintarProgreso(r) {
 }
 /** Sube UN registro de la cola. 'ok' · 'retenido' · 'error' · 'parar' (sin red: lo demás espera). */
 async function subirRegistro(r) {
+    if (!await sigueVivo(r)) return 'ok';
     const p = porId(estado.proyectos, r.proyectoId) || proyectoPorClave(r.clave);
-    if (!p) { cambiar(r, { estado: 'error', motivo: 'el proyecto ya no existe' }); alCambiar(); return 'error'; }
-    cambiar(r, { estado: 'subiendo', motivo: '' }); r.progreso = 0; alCambiar();
+    if (!p) { cambiar(r, { estado: 'error', motivo: 'el proyecto ya no existe' }); repintarSeguro(); return 'error'; }
+    cambiar(r, { estado: 'subiendo', motivo: '' }); r.progreso = 0; repintarSeguro();
+    let subido = null;   // { nombre } cuando el archivo YA quedó en SharePoint: lo de después (repintar, bitácora) va fuera del try
     try {
         // la disciplina: antes de subir, ¿ya existe? (la carpeta de ESTE momento, no la de la última pintada)
         if (!r.confirmado) {
@@ -253,7 +279,7 @@ async function subirRegistro(r) {
             if (dup) {
                 cambiar(r, { estado: 'retenido', motivo: dup.texto, dup: dup.motivo });
                 avisar(`¿«${r.nombre}» duplicado? Se retuvo: ${dup.texto}. Decide en la carpeta del proyecto o en Mis subidas.`, 'ojo');
-                alCambiar(); return 'retenido';
+                repintarSeguro(); return 'retenido';
             }
         }
         await asegurarCarpetaProyecto(r.clave);
@@ -278,36 +304,41 @@ async function subirRegistro(r) {
         try { await estado.cliente.camposDeArchivo(base(), item.id, limpiar({ ProyectoClave: r.clave, TareaId: r.tareaId || undefined })); }
         catch (e) { console.warn('ERP_Proyectos: el archivo subió pero sus columnas no se marcaron.', motivoDe(e)); }
         const nombre = item.name || r.nombre;
-        cambiar(r, { estado: 'subido' }); sacarDeCola(r);
+        r.estado = 'subido'; sacarDeCola(r);
         anotarHistorial({ llave: 's:' + item.id, tipo: 'subida', nombre, clave: r.clave, titulo: p.Title, itemId: item.id, url: item.webUrl || '' });
         anotarReciente({ llave: 'p:' + item.id, origen: 'proyecto', nombre, clave: r.clave, itemId: item.id, url: item.webUrl || '' });
-        await cargarCarpeta(r.clave, { forzar: true });
-        alCambiar();
-        await registrarActividad('subir', `subió «${nombre.slice(0, 80)}» a la carpeta del proyecto${r.reemplazar ? ' (versión nueva)' : ''}`, p.id, r.tareaId || undefined);
-        alCambiar();
-        return 'ok';
+        subido = { nombre };
     } catch (e) {
         if (e && e.status === 409 && !r.reemplazar && !r.renombrar) {
             cambiar(r, { estado: 'retenido', motivo: `ya hay un «${r.nombre}» en la carpeta del proyecto`, dup: 'nombre' });
-            avisar(`¿«${r.nombre}» duplicado? Se retuvo: ya hay uno con ese nombre.`, 'ojo'); alCambiar(); return 'retenido';
+            avisar(`¿«${r.nombre}» duplicado? Se retuvo: ya hay uno con ese nombre.`, 'ojo'); repintarSeguro(); return 'retenido';
         }
-        if (esSinRed(e) || (e && e.status === 0) || e instanceof TypeError || !enLinea()) {
-            cambiar(r, { estado: 'pendiente', motivo: 'sin señal: sube sola al volver la red' }); r.progreso = 0; alCambiar(); return 'parar';
+        // «sin red» es lo que graph.js MARCA (esSinRed: navigator.onLine o un fetch que no llegó tras los reintentos), no cualquier TypeError
+        if (esSinRed(e) || !enLinea()) {
+            cambiar(r, { estado: 'pendiente', motivo: 'sin señal: sube sola al volver la red' }); r.progreso = 0; repintarSeguro(); return 'parar';
         }
         cambiar(r, { estado: 'error', motivo: motivoDe(e) });
-        avisar(`«${r.nombre}» no se subió: ${motivoDe(e)}`, 'error'); alCambiar(); return 'error';
+        avisar(`«${r.nombre}» no se subió: ${motivoDe(e)}`, 'error'); repintarSeguro(); return 'error';
     }
+    // ya en SharePoint: lo que sigue no puede regresarlo a la cola (vuelta 1, revisión de código «media»)
+    await cargarCarpeta(r.clave, { forzar: true });
+    repintarSeguro();
+    await registrarActividad('subir', `subió «${subido.nombre.slice(0, 80)}» a la carpeta del proyecto${r.reemplazar ? ' (versión nueva)' : ''}`, p.id, r.tareaId || undefined);
+    repintarSeguro();
+    return 'ok';
 }
-/** Lo que la persona decide sobre un renglón de la cola: 'subir' (de todos modos), 'reintentar' o 'descartar'. */
+/** Lo que la persona decide sobre un renglón de la cola: 'subir' (de todos modos), 'renombrar' (con otro nombre), 'reintentar' o 'descartar'. */
 export function decidir(llave, accion) {
     const r = cola.find(x => x.llave === llave); if (!r) return;
-    if (accion === 'descartar') { sacarDeCola(r); avisar(`«${r.nombre}» salió de la cola (no se subió).`, 'ok'); alCambiar(); return; }
+    // v1.0.0 (vuelta 1): descartar MARCA el registro antes de sacarlo — si una tanda en curso lo iba a subir, sigueVivo lo salta
+    if (accion === 'descartar') { r.estado = 'descartado'; sacarDeCola(r); avisar(`«${r.nombre}» salió de la cola (no se subió).`, 'ok'); alCambiar(); return; }
     if (accion === 'subir') cambiar(r, { estado: 'pendiente', motivo: '', confirmado: true, reemplazar: r.dup === 'nombre', renombrar: r.dup !== 'nombre' });
+    else if (accion === 'renombrar') cambiar(r, { estado: 'pendiente', motivo: '', confirmado: true, reemplazar: false, renombrar: true });   // v1.0.0 (vuelta 1, UI): «Subir con otro nombre»
     else if (accion === 'reintentar') cambiar(r, { estado: 'pendiente', motivo: '' });
     alCambiar(); procesarCola();
 }
 const textoEstado = r => ({
-    pendiente: r.motivo || (enLinea() ? 'en la cola…' : 'en la cola: sin señal, sube sola al volver la red'),
+    pendiente: r.motivo || (!r.enDisco && disco !== null ? SIN_DISCO : enLinea() ? 'en la cola…' : 'en la cola: sin señal, sube sola al volver la red'),
     subiendo: `subiendo… ${Math.round((r.progreso || 0) * 100)}%`,
     retenido: `¿duplicado? ${r.motivo || ''}`.trim(),
     error: `no se subió: ${r.motivo || ''}`.trim(),
@@ -341,12 +372,20 @@ async function esperarCopia(monitor, siteId, rutaDestino) {
  * `_lote.json` AL FINAL, contrato 1 firmado minsa-proyectos), deja la liga de tipo buzón de siempre (con su tarjeta) y marca
  * EnviadoArchivar + Lote en cada archivo. Visible solo si la biblioteca de la unidad tiene permiso (puedeLigarEn, como hoy). Si algo falla
  * a medias se borra la carpeta del lote. true si quedó.
+ * v1.0.0 (vuelta 1, revisión de código «fondo»): resuelve el proyecto y los archivos POR ID al clic (el menú y la ficha capturan los objetos del
+ * pintado), con un CANDADO por itemId —un doble toque mandaba dos lotes y dos ligas— y un aviso al empezar (la copia tarda: sin él la persona
+ * volvía a tocar); si la marca EnviadoArchivar falla, se dice en pantalla (antes solo en la consola, y al cerrar el proyecto se mandaba otra vez).
  */
-export async function mandarArchivar(p, archivos, { concepto = '' } = {}) {
+const enviando = new Set();   // itemId camino al buzón
+export const mandandoArchivo = id => enviando.has(id);
+export async function mandarArchivar(pIn, archivos, { concepto = '' } = {}) {
     if (!PUEDE.ligar(estado.rol)) { avisar('Tu rol es de lectura: no puedes mandar a archivar.', 'error'); return false; }
+    const p = (pIn && porId(estado.proyectos, pIn.id)) || pIn;
     const bib = p && bibliotecaDe(p);
     if (!bib || !puedeLigarEn(p)) { avisar('La biblioteca de esta unidad todavía no tiene el permiso de la app: no se puede mandar a archivar desde aquí.', 'error'); return false; }
-    const xs = (archivos || []).filter(a => a && !a.enviado);
+    const ids = [...new Set((archivos || []).filter(Boolean).map(a => a.id))];
+    if (ids.some(id => enviando.has(id))) { avisar('Ya se está mandando al buzón: espera a que termine.', 'ojo'); return false; }
+    const xs = ids.map(id => archivosDe(p.Clave).find(x => x.id === id) || archivos.find(x => x && x.id === id)).filter(a => a && !a.enviado);
     if (!xs.length) { avisar('Nada que mandar: ya se mandó a archivar.', 'ojo'); return true; }
     const c = String(concepto || (xs.length === 1 ? xs[0].nombre.replace(/\.[^.]+$/, '') : `Archivos de ${p.Clave}`)).trim().slice(0, 120);
     const fecha = fechaMexico();
@@ -357,42 +396,52 @@ export async function mandarArchivar(p, archivos, { concepto = '' } = {}) {
     const v = validarManifiesto(man); if (!v.ok) { avisar('El lote no es válido: ' + v.motivo, 'error'); return false; }
     const largos0 = textosLargos({ Title: c, Ruta: `${CONFIG.buzon}/${nombreCarpeta}` });
     if (largos0.length) { avisar(`No se pudo mandar: ${largos0.join(', ')} pasa(n) de los ${TEXTO_MAX} caracteres que admite la lista.`, 'error'); return false; }
-    let carpeta = null, s = null;
+    let carpeta = null, s = null, ruta = '';
+    for (const a of xs) enviando.add(a.id);
     try {
-        s = await sitioDe(bib);
-        if (!s.id) throw new Error(`sin acceso a ${bib.nombre}: ${s.motivo}`);
-        const d = await driveUnidad(bib, s.id);
-        carpeta = await estado.cliente.crearCarpeta(s.id, CONFIG.buzon, nombreCarpeta);
-        const ruta = `${CONFIG.buzon}/${carpeta.nombreReal}`;
-        for (const a of xs) {
-            const mon = await estado.cliente.copiarA(base(), a.id, { driveId: d.id, id: carpeta.id }, a.nombre);
-            await esperarCopia(mon, s.id, `${ruta}/${a.nombre}`);
+        avisar(`Mandando «${c}» al buzón de ${bib.nombre}… (la copia puede tardar)`, 'ok'); repintarSeguro();
+        try {
+            s = await sitioDe(bib);
+            if (!s.id) throw new Error(`sin acceso a ${bib.nombre}: ${s.motivo}`);
+            const d = await driveUnidad(bib, s.id);
+            carpeta = await estado.cliente.crearCarpeta(s.id, CONFIG.buzon, nombreCarpeta);
+            ruta = `${CONFIG.buzon}/${carpeta.nombreReal}`;
+            for (const a of xs) {
+                const mon = await estado.cliente.copiarA(base(), a.id, { driveId: d.id, id: carpeta.id }, a.nombre);
+                await esperarCopia(mon, s.id, `${ruta}/${a.nombre}`);
+            }
+            await estado.cliente.subirPieza(s.id, ruta, NOMBRE_MANIFIESTO, bytesDelManifiesto(man), 'application/json');   // AL FINAL: prueba de lote completo
+            const campos = limpiar({ Title: c, ProyectoId: p.id, TareaId: tareaId, Tipo: 'buzon', Unidad: bib.clave, Ruta: ruta, DriveItemId: carpeta.id, LigadoPor: estado.cuenta.username });
+            agregarSinDuplicar(estado.ligas, await estado.cliente.crearRenglon(estado.siteId, L.ligas, campos)); estado.buzonExiste[ruta] = true;
+        } catch (e) {
+            if (carpeta && s && s.id) { try { await estado.cliente.borrarItemDrive(s.id, carpeta.id); } catch (_) { console.warn('quedó una carpeta a medias en el buzón; la skill la trata como lote incompleto'); } }
+            avisar('No se pudo mandar a archivar: ' + motivoDe(e), 'error');
+            return false;
         }
-        await estado.cliente.subirPieza(s.id, ruta, NOMBRE_MANIFIESTO, bytesDelManifiesto(man), 'application/json');   // AL FINAL: prueba de lote completo
-        const campos = limpiar({ Title: c, ProyectoId: p.id, TareaId: tareaId, Tipo: 'buzon', Unidad: bib.clave, Ruta: ruta, DriveItemId: carpeta.id, LigadoPor: estado.cuenta.username });
-        agregarSinDuplicar(estado.ligas, await estado.cliente.crearRenglon(estado.siteId, L.ligas, campos)); estado.buzonExiste[ruta] = true;
+        // el lote YA está en el buzón con su liga: nada de aquí abajo lo deshace (vuelta 1, revisión de código «media»)
+        const sinMarca = [];
         for (const a of xs) {
             try { await estado.cliente.camposDeArchivo(base(), a.id, { EnviadoArchivar: true, Lote: ruta }); a.enviado = true; a.lote = ruta; }
-            catch (e) { console.warn('ERP_Proyectos: el lote quedó pero la marca EnviadoArchivar no.', motivoDe(e)); }
+            catch (e) { sinMarca.push(a.nombre); console.warn('ERP_Proyectos: el lote quedó pero la marca EnviadoArchivar no.', motivoDe(e)); }
         }
         await cargarCarpeta(p.Clave, { forzar: true });
         anotarHistorial({ llave: 'a:' + ruta, tipo: 'archivar', nombre: c, n: xs.length, clave: p.Clave, titulo: p.Title, lote: ruta, unidad: bib.nombre });
         avisar(`«${c}» va al buzón de ${bib.nombre} (${xs.length} ${plural(xs.length, 'archivo')}). La skill de archivar lo acomoda.`, 'ok');
-        alCambiar();
-        await registrarActividad('archivar', `mandó a archivar «${c.slice(0, 80)}» (${xs.length} ${plural(xs.length, 'archivo')}) al buzón de ${bib.nombre}`, p.id, tareaId);
-        alCambiar();
-        return true;
-    } catch (e) {
-        if (carpeta && s && s.id) { try { await estado.cliente.borrarItemDrive(s.id, carpeta.id); } catch (_) { console.warn('quedó una carpeta a medias en el buzón; la skill la trata como lote incompleto'); } }
-        avisar('No se pudo mandar a archivar: ' + motivoDe(e), 'error');
-        return false;
-    }
+        if (sinMarca.length) avisar(`El lote ya está en el buzón, pero ${sinMarca.length === 1 ? `«${sinMarca[0]}» no quedó marcado` : `${sinMarca.length} archivos no quedaron marcados`} como enviado: ${sinMarca.length === 1 ? 'sigue' : 'siguen'} saliendo «sin archivar». No lo mandes otra vez; avísale a quien archiva.`, 'error');
+    } finally { for (const a of xs) enviando.delete(a.id); }
+    repintarSeguro();
+    await registrarActividad('archivar', `mandó a archivar «${c.slice(0, 80)}» (${xs.length} ${plural(xs.length, 'archivo')}) al buzón de ${bib.nombre}`, p.id, tareaId);
+    repintarSeguro();
+    return true;
 }
 
 /**
  * Antes de CERRAR un proyecto (app.js cerrarProyecto, solo gerencia): si su carpeta tiene archivos sin archivar, la lista y «Mandar a
  * archivar todo» (si la unidad tiene permiso), «Cerrar sin archivar» o Cancelar. true = seguir con el cierre.
  */
+let finSinArchivar = null;
+/** app.js (fijarAlCerrar): «Archivos sin archivar» se cerró por Atrás o por código — el cierre del proyecto se resuelve en «no». */
+export function alCerrarSinArchivar() { if (finSinArchivar) finSinArchivar(); }
 export async function revisarAntesDeCerrar(p) {
     await asegurarBiblioteca();
     if (!bibliotecaLista() || !p) return true;
@@ -407,13 +456,20 @@ export async function revisarAntesDeCerrar(p) {
     $('saTodo').hidden = !puede; $('saTodo').disabled = false;
     if (!puede) $('saProgreso').textContent = 'La biblioteca de la unidad no tiene el permiso de la app: no se puede mandar desde aquí.';
     abrirDialogo('dlgSinArchivar');
+    // v1.0.0 (vuelta 1, revisión de código «media»): Esc o Atrás (el `close` del diálogo) resuelven en «no» — antes la promesa quedaba colgada con
+    // sus botones vivos, y un «Mandar a archivar todo» en curso, al terminar, sacaba la confirmación de cierre sin que nadie la pidiera
     return new Promise(res => {
-        const fin = v => { $('saTodo').onclick = $('saSeguir').onclick = $('saCancelar').onclick = null; cerrarDialogo('dlgSinArchivar'); res(v); };
+        const dlg = $('dlgSinArchivar'); let resuelto = false;
+        const alCerrar = () => fin(false);
+        const fin = v => { if (resuelto) return; resuelto = true; finSinArchivar = null; dlg.removeEventListener('close', alCerrar); $('saTodo').onclick = $('saSeguir').onclick = $('saCancelar').onclick = null; if (dlg.open) cerrarDialogo('dlgSinArchivar'); res(v); };
+        dlg.addEventListener('close', alCerrar);   // Esc
+        finSinArchivar = alCerrar;                 // Atrás (popstate) y cerrarDialogo avisan SINCRONO por fijarAlCerrar (app.js): el `close` llega tarde bajo tiempo virtual
         $('saCancelar').onclick = () => fin(false);
         $('saSeguir').onclick = () => fin(true);
         $('saTodo').onclick = async () => {
             $('saTodo').disabled = true; $('saProgreso').textContent = 'Mandando al buzón…';
             const ok = await mandarArchivar(p, xs, { concepto: `Cierre del proyecto ${p.Clave}` });
+            if (resuelto) return;   // se cerró a medio envío: el lote sigue su camino, el cierre no
             if (ok) fin(true); else { $('saTodo').disabled = false; $('saProgreso').textContent = 'No se pudo: revisa el aviso y vuelve a intentarlo, o cierra sin archivar.'; }
         };
     });
@@ -426,7 +482,11 @@ async function copiarLiga(url) {
     avisar(url, 'ojo');
 }
 /** La vista previa de un archivo: { base, itemId, nombre, url, reciente }. El <iframe> solo recibe https del tenant. */
+// v1.0.0 (vuelta 1, revisión de código «media»): una FICHA por apertura — la respuesta de un archivo viejo que llega tarde (abrir A, cerrar,
+// abrir B en el segundo que tarda POST /preview) ya no se pinta en el diálogo de B; en Versiones, sus «Restaurar» restaurarían el equivocado
+let fichaVista = 0, fichaVersiones = 0;
 export async function abrirVistaPrevia(x) {
+    const ficha = ++fichaVista;
     $('vpTitulo').textContent = x.nombre;
     const href = hrefSeguro(x.url, { tipo: 'archivado', host: host() });
     $('vpAbrir').hidden = !href; if (href) $('vpAbrir').href = href;
@@ -437,17 +497,19 @@ export async function abrirVistaPrevia(x) {
     try {
         const r = await estado.cliente.vistaPrevia(x.base, x.itemId);
         const u = urlVistaPrevia(r.getUrl, host());
-        if (!$('dlgVistaPrevia').open) return;
+        if (ficha !== fichaVista || !$('dlgVistaPrevia').open) return;
         if (!u) { $('vpEstado').textContent = 'Este archivo no tiene vista previa dentro de la app. Ábrelo en una pestaña nueva.'; return; }
         marco.src = u; marco.hidden = false; $('vpEstado').textContent = '';
-    } catch (e) { $('vpEstado').textContent = `No se pudo preparar la vista previa (${motivoDe(e)}). Ábrelo en una pestaña nueva.`; }
+    } catch (e) { if (ficha === fichaVista) $('vpEstado').textContent = `No se pudo preparar la vista previa (${motivoDe(e)}). Ábrelo en una pestaña nueva.`; }
 }
 async function abrirVersiones(p, a) {
+    const ficha = ++fichaVersiones;
     $('vrTitulo').textContent = `Versiones de «${a.nombre}»`; $('vrSub').textContent = 'Leyendo…'; $('vrLista').textContent = '';
     abrirDialogo('dlgVersiones');
     const puede = PUEDE.ligar(estado.rol) && p.Estado === 'activo';
     try {
         const vs = await estado.cliente.versiones(base(), a.id);
+        if (ficha !== fichaVersiones || !$('dlgVersiones').open) return;
         $('vrSub').textContent = vs.length > 1 ? `${vs.length} versiones; la de arriba es la actual. Restaurar una vieja la vuelve la actual y la de hoy no se pierde.` : 'Solo existe la versión actual.';
         const l = $('vrLista'); l.textContent = '';
         for (const [i, v] of vs.entries()) {
@@ -458,7 +520,7 @@ async function abrirVersiones(p, a) {
             else if (puede) f.appendChild(boton('Restaurar', 'mn-btn is-sm', () => restaurar(p, a, v), { restaurar: v.id }));
             l.appendChild(f);
         }
-    } catch (e) { $('vrSub').textContent = 'No se pudieron leer las versiones: ' + motivoDe(e); }
+    } catch (e) { if (ficha === fichaVersiones) $('vrSub').textContent = 'No se pudieron leer las versiones: ' + motivoDe(e); }
 }
 async function restaurar(p, a, v) {
     const { ok } = await confirmar({ titulo: 'Restaurar la versión', ok: 'Restaurar', texto: `«${a.nombre}» vuelve a la versión ${v.id} (${fechaHora(v.cuando)}). La versión de hoy se conserva en el historial.` });
@@ -574,6 +636,8 @@ function filaCola(r, { conProyecto = false } = {}) {
     if (r.estado === 'subiendo' || r.estado === 'pendiente') { const pr = el('progress'); pr.max = 1; if (r.estado === 'subiendo') pr.value = r.progreso || 0; pr.setAttribute('aria-label', `Avance de ${r.nombre}`); d.appendChild(pr); }
     const acc = el('div', 'acc');
     if (r.estado === 'retenido') acc.appendChild(boton(r.dup === 'nombre' ? 'Subir como versión nueva' : 'Subir de todos modos', 'mn-btn is-sm', () => decidir(r.llave, 'subir'), { colaAccion: 'subir' }));
+    // v1.0.0 (vuelta 1, revisión UI/UX «media»): el mismo NOMBRE no quiere decir el mismo archivo — «Subir con otro nombre» (rename: «x 1.pdf»)
+    if (r.estado === 'retenido' && r.dup === 'nombre') acc.appendChild(boton('Subir con otro nombre', 'mn-btn is-sm', () => decidir(r.llave, 'renombrar'), { colaAccion: 'renombrar' }));
     if (r.estado === 'error') acc.appendChild(boton('Reintentar', 'mn-btn is-sm', () => decidir(r.llave, 'reintentar'), { colaAccion: 'reintentar' }));
     if (r.estado !== 'subiendo') acc.appendChild(boton('Descartar', 'mn-btn is-ghost is-sm', () => decidir(r.llave, 'descartar'), { colaAccion: 'descartar' }));
     d.appendChild(acc);
@@ -603,7 +667,7 @@ function accionesDe(p, a) {
         lab.appendChild(sel); xs.push(lab);
     }
     if (PUEDE.tarea(estado.rol)) xs.push(accionBoton(fijadoDe(a.id) ? 'Quitar de Fijados' : 'Fijar', 'fijar', () => alternarFijado({ tipo: 'fijado', origen: 'proyecto', clave: p.Clave, itemId: a.id, nombre: a.nombre, url: href || '' })));
-    if (puede && !a.enviado && puedeLigarEn(p)) xs.push(accionBoton('Mandar a archivar', 'archivar', () => mandarArchivar(p, [a])));
+    if (puede && !a.enviado && puedeLigarEn(p)) { const b = accionBoton(enviando.has(a.id) ? 'Mandando al buzón…' : 'Mandar a archivar', 'archivar', () => mandarArchivar(p, [a])); b.disabled = enviando.has(a.id); xs.push(b); }
     if (puede && (PUEDE.proyecto(estado.rol) || (a.creadoPor && a.creadoPor === yo()))) xs.push(accionBoton('Borrar', 'borrar', () => borrarArchivo(p, a), true));
     return xs;
 }

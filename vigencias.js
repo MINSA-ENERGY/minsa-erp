@@ -14,7 +14,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, plural } from './reglas.js';
 import { $, estado, el, boton, chip } from './comun.js';
-import { problemaVigencias, ordenarVigencias, resumenVigencias, chipFaltan, fechaVigencia, VIG_ROJO, VIG_AMBAR, unidadesDe, filtrarVigencias, siguienteVigencia } from './vigencias-reglas.js';
+import { problemaVigencias, ordenarVigencias, resumenVigencias, chipFaltan, fechaVigencia, VIG_ROJO, VIG_AMBAR, VIG_ATENCION, unidadesDe, filtrarVigencias, siguienteVigencia } from './vigencias-reglas.js';
 import { pintarReporte, cabecera, vistaDe, soltarIdsFuera, desplegable } from './reporte.js';
 
 /** datos: null = no leido · false = no hay biblioteca/archivo · objeto = el JSON valido. error: la lectura fallo. */
@@ -74,7 +74,7 @@ export function pintarVigencias() {
     if (w.unidad && !unidades.includes(w.unidad)) w.unidad = null;
     const de = x => filtrarVigencias(todas, x.unidad || null);
     pintarReporte(v, {
-        id: 'vigencias', titulo: TITULO, ayuda: AYUDA, corte: d.generado, sub: 'Documentos que caducan, el más próximo primero.', subId: 'vigenciasSub',
+        id: 'vigencias', titulo: TITULO, ayuda: AYUDA, corte: d.generado, sub: `${todas.length} ${plural(todas.length, 'documento que caduca', 'documentos que caducan')}, el más próximo primero.`, subId: 'vigenciasSub',
         kpisId: 'vigenciasKpis',
         kpis: x => {
             const ls = de(x), r = resumenVigencias(ls), sig = siguienteVigencia(ls);
@@ -83,7 +83,8 @@ export function pintarVigencias() {
                 { clave: 'rojo', valor: String(r.rojo), texto: `Vencen en ${VIG_ROJO} días o menos`, clase: r.rojo ? 'neg' : '' },
                 { clave: 'ambar', valor: String(r.ambar), texto: `Vencen en ${VIG_AMBAR} días o menos` },
                 { clave: 'siguiente', valor: sig ? fechaVigencia(sig.vence) : '—', texto: sig ? `La siguiente: ${sig.titulo}` : 'Nada por vencer', titulo: sig ? sig.titulo : '' },
-                { clave: 'total', valor: String(r.total), texto: plural(r.total, 'Documento con vigencia', 'Documentos con vigencia') }
+                // v1.0.0 (vuelta 1, revisión UI/UX «media»): la cifra del KPI de Inicio («vencidas o a ≤ 30 días») está aquí; el total pasó al subtítulo
+                { clave: 'atencion', valor: String(r.atencion), texto: `Vencidas o a ≤ ${VIG_ATENCION} días`, clase: r.vencidas ? 'neg' : '' }
             ];
         },
         datos: {

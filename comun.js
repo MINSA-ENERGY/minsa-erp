@@ -3,7 +3,7 @@
 // la bitacora PROY_Actividad.
 
 import { CONFIG } from './config.js';
-import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico, fechaDia } from './reglas.js';
+import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico, fechaDia, mesDiaDe, fechaVenceDe } from './reglas.js';
 
 export const VERSION = '0.173.0';
 export const $ = id => document.getElementById(id);
@@ -417,14 +417,12 @@ const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'o
 /** D1: «jue 18 sep» — el input type=date se pinta en el idioma del DISPOSITIVO (mm/dd/yyyy en una
  *  laptop en ingles) y <html lang="es"> no lo cambia; esta linea dice en el formato de la casa lo
  *  que quedo escrito. */
-/** v0.25.0: la fecha como hoja de calendario —{ mes: 'oct', dia: 31 }— en el dia de Mexico (diaDe); null sin fecha. */
-export function mesDia(iso) { const s = diaInput(diaDe(iso) || iso); if (!s) return null; return { mes: MESES[+s.slice(5, 7) - 1], dia: +s.slice(8, 10) }; }
-/** U-40 (v0.141.0): «26 sep», como la columna Vence de la Lista; el año solo si no es el año en curso. */
-export function fechaVence(iso) {
-    const s = diaInput(diaDe(iso) || iso); if (!s) return fechaCorta(iso);
-    const md = mesDia(s), a = s.slice(0, 4);
-    return `${md.dia} ${md.mes}` + (+a !== new Date().getFullYear() ? ` ${a}` : '');   // espacio duro: la celda Vence de la ficha partia «26 / sep»
-}
+/** v0.25.0: la fecha como hoja de calendario —{ mes: 'oct', dia: 31 }— en el dia de Mexico; null sin fecha. v1.0.0 (vuelta 1, revisión UI/UX
+ *  «fondo»): la regla vive en reglas.js (mesDiaDe, con prueba) — un AAAA-MM-DD es ESE día; antes se releía con diaDe y caía el día anterior. */
+export function mesDia(iso) { return mesDiaDe(iso); }
+/** U-40 (v0.141.0): «26 sep» (espacio duro), como la columna Vence de la Lista; el año solo si no es el año en curso. La regla, fechaVenceDe
+ *  (reglas.js): antes el tablero y la ficha decían el vencimiento UN DÍA ANTES que la Lista, Mis tareas e Inicio. */
+export function fechaVence(iso) { return fechaVenceDe(iso) || fechaCorta(iso); }
 export function fechaLegible(iso) {
     const s = diaInput(iso); if (!s) return '';
     const d = new Date(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10), 12));
@@ -804,6 +802,10 @@ export function olvidarVistosLocales() {
         const borrar = k => (k.startsWith(yo) && /^\d+$/.test(k.slice(yo.length))) || k === yoInicio || k === `proy.avisosVisto.${cuentaVisto()}` ||   // solo digitos tras el prefijo: a@x.com no borra las de a@x.com.mx; v1.0.0: + la marca de la campana
             /^proy\.chatVisto\.\d+$/.test(k) || k === 'proy.inicioVisto';
         for (const k of Object.keys(localStorage)) if (borrar(k)) localStorage.removeItem(k);
+        // v1.0.0 (vuelta 1, revisión de seguridad «baja»): también lo que ESTA cuenta abrió, subió, preguntó y guardó en este equipo (Recientes,
+        // Mis subidas, las preguntas de Preguntar y los guardados locales —los de Dinero viven aquí—). La cola con pendientes se queda (plan).
+        const c = String(estado.cuenta && estado.cuenta.username || '').trim().toLowerCase();
+        if (c) for (const p of ['erp.recientes.', 'erp.subidas.', 'erp.preguntas.', 'erp.vistas.']) localStorage.removeItem(p + c);
     } catch (_) {}
 }
 const leerLocal = k => { try { return localStorage.getItem(k) || ''; } catch (_) { return ''; } };
@@ -838,6 +840,10 @@ export async function guardarVisto() {
     clearTimeout(vistoTimer);
     const r = miRenglonRol(); const cambio = vistoPendiente; vistoPendiente = null;
     if (!r || !cambio || vistoApagado || !estado.cliente || !estado.sesion) return false;
+    // v1.0.0 (vuelta 1): sin señal no se relee el renglón (la lectura solo prepara una escritura que graph.js negaría): la marca se queda
+    // pendiente y sale con la siguiente. Era la intermitente «sin red: la escritura falla YA… sin llamar a Graph» de las capturas (un GET de
+    // PROY_Roles a media prueba sin red; 3 de 3 en tiempo real tras la vuelta 1, 1 de 12 en la cubeta 6).
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { vistoPendiente = cambio; return false; }
     // Dos dispositivos de la misma persona escriben el mismo renglon: se RELEE antes de fundir (la copia local
     // puede tener minutos) y se manda con If-Match; un 412 (alguien escribio en medio) se reintenta una vez (revisor, 13-sep).
     for (let intento = 0; intento < 2; intento++) {

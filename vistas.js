@@ -7,8 +7,8 @@
 
 import { CONFIG } from './config.js';
 import { fechaDia } from './reglas.js';   // v1.0.0 (cubeta 6): la fecha que se muestra, una sola forma («1 oct 2026»)
-import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona, HECHO, plural, PUEDE } from './reglas.js';
-import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, comentariosDe, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo, conservarFoco, filtroArchivosVacio } from './comun.js';
+import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona, HECHO, plural, PUEDE } from './reglas.js';
+import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, irAHash, textoConMenciones, comentariosDe, nuevosDe, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo, conservarFoco, filtroArchivosVacio } from './comun.js';
 import { pintarChat, irAlComentario } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
 import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';
 import { pintarSeccionArchivos } from './archivos.js';   // v1.0.0 (rediseño, cubeta 5): las secciones del módulo Archivos
@@ -920,6 +920,7 @@ function saludRep(p, hoy) {
     sl.title = `${s.nombre}${s.nota ? ': ' + s.nota : ''}${s.hace ? ' (' + s.hace + ')' : ''}`;
     return sl;
 }
+const TIPO_CUBETA = { h: 'Hechas', c: 'En proceso', p: 'Por hacer' };   // los nombres del anillo (segmentosGlobales)
 /** Avance: anillo global + una fila por proyecto (barra segmentada; clic → el frente). */
 function pintarAvance(a, orden) {
     const segs = segmentosGlobales(a);   // C-04 (18-sep): una vez por pintada, no dos
@@ -933,16 +934,19 @@ function pintarAvance(a, orden) {
         const meta = p.Vence ? fraseVence(d, 'corta', fechaDia(p.Vence)) : 'sin fin de frente';   // v1.0.0 (cubeta 6): la fecha como la maqueta («31 oct 2026»)
         const eti = etiRep(p.Title, meta, iconoEquipo(equipoDe(p), 'sm'), p.Vence && d < 0 ? 'is-danger' : '');   // C-04 (v0.79.0): ahora tambien dice «vence hoy»
         const sl = conSalud ? saludRep(p, hoy) : null; if (sl) eti.querySelector('.tx').appendChild(sl);
-        const segs = segmentosDe(ap);
+        // v1.0.0 (vuelta 1, revisión UI/UX «media»): las barras van por TIPO de cubeta —hechas · en proceso · por hacer, los tres colores del anillo—,
+        // sin el color propio de cada una: «En curso» salía tres veces en la leyenda con tres colores (uno, el gris de «Por hacer»). El nombre propio de
+        // cada cubeta sigue en el title del segmento y en el aria-label del renglón.
+        const segs = segmentosDe(ap).map(([col, n, cls]) => [col, n, cls === 'r' ? 'c' : cls, '']);
         const partes = segs.filter(x => x[1]).map(([col, n]) => `${n} ${col.nombre}`).join(', ');   // U-16 (v0.146.0): el lector de pantalla oye la frase, no «7 2 3 5 41%»
         fila.setAttribute('aria-label', `${p.Title}: ${ap.total ? `${ap.pct} %${partes ? ', ' + partes : ''}` : 'sin tarjetas'}; ${meta}${sl ? '; ' + sl.textContent : ''}`);
         fila.appendChild(eti); fila.appendChild(barraSeg(ap, segs)); pp.appendChild(fila);
-        // U-10 (v0.129.0): la leyenda suma las cubetas de todos los frentes por nombre y color; antes el nombre solo vivia en el title (en celular no hay)
-        for (const [col, n, cls, tono] of segs) { const k = `${cls}|${tono}|${col.nombre}`; const s = cubetas.get(k); if (s) s[1] += n; else cubetas.set(k, [col, n, cls, tono]); }
+        // U-10 (v0.129.0): la leyenda suma las cubetas de todos los frentes; desde la vuelta 1, por TIPO (un renglón y un color cada uno)
+        for (const [, n, cls] of segs) { const s = cubetas.get(cls); if (s) s[1] += n; else cubetas.set(cls, [{ nombre: TIPO_CUBETA[cls] || cls }, n, cls, '']); }
     }
     if (!orden.length) pp.appendChild(el('p', 'vacio', 'Sin proyectos activos.'));
     // v1.0.0 (cubeta 6, fidelidad #10): la leyenda solo nombra las cubetas que traen tarjetas (antes repetía «En revisión 0 … En revisión 2»)
-    const conTarjetas = [...cubetas.values()].filter(x => x[1] > 0);
+    const conTarjetas = ['h', 'c', 'p'].map(k => cubetas.get(k)).filter(x => x && x[1] > 0);
     const ley = $('repProyectosLeyenda'); ley.textContent = ''; if (conTarjetas.length) ley.appendChild(leyenda(conTarjetas));
 }
 /** Carga por persona: abiertas con las vencidas marcadas; el ancho es relativo a quien mas tiene. */

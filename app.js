@@ -14,17 +14,17 @@
 
 import { CONFIG } from './config.js';
 import { crearCliente, esConflicto } from './graph.js';
-import { rolDe, PUEDE, nombreCorto, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, infoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, misAbiertas as misAbiertasDe, HECHO, plural } from './reglas.js';
-import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, textoVence, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas, conservarFoco, olvidarVistosLocales, conRetardo } from './comun.js';
-import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambiarTareas, abrirTarjeta, tarjetaAbiertaId, repintarFicha, pintarFiltroTareas, pintarBotonFiltros, abrirNuevaTarea } from './tablero.js';
+import { rolDe, PUEDE, nombreCorto, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, HECHO, plural } from './reglas.js';
+import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, textoVence, aIsoDia, fechaInput, campoFecha, mesDia, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas, conservarFoco, olvidarVistosLocales, conRetardo } from './comun.js';
+import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambiarTareas, abrirTarjeta, tarjetaAbiertaId, repintarFicha, pintarFiltroTareas, pintarBotonFiltros } from './tablero.js';
 import { pintarGastos, engancharGastos, alCambiarGastos, recargarGastosSiLeidos } from './gastos.js';   // v0.162.0: Gastos (de la ERP v1)
-import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
+import { pintarDocs, engancharDocs, alCambiarDocs } from './docs.js';
 import { pintarChat, engancharChat, alCambiarChat, fijarAbrirTarjeta, salirDelChat } from './chat.js';
 import { pintarCapital, pintarCapitalProyecto, pintarCapitalTab, puedeVerCapital, engancharCapital, alCambiarCapital, fijarIrAProyecto } from './capital.js';
 import { pintarFinanzas, alCambiarCobranza, fijarIrDesdeFinanzas } from './cobranza.js';   // v0.165.0: Finanzas > Cobranza (solo gerencia); v1.0.0: Dinero › Por cobrar / Por pagar
 import { fijarNavGuardados } from './guardados.js';   // v1.0.0 (cubeta 2): «Guardados» (ERP_Vistas o este equipo)
 import { pintarArmazon, engancharArmazon, fijarNavArmazon, pintarCuenta, cerrarHoja, registrarFuenteAvisos } from './armazon.js';   // v1.0.0: rail, panel, cabecera, Cuenta (rediseño 2026-10-02)
-import { engancharModuloArchivos, alCambiarArchivos, iniciarCola, alRefrescar, pendientesCola, fuenteAvisosArchivos, revisarAntesDeCerrar, alCrearProyecto, pintarCarpetaProyecto, nArchivosDe } from './archivos.js';   // v1.0.0 (cubeta 5): Archivos (ERP_Proyectos, la cola, mandar a archivar)
+import { engancharModuloArchivos, alCambiarArchivos, iniciarCola, alRefrescar, pendientesCola, fuenteAvisosArchivos, revisarAntesDeCerrar, alCerrarSinArchivar, alCrearProyecto, pintarCarpetaProyecto, nArchivosDe } from './archivos.js';   // v1.0.0 (cubeta 5): Archivos (ERP_Proyectos, la cola, mandar a archivar)
 import { repintarDocsDeFicha } from './tablero.js';
 import { leerRuta, puedeVerPantalla, fechaDia } from './reglas.js';   // fechaDia: v1.0.0 (cubeta 6), la fecha que se muestra («1 oct 2026»)
 import { cabecera, vistaDe, soltarIdsFuera, filaKpis } from './reporte.js';   // v1.0.0 (cubeta 3): la cabecera y la fila de KPIs de la plantilla en Proyectos y en el proyecto
@@ -34,7 +34,7 @@ import { pintarCompras, alCambiarCompras } from './compras.js';   // v0.169.0: C
 import { pintarCabeceraInicio, pintarKpisInicio, atencionDeInicio, fijarNavInicio } from './inicio.js';   // v1.0.0 (cubeta 4): cabecera, KPIs por rol y «Requiere atención» de Operación y Dinero
 import { engancharBuscador } from './buscador.js';   // v1.0.0 (cubeta 4): buscador global (lupa, / y Ctrl+K)
 import { engancharPreguntar, fijarNavPreguntar, refrescarPreguntar } from './preguntar.js';   // v1.0.0 (cubeta 4): «Preguntar» sin IA
-import { pintarRoadmap, pintarRoadmapProyecto, roadmapFull, engancharRoadmap, olvidarLugarRoadmap, pintarCalendario, engancharCalendario, enfocarCal, pintarMensajes, engancharMensajes, devolverChat, mensajesNuevos, proyectoDeMensajes, pintarArchivos, engancharArchivos, pintarReportes, engancharReportes, fijarRepintarReportes, anillo, abrirCargaPersona, pintarCargaPersona } from './vistas.js';
+import { pintarRoadmap, pintarRoadmapProyecto, roadmapFull, engancharRoadmap, olvidarLugarRoadmap, pintarCalendario, engancharCalendario, enfocarCal, pintarMensajes, engancharMensajes, devolverChat, proyectoDeMensajes, pintarArchivos, engancharArchivos, pintarReportes, engancharReportes, fijarRepintarReportes, anillo, abrirCargaPersona, pintarCargaPersona } from './vistas.js';
 
 // NO llamar `msal` a esta variable: taparia el global del bundle UMD.
 const pca = new msal.PublicClientApplication({
@@ -110,7 +110,8 @@ async function salir() {
     // v1.0.0 (cubeta 5): «Salir avisa si hay pendientes» — la cola se queda en este equipo (por cuenta) y sube cuando esta cuenta vuelva a entrar
     const n = pendientesCola();
     const cola = n ? ` Ojo: ${n === 1 ? 'queda 1 subida' : `quedan ${n} subidas`} en la cola de este equipo; no se pierde${n === 1 ? '' : 'n'}, pero solo ${n === 1 ? 'sube' : 'suben'} cuando vuelvas a entrar con esta cuenta (revísala en Archivos › Mis subidas).` : '';
-    const { ok } = await confirmar({ titulo: 'Salir de la app', ok: 'Salir', texto: 'Se cierra la sesión de MINSA en este dispositivo. Lo guardado ya está en las listas.' + cola });
+    // v1.0.0 (vuelta 1): Salir también borra de este equipo lo que la cuenta dejó aquí (comun.js olvidarVistosLocales) — lo dice antes de hacerlo
+    const { ok } = await confirmar({ titulo: 'Salir de la app', ok: 'Salir', texto: 'Se cierra la sesión de MINSA en este dispositivo y se borra de él lo que tu cuenta dejó aquí (Recientes, preguntas y lo guardado solo en este equipo, como los guardados de Dinero). Lo demás ya está en las listas.' + cola });
     if (!ok) return;
     olvidarVistosLocales();   // S-27 (v0.156.0): la siguiente cuenta en este equipo no hereda lo que esta ya leyo
     try { await pca.logoutRedirect({ account: estado.cuenta }); }
@@ -180,8 +181,9 @@ function ponerQuien(texto) {
 function pintarSync(leyendo = false) {
     const t = Date.now() - estado.cargadoEl;
     const hace = !estado.cargadoEl ? '' : t < 60000 ? `hace ${Math.max(1, Math.round(t / 1000))} s` : t < 3600000 ? `hace ${Math.round(t / 60000)} min` : `hace ${Math.round(t / 3600000)} h`;
+    const sinRed = navigator.onLine === false;   // v1.0.0 (vuelta 1, revisión UI/UX «fondo»): sin señal el sello no dice «Al día»
     for (const x of document.querySelectorAll('.sync')) {
-        x.textContent = 'corto' in x.dataset ? (leyendo ? 'leyendo…' : hace) : leyendo ? 'Leyendo las listas…' : estado.cargadoEl ? `Al día · leído ${hace}` : '';   // v0.48.0: dentro del menu «···» solo cabe «hace N min»
+        x.textContent = 'corto' in x.dataset ? (leyendo ? 'leyendo…' : sinRed && hace ? `sin red · ${hace}` : hace) : leyendo ? 'Leyendo las listas…' : estado.cargadoEl ? `${sinRed ? 'Sin conexión' : 'Al día'} · leído ${hace}` : '';   // v0.48.0: dentro del menu «···» solo cabe «hace N min»
         x.classList.toggle('viejo', !leyendo && t > 300000);
     }
 }
@@ -306,7 +308,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') guardarVisto(); });
 window.addEventListener('pagehide', () => { guardarVisto(); });
 const DLG_LECTURA = ['dlgActividad', 'dlgPersona', 'dlgBuscar', 'dlgAvisos', 'dlgVistaPrevia', 'dlgVersiones'];   // R-02 (v0.131.0): + las abiertas de una persona (Reportes). v1.0.0: Equipo es página (Cuenta); + Buscar y Avisos; cubeta 5: + vista previa y versiones
-fijarAlCerrar(id => { if (DLG_LECTURA.includes(id) && rancio() && !editando()) recargar(); });
+fijarAlCerrar(id => { if (id === 'dlgSinArchivar') alCerrarSinArchivar(); if (DLG_LECTURA.includes(id) && rancio() && !editando()) recargar(); });   // v1.0.0 (vuelta 1): Atrás en «Archivos sin archivar» = no cerrar
 for (const id of DLG_LECTURA) $(id).addEventListener('close', () => { if (rancio() && !editando()) recargar(); });   // Esc no pasa por cerrarDialogo
 fijarReleer(recargar);   // un 412 (alguien cambio el renglon) se resuelve releyendo: la verdad esta en SharePoint
 
@@ -318,6 +320,7 @@ function pintarRed() {
     const sin = navigator.onLine === false;
     $('sinRed').classList.toggle('oculto', !sin || !estado.sesion);
     document.body.classList.toggle('sin-red', sin);
+    if (estado.sesion) pintarSync(recargando);   // v1.0.0 (vuelta 1): el sello cambia con la red, no en el siguiente tic de 15 s
     if (!estado.sesion && !$('btnEntrar').disabled && $('textoEntrar').textContent !== PISTA_FALLO) pistaEntrada(sin ? PISTA_SIN_RED : PISTA_MARCA);   // C-12 (v0.159.0): el motivo de un fallo no lo borra un parpadeo de la red
 }
 window.addEventListener('offline', pintarRed);
@@ -947,15 +950,28 @@ function pintarCola(abiertas, eventos) {   // `eventos` = el de eventosCola() de
     return { nuevos, enCola };
 }
 /** v1.0.0 (cubeta 6; plan «Celular a 1 toque»; premortem «celular»): en celular «Requiere atención» no es un muro — pasados TOPE_CEL renglones,
- *  lo que sigue (renglones, encabezados y «+N más», en el orden en que se leen: la mitad urgente y luego el resto) lleva .pliega y el CSS lo
- *  esconde bajo «Ver todo · N más». En escritorio el CSS no pliega nada. Abrirla dura la sesión (`colaDesplegada`). */
+ *  lo que sigue (renglones, encabezados y «+N más») lleva .pliega y el CSS lo esconde bajo «Ver todo · N más». En escritorio el CSS no pliega
+ *  nada. Abrirla dura la sesión (`colaDesplegada`). Vuelta 1: el primer renglón de las menciones y de «Nuevo para ti» nunca se pliega. */
 const TOPE_CEL = 6; let colaDesplegada = false;
 function plegarCola() {
     const caja = $('inicioHoy'), btn = $('colaVerTodo'); if (!caja || !btn) return;
-    let n = 0, ocultos = 0;
-    for (const lista of [$('inicioUrgente'), $('inicioResto')]) for (const x of lista.children) {
-        const pliega = n >= TOPE_CEL; x.classList.toggle('pliega', pliega);
-        if (x.classList.contains('hoy-r')) { n++; if (pliega) ocultos++; }
+    // v1.0.0 (vuelta 1, revisión UI/UX «media»): lo que TE DICEN («Te mencionaron», «Nuevo para ti») no se pliega —su primer renglón queda a la
+    // vista aunque Vencidas llene los 6—; con eso, el tope se llena en el orden en que se lee. Antes, seis vencidas escondían la mención.
+    const grupos = [];
+    for (const lista of [$('inicioUrgente'), $('inicioResto')]) [...lista.children].forEach((x, i) => {
+        if (x.classList.contains('hoy-g') || i === 0) grupos.push({ cab: x.classList.contains('hoy-g') ? x : null, clave: x.dataset.grupo || '', items: [] });
+        if (!x.classList.contains('hoy-g')) grupos[grupos.length - 1].items.push(x);
+    });
+    const renglones = g => g.items.filter(x => x.classList.contains('hoy-r'));
+    const ver = new Set();
+    for (const g of grupos) if (g.clave === 'mencion' || g.clave === 'nuevo') { const r = renglones(g)[0]; if (r) ver.add(r); }
+    for (const g of grupos) for (const r of renglones(g)) if (ver.size < TOPE_CEL && !ver.has(r)) ver.add(r);
+    let ocultos = 0;
+    for (const g of grupos) {
+        const rs = renglones(g), alguno = rs.some(r => ver.has(r)), todos = rs.every(r => ver.has(r));
+        for (const r of rs) { r.classList.toggle('pliega', !ver.has(r)); if (!ver.has(r)) ocultos++; }
+        for (const x of g.items) if (!x.classList.contains('hoy-r')) x.classList.toggle('pliega', !todos);   // el «+N más» con lo último del grupo
+        if (g.cab) g.cab.classList.toggle('pliega', !alguno);
     }
     caja.classList.toggle('is-plegada', !colaDesplegada && ocultos > 0);
     btn.hidden = colaDesplegada || !ocultos;

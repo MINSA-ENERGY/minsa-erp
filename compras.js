@@ -109,7 +109,7 @@ function pintarPagina(v, d, pag) {
             monedas: monedas.length > 1 ? monedas : null, textoMoneda: MONEDA_TXT, opcionMoneda: MONEDA_OP,
             antesDeMoneda: x => [desplegable({ id: 'comprasProveedor', prefijo: 'Proveedor: ', titulo: 'De qué proveedor',
                 opciones: [{ clave: '', texto: 'Todos' }, ...provs.map(p => ({ clave: p, texto: p }))], actual: x.proveedor || '', alElegir: k => { x.proveedor = k || null; x.abiertos.clear(); alCambiar(); } })],
-            columnas: x => [{ texto: 'Orden' }, { texto: 'Fecha' }, { texto: 'Partidas' }, { texto: 'Subtotal' }, { texto: 'IVA 16%' }, { texto: `Total ${x.moneda}` }],
+            columnas: x => [{ texto: 'Orden' }, { texto: 'Fecha' }, { texto: 'Partidas' }, { texto: 'Subtotal' }, { texto: 'IVA 16%' }, { texto: `Total ${x.moneda}`, total: true }],
             filas: x => de(x).map(o => {
                 const mal = o.partidas.filter(p => p.cuadra === false).length;
                 const extra = [];

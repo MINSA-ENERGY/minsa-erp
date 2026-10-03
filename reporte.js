@@ -29,7 +29,7 @@
 // · y `desplegable({ id, opciones, actual, alElegir })`, el «TODOS LOS EXPEDIENTES ⌄» de la maqueta.
 
 import { el, boton, iconoSvg, TRAZOS, conservarFoco } from './comun.js';
-import { RANGOS, GRANOS, escala, textoRango, fmtMonto, fmtCorto, fmtEje, textoPct, colorCorte, diaIso, fechaCorta, csv, nombreCsv } from './reporte-reglas.js';
+import { RANGOS, GRANOS, escala, textoRango, fmtMonto, fmtCorto, fmtEje, textoPct, colorCorte, diaIso, fechaCorta, csv, nombreCsv, diasDelCorte } from './reporte-reglas.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svgEl = (tag, attrs = {}, clase = '') => { const e = document.createElementNS(SVG_NS, tag); for (const k in attrs) e.setAttribute(k, String(attrs[k])); if (clase) e.setAttribute('class', clase); return e; };
@@ -88,8 +88,8 @@ export function cabecera(def, v, repintar) {
     top.appendChild(tit);
     const lado = el('div', 'rp-top-der');
     if (def.corte) {
-        // como diasDesde (cobranza-reglas): el corte viene en hora LOCAL sin zona y Date.parse lo lee así
-        const t = Date.parse(def.corte), dias = Number.isNaN(t) ? 0 : Math.max(0, Math.floor((Date.now() - t) / 86400000));
+        // v1.0.0 (vuelta 1): días de calendario del corte a hoy — la MISMA cuenta que el KPI de Inicio (reporte-reglas diasDelCorte)
+        const dias = diasDelCorte(def.corte);
         const c = el('span', 'rp-corte is-' + colorCorte(dias), `corte: ${fechaCorta(def.corte)}`); c.id = 'rpCorte'; c.dataset.dias = String(dias);
         c.title = dias === 0 ? 'Publicado hoy' : `Publicado hace ${dias} ${dias === 1 ? 'día' : 'días'}${dias > 8 ? ': hay que re-publicar' : ''}`;
         lado.appendChild(c);
@@ -308,8 +308,12 @@ export function tablaDatos(t, v, repintar) {
     const tabla = el('table', 'rp-tabla'); if (t.tablaId) tabla.id = t.tablaId;
     const thead = el('thead'); const trh = el('tr');
     const columnas = typeof t.columnas === 'function' ? t.columnas(v) : t.columnas;
-    columnas.forEach((c, i) => { const th = el('th', (c.clase || '') + (i ? '' : ' rp-th0'), c.texto); th.scope = 'col'; trh.appendChild(th); });
+    columnas.forEach((c, i) => { const th = el('th', (c.clase || '') + (i ? '' : ' rp-th0') + (c.total ? ' rp-col-total' : ''), c.texto); th.scope = 'col'; trh.appendChild(th); });
     thead.appendChild(trh); tabla.appendChild(thead);
+    // v1.0.0 (vuelta 1, revisión UI/UX «fondo»): la columna del TOTAL (`total: true`) lleva .rp-col-total en cada renglón —contando los colSpan— y
+    // el CSS la fija a la derecha bajo 720 px: a 390 el total quedaba tres columnas fuera de la pantalla
+    const iTotal = columnas.findIndex(c => c.total);
+    const marcarTotal = (tr, celdas) => { if (iTotal < 0) return; let col = 0; [...tr.children].forEach((td, k) => { const ab = Number((celdas[k] && celdas[k].colSpan) || 1); if (col === iTotal && ab === 1) td.classList.add('rp-col-total'); col += ab; }); };
     const tb = el('tbody');
     const renglon = (f, esPie) => {
         const abierto = !!f.abierto || (!!f.clave && v.abiertos.has(f.clave));
@@ -325,10 +329,11 @@ export function tablaDatos(t, v, repintar) {
             }
             tr.appendChild(td);
         });
+        marcarTotal(tr, f.celdas);
         tb.appendChild(tr);
         if (abierto) for (const h of f.hijos) {
             const th = el('tr', 'hijo' + (h.clase ? ' ' + h.clase : '')); for (const k in h.datos || {}) th.dataset[k] = h.datos[k];
-            h.celdas.forEach(c => th.appendChild(celda(c, false))); tb.appendChild(th);
+            h.celdas.forEach(c => th.appendChild(celda(c, false))); marcarTotal(th, h.celdas); tb.appendChild(th);
         }
     };
     const filas = t.filas(v);

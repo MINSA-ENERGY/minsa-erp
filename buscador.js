@@ -25,7 +25,20 @@ let nav = { irARuta: () => {}, abrirProyecto: () => {} };
 const NOMBRE_MODULO = { ...Object.fromEntries(MODULOS.map(m => [m.clave, m.nombre])), cuenta: 'Cuenta' };
 const MIN_REMOTO = 3, TOPE = 6;
 
-// ---------------------------------------------------------------- el índice local (se arma al abrir y en cada búsqueda: los datos cambian)
+// ---------------------------------------------------------------- el índice local
+// v1.0.0 (vuelta 1, revisión de código «baja»): se arma al ABRIR y otra vez solo si cambió lo que lo alimenta (una carga, un JSON que llegó,
+// una carpeta leída) — antes se reconstruía y normalizaba entero en cada tecla (12 ms con 3,400 entradas en node; ~50 ms en un celular).
+let indice = null, firmaIndice = '', indices = 0;
+function firmaDatos() {
+    const d = datosPublicados(false);
+    return [estado.rol, estado.cargadoEl, estado.proyectos.length, estado.tareas.length, estado.ligas.length, estado.roles.length, !!d.compras.datos, !!d.servicios.datos, !!d.vigencias.datos,
+        estado.proyectos.reduce((n, p) => n + archivosDe(p.Clave).length, 0)].join('|');
+}
+function indiceActual() {
+    const f = firmaDatos();
+    if (!indice || f !== firmaIndice) { indice = indiceBusqueda(entradasLocales()); firmaIndice = f; indices++; }
+    return indice;
+}
 
 /** Las entradas del índice para el rol de la sesión (ver indiceBusqueda en reglas.js). */
 export function entradasLocales() {
@@ -98,7 +111,7 @@ export function pintarBusqueda() {
     const q = $('bsTexto').value, s = q.trim();
     $('bsTexto').setAttribute('aria-expanded', String(!!s)); $('bsTexto').removeAttribute('aria-activedescendant');
     if (!s) { r.appendChild(el('p', 'mn-help bs-vacio', 'Escribe parte del nombre de una pantalla, un proyecto, una tarea, un archivo, una persona, una orden, un expediente o una vigencia.')); return; }
-    const locales = buscarEnIndice(indiceBusqueda(entradasLocales()), s, TOPE);
+    const locales = buscarEnIndice(indiceActual(), s, TOPE);
     const rem = remoto.q === s && remoto.grupos ? remoto.grupos : [];
     const remotos = rem.flatMap(b => b.items.map(x => ({ grupo: 'Archivos', texto: x.nombre, sub: `${b.nombre} · ${x.ruta}`, url: hrefSeguro(x.url, { tipo: 'archivado', host: CONFIG.sharepointHost }), archivo: x.nombre })).filter(x => x.url));
     let n = 0, hay = false;
@@ -132,6 +145,7 @@ const buscarRemoto = conRetardo(async () => {
 export function abrirBuscador() {
     if (!estado.sesion) return;
     datosPublicados(true);   // las órdenes, expedientes y vigencias entran al índice en cuanto su JSON se lee
+    indice = null; indiceActual();   // al abrir, siempre fresco
     $('bsTexto').value = ''; remoto = { q: '', grupos: null, buscando: false, gen: remoto.gen + 1 };
     pintarBusqueda(); abrirDialogo('dlgBuscar'); $('bsTexto').focus();
 }
@@ -160,4 +174,4 @@ export function engancharBuscador(fns) {
     });
 }
 /** Para las pruebas y el driver: cuántas opciones hay a la vista y cuál está resaltada. */
-export const estadoBuscador = () => ({ opciones: opciones().length, activa, remoto: { ...remoto } });
+export const estadoBuscador = () => ({ opciones: opciones().length, activa, remoto: { ...remoto }, indices });

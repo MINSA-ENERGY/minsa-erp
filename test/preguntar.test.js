@@ -61,6 +61,19 @@ ok('nombreClave: la primera palabra que no es de relleno', nombreClave('CPL Serv
     ok('colaborador y lectura: Dinero lo dice en vez de contestar', /solo ve gerencia/.test(P('¿Cuánto nos debe CPL?', 'colaborador').texto) && /solo ve gerencia/.test(P('¿Qué facturas de CPL no tienen REP?', 'lectura').texto));
     ok('sin cobranza.json todavía: lo dice (leyendo / no publicado)', /leyendo cobranza\.json/.test(P('¿cuánto nos debe CPL?', 'gerencia', { cobranza: { datos: null } }).texto) && /no hay cobranza\.json publicado/.test(P('¿cuánto nos debe CPL?', 'gerencia', { cobranza: { datos: false } }).texto));
 }
+// v1.0.0 (vuelta 1, revisión de código «fondo»): Preguntar respeta CONFIG.porPagarAparte — lo que va APARTE (TKC, v0.171.0) no suma a «Por pagar sin
+// pago probado» ni a «sin REP», como en la página; se dice aparte. Antes Preguntar contestaba la cifra de la página + lo de TKC bajo el mismo rótulo.
+{
+    const TKO = { rfc: 'TKO', nombre: 'TKC Oil Demo', monedas: [{ moneda: 'MXN', facturado: 90000, pagado: 0, ok: 0, duda_max: 0, sin: 90000 }], facturas: [fac('T1', 'MXN', 90000)] };
+    const COB2 = { datos: { ...COB.datos, proveedores: [...COB.datos.proveedores, TKO] }, error: null }, ap = { cobranza: COB2, aparte: { TKO: 'Línea Flash Tab sin explicar' } };
+    const t = P('¿Cuánto debemos?', 'gerencia', ap);
+    ok('¿cuánto debemos?: el total de Por pagar SIN lo que va aparte, y lo de aparte dicho aparte con su motivo', /^Por pagar sin pago probado: \$500\.00 \(corte del 2 oct 2026\)\./.test(t.texto) && /TKC Oil Demo va aparte: \$90,000\.00 \(Línea Flash Tab sin explicar\)/.test(t.texto), t.texto);
+    const s = P('¿Qué facturas que debemos no tienen REP?', 'gerencia', ap);
+    ok('¿qué facturas que debemos no tienen REP?: tampoco cuenta lo que va aparte', s.intento === 'sin-rep' && /^1 factura no tiene complemento de pago \(REP\): \$500\.00\./.test(s.texto), s.texto);
+    const k = P('¿cuánto le debemos a TKC?', 'gerencia', ap);
+    ok('nombrarla sí contesta por ella, y dice que va aparte de Por pagar', /^A TKC Oil Demo le debemos \$90,000\.00 sin pago probado/.test(k.texto) && /va aparte de «Por pagar»/.test(k.texto), k.texto);
+    ok('sin `aparte` en el contexto (otra moneda, otro lado) nada cambia: Por cobrar no tiene aparte', /^Por cobrar sin pago probado: US\$350\.00 y \$900\.00/.test(P('¿Cuánto nos deben?', 'gerencia', ap).texto));
+}
 // --- Operación
 {
     const s = P('¿En qué paso va cada servicio?');

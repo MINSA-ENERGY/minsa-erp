@@ -95,5 +95,13 @@ ok('problemaSegmento: valida lo que llega de ERP_Vistas', problemaSegmento({ joi
     && /propiedad/.test(problemaSegmento({ conds: [{ p: 'zz', op: 'es uno de', v: [] }] }, PROPS)) && /operador/.test(problemaSegmento({ conds: [{ p: 'b', op: 'contiene', v: 'x' }] }, PROPS))
     && !!problemaSegmento(null, PROPS) && !!problemaSegmento({ join: 'X', conds: [] }, PROPS));
 ok('catálogos: 3 rangos y DÍA/SEMANA apagados', RANGOS.length === 3 && GRANOS.filter(g => g.apagado).map(g => g.clave).join() === 'dia,semana');
+// v1.0.0 (vuelta 1, revisión de código «baja»): UN solo diasDelCorte para el chip de Inicio y el de la página — Inicio contaba desde el
+// mediodía del día del corte y la página desde su hora: el 10-oct a las 08:00, un corte del 1-oct a las 06:00 daba 8 (verde) y 9 (ámbar).
+{
+    const { diasDelCorte } = await import('../reporte-reglas.js');
+    const a = new Date(2026, 9, 10, 8, 0);
+    ok('diasDelCorte: días de CALENDARIO del corte a hoy (hora local), igual con hora o sin ella', typeof diasDelCorte === 'function' && diasDelCorte('2026-10-01T06:00:00', a) === 9 && diasDelCorte('2026-10-01T23:30:00', a) === 9 && diasDelCorte('2026-10-01', a) === 9);
+    ok('diasDelCorte: el mismo día es 0, la medianoche cuenta un día, nunca negativo y sin corte 0', typeof diasDelCorte === 'function' && diasDelCorte('2026-10-03T07:00:00', new Date(2026, 9, 3, 6, 0)) === 0 && diasDelCorte('2026-10-01T23:30:00', new Date(2026, 9, 2, 0, 10)) === 1 && diasDelCorte('2026-10-09', new Date(2026, 9, 3)) === 0 && diasDelCorte('', a) === 0);
+}
 
 console.log(`reporte.test.js: ${n} aserciones OK`);

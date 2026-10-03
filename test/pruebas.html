@@ -77,7 +77,14 @@
                 const listo = () => tarde(() => tarde(() => { if (tx.oncomplete) tx.oncomplete(); }));
                 const responde = (r, v) => tarde(() => { r.result = v; if (r.onsuccess) r.onsuccess(); });
                 tx.objectStore = () => ({
-                    put(v) { const r = peticion(); a.datos.set(v[a.keyPath], { ...v }); responde(r, v[a.keyPath]); listo(); return r; },
+                    // v1.0.0 (vuelta 1): cada put se anota (almacén, llave, si lleva bytes) y __IDB_FALLAS.put > 0 hace que el SIGUIENTE falle (cuota llena,
+                    // modo privado, un File que no se clona): la cola tiene que mirar si guardó.
+                    put(v) {
+                        const r = peticion(); window.__IDB_PUTS.push({ almacen: n, llave: v[a.keyPath], conBytes: !!(v.archivo || v.bytes), nombre: v.nombre || (v.archivo && v.archivo.name) || '' });
+                        if (window.__IDB_FALLAS.put > 0) { window.__IDB_FALLAS.put--; tarde(() => tarde(() => { if (tx.onerror) tx.onerror(); })); return r; }
+                        a.datos.set(v[a.keyPath], { ...v }); responde(r, v[a.keyPath]); listo(); return r;
+                    },
+                    get(k) { const r = peticion(); responde(r, a.datos.has(k) ? { ...a.datos.get(k) } : undefined); listo(); return r; },
                     delete(k) { const r = peticion(); a.datos.delete(k); responde(r, undefined); listo(); return r; },
                     getAll(rango) { const r = peticion(); responde(r, [...a.datos.entries()].filter(([k]) => !rango || rango.includes(k)).sort(([x], [y]) => (x < y ? -1 : 1)).map(([, v]) => ({ ...v }))); listo(); return r; }
                 });
@@ -90,7 +97,26 @@
         deleteDatabase(nombre) { const r = peticion(); bases.delete(nombre); tarde(() => { if (r.onsuccess) r.onsuccess(); }); return r; }
     };
     Object.defineProperty(window, 'indexedDB', { configurable: true, get: () => falso });
-    window.__IDB = bases;
+    window.__IDB = bases; window.__IDB_PUTS = []; window.__IDB_FALLAS = { put: 0 };
+})();
+
+// ------------------------------------------------------------------ navigator.locks falso (v1.0.0, vuelta 1: la cola es UNA entre pestañas)
+// TRAMPA medida el 2026-10-03 (corrida 1 de la vuelta 1): con --virtual-time-budget, `navigator.locks.request` va por IPC al navegador —como
+// indexedDB.open y la lectura de un Blob— y el reloj virtual corre mientras espera: en colaborador y sin-rol-gastos la primera subida de la
+// cubeta 5 se quedó sin el candado más de 8 s virtuales («acta subida»), en gerencia no. Se finge en memoria con la misma semántica (una cola
+// por nombre; `ifAvailable` contesta null si está tomado), como el Graph falso finge SharePoint: lo que se prueba es lo que hace la app con él.
+(function () {
+    const colas = new Map();
+    const locks = { request(nombre, a, b) {
+        const fn = typeof a === 'function' ? a : b, opts = typeof a === 'function' ? {} : (a || {});
+        const c = colas.get(nombre) || { tomado: false, espera: [] }; colas.set(nombre, c);
+        return new Promise((ok, mal) => {
+            const soltar = () => { c.tomado = false; const sig = c.espera.shift(); if (sig) sig(); };
+            const correr = () => { c.tomado = true; Promise.resolve().then(() => fn({ name: nombre, mode: 'exclusive' })).then(v => { soltar(); ok(v); }, e => { soltar(); mal(e); }); };
+            if (!c.tomado) correr(); else if (opts.ifAvailable) Promise.resolve().then(() => fn(null)).then(ok, mal); else c.espera.push(correr);
+        });
+    } };
+    Object.defineProperty(navigator, 'locks', { configurable: true, get: () => locks });
 })();
 
 // ------------------------------------------------------------------ Graph falso
@@ -557,6 +583,7 @@ const recargarYEsperar = async () => { clic('btnActualizar'); await esperar(() =
 // navegacion ASINCRONA en Edge headless con tiempo virtual y se reordena (medido 2026-09-11).
 const irHash = async h => { await respirar(); history.pushState(null, '', h); window.dispatchEvent(new PopStateEvent('popstate')); };
 
+window.__FIN_HUMO = new Error('fin de la corrida de humo (csp=1)');   // v1.0.0 (vuelta 1): la corrida de humo termina con esta excepción, que no es falla
 try {
     // 0. v1.0.0 (cubeta 5): la cola de subidas vive en IndexedDB del origen; la corrida empieza sin lo que dejó la anterior (capturas.mjs corre
     // varias configuraciones en el mismo perfil y el mismo puerto).
@@ -574,6 +601,18 @@ try {
     for (const m of doc.querySelectorAll('meta[name="viewport"], meta[name="theme-color"]')) {
         if (!document.querySelector(`meta[name="${m.name}"]`)) document.head.appendChild(document.adoptNode(m));
     }
+    // v1.0.0 (vuelta 1, revisión de seguridad «media»): ?csp=1 es la corrida de HUMO con la CSP REAL. El arnés adopta solo el <body> de
+    // index.html (sin su meta); aquí se le pone la MISMA meta —leída de index.html, no copiada— ANTES de importar app.js, y cualquier evento
+    // `securitypolicyviolation` es FALLA. Lo que el Graph falso intercepta (Graph, uploadUrl, monitor) y el <iframe> que no navega no pasan por
+    // la red: esas URL se cotejan además contra connect-src / frame-src de esa misma meta (humoCsp, abajo).
+    const HUMO_CSP = params.get('csp') === '1', violaciones = [];
+    let metaCsp = null;
+    if (HUMO_CSP) {
+        document.addEventListener('securitypolicyviolation', e => violaciones.push(`${e.violatedDirective} · ${e.blockedURI || '(en línea)'} · ${String(e.sourceFile || '').split('/').pop()}:${e.lineNumber}`));
+        metaCsp = doc.querySelector('meta[http-equiv="Content-Security-Policy"]');
+        if (!metaCsp) throw new Error('index.html ya no trae la meta CSP');
+        document.head.appendChild(document.adoptNode(metaCsp));
+    }
     const esquema = await (await fetch('./esquema.json', { cache: 'reload' })).json();
     window.__sembrar(esquema, ROL);
     const gerencia = ROL === 'gerencia';
@@ -586,6 +625,14 @@ try {
         filas('proyectos').push({ id: proyectoId, fields: { Title: 'LAU DEMO', Clave: 'lau-demo', Equipo: 'CALYTEK', Estado: 'activo', Responsable: 'jefa@example.invalid' } });
         filas('tareas').push({ id: DB.siguienteId++, fields: { Title: 'Tarea sembrada para mí', ProyectoId: proyectoId, Columna: 'por-hacer', Asignado: YO, Prioridad: 'alta', Vence: '2026-09-01T18:00:00Z', Desde: '2026-09-01T18:00:00Z' } });
         R.log('nota', `rol ${ROL}: proyecto y tarea sembrados directo en las listas`);
+    }
+    if (HUMO_CSP) {   // la corrida de humo no crea su proyecto por la interfaz: uno de CALYTEK, su carpeta en ERP_Proyectos y un cobranza.json chico
+        filas('proyectos').push({ id: DB.siguienteId++, fields: { Title: 'HUMO CSP', Clave: 'humo-csp', Equipo: 'CALYTEK', Estado: 'activo' } });
+        DB.proy.push({ id: 'pcarp-humo', esCarpeta: true, nombre: 'humo-csp' });
+        const hace = d => new Date(Date.now() - d * 86400000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 19);
+        const fac = (id, fecha, ins) => ({ id, uuid: id + '-UUID', fecha, concepto: 'Servicio de humo', moneda: 'USD', neto: ins, pagado: 0, insoluto_min: ins, insoluto_max: ins, estado: 'SIN', cancelada: false });
+        DB.datos['cobranza.json'] = JSON.stringify({ version: 1, generado: hace(1), fuente: 'humo', clientes: [{ rfc: 'HUM010101AAA', nombre: 'Cliente de Humo', monedas: [{ moneda: 'USD', facturado: 3000, pagado: 0, ok: 0, duda_min: 0, duda_max: 0, sin: 3000, n_facturas: 3 }],
+            facturas: [fac('H1', '2026-03-01', 1000), fac('H2', '2026-05-01', 1000), fac('H3', '2026-07-01', 1000)] }], proveedores: [] });
     }
     // v0.2.0 (F8): lectura arranca con un deep link pegado del chat: #p/<clave>/t/<id>.
     if (ROL === 'lectura') history.replaceState(null, '', `#p/lau-demo/t/${filas('tareas')[0].id}`);
@@ -607,6 +654,42 @@ try {
     const nLists = () => DB.llamadas.filter(c => c.startsWith('GET /sites/sitio-falso/lists?')).length;
     R.ok('C-01: un solo GET /lists para las lecturas en paralelo del arranque', nLists() === 1, `GET /lists = ${nLists()}`);
     R.ok('C-03: estado.sesion encendida al terminar sesionIniciada (y siteId puesto)', ESTADO.sesion === true && !!ESTADO.siteId);
+    // ---- v1.0.0 (vuelta 1): la corrida de HUMO con la CSP real (?csp=1) — solo esto y termina (e2e.ps1, escenario «csp»)
+    if (HUMO_CSP) {
+        // control positivo: la meta inyectada está VIVA (sin esto, «cero violaciones» no probaría nada)
+        { const d = document.createElement('div'); let tt = false; try { d.innerHTML = '<b>x</b>'; } catch (_) { tt = true; }
+          d.setAttribute('style', 'color: red'); document.body.appendChild(d);
+          const f = document.createElement('iframe'); document.body.appendChild(f); f.setAttribute('src', 'https://example.invalid/humo');
+          let red = false; try { await fetch('https://example.invalid/humo'); } catch (_) { red = true; }
+          await dormir(100); d.remove(); f.remove();
+          const vs = violaciones.splice(0);
+          R.ok('humo CSP: la CSP inyectada está VIVA (control positivo) — innerHTML lanza por Trusted Types; un style en línea, un <iframe> y un fetch a otro host se reportan',
+              tt && red && ['require-trusted-types-for', 'style-src', 'frame-src', 'connect-src'].every(k => vs.some(v => v.startsWith(k))), vs.join(' | ')); }
+        const pedidas = []; { const f0 = window.fetch; window.fetch = (u, o) => { pedidas.push(String(u && u.url || u)); return f0(u, o); }; }   // lo que la APP pide desde aquí
+        // Dinero: la gráfica SVG de Por cobrar · Saldo, con el globo al pasar
+        await irHash('#finanzas/cobrar/saldo'); await esperar(() => document.querySelector('#finanzasCuerpo #rpGrafica svg'), 'la gráfica de Dinero');
+        { const g = document.querySelector('#finanzasCuerpo #rpGrafica svg'), r = g.getBoundingClientRect();
+          for (const tipo of ['pointermove', 'mousemove']) g.dispatchEvent(new PointerEvent(tipo, { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
+          await dormir(30); }
+        // Archivos: la carpeta, una subida chica (PUT) y una de 11 MiB (upload session), y la vista previa (iframe)
+        const ARH = await import('../archivos.js');
+        await irHash('#archivos/proyecto/humo-csp'); await esperar(() => document.querySelector('#archivosSeccion .zona-subir[data-zona="humo-csp"]'), 'la carpeta del proyecto');
+        { const inp = document.querySelector('#archivosSeccion .zona-subir[data-zona="humo-csp"] input[data-zona-input="archivos"]'), dt = new DataTransfer();
+          const grande = new Uint8Array(11 * 1048576); for (let i = 0; i < grande.length; i += 4093) grande[i] = (i / 4093) & 255;
+          for (const f of [archivoDePrueba('%PDF humo', 'humo-chico.pdf', 'application/pdf', 1700000200001), archivoDePrueba(grande, 'humo-grande.mp4', 'video/mp4', 1700000200002)]) dt.items.add(f);
+          inp.files = dt.files; inp.dispatchEvent(new Event('change', { bubbles: true })); }
+        await esperar(() => ['humo-chico.pdf', 'humo-grande.mp4'].every(n => DB.proy.some(a => a.carpeta === 'humo-csp' && a.nombre === n)) && !ARH.colaActual().length, 'las dos subidas', 20000);
+        const filaH = () => [...document.querySelectorAll('#archivosSeccion tr[data-archivo-id]')].find(tr => tr.textContent.includes('humo-chico.pdf'));
+        await esperar(filaH, 'el renglón'); filaH().querySelector('.fila-menu').open = true; filaH().querySelector('[data-accion-archivo="vista"]').click();
+        await esperar(() => $('dlgVistaPrevia').open && DB.iframes.length, 'la vista previa'); clic('vpCerrar'); await dormir(30);
+        // lo que no sale a la red (el Graph falso, el iframe que no navega) se coteja contra la MISMA meta
+        const pol = Object.fromEntries(metaCsp.getAttribute('content').split(';').map(s => s.trim().split(/\s+/)).filter(x => x[0]).map(([k, ...v]) => [k, v]));
+        const permite = (dir, u) => { const o = new URL(u, location.href); return (pol[dir] || pol['default-src'] || []).some(s => s === "'self'" ? o.origin === location.origin : s.replace(/\/$/, '') === o.origin); };
+        const fuera = [...pedidas.filter(u => !permite('connect-src', u)).map(u => 'connect-src ' + u), ...DB.iframes.filter(u => !permite('frame-src', u)).map(u => 'frame-src ' + u)];
+        R.ok('humo CSP: cada URL que pidió la app (Graph, el uploadUrl de la sesión de 11 MiB) cabe en connect-src y la de la vista previa en frame-src de la meta', fuera.length === 0 && pedidas.some(u => u.startsWith('https://minsaenergy.sharepoint.com/_subida-falsa/')) && DB.iframes.length > 0, fuera.join(' | ') || `${pedidas.length} pedidas`);
+        R.ok('humo CSP: arranque, Dinero (gráfica SVG), Archivos (PUT y upload session > 10 MiB) y la vista previa (iframe) SIN una sola violación de la CSP real', violaciones.length === 0, violaciones.join(' | '));
+        throw window.__FIN_HUMO;
+    }
     R.ok('U-06 / C-02 / U-05: #textoEntrar es role=status, #btnEntrar sigue deshabilitado con sesión (nació así en el HTML) y la pista de estado lleva .estado', $('textoEntrar').getAttribute('role') === 'status' && $('btnEntrar').disabled === true && $('textoEntrar').classList.contains('estado'), $('textoEntrar').className);
     { const nAntes = nLists(); clic('btnActualizar'); await esperar(() => !$('btnActualizar').disabled, 'recargar'); await dormir(30);
       R.ok('C-01: recargar no recrea el cliente ni vuelve a pedir GET /lists', nLists() === nAntes, `GET /lists = ${nLists()} (antes ${nAntes})`); }
@@ -1168,16 +1251,16 @@ try {
           } }
         // v1.0.0 (sustituye a D6 «elegir una opción cierra el menú», el del «···»): «+ Nuevo» abre su menú; elegir cierra el menú.
         { const trig = matchMedia('(max-width: 720px)').matches ? $('fabNuevo') : $('btnNuevo');
-          trig.click(); await dormir(10);
+          // v1.0.0 (vuelta 1, revisión UI/UX «media»; sustituye a «… (lectura: solo Gasto vivo)» y a «(lectura) Esc cierra el menú sin hacer nada»):
+          // a lectura sin rol de Gastos no le sirve ninguna opción, así que «+ Nuevo» no se pinta — ni el del rail ni el flotante
+          if (!escribe) R.ok('v1.0.0 (vuelta 1): lectura sin rol de Gastos no tiene «+ Nuevo» (rail y flotante ocultos): la única opción viva terminaba en «no puedes registrar gastos»', $('btnNuevo').hidden && $('fabNuevo').hidden);
+          if (escribe) trig.click(); await dormir(10);
           const items = [...$('menuNuevo').querySelectorAll('[data-nuevo]')].map(b => b.dataset.nuevo + (b.disabled ? '-' : '')).join();
-          R.ok('v1.0.0: «+ Nuevo» abre su menú — Tarea · Gasto · Subir archivo · Foto (lectura: solo Gasto vivo)', !$('menuNuevo').hidden && trig.getAttribute('aria-expanded') === 'true' && items === (escribe ? 'tarea,gasto,subir,foto' : 'tarea-,gasto,subir-,foto-'), items);
+          if (escribe) R.ok('v1.0.0: «+ Nuevo» abre su menú — Tarea · Gasto · Subir archivo · Foto', !$('menuNuevo').hidden && trig.getAttribute('aria-expanded') === 'true' && items === 'tarea,gasto,subir,foto', items);
           if (escribe) {
               $('menuNuevo').querySelector('[data-nuevo="tarea"]').click(); await esperar(() => $('dlgNuevaTarea').open, 'nueva tarea desde + Nuevo');
               R.ok('v1.0.0 (sustituye a D6): elegir «Tarea» dentro del frente cierra el menú y abre «Nueva tarea» de ESE frente', $('menuNuevo').hidden && trig.getAttribute('aria-expanded') === 'false' && location.hash === '#p/' + CLAVE);
               clic('ntCancelar'); await esperar(() => !$('dlgNuevaTarea').open, 'nueva tarea cancelada');
-          } else {
-              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await dormir(10);
-              R.ok('v1.0.0 (sustituye a D6, lectura): Esc cierra el menú sin hacer nada', $('menuNuevo').hidden && !$('dlgNuevaTarea').open);
           } }
         // B8: Atrás cierra cualquier diálogo (los que no van en el hash): el diálogo empuja una entrada y popstate lo cierra.
         // v1.0.0: Equipo ya no es diálogo (es la tarjeta de Cuenta); la misma prueba corre sobre «Toda la actividad» del frente.
@@ -1581,7 +1664,7 @@ try {
         const llamadasAntes = DB.llamadas.length;
         document.querySelector(`.tarjeta[data-t="${t.id}"]`).click(); await esperar(() => $('dlgTarea').open, 'tarjeta');
         document.querySelector('#tMover button[data-move="hecho"]').click(); await esperar(() => avisoCon('sin conexión'), 'falla rápida');
-        R.ok('sin red: la escritura falla YA con mensaje claro y sin llamar a Graph', DB.llamadas.length === llamadasAntes && t.fields.Columna === 'en-curso');
+        R.ok('sin red: la escritura falla YA con mensaje claro y sin llamar a Graph', DB.llamadas.length === llamadasAntes && t.fields.Columna === 'en-curso', `llamadas nuevas: ${DB.llamadas.slice(llamadasAntes).join(' ; ') || 'ninguna'} · Columna=${t.fields.Columna}`);   // vuelta 1: la intermitente (1 de 12 en capturas) dice qué llamó
         clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada');
         Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true }); window.dispatchEvent(new Event('online'));
         await esperar(() => !visible('sinRed') && !$('btnActualizar').disabled, 'banda fuera');
@@ -2253,9 +2336,10 @@ try {
             // U-15 · U-17 (v0.145.0): Esc cierra el menú y devuelve el foco a su botón; los rótulos de grupo sin botón son encabezados de nivel 3.
             // v1.0.0: el menú «···» del rail se fue; la misma regla corre sobre «+ Nuevo» (el del rail en escritorio, el flotante en celular).
             { const trig = matchMedia('(max-width: 720px)').matches ? $('fabNuevo') : $('btnNuevo');
+              if (!trig.hidden) {   // vuelta 1: sin «+ Nuevo» (lectura sin rol de Gastos) no hay menú que probar
               trig.click(); await dormir(10); const dentro = $('menuNuevo').contains(document.activeElement);
               $('menuNuevo').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-              R.ok('U-15 (v1.0.0, sobre «+ Nuevo»): el menú abre con el foco en su primera opción; Esc lo cierra y el foco vuelve a su botón', dentro && $('menuNuevo').hidden && document.activeElement === trig && trig.getAttribute('aria-expanded') === 'false');
+              R.ok('U-15 (v1.0.0, sobre «+ Nuevo»): el menú abre con el foco en su primera opción; Esc lo cierra y el foco vuelve a su botón', dentro && $('menuNuevo').hidden && document.activeElement === trig && trig.getAttribute('aria-expanded') === 'false'); }   // fin del if (!trig.hidden)
               const gs = [...document.querySelectorAll('#inicioHoy .hoy-g')];
               R.ok('U-17 (v0.145.0): cada rótulo de grupo de la cola que no es botón lleva role=heading y aria-level=3', gs.length > 0 && gs.every(g => g.tagName === 'BUTTON' ? !g.getAttribute('role') : g.getAttribute('role') === 'heading' && g.getAttribute('aria-level') === '3'), gs.map(g => g.tagName + ':' + g.getAttribute('role')).join(',')); }
             // C-14 (v0.94.0): 7 tarjetas que vencen en 4 dias llenan «Esta semana» mas alla del tope; su «+N más» aterriza en el Calendario.
@@ -3057,7 +3141,7 @@ try {
               { const v = document.querySelector(`#repVencidas [data-abre="t:${tVenc.id}"]`);
                 R.ok('U-09 (v0.129.0): en «Vencidas por proyecto» el renglón principal es la tarjeta y la meta el nombre completo', v.querySelector('.cab .q').textContent === 'Vencida para Reportes' && v.querySelector('.f').textContent === (tVenc.fields.Asignado ? (await import("../reglas.js")).nombreDe(tVenc.fields.Asignado, ESTADO.roles) : 'sin dueño'), v.textContent); }
               // U-10 (v0.129.0): la leyenda de cubetas al pie de «Avance por proyecto», con nombre y cifra
-              R.ok('U-10 (v0.129.0): «Avance por proyecto» trae al pie la leyenda de cubetas (Hecho, Por hacer…) con sus cifras', document.querySelectorAll('#repProyectosLeyenda .leyenda > span').length >= 2 && /Hecho/.test($('repProyectosLeyenda').textContent) && /Por hacer/.test($('repProyectosLeyenda').textContent), $('repProyectosLeyenda').textContent);
+              R.ok('U-10 (v0.129.0; vuelta 1: por TIPO, los nombres del anillo): «Avance por proyecto» trae al pie la leyenda (Hechas, Por hacer…) con sus cifras', document.querySelectorAll('#repProyectosLeyenda .leyenda > span').length >= 2 && /Hechas/.test($('repProyectosLeyenda').textContent) && /Por hacer/.test($('repProyectosLeyenda').textContent), $('repProyectosLeyenda').textContent);
               // U-11 (v0.129.0): un frente con fin vencido lleva su meta en rojo
               { const pV = { id: DB.siguienteId++, fields: { Title: 'Frente vencido para Reportes', Clave: 'rep-vencido', Equipo: 'CALYTEK', Estado: 'activo', Vence: '2026-09-01T18:00:00Z' } }; filas('proyectos').push(pV); await recargarYEsperar(); await irHash('#reportes'); await esperar(() => document.querySelector(`#repProyectos [data-rep-p="${pV.id}"]`), 'frente vencido');
                 const m = document.querySelector(`#repProyectos [data-rep-p="${pV.id}"] .eti .m`);
@@ -4097,7 +4181,7 @@ try {
             const mon = (moneda, facturado, pagado, ok, duda, sin) => ({ moneda, facturado, pagado, ok, duda_min: duda, duda_max: duda, sin, n_facturas: 2 });
             const fac = (id, moneda, ins, estado, extra = {}) => ({ id, uuid: id + '-UUID', fecha: '2026-03-01', concepto: 'Servicio de prueba', moneda, neto: ins, pagado: 0, insoluto_min: ins, insoluto_max: ins, estado, cancelada: false, ...extra });
             const FIX = { version: 1, generado: hace(2), fuente: 'pruebas', clientes: [
-                { rfc: 'CPL801111PS2', nombre: 'Constructora Demo', monedas: [mon('USD', 3000, 1000, 500, 0, 1500), { ...mon('MXN', 800, 200, 0, 0, 0), cancelado: 600 }],
+                { rfc: 'CPD010101AAA', nombre: 'Constructora Demo', monedas: [mon('USD', 3000, 1000, 500, 0, 1500), { ...mon('MXN', 800, 200, 0, 0, 0), cancelado: 600 }],
                   facturas: [fac('F10', 'USD', 1500, 'SIN'), fac('F11', 'USD', 500, 'OK'), fac('F12', 'MXN', 600, 'SIN', { cancelada: true })] },
                 { rfc: 'XSS000000AAA', nombre: '<img src=x onerror="window.__xssCob=1">Cliente Etiqueta', monedas: [mon('USD', 900, 0, 0, 300, 600)],
                   facturas: [fac('X1', 'USD', 300, 'DUDA', { insoluto_min: 100 }), fac('X2', 'USD', 600, 'SIN')] },
@@ -4133,7 +4217,7 @@ try {
             // la tabla de la maqueta: contraparte × antigüedad + sin pago probado, con el total y lo facturado
             const filasCp = () => [...document.querySelectorAll('#cobranzaTabla tbody tr.rp-cp')];
             R.ok('v1.0.0 (cubeta 2): «Datos del reporte» de Saldo — un renglón por cliente con saldo (USD), cuatro cubetas de antigüedad + «Sin pago probado», total y facturado histórico',
-                filasCp().map(r => r.dataset.clave).join() === 'CPL801111PS2|USD,XSS000000AAA|USD' && [...document.querySelectorAll('#cobranzaTabla thead th')].map(t => t.textContent).join('|') === '|0–90 días|91–180 días|181–365 días|Más de 365 días|Sin pago probado'
+                filasCp().map(r => r.dataset.clave).join() === 'CPD010101AAA|USD,XSS000000AAA|USD' && [...document.querySelectorAll('#cobranzaTabla thead th')].map(t => t.textContent).join('|') === '|0–90 días|91–180 días|181–365 días|Más de 365 días|Sin pago probado'
                 && /Total clientes USD.*US\$2,900/.test(document.querySelector('#cobranzaTabla tr.tot[data-total="saldo"]').textContent) && /US\$3,900 facturado/.test(document.querySelector('#cobranzaTabla tr.tot[data-total="facturado"]').textContent), filasCp().map(r => r.textContent).join(' | '));
             filasCp()[0].querySelector('.rp-exp').click(); await esperar(() => document.querySelector('#cobranzaTabla tr.hijo'), 'facturas desplegadas');
             R.ok('v1.0.0 (cubeta 2): filas DESPLEGABLES — la › abre las facturas de la contraparte (la mayor primero) y se vuelve a plegar',
@@ -4163,14 +4247,14 @@ try {
             clic('rpRango'); await dormir(10); document.querySelector('.rp-menu [data-rango="2a"]').click(); await dormir(10);
             // exportar CSV
             clic('rpExportar'); await dormir(10);
-            R.ok('v1.0.0 (cubeta 2): exportar CSV — BOM UTF-8, encabezados y un renglón por cliente (con el RFC y las cubetas como números)', RP.ultimoCsv.texto.charCodeAt(0) === 0xFEFF && RP.ultimoCsv.texto.startsWith('﻿Cliente,RFC,Moneda,0–90 días') && RP.ultimoCsv.texto.includes('Constructora Demo,CPL801111PS2,USD,') && /^cobrar-saldo_\d{4}-\d{2}-\d{2}\.csv$/.test(RP.ultimoCsv.nombre), RP.ultimoCsv.nombre);
+            R.ok('v1.0.0 (cubeta 2): exportar CSV — BOM UTF-8, encabezados y un renglón por cliente (con el RFC y las cubetas como números)', RP.ultimoCsv.texto.charCodeAt(0) === 0xFEFF && RP.ultimoCsv.texto.startsWith('﻿Cliente,RFC,Moneda,0–90 días') && RP.ultimoCsv.texto.includes('Constructora Demo,CPD010101AAA,USD,') && /^cobrar-saldo_\d{4}-\d{2}-\d{2}\.csv$/.test(RP.ultimoCsv.nombre), RP.ultimoCsv.nombre);
             // Por cliente: la tabla de siempre (evidencia y detalle), ahora UNA moneda a la vez
             await irPagina('#finanzas/cobrar/cliente', 'finanzas-cobrar-cliente'); await elegirMoneda('USD');
             const filas = () => [...document.querySelectorAll('#cobranzaTabla tr.cob-cliente')];
             // sustituye a «USD = 2,900.00 (2,000 + 900) con 2,100.00 sin REP; nunca suma MXN; lo de un CFDI cancelado no suma y se dice aparte» (v0.165.0)
             R.ok('v1.0.0 (cubeta 2): Por cliente — USD: saldo US$2,900.00 (2,000 + 900) con US$2,100.00 sin REP; nunca suma MXN', kpi('saldo').querySelector('b').textContent === 'US$2.90k' && kpi('sin').querySelector('b').textContent === 'US$2.10k' && /Total clientes USD.*US\$2,900\.00/.test(document.querySelector('#cobranzaTabla tr.tot').textContent));
             // sustituye a «un renglón por cliente y moneda con saldo, USD primero y el mayor primero; el saldado no sale» (v0.165.0)
-            R.ok('v1.0.0 (cubeta 2): un renglón por cliente con saldo en la moneda elegida, el mayor primero; el saldado no sale', filas().map(r => r.dataset.clave).join(',') === 'CPL801111PS2|USD,XSS000000AAA|USD' && !/Saldado/.test($('cobranzaTabla').textContent), filas().map(r => r.dataset.clave).join(','));
+            R.ok('v1.0.0 (cubeta 2): un renglón por cliente con saldo en la moneda elegida, el mayor primero; el saldado no sale', filas().map(r => r.dataset.clave).join(',') === 'CPD010101AAA|USD,XSS000000AAA|USD' && !/Saldado/.test($('cobranzaTabla').textContent), filas().map(r => r.dataset.clave).join(','));
             R.ok('cobranza: un nombre con etiqueta sale como TEXTO y no ejecuta', !window.__xssCob && filas()[1].querySelector('.rp-lk').textContent.startsWith('<img') && !document.querySelector('#cobranzaTabla img'));
             filas()[1].querySelector('.rp-lk').click(); await esperar(() => document.querySelector('#cobranzaTabla tr.hijo'), 'detalle abierto');
             const det = [...document.querySelectorAll('#cobranzaTabla tr.hijo')];
@@ -4180,7 +4264,7 @@ try {
             filas()[0].querySelector('.rp-exp').click(); await esperar(() => document.querySelector('#cobranzaTabla tr.hijo'), 'detalle MXN');
             // sustituye a «un CFDI cancelado lo dice en su renglón, sale tachado y el cliente lo marca «no suma»» (v0.165.0) y a la mitad MXN de la de arriba
             R.ok('v1.0.0 (cubeta 2): en pesos — saldo $0 (no se suma a los dólares) y el CFDI cancelado tachado, «no suma» en su renglón y en su KPI',
-                filas().map(r => r.dataset.clave).join() === 'CPL801111PS2|MXN' && kpi('saldo').querySelector('b').textContent === '$0' && /no suma/.test(kpi('cancelado').textContent) && /\$600\.00 cancelado, no suma/.test(filas()[0].textContent)
+                filas().map(r => r.dataset.clave).join() === 'CPD010101AAA|MXN' && kpi('saldo').querySelector('b').textContent === '$0' && /no suma/.test(kpi('cancelado').textContent) && /\$600\.00 cancelado, no suma/.test(filas()[0].textContent)
                 && !!document.querySelector('#cobranzaTabla tr.hijo.is-cancelada') && /CFDI cancelado/.test(document.querySelector('#cobranzaTabla tr.hijo').textContent));
             // (d) corte viejo — sustituye a «un corte de 20 días pide re-correr el exportador» (v0.165.0)
             DB.datos['cobranza.json'] = JSON.stringify({ ...FIX, generado: hace(20) });
@@ -4205,7 +4289,7 @@ try {
             await irHash('#finanzas/pagar/saldo'); await esperar(() => $('porPagarSinDatos') || $('porPagarTabla'), 'por pagar sin proveedores');
             R.ok('por pagar (v0.170.0): un archivo publicado sin `proveedores` pide re-publicar, no pinta una tabla vacía (v1.0.0: en #finanzas/pagar/saldo, resaltado en el panel)', !!$('porPagarSinDatos') && !$('porPagarTabla') && document.querySelector('#panelArbol .panel-modulo:not([hidden]) .ch.on')?.id === 'panelPorPagar');
             const FIXPP = { ...FIX, proveedores: [
-                { rfc: 'MSO220721AU0', nombre: 'Proveedor Demo', monedas: [mon('MXN', 5000, 1000, 3000, 0, 1000)],
+                { rfc: 'MSD010101AAA', nombre: 'Proveedor Demo', monedas: [mon('MXN', 5000, 1000, 3000, 0, 1000)],
                   facturas: [fac('P1', 'MXN', 3000, 'OK'), fac('P2', 'MXN', 1000, 'SIN')] },
                 { rfc: 'XSS000000BBB', nombre: '<img src=x onerror="window.__xssPP=1">Proveedor Etiqueta', monedas: [mon('USD', 70, 0, 0, 0, 70)], facturas: [fac('P9', 'USD', 70, 'SIN')] },
                 { rfc: 'TOS230824ID4', nombre: 'TKC Demo', monedas: [mon('MXN', 90000, 0, 0, 0, 90000)], facturas: [fac('T1', 'MXN', 90000, 'SIN')] }
@@ -4259,7 +4343,7 @@ try {
             const fr = (id, moneda, fecha, ins, estado, extra = {}) => fac(id, moneda, ins, estado, { fecha, total: ins, serie: '', folio: id, reps: 0, cadena: false, producto: 'Cajas de recorte', ...extra });
             const corte = h => ({ semana: 'x', fecha: h, cobrar: { USD: { saldo: 0 }, MXN: { saldo: 1200 } }, pagar: { MXN: { saldo: 94000 } }, rfc: { pagar: { TOS230824ID4: { MXN: 90000 } } } });
             const FIX2 = { version: 1, revision: 2, generado: hace(2), fuente: 'pruebas', vigencia_proveedores: false, clientes: [
-                { rfc: 'CPL801111PS2', nombre: 'CPL Servicios Demo', monedas: [mon('USD', 5000, 1000, 0, 0, 4000)],
+                { rfc: 'CPD010101AAA', nombre: 'CPL Servicios Demo', monedas: [mon('USD', 5000, 1000, 0, 0, 4000)],
                   facturas: [fr('C1', 'USD', '2025-06-01', 2500, 'SIN', { producto: 'Supersacos (RME)' }), fr('C2', 'USD', hace(46).slice(0, 10), 1500, 'SIN')] },
                 { rfc: 'LAT000000AAA', nombre: 'Constructora Demo', monedas: [mon('USD', 1200, 300, 0, 900, 0)], facturas: [fr('L1', 'USD', '2026-02-10', 900, 'DUDA', { reps: 1, pagado: 300 })] },
                 { rfc: 'PES000000AAA', nombre: 'Cliente Pesos Demo', monedas: [mon('MXN', 1200, 0, 0, 0, 1200)], facturas: [fr('K1', 'MXN', '2026-05-01', 1200, 'SIN')] }
@@ -4314,16 +4398,26 @@ try {
             $('rpDesglose').click(); await dormir(10);
             clic('rpExportar'); await dormir(10);
             R.ok('v1.0.0 (cubeta 2): con segmentos, el CSV es un renglón por segmento', RP.ultimoCsv.texto.split('\r\n').filter(Boolean).length === 3 && RP.ultimoCsv.texto.startsWith('﻿Segmento,'));
-            // guardar (equipo) → ERP_Vistas
-            const vistas = () => DB.listas.vistas.items;
+            // guardar → ESTE equipo. v1.0.0 (vuelta 1, revisión de seguridad ALTA): un segmento o una vista de Dinero NUNCA va a ERP_Vistas — la
+            // lista la leen todos los Miembros del sitio y lo de Dinero (contrapartes, folios, «sin REP», umbrales) sale de cobranza.json, que solo ve
+            // gerencia. Sustituye a «guardar un segmento (EQUIPO) escribe en ERP_Vistas…», «… marcado «equipo»», «el disquete guarda la VISTA (solo
+            // yo)» y «QUITAR borra el renglón de ERP_Vistas (DELETE)» (cubeta 2).
+            const vistas = () => DB.listas.vistas.items, llaveV = 'erp.vistas.' + YO.toLowerCase();
+            const locales = () => { try { return JSON.parse(localStorage.getItem(llaveV) || '[]'); } catch (_) { return []; } };
+            const postVistas = () => DB.llamadas.filter(c => c.startsWith('POST /sites/sitio-falso/lists/lista-vistas')).length;
+            try { localStorage.removeItem(llaveV); } catch (_) {}
+            clic('btnLeerCobranza'); await esperar(() => $('cobranzaTabla'), 'guardados releídos');
+            const nPost0 = postVistas(), nVistas0 = vistas().length;
             document.querySelector('#rpSegmentos [data-rp="segguardar:0"]').click(); await esperar(() => $('rpGuNombre'), 'guardar segmento');
-            poner('rpGuNombre', 'Más de un año (prueba)'); document.querySelector('#rpPop [data-compartida="true"]').click(); await dormir(5); clic('rpGuGuardar');
-            await esperar(() => vistas().length === 1 && $('rpPop').hidden, 'segmento guardado');
-            const v1 = vistas()[0].fields, d1 = JSON.parse(v1.Definicion || '{}');
-            R.ok('v1.0.0 (cubeta 2): guardar un segmento (EQUIPO) escribe en ERP_Vistas — Title, Dueno, Compartida, Modulo «dinero» y la Definicion JSON',
-                v1.Title === 'Más de un año (prueba)' && v1.Dueno === YO.toLowerCase() && v1.Compartida === true && v1.Modulo === 'dinero' && d1.tipo === 'segmento' && d1.lado === 'cobrar' && d1.moneda === 'USD' && d1.conds[0].p === 'ant', JSON.stringify(v1));
+            R.ok('v1.0.0 (vuelta 1, seguridad alta): guardar un segmento de Dinero ya no ofrece «solo yo | equipo» y dice en una línea por qué se queda en este equipo',
+                !document.querySelector('#rpPop [data-compartida]') && /Los guardados de Dinero se quedan en este equipo: la lista de vistas la leen todos los Miembros del sitio/.test($('rpGuNota')?.textContent || ''), $('rpPop').textContent.slice(0, 200));
+            poner('rpGuNombre', 'Más de un año (prueba)'); clic('rpGuGuardar');
+            await esperar(() => locales().some(x => x.titulo === 'Más de un año (prueba)') && $('rpPop').hidden, 'segmento guardado');
+            const v1 = locales().find(x => x.titulo === 'Más de un año (prueba)'), d1 = v1.definicion || {};
+            R.ok('v1.0.0 (vuelta 1; sustituye a «guardar un segmento (EQUIPO) escribe en ERP_Vistas…»): el segmento de Dinero queda en ESTE equipo (localStorage por cuenta) con su definición, y CERO POST a ERP_Vistas',
+                v1.modulo === 'dinero' && v1.compartida === false && d1.tipo === 'segmento' && d1.lado === 'cobrar' && d1.moneda === 'USD' && d1.conds[0].p === 'ant' && postVistas() === nPost0 && vistas().length === nVistas0, JSON.stringify(v1));
             const svDinero = () => [...document.querySelectorAll('#panelArbol [data-modulo="dinero"] .panel-guardados .sv')];
-            R.ok('v1.0.0 (cubeta 2): «Guardados» del panel de Dinero lista el segmento (marcado «equipo»)', svDinero().length === 1 && /Más de un año \(prueba\)/.test(svDinero()[0].textContent) && /equipo/.test(svDinero()[0].textContent));
+            R.ok('v1.0.0 (vuelta 1; sustituye a «… lista el segmento (marcado «equipo»)»): «Guardados» del panel de Dinero lista el segmento, marcado «este equipo»', svDinero().length === 1 && /Más de un año \(prueba\)/.test(svDinero()[0].textContent) && /este equipo/.test(svDinero()[0].textContent), svDinero().map(b => b.textContent).join(' | '));
             while (segs().length) { segs()[0].querySelector('[data-rp^="segquitar"]').click(); await dormir(5); }
             await irPagina('#finanzas/cobrar/cliente', 'finanzas-cobrar-cliente');
             svDinero()[0].click(); await esperar(() => pagina() === 'finanzas-cobrar-saldo' && segs().length === 1, 'segmento guardado abierto');
@@ -4331,9 +4425,9 @@ try {
             // guardar el REPORTE (cabecera): página, moneda y rango; abrirlo lo restaura
             await irPagina('#finanzas/cobrar/antiguedad', 'finanzas-cobrar-antiguedad'); await elegirMoneda('MXN');
             clic('rpGuardar'); await esperar(() => $('rpGuNombre'), 'guardar reporte'); poner('rpGuNombre', 'Antigüedad en pesos'); clic('rpGuGuardar');
-            await esperar(() => vistas().length === 2, 'reporte guardado');
-            const d2 = JSON.parse(vistas()[1].fields.Definicion);
-            R.ok('v1.0.0 (cubeta 2): el disquete de la cabecera guarda la VISTA (solo yo): ruta, moneda, rango y periodo', d2.tipo === 'reporte' && d2.ruta === '#finanzas/cobrar/antiguedad' && d2.vista.moneda === 'MXN' && vistas()[1].fields.Compartida === false);
+            await esperar(() => locales().some(x => x.titulo === 'Antigüedad en pesos'), 'reporte guardado');
+            const d2 = locales().find(x => x.titulo === 'Antigüedad en pesos').definicion;
+            R.ok('v1.0.0 (vuelta 1; sustituye a «el disquete guarda la VISTA (solo yo)» en ERP_Vistas): la vista de Dinero también queda en este equipo, con ruta, moneda, rango y periodo, y CERO POST', d2.tipo === 'reporte' && d2.ruta === '#finanzas/cobrar/antiguedad' && d2.vista.moneda === 'MXN' && postVistas() === nPost0);
             await irPagina('#finanzas/cobrar/saldo', 'finanzas-cobrar-saldo'); await elegirMoneda('USD');
             svDinero().find(b => /Antigüedad en pesos/.test(b.textContent)).click(); await esperar(() => pagina() === 'finanzas-cobrar-antiguedad', 'reporte abierto');
             R.ok('v1.0.0 (cubeta 2): abrir la vista guardada vuelve a esa página y a su moneda', $('rpMoneda').dataset.moneda === 'MXN' && location.hash === '#finanzas/cobrar/antiguedad');
@@ -4341,15 +4435,20 @@ try {
             await irPagina('#finanzas/cobrar/saldo', 'finanzas-cobrar-saldo'); await elegirMoneda('USD');
             clic('rpFiltro'); await esperar(() => $('rpPop') && !$('rpPop').hidden, 'ventana'); document.querySelector('#rpPop [data-rp="tab:guardados"]').click(); await esperar(() => $('rpGuardadosLista'), 'pestaña guardados');
             R.ok('v1.0.0 (cubeta 2): la pestaña «Segmentos guardados» lista los segmentos (no las vistas de reporte) con APLICAR y QUITAR', $('rpGuardadosLista').querySelectorAll('[data-vista]').length === 1 && !!$('rpGuardadosLista').querySelector('[data-aplicar]') && !!$('rpGuardadosLista').querySelector('[data-quitar]'));
-            $('rpGuardadosLista').querySelector('[data-quitar]').click(); await esperar(() => vistas().length === 1, 'segmento quitado');
-            R.ok('v1.0.0 (cubeta 2): QUITAR borra el renglón de ERP_Vistas (DELETE)', DB.llamadas.some(c => /^DELETE \/sites\/sitio-falso\/lists\/lista-vistas\/items\/\d+$/.test(c)) && !vistas().some(x => /Más de un año/.test(x.fields.Title)));
+            $('rpGuardadosLista').querySelector('[data-quitar]').click(); await esperar(() => !locales().some(x => /Más de un año/.test(x.titulo)), 'segmento quitado');
+            R.ok('v1.0.0 (vuelta 1; sustituye a «QUITAR borra el renglón de ERP_Vistas (DELETE)»): QUITAR lo borra de este equipo, sin llamar a Graph', !DB.llamadas.some(c => /^DELETE \/sites\/sitio-falso\/lists\/lista-vistas/.test(c)) && locales().some(x => x.titulo === 'Antigüedad en pesos'));
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await dormir(10);
-            // lo que llega de ERP_Vistas se valida (cualquier Miembro puede editar la lista)
+            // lo que llega de ERP_Vistas se valida (cualquier Miembro puede editar la lista; uno de Dinero ya solo puede llegar escrito por otra vía)
             vistas().push({ id: DB.siguienteId++, fields: { Title: 'Roto', Dueno: YO.toLowerCase(), Compartida: true, Modulo: 'dinero', Definicion: '{no es json' } });
             vistas().push({ id: DB.siguienteId++, fields: { Title: 'Propiedad rara', Dueno: 'otra@example.invalid', Compartida: true, Modulo: 'dinero', Definicion: JSON.stringify({ tipo: 'segmento', lado: 'cobrar', join: 'Y', conds: [{ p: 'zz', op: 'es uno de', v: ['x'] }] }) } });
             vistas().push({ id: DB.siguienteId++, fields: { Title: 'Ajena privada', Dueno: 'otra@example.invalid', Compartida: false, Modulo: 'dinero', Definicion: JSON.stringify({ tipo: 'reporte', ruta: '#finanzas/cobrar/saldo', vistaId: 'x', vista: {} }) } });
+            vistas().push({ id: DB.siguienteId++, fields: { Title: 'Condiciones rotas', Dueno: 'otra@example.invalid', Compartida: true, Modulo: 'dinero', Definicion: JSON.stringify({ tipo: 'segmento', lado: 'cobrar', join: 'Y', conds: 'no es lista' }) } });
             clic('btnLeerCobranza'); await esperar(() => svDinero().some(b => /Propiedad rara/.test(b.textContent)), 'guardados releídos');
             R.ok('v1.0.0 (cubeta 2): de ERP_Vistas no se pinta una Definicion que no es JSON ni la vista PRIVADA de otra persona; la compartida sí', !svDinero().some(b => /Roto|Ajena/.test(b.textContent)));
+            // v1.0.0 (vuelta 1, revisión de seguridad «baja»): un renglón MAL FORMADO no rompe la pestaña «Segmentos guardados» (antes: TypeError en cada apertura)
+            clic('rpFiltro'); await esperar(() => $('rpPop') && !$('rpPop').hidden, 'ventana'); document.querySelector('#rpPop [data-rp="tab:guardados"]').click(); await dormir(20);
+            R.ok('v1.0.0 (vuelta 1, seguridad baja): con renglones mal formados en ERP_Vistas (condiciones que no son lista, propiedad desconocida) «Segmentos guardados» abre igual y no los pinta', !!$('rpGuardadosLista') && !/Condiciones rotas|Propiedad rara/.test($('rpGuardadosLista').textContent), $('rpPop').textContent.slice(0, 160));
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await dormir(10);
             const nSeg = segs().length;
             svDinero().find(b => /Propiedad rara/.test(b.textContent)).click(); await dormir(20);
             R.ok('v1.0.0 (cubeta 2): un segmento guardado con una propiedad desconocida no se aplica y lo dice', segs().length === nSeg && !!avisoCon('propiedad desconocida'));
@@ -4362,10 +4461,10 @@ try {
             let loc = []; try { loc = JSON.parse(localStorage.getItem('erp.vistas.' + YO.toLowerCase()) || '[]'); } catch (_) {}
             R.ok('v1.0.0 (cubeta 2): si ERP_Vistas no se puede leer, guardar va a localStorage (sin POST) y la nota discreta lo dice',
                 /en este equipo/.test($('guardadosNota').textContent) && loc.some(x => x.titulo === 'Vista local de prueba') && DB.llamadas.filter(c => c.startsWith('POST /sites/sitio-falso/lists/lista-vistas')).length === nPostVistas && !document.querySelector('#avisos .mensaje.error'));
-            try { localStorage.removeItem('erp.vistas.' + YO.toLowerCase()); } catch (_) {}
+            try { localStorage.setItem(llaveV, JSON.stringify(locales().filter(x => x.titulo !== 'Vista local de prueba'))); } catch (_) {}
             clic('btnLeerCobranza'); await esperar(() => !$('guardadosNota') && $('cobranzaTabla'), 'guardados de vuelta a la lista');
             while (segs().length) { segs()[0].querySelector('[data-rp^="segquitar"]').click(); await dormir(5); }
-            DB.listas.vistas.items = DB.listas.vistas.items.filter(x => x.fields.Title === 'Antigüedad en pesos');
+            DB.listas.vistas.items = [];   // v1.0.0 (vuelta 1): «Antigüedad en pesos» —la que ven las capturas— vive en este equipo, no en la lista
             clic('btnLeerCobranza'); await esperar(() => $('cobranzaTabla'), 'cobranza final');   // revisión 2 con historial: la que ven las capturas
         }
         pestana('inicio'); await dormir(30);
@@ -4414,11 +4513,11 @@ try {
             R.ok('vigencias: unidad, responsable (— si no hay) y la nota bajo el título', /CALYTEK/.test(filas[1].textContent) && /la renovación se ingresa antes/.test(filas[1].textContent) && filas[2].querySelector('.vig-resp').textContent === '—' && /Francisco/.test(filas[0].textContent));
             R.ok('vigencias: un título con etiqueta sale como TEXTO y no ejecuta', !window.__xssVig && filas[1].querySelector('.vig-titulo').textContent.startsWith('<img') && !document.querySelector('#vigenciasTabla img'));
             const kpiV = k => document.querySelector(`#vigenciasKpis [data-kpi="${k}"] b`)?.textContent, corteV = () => document.querySelector('#vigenciasCuerpo #rpCorte');
-            R.ok('vigencias (v1.0.0, cubeta 3: KPIs de la plantilla y el corte en el chip de la cabecera): resumen 1 vencida · 1 en rojo · 1 en ámbar · 4 documentos · corte de 2 días al día (verde)', document.querySelectorAll('#vigenciasKpis .rp-kpi').length === 5 && kpiV('vencidas') === '1' && kpiV('rojo') === '1' && kpiV('ambar') === '1' && kpiV('total') === '4' && corteV()?.dataset.dias === '2' && corteV().classList.contains('is-ok'), [...document.querySelectorAll('#vigenciasKpis .rp-kpi')].map(k => k.textContent).join(' | '));
+            R.ok('vigencias (v1.0.0, cubeta 3; vuelta 1 sustituye «4 documentos» por el KPI de Inicio y el total va al subtítulo): resumen 1 vencida · 1 en rojo · 1 en ámbar · 2 vencidas o a ≤ 30 días · «4 documentos que caducan» · corte de 2 días al día (verde)', document.querySelectorAll('#vigenciasKpis .rp-kpi').length === 5 && kpiV('vencidas') === '1' && kpiV('rojo') === '1' && kpiV('ambar') === '1' && kpiV('atencion') === '2' && /^4 documentos que caducan/.test($('vigenciasSub')?.textContent || '') && corteV()?.dataset.dias === '2' && corteV().classList.contains('is-ok'), [...document.querySelectorAll('#vigenciasKpis .rp-kpi')].map(k => k.textContent).join(' | '));
             R.ok('vigencias (v1.0.0, cubeta 3): la plantilla — «Lo que vence» + «?» y el KPI de la siguiente (la Fianza, no la vencida)', $('rpTitulo').textContent === 'Lo que vence' && !!document.querySelector('#vigenciasCuerpo .rp-qm') && /Fianza/.test(document.querySelector('#vigenciasKpis [data-kpi="siguiente"]').textContent));
             $('vigenciasUnidad').click(); await dormir(10); document.querySelector('.rp-menu [data-opcion="CALYTEK"]').click(); await esperar(() => document.querySelectorAll('#vigenciasTabla tr.vig-fila').length === 1, 'vigencias de CALYTEK');
             clic('rpExportar'); await dormir(10); const RPv = await import('../reporte.js');
-            R.ok('vigencias (v1.0.0, cubeta 3): «TODAS LAS UNIDADES ⌄» filtra la tabla y los KPIs, y el CSV sale de lo que se ve', /Fianza/.test(document.querySelector('#vigenciasTabla tr.vig-fila').textContent) && kpiV('total') === '1' && /CALYTEK/.test($('vigenciasUnidad').textContent) && /^vigencias_/.test(RPv.ultimoCsv.nombre) && RPv.ultimoCsv.texto.trim().split(String.fromCharCode(13, 10)).length === 2);
+            R.ok('vigencias (v1.0.0, cubeta 3; vuelta 1: el KPI filtrado es «vencidas o a ≤ 30 días», el total ya no es KPI): «TODAS LAS UNIDADES ⌄» filtra la tabla y los KPIs, y el CSV sale de lo que se ve', /Fianza/.test(document.querySelector('#vigenciasTabla tr.vig-fila').textContent) && kpiV('atencion') === '1' && /CALYTEK/.test($('vigenciasUnidad').textContent) && /^vigencias_/.test(RPv.ultimoCsv.nombre) && RPv.ultimoCsv.texto.trim().split(String.fromCharCode(13, 10)).length === 2);
             $('vigenciasUnidad').click(); await dormir(10); document.querySelector('.rp-menu [data-opcion=""]').click(); await esperar(() => document.querySelectorAll('#vigenciasTabla tr.vig-fila').length === 4, 'vigencias todas');
             // (d) corte viejo
             DB.datos['vigencias.json'] = JSON.stringify({ ...FIX, generado: local(-20).slice(0, 19) });
@@ -5138,6 +5237,319 @@ try {
         await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio');
     }
     // ==================================================================================================================
+    // v1.0.0 (VUELTA 1 de correcciones, 2026-10-03; informes de los revisores de código, seguridad y UI/UX tras la cubeta 6): cada prueba va en su
+    // propio try (V1) —una que truena no corta las demás y su falla nombra el arreglo que la cubre—. Antes del ARMAZÓN, como los bloques de cubeta.
+    {
+        for (const d of document.querySelectorAll('dialog[open]')) d.close();
+        document.querySelector('#avisos .cerrar')?.click();
+        ESTADO.filtroEquipo = null;
+        const V1 = async (nombre, fn) => {
+            try { await fn(); } catch (e) { R.ok('vuelta 1 — ' + nombre + ': la prueba tronó', false, String(e && e.message || e)); }
+            for (const d of document.querySelectorAll('dialog[open]')) d.close();
+            document.querySelector('#avisos .cerrar')?.click();
+            if (navigator.onLine === false) { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true }); window.dispatchEvent(new Event('online')); await dormir(30); }
+        };
+        const celular = matchMedia('(max-width: 720px)').matches;
+        const AR = await import('../archivos.js'), CL = await import('../cola.js'), GU = await import('../guardados.js'), CM = await import('../comun.js'), BU = await import('../buscador.js');
+        const SIN_PROY = params.get('gastos') === 'no';
+        const P1 = () => ESTADO.proyectos.find(p => p.Clave === CLAVE);
+        const enDB = (nombre, clave = CLAVE) => DB.proy.find(a => !a.esCarpeta && a.carpeta === clave && a.nombre === nombre);
+        const enCola = nombre => AR.colaActual().find(r => r.nombre === nombre);
+        const enZona = (archivos, tipo = 'archivos') => { const inp = document.querySelector(`#archivosSeccion .zona-subir[data-zona="${CLAVE}"] input[data-zona-input="${tipo}"]`); if (!inp) throw new Error('sin zona de subir'); const dt = new DataTransfer(); for (const f of archivos) dt.items.add(f); inp.files = dt.files; inp.dispatchEvent(new Event('change', { bubbles: true })); };
+        const RUTA_P = `#archivos/proyecto/${CLAVE}`;
+        const irArchivos = async (h = RUTA_P) => { await irHash(h); await esperar(() => visible('p-archivos') && location.hash === h, h); await dormir(30); };
+        const fila = nombre => [...document.querySelectorAll('#archivosSeccion tr[data-archivo-id]')].find(tr => tr.querySelector('.c-nombre').textContent.includes(nombre));
+        const accion = (nombre, acc) => { const tr = fila(nombre); if (!tr) return null; tr.querySelector('.fila-menu').open = true; return tr.querySelector(`[data-accion-archivo="${acc}"]`); };
+        const subir = async (nombre, texto, n) => { enZona([archivoDePrueba(texto, nombre, 'application/pdf', 1700000100000 + n)]); await esperar(() => enDB(nombre) && !enCola(nombre), 'subido ' + nombre); await esperar(() => fila(nombre), 'renglón de ' + nombre); };
+        const enDisco = llave => { const b = window.__IDB.get('minsa-erp'); const a = b && b.almacenes.get('subidas'); return !!a && a.datos.has(llave); };
+        // una regla de estilo.css bajo `max-width: 720px` (la E2E corre a 800 px; a 390 corre dentro de capturas.mjs y ahí se mide además la caja)
+        const reglaBajo720 = (sel, prop, valor) => { for (const h of document.styleSheets) { let rs; try { rs = h.cssRules; } catch (_) { continue; } for (const r of rs) if (r.media && /max-width:\s*720px/.test(r.media.mediaText)) for (const q of r.cssRules) if (q.selectorText && q.selectorText.split(',').map(s => s.trim()).includes(sel) && (valor === undefined ? !!q.style.getPropertyValue(prop) : q.style.getPropertyValue(prop) === valor)) return true; } return false; };
+        const rgb = c => (String(c).match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+        const lum = c => { const [r, g, b] = rgb(c).map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+        const contraste = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+        const colorDe = (valor, prop = 'color') => { const s = document.createElement('span'); s.style[prop] = valor; document.body.appendChild(s); const c = getComputedStyle(s)[prop]; s.remove(); return c; };
+
+        // ---- A.1 (seguridad, ALTA): lo guardado en Trabajo/Archivos dice que «solo en mi panel» NO lo esconde (la lista la leen los Miembros)
+        if (escribe) await V1('A.1 Trabajo', async () => {
+            await irHash('#reportes/carga'); await esperar(() => visible('p-reportes') && document.querySelector('#reportesCuerpo #rpGuardar'), 'Carga por persona');
+            document.querySelector('#reportesCuerpo #rpGuardar').click(); await esperar(() => $('rpGuNombre'), 'guardar vista de Trabajo');
+            const solo = document.querySelector('#rpPop [data-compartida="false"]'), nota = $('rpGuNota');
+            R.ok('vuelta 1 (A.1, seguridad alta): guardar una vista de Trabajo ofrece «SOLO EN MI PANEL» | «EQUIPO» y dice en una línea que la lista de vistas la leen todos los Miembros del sitio (antes «SOLO YO», que prometía privacidad)',
+                !!solo && solo.textContent === 'SOLO EN MI PANEL' && !!nota && /la leen todos los Miembros del sitio/.test(nota.textContent), solo && solo.textContent);
+            document.querySelector('#rpPop [data-rp="gucancelar"]').click(); await dormir(10);
+        });
+        // ---- A.2 (seguridad, baja): un renglón de ERP_Vistas SIN Dueno solo se ve si es Compartida (antes lo veían todos)
+        if (escribe && DB.listas.vistas) await V1('A.2 sin dueño', async () => {
+            const def = JSON.stringify({ tipo: 'reporte', ruta: '#reportes/carga', vistaId: 'reportes-carga', vista: {} });
+            DB.listas.vistas.items.push({ id: DB.siguienteId++, fields: { Title: 'Sin dueño privada (prueba)', Dueno: '', Compartida: false, Modulo: 'trabajo', Definicion: def } });
+            DB.listas.vistas.items.push({ id: DB.siguienteId++, fields: { Title: 'Sin dueño compartida (prueba)', Dueno: '', Compartida: true, Modulo: 'trabajo', Definicion: def } });
+            await GU.releerGuardados();
+            const xs = GU.guardadosDe('trabajo').map(v => v.titulo);
+            R.ok('vuelta 1 (A.2, seguridad baja): de ERP_Vistas, un renglón SIN Dueno solo se pinta si es Compartida (la privada sin dueño no se le enseña a nadie)', GU.estadoGuardados().modo === 'lista' && !xs.includes('Sin dueño privada (prueba)') && xs.includes('Sin dueño compartida (prueba)'), xs.join(' | '));
+            DB.listas.vistas.items = DB.listas.vistas.items.filter(x => !/Sin dueño .* \(prueba\)/.test(x.fields.Title)); await GU.releerGuardados();
+        });
+        // ---- B.5 (código, fondo): lo guardado en ESTE equipo no desaparece cuando ERP_Vistas responde
+        if (escribe && DB.listas.vistas) await V1('B.5', async () => {
+            const llave = 'erp.vistas.' + YO.toLowerCase(); let antes = null; try { antes = localStorage.getItem(llave); } catch (_) {}
+            localStorage.setItem(llave, JSON.stringify([{ id: 'l-prueba-v1', titulo: 'Guardada en este equipo (prueba)', dueno: YO.toLowerCase(), compartida: false, modulo: 'trabajo', definicion: { tipo: 'reporte', ruta: '#reportes/carga', vistaId: 'reportes-carga', vista: {} } }]));
+            await GU.releerGuardados();
+            const v = GU.guardadosDe('trabajo').find(x => x.titulo === 'Guardada en este equipo (prueba)');
+            R.ok('vuelta 1 (B.5, código fondo): con ERP_Vistas leída, lo guardado antes en ESTE equipo sigue en «Guardados» (marcado «en este equipo»), no desaparece', GU.estadoGuardados().modo === 'lista' && !!v && v.local === true && GU.esMia(v));
+            if (antes === null) localStorage.removeItem(llave); else localStorage.setItem(llave, antes);
+            await GU.releerGuardados();
+        });
+        // ---- A.2 (seguridad, baja): Salir borra de este equipo lo que la cuenta abrió, subió, preguntó y guardó (la cola con pendientes se queda)
+        await V1('A.2 Salir', async () => {
+            const c = YO.toLowerCase(), ks = ['erp.recientes.', 'erp.subidas.', 'erp.preguntas.', 'erp.vistas.'];
+            const antes = ks.map(k => localStorage.getItem(k + c));
+            for (const k of ks) { localStorage.setItem(k + c, '[]'); localStorage.setItem(k + 'otra@example.invalid', '[]'); }
+            olvidarVistosLocales();
+            R.ok('vuelta 1 (A.2, seguridad baja): olvidarVistosLocales (lo llama Salir) borra erp.recientes, erp.subidas, erp.preguntas y erp.vistas de la cuenta que sale, y no los de otra cuenta',
+                ks.every(k => localStorage.getItem(k + c) === null && localStorage.getItem(k + 'otra@example.invalid') === '[]'));
+            ks.forEach((k, i) => { localStorage.removeItem(k + 'otra@example.invalid'); if (antes[i] !== null) localStorage.setItem(k + c, antes[i]); });
+        });
+        // ---- C.2 (UI/UX, fondo): sin señal, la banda dice que se puede SUBIR (la cola guarda) y el sello no dice «Al día»
+        await V1('C.2', async () => {
+            await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio');
+            Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false }); window.dispatchEvent(new Event('offline')); await esperar(() => visible('sinRed'), 'banda sin red');
+            R.ok('vuelta 1 (C.2, UI fondo): la banda sin señal dice que lo que subas espera en este equipo y sube solo; y el sello dice «Sin conexión · leído hace …», no «Al día»',
+                /lo que subas espera en este equipo/.test($('sinRed').textContent) && /^Sin conexión · leído /.test($('syncMovil').textContent) && /^sin red · /.test($('syncRail').textContent), `${$('sinRed').textContent} | ${$('syncMovil').textContent} | ${$('syncRail').textContent}`);
+            Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true }); window.dispatchEvent(new Event('online'));
+            await esperar(() => !visible('sinRed') && !$('btnActualizar').disabled, 'banda fuera');
+            R.ok('vuelta 1 (C.2): al volver la red el sello vuelve a «Al día»', /^Al día · leído /.test($('syncMovil').textContent), $('syncMovil').textContent);
+        });
+        // ---- C.1 (UI/UX, fondo): el vencimiento de la tarjeta (tablero y ficha) es el día real, no el anterior
+        await V1('C.1', async () => {
+            R.ok('vuelta 1 (C.1, UI fondo): fechaVence (la del tablero y la ficha) dice «1 oct» para lo que vence el 1 de octubre en México (antes «30 sep»)', CM.fechaVence('2026-10-01T18:00:00Z').startsWith('1 oct') && CM.fechaVence('2026-10-01').startsWith('1 oct') && JSON.stringify(CM.mesDia('2026-10-01')) === '{"mes":"oct","dia":1}');
+            const t = ESTADO.tareas.find(x => Number(x.ProyectoId) === P1().id && x.Vence && x.Columna !== 'hecho' && Math.abs(diasPara(x.Vence)) > 1);
+            if (!t) { R.log('nota', 'vuelta 1 (C.1): sin tarjeta con fecha lejana en el frente; solo la función'); return; }
+            await irHash('#p/' + CLAVE); await esperar(() => visible('p-proyecto') && document.querySelector(`#tab-tablero .tarjeta[data-t="${t.id}"]`), 'tablero');
+            const d = diaDe(t.Vence), esperado = `${Number(d.slice(8, 10))} ${['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][Number(d.slice(5, 7)) - 1]}`;
+            R.ok('vuelta 1 (C.1): la tarjeta del tablero dice el día real de su vencimiento (el mismo que la Lista)', document.querySelector(`#tab-tablero .tarjeta[data-t="${t.id}"]`).textContent.includes(esperado), `${esperado} en «${document.querySelector(`#tab-tablero .tarjeta[data-t="${t.id}"]`).textContent.slice(0, 120)}»`);
+        });
+        // ---- B.10 (código, baja): el índice del buscador se arma al abrir y tras cada carga, no en cada tecla
+        await V1('B.10 buscador', async () => {
+            clic(celular ? 'btnBuscarMovil' : 'btnBuscar'); await esperar(() => $('dlgBuscar').open, 'buscar');
+            const n0 = BU.estadoBuscador().indices;
+            for (const s of ['a', 'ac', 'act', 'acta']) { poner('bsTexto', s); await dormir(5); }
+            const n1 = BU.estadoBuscador().indices;
+            R.ok('vuelta 1 (B.10, código baja): el índice del buscador se arma UNA vez al abrir (y tras cada carga), no en cada tecla: 4 teclas = 0 índices nuevos', typeof n0 === 'number' && n1 === n0, `${n0} → ${n1}`);
+            clic('bsCerrar'); await esperar(() => !$('dlgBuscar').open, 'buscar cerrado');
+        });
+        // ---- C (UI/UX, media): «+ Nuevo» no se le ofrece a quien no tiene ninguna opción (lectura sin rol de Gastos)
+        await V1('C + Nuevo', async () => {
+            await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await dormir(30);
+            const oculto = id => $(id).hidden || getComputedStyle($(id)).display === 'none';
+            R.ok(`vuelta 1 (C, UI media): «+ Nuevo» (rail y flotante) ${escribe ? 'se ofrece a quien escribe' : 'NO se ofrece a lectura: ninguna opción le sirve (antes, la única viva terminaba en «no puedes registrar gastos»)'}`, escribe ? !$('btnNuevo').hidden && !$('fabNuevo').hidden : oculto('btnNuevo') && oculto('fabNuevo'));
+        });
+        // ---- C (UI/UX, media): el texto que INFORMA (notas de cálculo, vacíos, subtítulos de renglón) va en --ink-2, no en el gris débil
+        await V1('C ink-2', async () => {
+            await irHash('#reportes/carga'); await esperar(() => visible('p-reportes') && document.querySelector('#p-reportes .rp-nota'), 'nota de un reporte');
+            const ink2 = colorDe('var(--ink-2)'), nota = getComputedStyle(document.querySelector('#p-reportes .rp-nota')).color;
+            const panel = document.querySelector('.panel .panel-vacio'), pv = panel ? getComputedStyle(panel).color : ink2;
+            R.ok('vuelta 1 (C, UI media): la nota de cálculo de un reporte y los vacíos del panel usan --ink-2 (7.6:1), no --ink-3 (3.1:1 en claro)', nota === ink2 && pv === ink2, `${nota} · ${pv} · ink-2 ${ink2}`);
+        });
+        // ---- C (UI/UX, media): «Avance por proyecto» con la leyenda por TIPO de cubeta (un color cada una) y las barras del mismo color
+        await V1('C Avance', async () => {
+            await irHash('#reportes/avance'); await esperar(() => visible('p-reportes') && document.querySelector('#repProyectos .rep-fila'), 'Avance por proyecto');
+            const nombres = [...document.querySelectorAll('#repProyectosLeyenda .leyenda > span')].map(s => s.textContent.replace(/\s*\d+$/, '').trim());
+            R.ok('vuelta 1 (C, UI media): la leyenda de «Avance por proyecto» va por TIPO de cubeta —Hechas · En proceso · Por hacer, una vez cada una— y ninguna barra pinta el color propio de una cubeta (una «En curso» gris salía como «Por hacer»)',
+                nombres.length > 0 && nombres.every(x => ['Hechas', 'En proceso', 'Por hacer'].includes(x)) && new Set(nombres).size === nombres.length && !document.querySelector('#repProyectos .segbar i[data-tono]'), nombres.join(' | '));
+        });
+        // ---- C (UI/UX, media): Avisos a 390 sin la columna «NUEVO» y con el título en dos renglones
+        await V1('C Avisos', async () => {
+            R.ok('vuelta 1 (C, UI media): bajo 720 px Avisos quita la palabra NUEVO (lo dice la negrita) y el título usa dos renglones', reglaBajo720('.av-nuevo', 'display', 'none') && reglaBajo720('.av-r b', 'white-space', 'normal'));
+            if (celular) { clic('btnAvisosMovil'); await esperar(() => $('dlgAvisos').open, 'avisos');
+                const bs = [...$('avLista').querySelectorAll('.av-r b')];
+                R.ok('vuelta 1 (C, a 390): ningún título de Avisos se corta', bs.every(b => b.scrollWidth <= b.clientWidth + 1), bs.filter(b => b.scrollWidth > b.clientWidth + 1).map(b => b.textContent).join(' | '));
+                clic('avCerrar'); await esperar(() => !$('dlgAvisos').open, 'avisos cerrado'); }
+        });
+        // ---- C.3 (UI/UX, fondo): Mis tareas a 390 — el título de la vencida no se corta en «Entregar …»
+        if (escribe) await V1('C.3', async () => {
+            const t = { id: DB.siguienteId++, fields: { Title: 'Entregar el original de la fianza en la oficina de la ASEA (vuelta 1)', ProyectoId: P1().id, Columna: 'por-hacer', Asignado: YO, Prioridad: 'alta', Vence: new Date(Date.now() - 3 * 864e5).toISOString() } };
+            filas('tareas').push(t); filas('actividad').push({ id: DB.siguienteId++, fields: { Title: 'una nota', Accion: 'comentar', Quien: 'colega@example.invalid', Cuando: new Date().toISOString(), ProyectoId: P1().id, TareaId: t.id } });
+            await recargarYEsperar(); await irHash('#mis'); await esperar(() => visible('p-mis') && document.querySelector(`#misLista .fila [data-posponer="${t.id}"]`), 'la vencida con Posponer');
+            R.ok('vuelta 1 (C.3, UI fondo): bajo 720 px el título de Mis tareas usa dos renglones y «Posponer» baja a su propio renglón (no le quita ancho al título)', reglaBajo720('.densa .tr .t .tit', 'white-space', 'normal') && reglaBajo720('.densa .fila > .pos', 'grid-column'));
+            if (celular) { const tr = document.querySelector(`#misLista .tr[data-t="${t.id}"]`), tit = tr.querySelector('.tit');
+                R.ok('vuelta 1 (C.3, a 390): el título de la vencida ocupa casi todo el renglón y no se corta en «Entregar …»', tit.getBoundingClientRect().width >= 0.6 * tr.getBoundingClientRect().width && tit.scrollHeight <= tit.clientHeight + 2 && !/…$/.test(tit.innerText), `${Math.round(tit.getBoundingClientRect().width)} de ${Math.round(tr.getBoundingClientRect().width)}`); }
+            DB.listas.tareas.items = filas('tareas').filter(x => x.id !== t.id); DB.listas.actividad.items = filas('actividad').filter(a => Number(a.fields.TareaId) !== t.id); await recargarYEsperar();
+        });
+        // ---- C (UI/UX, media): Inicio en celular — «Te mencionaron» y «Nuevo para ti» antes del pliegue de «Requiere atención»
+        if (escribe) await V1('C Inicio pliegue', async () => {
+            const ts = []; for (let i = 1; i <= 7; i++) ts.push({ id: DB.siguienteId++, fields: { Title: `Vencida para el pliegue ${i}`, ProyectoId: P1().id, Columna: 'por-hacer', Asignado: YO, Prioridad: 'normal', Vence: new Date(Date.now() - (i + 2) * 864e5).toISOString() } });
+            const men = { id: DB.siguienteId++, fields: { Title: '@persona ¿ya viste lo del pliegue?', Accion: 'comentar', Quien: 'colega@example.invalid', Cuando: new Date(Date.now() - 3600000).toISOString(), ProyectoId: P1().id } };
+            filas('tareas').push(...ts); filas('actividad').push(men); await recargarYEsperar(); await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); await dormir(40);
+            const filasCola = [...document.querySelectorAll('#inicioHoy .hoy-r')], men1 = document.querySelector('#inicioHoy .hoy-r[data-mencion], #inicioHoy .hoy-r[data-nuevo="mencion"]');
+            R.ok('vuelta 1 (C, UI media): con más de 6 renglones, la mención queda ANTES del pliegue del celular (Vencidas y lo que te dicen primero; lo demás tras «Ver todo»)', filasCola.length > 6 && !!men1 && !men1.classList.contains('pliega') && filasCola.some(f => f.classList.contains('pliega')), `${filasCola.length} renglones · mención ${men1 ? men1.className : 'no está'}`);
+            const ids = new Set(ts.map(x => x.id)); DB.listas.tareas.items = filas('tareas').filter(x => !ids.has(x.id)); DB.listas.actividad.items = filas('actividad').filter(a => a.id !== men.id); await recargarYEsperar();
+        });
+        // ---- C.4 (UI/UX, fondo): «Datos del reporte» a 390 — el total queda a la vista (columna de total fija a la derecha)
+        if (gerencia) await V1('C.4 Dinero', async () => {
+            await irHash('#finanzas/cobrar/saldo'); await esperar(() => document.querySelector('#finanzasCuerpo #cobranzaTabla tr.tot'), 'Por cobrar · Saldo');
+            const th = document.querySelector('#cobranzaTabla th.rp-col-total'), td = document.querySelector('#cobranzaTabla tr.tot td.rp-col-total');
+            R.ok('vuelta 1 (C.4, UI fondo): en «Datos del reporte» la columna del TOTAL («Sin pago probado») va marcada y, bajo 720 px, fija a la derecha (sticky) junto a la primera', !!th && th.textContent === 'Sin pago probado' && !!td && reglaBajo720('.rp-tabla .rp-col-total', 'position', 'sticky'), th && th.textContent);
+            await irHash('#finanzas/cobrar/cliente'); await esperar(() => document.querySelector('#finanzasCuerpo #cobranzaTabla tr.tot'), 'Por cliente');
+            R.ok('vuelta 1 (C.4): en «Por cliente» el total marcado es «Sin pago probado», no la última columna («Evidencia del saldo»)', document.querySelector('#cobranzaTabla th.rp-col-total')?.textContent === 'Sin pago probado');
+            if (celular) { const c = document.querySelector('#cobranzaTabla tr.tot td.rp-col-total').getBoundingClientRect();
+                R.ok('vuelta 1 (C.4, a 390): el total de la fila de totales se ve sin rodar la tabla', c.left >= 0 && c.right <= window.innerWidth + 1, `${Math.round(c.left)}–${Math.round(c.right)} de ${window.innerWidth}`); }
+        });
+        if (escribe && !SIN_PROY) await V1('C.4 Compras', async () => {
+            await irHash('#compras'); await esperar(() => document.querySelector('#comprasCuerpo #comprasTabla'), 'Compras');
+            R.ok('vuelta 1 (C.4): en Compras el total marcado es «Total MXN»', /^Total /.test(document.querySelector('#comprasTabla th.rp-col-total')?.textContent || ''), document.querySelector('#comprasTabla th.rp-col-total')?.textContent);
+        });
+        // ---- C (UI/UX, media): el detalle del expediente a 390 en fichas, y la barra de 12 pasos con contraste en oscuro
+        if (escribe && !SIN_PROY) await V1('C Servicios', async () => {
+            await irHash('#servicios/E3'); await esperar(() => document.querySelector('#serviciosCuerpo #servicioPasosTabla'), 'expediente E3');
+            R.ok('vuelta 1 (C, UI media): bajo 720 px la tabla de pasos del expediente pasa a FICHAS (sin encabezados; paso y estado arriba, de quién depende y la nota debajo), como la lista', reglaBajo720('#servicioPasosTabla thead', 'display', 'none') && reglaBajo720('#servicioPasosTabla tr.srv-paso-fila', 'display', 'grid'));
+            if (celular) { const n = [...document.querySelectorAll('#servicioPasosTabla tr.srv-paso-fila td')].filter(td => td.textContent.trim());
+                R.ok('vuelta 1 (C, a 390): ninguna celda del expediente queda fuera de la pantalla (estado y nota a la vista)', n.every(td => td.getBoundingClientRect().right <= window.innerWidth + 1), n.filter(td => td.getBoundingClientRect().right > window.innerWidth + 1).map(td => td.textContent.slice(0, 20)).join(' | ')); }
+            const raiz = document.documentElement, tema0 = raiz.dataset.theme; raiz.dataset.theme = 'dark'; await dormir(20);
+            const ley = k => document.querySelector(`#serviciosCuerpo .srv-ley .srv-p.is-${k}`) || document.querySelector(`.srv-p.is-${k}`);
+            const card = getComputedStyle(document.querySelector('#serviciosCuerpo .rp-card')).backgroundColor;
+            // un segmento HUECO (fondo transparente) se ve por su filete y su relleno es la tarjeta; uno relleno, por su fondo
+            const hueco = e => /rgba\(.*, 0\)|transparent/.test(getComputedStyle(e).backgroundColor);
+            const borde = e => hueco(e) ? (getComputedStyle(e).boxShadow.match(/rgba?\([^)]*\)/) || ['transparent'])[0] : getComputedStyle(e).backgroundColor;
+            const relleno = e => hueco(e) ? card : getComputedStyle(e).backgroundColor;
+            const pend = ley('pendiente'), hecho = ley('hecho'), actual = ley('actual');
+            const c1 = contraste(borde(pend), card), c2 = contraste(relleno(hecho), card), c3 = contraste(relleno(hecho), relleno(pend)), c4 = contraste(relleno(actual), card);
+            if (tema0) raiz.dataset.theme = tema0; else delete raiz.dataset.theme; await dormir(20);
+            R.ok('vuelta 1 (C, UI media): en OSCURO la barra de 12 pasos da ≥ 3:1 — pendiente, hecho y en curso contra la tarjeta, y hecho contra pendiente (WCAG 1.4.11; antes 1.36 y 1.71)', c1 >= 3 && c2 >= 3 && c3 >= 3 && c4 >= 3, `pendiente ${c1.toFixed(2)} · hecho ${c2.toFixed(2)} · hecho/pendiente ${c3.toFixed(2)} · en curso ${c4.toFixed(2)}`);
+        });
+        // ---- C (UI/UX, media): el KPI de Inicio «vencidas o a ≤ 30 días» tiene su misma cifra en la página de Vigencias
+        if (gerencia) await V1('C Vigencias', async () => {
+            await irHash('#inicio'); await esperar(() => document.querySelector('#inicioKpis [data-kpi="vigencias"] b'), 'KPI de vigencias'); const ki = document.querySelector('#inicioKpis [data-kpi="vigencias"] b').textContent;
+            await irHash('#vigencias'); await esperar(() => document.querySelector('#vigenciasKpis'), 'Vigencias');
+            const kv = document.querySelector('#vigenciasKpis [data-kpi="atencion"]');
+            R.ok('vuelta 1 (C, UI media): la página de Vigencias trae el KPI «vencidas o a ≤ 30 días» con la MISMA cifra que el de Inicio (antes solo 15 y 60 días)', !!kv && kv.querySelector('b').textContent === ki && /30 días/.test(kv.textContent), `${ki} vs ${kv && kv.textContent}`);
+        });
+        // ---- C (UI/UX, media): el proyecto a 390 sin la fila de chips del módulo (el «Roadmap» de todos los frentes) y con Chat a la vista
+        await V1('C proyecto 390', async () => {
+            R.ok('vuelta 1 (C, UI media): bajo 720 px, dentro de un proyecto no va la fila de chips del módulo (dos «Roadmap» a dos renglones) y «Filtrar» baja de la fila de pestañas', reglaBajo720('body[data-pantalla="proyecto"] .chips-modulo', 'display', 'none') && reglaBajo720('#p-proyecto .tabs-fila', 'flex-wrap', 'wrap'));
+            if (celular) { await irHash('#p/' + CLAVE); await esperar(() => visible('p-proyecto'), 'proyecto'); await dormir(30);
+                const chat = document.querySelector('#p-proyecto .tab[data-tab="chat"]'), caja = chat.closest('.tabs').getBoundingClientRect(), r = chat.getBoundingClientRect();
+                R.ok('vuelta 1 (C, a 390): la pestaña Chat se ve sin rodar la fila y los chips del módulo no están', r.right <= caja.right + 1 && $('chipsModulo').offsetParent === null, `${Math.round(r.right)} vs ${Math.round(caja.right)}`); }
+        });
+        // ---- Archivos (código fondo y medio; UI media): la cola y «Mandar a archivar»
+        if (escribe && !SIN_PROY) {
+            await irArchivos(); await esperar(() => document.querySelector(`#archivosSeccion .arch-carpeta[data-carpeta="${CLAVE}"]`) && /archivo/.test(document.querySelector('#archivosSeccion .arch-n').textContent), 'la carpeta leída');
+            // B.1: «Descartar» un pendiente en plena tanda lo detiene (antes se subía igual y, si fallaba, revivía en IndexedDB)
+            await V1('B.1', async () => {
+                let soltar; DB.retener = { metodo: 'PUT', incluye: 'tanda-uno.pdf', espera: new Promise(r => { soltar = r; }) };
+                enZona([archivoDePrueba('uno', 'tanda-uno.pdf', 'application/pdf', 1700000101001), archivoDePrueba('dos', 'tanda-dos.pdf', 'application/pdf', 1700000101002)]);
+                await esperar(() => DB.retener === null, 'la primera subida en vuelo');
+                const r2 = enCola('tanda-dos.pdf'); await esperar(() => document.querySelector(`#archivosSeccion [data-cola="${CSS.escape(r2.llave)}"] [data-cola-accion="descartar"]`), 'Descartar del pendiente');
+                document.querySelector(`#archivosSeccion [data-cola="${CSS.escape(r2.llave)}"] [data-cola-accion="descartar"]`).click(); await dormir(10);
+                soltar(); await esperar(() => enDB('tanda-uno.pdf') && !enCola('tanda-uno.pdf'), 'la primera subió'); await dormir(150);
+                R.ok('vuelta 1 (B.1, código fondo): «Descartar» un renglón PENDIENTE a media tanda lo detiene — no sube, no queda en la cola ni en IndexedDB', !enDB('tanda-dos.pdf') && !DB.llamadas.some(c => c.includes('tanda-dos.pdf')) && !enCola('tanda-dos.pdf') && !enDisco(r2.llave));
+            });
+            // B.2: la cola mira si IndexedDB guardó; los bytes se escriben UNA vez
+            await V1('B.2', async () => {
+                Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false }); window.dispatchEvent(new Event('offline')); await dormir(20);
+                window.__IDB_FALLAS.put = 2;
+                enZona([archivoDePrueba('sin disco', 'sin-disco.pdf', 'application/pdf', 1700000101003)]);
+                await esperar(() => enCola('sin-disco.pdf'), 'en la cola'); await dormir(80);
+                const r = enCola('sin-disco.pdf'), txt = document.querySelector(`#archivosSeccion [data-cola="${CSS.escape(r.llave)}"]`)?.textContent || '';
+                R.ok('vuelta 1 (B.2, código fondo): si IndexedDB NO guardó, el renglón y el aviso lo dicen («no cierres la app hasta que suba») — antes prometía que quedaba en el equipo', /no cierres la app hasta que suba/.test(txt) && !!avisoCon('no cierres la app hasta que suba'), txt);
+                window.__IDB_FALLAS.put = 0; Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true }); window.dispatchEvent(new Event('online'));
+                await esperar(() => enDB('sin-disco.pdf') && !enCola('sin-disco.pdf'), 'sube al volver la red', 15000);
+                await esperar(() => !$('btnActualizar').disabled, 'relectura del online');
+                const p0 = window.__IDB_PUTS.length;
+                await subir('una-vez.pdf', 'bytes una vez', 4);
+                const ps = window.__IDB_PUTS.slice(p0).filter(p => p.nombre === 'una-vez.pdf');
+                R.ok('vuelta 1 (B.2, código fondo): los BYTES de una subida se escriben en IndexedDB UNA vez (almacén aparte); los cambios de estado solo reescriben los datos', ps.filter(p => p.almacen === 'bytes').length === 1 && ps.filter(p => p.almacen === 'subidas').every(p => !p.conBytes), JSON.stringify(ps));
+            });
+            // B.6: la cola es UNA para todas las pestañas (navigator.locks); y se resuelve por llave al empezar cada subida
+            await V1('B.6', async () => {
+                let soltarLock; await new Promise(ok => navigator.locks.request('minsa-erp-cola', () => { ok(); return new Promise(r => { soltarLock = r; }); }));
+                enZona([archivoDePrueba('candado', 'con-candado.pdf', 'application/pdf', 1700000101005)]); await esperar(() => enCola('con-candado.pdf'), 'en la cola'); await dormir(300);
+                const quieto = !enDB('con-candado.pdf') && enCola('con-candado.pdf').estado === 'pendiente';
+                soltarLock(); await esperar(() => enDB('con-candado.pdf') && !enCola('con-candado.pdf'), 'sube al soltar el candado');
+                R.ok('vuelta 1 (B.6, código medio): con la cola tomada por OTRA pestaña (navigator.locks «minsa-erp-cola») esta no sube; al soltarla, sí', quieto);
+                await new Promise(ok => navigator.locks.request('minsa-erp-cola', () => { ok(); return new Promise(r => { soltarLock = r; }); }));
+                enZona([archivoDePrueba('otra pestaña', 'otra-pestana.pdf', 'application/pdf', 1700000101006)]); await esperar(() => enCola('otra-pestana.pdf') && enDisco(enCola('otra-pestana.pdf').llave), 'en el disco');
+                const ll = enCola('otra-pestana.pdf').llave; window.__IDB.get('minsa-erp').almacenes.get('subidas').datos.delete(ll);   // «la otra pestaña ya lo subió y lo sacó del disco»
+                soltarLock(); await esperar(() => !enCola('otra-pestana.pdf'), 'sale de la cola', 6000).catch(() => {}); await dormir(100);
+                R.ok('vuelta 1 (B.6): al empezar cada subida se resuelve por LLAVE: lo que ya no está en el disco (otra pestaña lo subió o lo descartó) no se sube otra vez', !enCola('otra-pestana.pdf') && !DB.llamadas.some(c => c.includes('otra-pestana.pdf')));
+            });
+            // C (UI media): un posible duplicado POR NOMBRE también se puede subir con otro nombre
+            await V1('C duplicado', async () => {
+                await subir('oficio-dup.pdf', 'contenido A', 7);
+                enZona([archivoDePrueba('contenido B distinto', 'oficio-dup.pdf', 'application/pdf', 1700000101008)]);
+                await esperar(() => enCola('oficio-dup.pdf') && enCola('oficio-dup.pdf').estado === 'retenido', 'retenido por nombre');
+                const r = enCola('oficio-dup.pdf'); await esperar(() => document.querySelector(`#archivosSeccion [data-cola="${CSS.escape(r.llave)}"] [data-cola-accion="renombrar"]`), 'Subir con otro nombre');
+                const b = document.querySelector(`#archivosSeccion [data-cola="${CSS.escape(r.llave)}"] [data-cola-accion="renombrar"]`);
+                R.ok('vuelta 1 (C, UI media): el «¿duplicado?» por NOMBRE ofrece también «Subir con otro nombre»', b.textContent === 'Subir con otro nombre');
+                b.click(); await esperar(() => enDB('oficio-dup 1.pdf') && !enCola('oficio-dup.pdf'), 'subido con otro nombre');
+                R.ok('vuelta 1 (C): «Subir con otro nombre» = conflictBehavior=rename — queda «oficio-dup 1.pdf» y el original no gana versión', DB.llamadas.includes(`PUT /drives/drive-proyectos/root:/${CLAVE}/oficio-dup.pdf:/content?@microsoft.graph.conflictBehavior=rename`) && enDB('oficio-dup.pdf').versiones.length === 1);
+            });
+            // B.8: vista previa y versiones descartan la respuesta de un archivo VIEJO
+            await V1('B.8', async () => {
+                if (!fila('una-vez.pdf')) await subir('una-vez.pdf', 'bytes una vez', 9);
+                const A = enDB('oficio-dup.pdf'), B = enDB('una-vez.pdf');
+                let soltar; DB.retener = { metodo: 'POST', incluye: `${A.id}/preview`, espera: new Promise(r => { soltar = r; }) };
+                accion('oficio-dup.pdf', 'vista').click(); await esperar(() => DB.retener === null, 'la vista previa de A en vuelo');
+                clic('vpCerrar'); await esperar(() => !$('dlgVistaPrevia').open, 'cerrada');
+                accion('una-vez.pdf', 'vista').click(); await esperar(() => DB.iframes.at(-1) === `https://minsaenergy.sharepoint.com/_vista-falsa/${B.id}`, 'la vista previa de B');
+                soltar(); await dormir(150);
+                R.ok('vuelta 1 (B.8, código medio): la vista previa de un archivo VIEJO que llega tarde no se pinta en el diálogo del nuevo (título y marco de B)', DB.iframes.at(-1) === `https://minsaenergy.sharepoint.com/_vista-falsa/${B.id}` && $('vpTitulo').textContent === 'una-vez.pdf', DB.iframes.at(-1));
+                clic('vpCerrar'); await esperar(() => !$('dlgVistaPrevia').open, 'cerrada');
+                A.versiones.unshift({ id: '2.0', bytes: A.bytes, cuando: new Date().toISOString(), por: YO });
+                DB.retener = { metodo: 'GET', incluye: `${A.id}/versions`, espera: new Promise(r => { soltar = r; }) };
+                accion('oficio-dup.pdf', 'versiones').click(); await esperar(() => DB.retener === null, 'versiones de A en vuelo');
+                clic('vrCerrar'); await esperar(() => !$('dlgVersiones').open, 'cerrado');
+                accion('una-vez.pdf', 'versiones').click(); await esperar(() => $('dlgVersiones').open && $('vrLista').querySelectorAll('.vr-r').length === 1, 'versiones de B');
+                soltar(); await dormir(150);
+                R.ok('vuelta 1 (B.8): Versiones tampoco pinta las de A bajo «Versiones de B» (sus «Restaurar» restaurarían el archivo equivocado)', $('vrLista').querySelectorAll('.vr-r').length === 1 && /una-vez\.pdf/.test($('vrTitulo').textContent));
+                clic('vrCerrar'); await esperar(() => !$('dlgVersiones').open, 'cerrado');
+            });
+            // B.3: «Mandar a archivar» con candado por archivo, aviso de progreso y la marca fallida a la vista
+            if (P1() && P1().Equipo === 'CALYTEK') await V1('B.3', async () => {
+                await subir('doble-toque.pdf', 'doble toque', 10);
+                const nL = filas('ligas').length; DB.pasosCopia = 2;
+                const b = accion('doble-toque.pdf', 'archivar'); b.click(); await dormir(5);
+                const aviso = !!avisoCon('Mandando');
+                b.click();
+                await esperar(() => enDB('doble-toque.pdf').campos.EnviadoArchivar === true, 'mandado', 15000); await dormir(400);
+                const lotes = DB.archivos.filter(a => a.nombre === '_lote.json' && /doble-toque/.test(a.ruta));
+                R.ok('vuelta 1 (B.3, código fondo): un doble toque en «Mandar a archivar» manda UN lote y crea UNA liga (candado por archivo); y al empezar avisa «Mandando…»', lotes.length === 1 && filas('ligas').length === nL + 1 && aviso, `lotes ${lotes.length} · ligas +${filas('ligas').length - nL} · aviso ${aviso}`);
+                DB.pasosCopia = 1;
+                await subir('marca-falla.pdf', 'marca falla', 11);
+                DB.fallas.push({ metodo: 'PATCH', incluye: `${enDB('marca-falla.pdf').id}/listItem/fields`, status: 500, veces: 1 });
+                accion('marca-falla.pdf', 'archivar').click();
+                await esperar(() => DB.archivos.some(a => a.nombre === '_lote.json' && /marca-falla/.test(a.ruta)), 'el lote quedó', 15000); await dormir(300);
+                R.ok('vuelta 1 (B.3): si la marca EnviadoArchivar falla, la persona lo VE (aviso en pantalla), no solo la consola', !!avisoCon('no quedó marcado'), [...document.querySelectorAll('#avisos .mensaje')].map(m => m.textContent).join(' | '));
+            });
+            // B.9 (gerencia): Esc en «Archivos sin archivar» resuelve el cierre en «no»
+            if (gerencia) await V1('B.9', async () => {
+                await irArchivos();
+                let res; AR.revisarAntesDeCerrar(P1()).then(v => { res = v; });
+                await esperar(() => $('dlgSinArchivar').open, 'lista de sin archivar');
+                window.dispatchEvent(new PopStateEvent('popstate'));   // Atrás (el `close` de un Esc nativo llega tarde bajo tiempo virtual: E4)
+                await esperar(() => res !== undefined, 'la promesa del cierre resuelta', 3000);
+                R.ok('vuelta 1 (B.9, código medio): Atrás (o Esc) en «Archivos sin archivar» resuelve el cierre en «no» y quita sus botones (antes la promesa quedaba colgada con sus onclick vivos)', res === false && !$('dlgSinArchivar').open && $('saSeguir').onclick === null);
+            });
+            // B.7 (al final: un callback de repintado que truena): el repintado y la bitácora van FUERA del try de subir y de mandar a archivar
+            await V1('B.7', async () => {
+                let orig = null, tiro = 0;
+                const roto = () => { if (tiro === 0 && enDB('pintado-roto.pdf') && !AR.colaActual().some(r => r.nombre === 'pintado-roto.pdf')) { tiro = 1; throw new TypeError('prueba: el repintado truena'); } if (tiro === 2 && enDB('pintado-lote.pdf') && enDB('pintado-lote.pdf').campos.EnviadoArchivar) { tiro = 3; throw new TypeError('prueba: el repintado truena'); } if (orig) orig(); };
+                orig = AR.alCambiarArchivos(roto);
+                try {
+                    enZona([archivoDePrueba('pintado roto', 'pintado-roto.pdf', 'application/pdf', 1700000101012)]);
+                    await esperar(() => enDB('pintado-roto.pdf'), 'subido'); await dormir(200);
+                    const ll = (window.__IDB_PUTS.find(p => p.almacen === 'subidas' && p.nombre === 'pintado-roto.pdf') || {}).llave;   // la llave, de su primera escritura (sube tan rápido que la cola no alcanza a verse)
+                    R.ok('vuelta 1 (B.7, código medio): un error del REPINTADO tras subir no regresa a «pendiente» un archivo que ya subió — ni en la cola ni en IndexedDB (antes lo re-persistía y al reabrir salía «¿duplicado?» de sí mismo)', tiro === 1 && !enCola('pintado-roto.pdf') && !enDisco(ll));
+                    if (P1() && P1().Equipo === 'CALYTEK') {
+                        tiro = 2; enZona([archivoDePrueba('pintado lote', 'pintado-lote.pdf', 'application/pdf', 1700000101013)]); await esperar(() => enDB('pintado-lote.pdf') && fila('pintado-lote.pdf'), 'subido');
+                        accion('pintado-lote.pdf', 'archivar').click(); await esperar(() => tiro === 3, 'el repintado tronó tras archivar', 15000); await dormir(300);
+                        const lote = enDB('pintado-lote.pdf').campos.Lote;
+                        R.ok('vuelta 1 (B.7): un error del repintado tras mandar a archivar NO borra la carpeta del lote ni deja la liga apuntando a nada', !!lote && DB.carpetas.some(c => c.ruta === lote) && filas('ligas').some(l => l.fields.Ruta === lote) && !avisoCon('No se pudo mandar a archivar'), lote);
+                    }
+                } finally { if (orig) AR.alCambiarArchivos(orig); }
+            });
+        }
+        await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio');
+    }
+    // ==================================================================================================================
     // v1.0.0 (rediseño 2026-10-02, cubeta 1 «Armazón»): rail de 5 módulos, panel, chips, hoja, «+ Nuevo», ámbito, «Mi día», Avisos, Buscar y
     // Cuenta, y UNA prueba por cada ruta de hoy (las 14 pantallas de RE_HASH + #p/<clave>, con sus sufijos vigentes) → pantalla y módulo.
     // Va AL FINAL a propósito: visita pantallas que leen JSON (Finanzas, Servicios, Compras…) y sus bloques de arriba parten de no haberlas leído.
@@ -5248,8 +5660,8 @@ try {
         // (e) celular: barra de módulos abajo, cabecera con título · Buscar · Avisos · Cuenta, chips y hoja; escritorio: rail a la izquierda
         if (celular) {
             await irHash('#proyectos'); await esperar(() => visible('p-proyectos'), 'proyectos');
-            R.ok('v1.0.0 (celular): la barra de abajo son los módulos (fija, sin unidades ni Cuenta); arriba el título del módulo, Buscar, Avisos y Cuenta; «+ Nuevo» flota',
-                getComputedStyle($('rail')).position === 'fixed' && !seVe($('railEquipos')) && !seVe($('btnCuenta')) && seVe($('btnBuscarMovil')) && seVe($('btnAvisosMovil')) && seVe($('btnCuentaMovil')) && seVe($('fabNuevo')) && $('tituloMovil').textContent === 'Trabajo');
+            R.ok(`v1.0.0 (celular): la barra de abajo son los módulos (fija, sin unidades ni Cuenta); arriba el título del módulo, Buscar, Avisos y Cuenta; ${escribe ? '«+ Nuevo» flota' : 'lectura (vuelta 1): sin «+ Nuevo» flotante'}`,
+                getComputedStyle($('rail')).position === 'fixed' && !seVe($('railEquipos')) && !seVe($('btnCuenta')) && seVe($('btnBuscarMovil')) && seVe($('btnAvisosMovil')) && seVe($('btnCuentaMovil')) && seVe($('fabNuevo')) === escribe && $('tituloMovil').textContent === 'Trabajo');
             document.querySelector('#chipsModulo [data-modulo="trabajo"] [data-ir="#roadmap"]').click(); await esperar(() => visible('p-roadmap'), 'roadmap por el chip');
             R.ok('v1.0.0 (celular): el chip «Roadmap» lleva a #roadmap y queda resaltado', location.hash === '#roadmap' && document.querySelector('#chipsModulo .chips-fila:not([hidden]) .chip-m.on')?.dataset.ir === '#roadmap');
             clic('btnHoja'); await dormir(10);
@@ -5258,7 +5670,7 @@ try {
             document.querySelector('#panel [data-ir="#calendario"]').click(); await esperar(() => visible('p-calendario'), 'calendario por la hoja');
             R.ok('v1.0.0 (celular): una entrada de la hoja navega y la cierra', !document.body.classList.contains('hoja-abierta') && location.hash === '#calendario');
         } else {
-            R.ok('v1.0.0 (escritorio): el rail va a la izquierda con las unidades y «+ Nuevo»; ni chips ni botones del celular', getComputedStyle($('rail')).position === 'sticky' && seVe($('railEquipos')) && seVe($('btnNuevo')) && !seVe($('chipsModulo')) && !seVe($('fabNuevo')) && !seVe($('btnBuscarMovil')));
+            R.ok(`v1.0.0 (escritorio): el rail va a la izquierda con las unidades${escribe ? ' y «+ Nuevo»' : ' (lectura, vuelta 1: sin «+ Nuevo»)'}; ni chips ni botones del celular`, getComputedStyle($('rail')).position === 'sticky' && seVe($('railEquipos')) && seVe($('btnNuevo')) === escribe && !seVe($('chipsModulo')) && !seVe($('fabNuevo')) && !seVe($('btnBuscarMovil')));
         }
         // (f) «+ Nuevo» fuera de un proyecto pregunta en cuál; Foto y Subir archivo abren «Subir» con o sin cámara
         const trig = celular ? $('fabNuevo') : $('btnNuevo');
@@ -5278,7 +5690,10 @@ try {
             R.ok('v1.0.0: «+ Nuevo › Subir archivo» abre «Subir» con el selector de siempre (sin cámara)', !$('sbArchivos').hasAttribute('capture') && !$('sbArchivos').hasAttribute('accept'));
             clic('sbCancelar'); await esperar(() => !$('dlgSubir').open, 'subir cerrado');
         }
-        { await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio');
+        // v1.0.0 (vuelta 1; sustituye a la rama «rol de lectura» de abajo): a lectura sin rol de Gastos «+ Nuevo» no se le pinta (ver arriba); el Gasto
+        // se prueba con quien lo tiene
+        if (!escribe) R.ok('v1.0.0 (vuelta 1): lectura sin rol de Gastos no llega a «Gasto» por «+ Nuevo» (antes lo llevaba a «tu rol es de lectura»)', $('btnNuevo').hidden && $('fabNuevo').hidden);
+        if (escribe) { await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio');
           trig.click(); await dormir(10); $('menuNuevo').querySelector('[data-nuevo="gasto"]').click();
           await esperar(() => visible('p-gastos') && ($('dlgGasto').open || !!avisoCon('Gastos aún no está habilitado') || !!avisoCon('rol es de lectura')), 'gasto desde + Nuevo');
           R.ok('v1.0.0: «+ Nuevo › Gasto» lleva a Gastos y abre «Registrar gasto» (o dice por qué no: sin lista o rol de lectura)', visible('p-gastos') && $('menuNuevo').hidden && ($('dlgGasto').open || !!avisoCon('Gastos aún no está habilitado') || !!avisoCon('rol es de lectura')));
@@ -5323,7 +5738,7 @@ try {
         pestana('inicio'); await dormir(30);
     }
 } catch (e) {
-    R.ok('la corrida terminó sin excepción', false, `hash=${location.hash} · dlgTarea=${$('dlgTarea').open} · pestaña=${[...document.querySelectorAll('.pantalla')].find(x => !x.classList.contains('oculto'))?.id} · ${String(e && e.message || e)}
+    if (e !== window.__FIN_HUMO) R.ok('la corrida terminó sin excepción', false, `hash=${location.hash} · dlgTarea=${$('dlgTarea').open} · pestaña=${[...document.querySelectorAll('.pantalla')].find(x => !x.classList.contains('oculto'))?.id} · ${String(e && e.message || e)}
 ` + ((e && e.stack) || ''));
 } finally {
     await R.cerrar();
