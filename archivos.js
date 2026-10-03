@@ -589,6 +589,21 @@ function menuDe(id, acciones) {
     return d;
 }
 const accionBoton = (texto, accion, alClic, peligro = false) => boton(texto, 'mn-btn is-ghost is-sm' + (peligro ? ' is-peligro' : ''), ev => { const d = ev.currentTarget.closest('details'); if (d) d.open = false; alClic(); }, { accionArchivo: accion });
+/** v1.0.1 (Carlos, 3-oct, tras la prueba real: el visor de Office sale EN BLANCO dentro de la app): el NOMBRE de un archivo abre Word, Excel y
+ *  PowerPoint en SU programa (`office`: ms-word:ofe|u|…, o `alOffice` cuando la liga se arma aparte) y lo demás en la vista previa de la app
+ *  (`alVista`). Ctrl/Mayús/clic de en medio abren la web en otra pestaña, como cualquier liga. Sin nada que abrir, el nombre va en texto. */
+function ligaNombre(nombre, { href, office, alOffice, alVista, reciente }) {
+    if (!href && !office && !alOffice) return el('span', '', nombre);
+    const l = el('a', '', nombre);
+    if (office) { l.href = office; l.dataset.abre = 'office'; l.addEventListener('click', () => { if (reciente) anotarReciente(reciente); }); return l; }
+    l.href = href || '#'; l.target = '_blank'; l.rel = 'noopener noreferrer'; l.dataset.abre = alOffice ? 'office' : alVista ? 'vista' : 'web';
+    l.addEventListener('click', ev => {
+        if (ev.ctrlKey || ev.metaKey || ev.shiftKey) { if (reciente) anotarReciente(reciente); return; }
+        if (alOffice || alVista) { ev.preventDefault(); (alOffice || alVista)(); return; }
+        if (reciente) anotarReciente(reciente);
+    });
+    return l;
+}
 function accionLiga(texto, accion, href, alClic) { const a = el('a', 'mn-btn is-ghost is-sm', texto); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.dataset.accionArchivo = accion; if (alClic) a.addEventListener('click', alClic); return a; }
 
 /** El aviso «Falta preparar ERP_Proyectos» (gerencia: la ruta de las instrucciones y «Volver a revisar»; los demás: qué sí funciona). */
@@ -653,11 +668,12 @@ function accionesDe(p, a) {
     const quien = a.creadoPor ? nombreDe(a.creadoPor, estado.roles) : '';
     const nota = el('span', 'menu-nota quien'); nota.appendChild(el('span', '', `Subido por ${quien || '—'}`)); if (a.modificado) { const f = el('span', 'fecha', fechaCorta(a.modificado)); f.title = fechaHora(a.modificado); nota.appendChild(f); } xs.push(nota);
     const reciente = { llave: 'p:' + a.id, origen: 'proyecto', nombre: a.nombre, clave: p.Clave, itemId: a.id, url: a.url };
-    xs.push(accionBoton('Vista previa', 'vista', () => abrirVistaPrevia({ base: base(), itemId: a.id, nombre: a.nombre, url: a.url, reciente })));
     const href = hrefSeguro(a.url, { tipo: 'archivado', host: host() });
-    if (href) xs.push(accionLiga('Abrir', 'abrir', href, () => anotarReciente(reciente)));
     const office = uriOffice(a.nombre, a.urlDirecta || a.url, host());
+    // v1.0.1: Office abre en su programa y en el navegador; la «Vista previa» de Office salía en blanco con el tenant real (prueba de Carlos, 3-oct)
     if (office) xs.push(accionLiga(`Abrir en ${nombreAppOffice(appOffice(a.nombre))}`, 'office', office, () => anotarReciente(reciente)));
+    else xs.push(accionBoton('Vista previa', 'vista', () => abrirVistaPrevia({ base: base(), itemId: a.id, nombre: a.nombre, url: a.url, reciente })));
+    if (href) xs.push(accionLiga(office ? 'Abrir en el navegador' : 'Abrir', 'abrir', href, () => anotarReciente(reciente)));
     xs.push(accionBoton('Versiones', 'versiones', () => abrirVersiones(p, a)));
     if (href) xs.push(accionBoton('Copiar liga', 'copiar', () => copiarLiga(href)));
     if (puede) {
@@ -686,8 +702,9 @@ function tablaArchivos(p, items) {
         const tr = el('tr', 'doc'); tr.dataset.archivoId = a.id;
         const tdN = el('td', 'c-nombre'); const caja2 = el('div', 'nombre'); caja2.appendChild(iconoArchivo(a.nombre));
         const tt = el('div', 't'); const href = hrefSeguro(a.url, { tipo: 'archivado', host: host() });
-        if (href) { const l = el('a', '', a.nombre); l.href = href; l.target = '_blank'; l.rel = 'noopener noreferrer'; l.addEventListener('click', () => anotarReciente({ llave: 'p:' + a.id, origen: 'proyecto', nombre: a.nombre, clave: p.Clave, itemId: a.id, url: a.url })); tt.appendChild(l); }
-        else tt.appendChild(el('span', '', a.nombre));
+        const reciente = { llave: 'p:' + a.id, origen: 'proyecto', nombre: a.nombre, clave: p.Clave, itemId: a.id, url: a.url };
+        tt.appendChild(ligaNombre(a.nombre, { href, office: uriOffice(a.nombre, a.urlDirecta || a.url, host()), reciente,
+            alVista: () => abrirVistaPrevia({ base: base(), itemId: a.id, nombre: a.nombre, url: a.url, reciente }) }));
         tt.title = `${a.nombre} · ${tamanoLegible(a.tamano)}${a.creadoPor ? ' · subido por ' + nombreDe(a.creadoPor, estado.roles) : ''}`;
         caja2.appendChild(tt); tdN.appendChild(caja2); tr.appendChild(tdN);
         tr.appendChild(el('td', 'c-del', a.modificado ? fechaDia(a.modificado) : '—'));   // v1.0.0 (cubeta 6): la fecha de la app —«03/10/2026» (dd/mm/aaaa desde la vuelta 1, Carlos 3-oct)—
@@ -907,12 +924,13 @@ function pintarBibliotecas(cont, s) {
         d.appendChild(iconoArchivo(it.nombre, null, 'sm'));
         const carpeta = s.ruta.join('/'), reciente = { llave: `b:${b.clave}:${it.id}`, origen: 'biblioteca', unidad: b.clave, carpeta, nombre: it.nombre, itemId: it.id, url: it.url };
         const t = el('span', 'tx'); const href = hrefSeguro(it.url, { tipo: 'archivado', host: host() });
-        if (href) { const a = el('a', '', it.nombre); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.addEventListener('click', () => anotarReciente(reciente)); t.appendChild(a); } else t.appendChild(el('b', '', it.nombre));
+        const deOffice = !!appOffice(it.nombre), vista = () => abrirVistaPrevia({ base: baseSitio(b.siteId), itemId: it.id, nombre: it.nombre, url: it.url, reciente });
+        if (href) t.appendChild(ligaNombre(it.nombre, { href, reciente, alVista: vista, alOffice: deOffice ? () => abrirOfficeDeUnidad(b, [...s.ruta, it.nombre], it.nombre, reciente) : null }));
+        else t.appendChild(el('b', '', it.nombre));
         t.appendChild(el('small', '', `${it.modificado ? fechaDia(it.modificado) + ' · ' : ''}${tamanoLegible(it.tamano)}`)); d.appendChild(t);
-        const acc = [accionBoton('Vista previa', 'vista', () => abrirVistaPrevia({ base: baseSitio(b.siteId), itemId: it.id, nombre: it.nombre, url: it.url, reciente }))];
-        if (href) acc.push(accionLiga('Abrir', 'abrir', href, () => anotarReciente(reciente)));
-        // la liga de escritorio se arma con la ruta del drive (su webUrl no es la del archivo para Office: Doc.aspx)
-        if (appOffice(it.nombre)) acc.push(accionBoton(`Abrir en ${nombreAppOffice(appOffice(it.nombre))}`, 'office', () => abrirOfficeDeUnidad(b, [...s.ruta, it.nombre], it.nombre, reciente)));
+        // la liga de escritorio se arma con la ruta del drive (su webUrl no es la del archivo para Office: Doc.aspx). v1.0.1: Office sin «Vista previa»
+        const acc = deOffice ? [accionBoton(`Abrir en ${nombreAppOffice(appOffice(it.nombre))}`, 'office', () => abrirOfficeDeUnidad(b, [...s.ruta, it.nombre], it.nombre, reciente))] : [accionBoton('Vista previa', 'vista', vista)];
+        if (href) acc.push(accionLiga(deOffice ? 'Abrir en el navegador' : 'Abrir', 'abrir', href, () => anotarReciente(reciente)));
         if (href) acc.push(accionBoton('Copiar liga', 'copiar', () => copiarLiga(href)));
         if (PUEDE.tarea(estado.rol)) acc.push(accionBoton(fijadoDe(it.id) ? 'Quitar de Fijados' : 'Fijar', 'fijar', () => alternarFijado({ tipo: 'fijado', origen: 'biblioteca', unidad: b.clave, carpeta, itemId: it.id, nombre: it.nombre, url: href || '' })));
         if (PUEDE.ligar(estado.rol)) acc.push(accionBoton('Ligar a un proyecto…', 'ligar', () => abrirLigarA(b, { id: it.id, nombre: it.nombre, ruta: [...s.ruta, it.nombre].join('/'), url: it.url })));

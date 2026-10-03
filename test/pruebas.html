@@ -5100,11 +5100,23 @@ try {
                 await esperar(() => enDB('propuesta tecnica.docx') && fila('propuesta tecnica.docx'), 'docx subido');
                 const off = accion('propuesta tecnica.docx', 'office');
                 R.ok('cubeta 5: un .docx trae «Abrir en Word» = ms-word:ofe|u|<la ruta del archivo en la biblioteca>; un .pdf no', !!off && off.textContent === 'Abrir en Word' && off.getAttribute('href') === `ms-word:ofe|u|https://minsaenergy.sharepoint.com/sites/Administracion/ERP_Proyectos/${CLAVE}/propuesta%20tecnica.docx` && !accion('acta-recepcion.pdf', 'office'), off && off.getAttribute('href'));
+                // v1.0.1 (Carlos, 3-oct, tras la prueba real: la vista previa de Office sale EN BLANCO con el tenant): el NOMBRE abre Office en su
+                // programa y lo demás en la vista previa de la app; el menú de un archivo de Office ya no ofrece «Vista previa»
+                { const nd = fila('propuesta tecnica.docx').querySelector('.c-nombre a'), np = fila('acta-recepcion.pdf').querySelector('.c-nombre a');
+                  const sinVista = !accion('propuesta tecnica.docx', 'vista'), nav = accion('propuesta tecnica.docx', 'abrir');
+                  R.ok('v1.0.1: el nombre de un .docx abre Word (la misma ms-word:ofe|u|… de «Abrir en Word», sin pestaña nueva) y su menú trae «Abrir en el navegador» y NO «Vista previa»; el nombre de un .pdf va a la vista previa',
+                      !!nd && nd.getAttribute('href') === off.getAttribute('href') && !nd.target && sinVista && !!nav && nav.textContent === 'Abrir en el navegador' && !!np && np.dataset.abre === 'vista', nd && nd.outerHTML.slice(0, 200));
+                }
                 accion('acta-recepcion.pdf', 'vista').click(); await esperar(() => $('dlgVistaPrevia').open && DB.iframes.at(-1) === `https://minsaenergy.sharepoint.com/_vista-falsa/${enDB('acta-recepcion.pdf').id}`, 'vista previa');
                 const csp = /frame-src (https:[^;]+);/.exec(await (await fetch('./index.html', { cache: 'reload' })).text());
                 R.ok('cubeta 5: Vista previa = POST …/preview y su getUrl en el <iframe> con sandbox, «Abrir en una pestaña nueva» de respaldo, y la CSP frame-src suma SOLO el host del tenant',
                     DB.previews.includes(enDB('acta-recepcion.pdf').id) && !$('vpMarco').hidden && $('vpMarco').getAttribute('sandbox').includes('allow-scripts') && !$('vpAbrir').hidden && $('vpAbrir').href.startsWith('https://minsaenergy.sharepoint.com/sites/Administracion/ERP_Proyectos/') && !!csp && csp[1].trim() === 'https://login.microsoftonline.com https://minsaenergy.sharepoint.com', csp && csp[1]);
                 clic('vpCerrar'); await esperar(() => !$('dlgVistaPrevia').open, 'vista previa cerrada');
+                // v1.0.1: el NOMBRE de un .pdf abre la vista previa dentro de la app (va después de la del menú: la misma pdf dos veces seguidas se pisaban)
+                { const nI = DB.iframes.length; fila('acta-recepcion.pdf').querySelector('.c-nombre a').click();
+                  await esperar(() => $('dlgVistaPrevia').open && DB.iframes.length > nI && !$('vpMarco').hidden, 'vista previa desde el NOMBRE');
+                  R.ok('v1.0.1: clic en el nombre de un .pdf abre la vista previa DENTRO de la app (no una pestaña nueva)', $('dlgVistaPrevia').open && DB.iframes.at(-1) === `https://minsaenergy.sharepoint.com/_vista-falsa/${enDB('acta-recepcion.pdf').id}`);
+                  clic('vpCerrar'); await esperar(() => !$('dlgVistaPrevia').open, 'vista previa cerrada'); }
                 accion('acta-recepcion.pdf', 'versiones').click(); await esperar(() => $('dlgVersiones').open && $('vrLista').querySelectorAll('.vr-r').length === 2, 'versiones');
                 { const r0 = $('vrLista').querySelector('.vr-r'); R.ok('cubeta 5: Versiones lista la actual (sin Restaurar) y la vieja con «Restaurar»', r0.textContent.includes('actual') && !r0.querySelector('[data-restaurar]') && !!$('vrLista').querySelector('[data-restaurar="1.0"]')); }
                 $('vrLista').querySelector('[data-restaurar="1.0"]').click(); await confirmar();
