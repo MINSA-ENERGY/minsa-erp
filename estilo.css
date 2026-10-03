@@ -806,7 +806,7 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 
 /* ---- tablero: tantas columnas como cubetas tenga el proyecto (v0.47.0: `--n` la pone tablero.js; antes eran 4 fijas y con
    3 cubetas quedaba un hueco a la derecha). Todas caben a lo ancho; con 8 a 150 px minimo scrollea. */
-.tablero { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(150px, 1fr)); gap: var(--sp-3); overflow-x: auto; padding-bottom: var(--sp-1); }
+.tablero { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(150px, 1fr)); gap: 14px; overflow-x: auto; padding-bottom: var(--sp-1); }   /* v1.0.0 (cubeta 3): el gap de la maqueta (.kb) */
 /* A3: entre 721 y 900 px (tableta, ventana chica de laptop) las pestanas de columna todavia no
    existen; con `repeat(4, 240px)` el tablero volvia al scroll horizontal y cortaba «En revisión».
    2 x 2 conserva la vista de tablero completa sin desbordar. */
@@ -2456,20 +2456,19 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 @media (max-width: 640px) {
   .vig-tabla tr.vig-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); }
   .vig-fila .vig-que { grid-column: 1 / -1; order: -1; padding-bottom: 0; }
-  #vigenciasKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
-  #vigenciasKpis .cob-kpi { padding: var(--sp-2) var(--sp-3); }
   .vig-fila .vig-unidad { display: none; }
   .vig-fila .vig-resp { grid-column: 1 / -1; order: 1; padding-top: 0; font-size: .8rem; color: var(--text-muted); }
   .vig-fila .vig-resp::before { content: 'Responsable: '; }
   .vig-fila .vig-resp.is-vacio { display: none; }
 }
-/* ---- v0.168.0: Servicios — la barra de 12 pasos (maqueta HV1C5pzx): hecho verde, actual marca, esperando ambar, a medias rojo. */
+/* ---- v0.168.0: Servicios — la barra de 12 pasos (maqueta HV1C5pzx). v1.0.0 (cubeta 3; maqueta .stp): hecho azul marino, el paso actual azul,
+   detenido rojo y el paso pasado a medias ámbar (antes: hecho verde, actual marca, esperando ámbar, a medias rojo). */
 .srv-pasos { display: flex; gap: 3px; min-width: 200px; padding-top: 6px; }
-.srv-p { display: inline-block; flex: 1; height: 8px; border-radius: 2px; background: var(--border-default); }
-.srv-p.is-hecho { background: var(--ok-solid); }
-.srv-p.is-actual { background: var(--brand-primary); }
-.srv-p.is-bloqueado { background: var(--warn-solid); }
-.srv-p.is-rebotado { background: var(--bad-solid); }
+.srv-p { display: inline-block; flex: 1; height: 7px; border-radius: 2px; background: var(--line); }
+.srv-p.is-hecho { background: var(--navy); }
+.srv-p.is-actual { background: var(--blue); }
+.srv-p.is-bloqueado { background: var(--red); }
+.srv-p.is-rebotado { background: var(--amber); }
 .srv-leyenda { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); font-size: .8rem; color: var(--text-muted); }
 .srv-ley { display: inline-flex; align-items: center; gap: 6px; }
 .srv-ley .srv-p { flex: none; width: 14px; height: 10px; }
@@ -2488,8 +2487,6 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
   .srv-fila .srv-pasos { min-width: 0; }
   .srv-fila .srv-espera { font-size: .8rem; color: var(--text-muted); }
   .srv-fila .srv-espera::before { content: 'Espera a: '; }
-  #serviciosKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
-  #serviciosKpis .cob-kpi { padding: var(--sp-2) var(--sp-3); }
 }
 /* ---- v0.169.0: Compras — el folio es el boton que abre las partidas; el total, a la derecha en mono. */
 .cmp-folio .cmp-abrir { font-family: var(--font-data); font-weight: 600; padding-inline: var(--sp-2); }
@@ -2510,8 +2507,6 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
   .cmp-fila .cmp-concepto { grid-column: 1 / -1; order: 1; padding-top: 0; font-size: .85rem; color: var(--text-muted); }
   .cmp-partidas li { grid-template-columns: minmax(0, 1fr) auto; }
   .cmp-partidas .cmp-cant { grid-column: 1 / -1; order: 1; }
-  #comprasKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
-  #comprasKpis .cob-kpi { padding: var(--sp-2) var(--sp-3); }
 }
 .gastos-resumen { margin: 0; font-size: .9rem; }
 .gastos-lista { display: flex; flex-direction: column; }
@@ -2677,7 +2672,7 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 .rp-kpi b.neg { color: var(--red); }
 .rp-kpi i { margin-left: 6px; font-style: normal; font-size: 15px; font-variant-numeric: tabular-nums; }
 .rp-kpi i.pos { color: var(--blue); } .rp-kpi i.neg { color: var(--red); }
-.rp-kpi small { display: block; margin-top: 3px; color: var(--ink-2); font-size: 13.5px; }
+.rp-kpi small { display: -webkit-box; margin-top: 3px; color: var(--ink-2); font-size: 13.5px; overflow: hidden; overflow-wrap: anywhere; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }   /* v1.0.0 (cubeta 3): un rótulo largo («La siguiente: …») corta a 2 renglones en vez de montarse en el KPI de al lado; el completo va en el title */
 /* tarjeta 2: «Datos del reporte» (maqueta .rd-h, .dd, .exb, table, .nota) */
 .rp-dh { display: flex; align-items: center; gap: 20px; padding: 20px 26px 20px 28px; }
 .rp-dh h3 { margin: 0 auto 0 0; font-family: var(--f-ui); font-size: 18px; font-weight: 500; color: var(--ink); }
@@ -2851,4 +2846,108 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
   .rp-pop-s .rp-arma { position: static; transform: none; margin-top: 6px; }
   .rp-pop-s > svg { top: 20px; }
   .rp-top-der .capital-filtro { max-width: none; flex: 1 1 100%; }
+}
+
+/* ==== OPERACIÓN + TRABAJO v1.0.0 (rediseño 2026-10-02, cubeta 3; maqueta «MINSA ERP Reportes»: .exp-r · .track · .stp · .trl · .kb · .col · .tk ·
+   .vg). Servicios, Compras, Vigencias y los 5 reportes de Trabajo pintan la plantilla de reporte (reporte.js); Proyectos, el proyecto, Roadmap y
+   Calendario llevan su cabecera y sus tarjetas. Solo piel: la lógica del tablero, el chat, los documentos y el Resumen no cambia. ==== */
+:root { --serie-nuevas: #a2aab6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --serie-nuevas: #6d7a90; } }
+:root[data-theme="dark"] { --serie-nuevas: #6d7a90; }
+/* ---- piezas que sumó la cubeta 3 a la plantilla */
+.rp-tabla th.rp-izq { text-align: left; }
+.rp-tabla td.rp-rojo, .rp-tabla tr.hijo td.rp-rojo { color: var(--red); font-weight: 600; }
+.rp-tabla td.rp-verde { color: var(--green); font-weight: 600; }
+.rp-ley-graf { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-left: 16px; color: var(--ink-2); font-size: 13px; }
+.rp-g-n { margin-left: 4px; color: var(--ink-3); font-size: 12px; }
+.rp-lk-b { padding: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.rp-top-der > a.mn-btn, .rp-pie-card a.mn-btn { text-decoration: none; }
+.rp-dd + .rp-dd { margin-left: -10px; }
+/* ---- Servicios (maqueta .track · .stp · .trl): hecho azul marino, el paso actual azul, detenido rojo; un paso pasado a medias, ámbar */
+.srv-track { display: grid; gap: 6px; min-width: 240px; }
+.srv-track .srv-pasos { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; min-width: 0; padding-top: 0; }
+.srv-trl { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; color: var(--ink-3); font-size: 11px; line-height: 1.2; }
+.srv-trl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srv-trl .is-actual { color: var(--ink); font-weight: 600; }
+.srv-track.is-grande { min-width: 0; padding: 24px 24px 4px; gap: 8px; }
+.srv-track.is-grande .srv-p { height: 12px; }
+.srv-track.is-grande .srv-trl span { white-space: normal; overflow-wrap: anywhere; font-size: 11.5px; }
+.rp-datos > .srv-leyenda { padding: 0 28px 12px; }
+.rp-datos > .srv-guia { margin: 6px 28px 0; }
+.srv-guia summary { display: flex; align-items: center; min-height: 36px; color: var(--ink-2); font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.srv-exp, .srv-actual-c, .vig-que { display: grid; gap: 2px; justify-items: start; }
+.srv-exp .srv-clave { font-weight: 600; }
+.rp-tabla td.srv-avance { min-width: 260px; }
+.rp-tabla td.srv-actual .mn-chip { margin-top: 2px; }
+.rp-tabla td.srv-actual, .rp-tabla td.srv-espera { min-width: 150px; white-space: normal; overflow-wrap: anywhere; }   /* un «espera a» largo no empuja «Desde» fuera de la tarjeta */
+.srv-guia summary::before { content: "▸"; width: 14px; color: var(--ink-3); font-size: 12px; }
+.srv-guia[open] summary::before { content: "▾"; }
+.rp-tabla tr.srv-paso-fila.is-actual td { background: var(--hijo); font-weight: 600; }
+.rp-tabla tr.srv-paso-fila.is-pendiente td { color: var(--ink-3); }
+/* ---- Compras y Vigencias */
+.rp-tabla .cmp-folio .mn-chip { margin-left: 8px; }
+.rp-tabla .cmp-concepto { overflow-wrap: anywhere; }
+.rp-tabla tr.hijo.is-no-cuadra td { color: var(--ink); }
+.rp-tabla .vig-titulo { color: var(--ink); }
+/* ---- Trabajo: las tarjetas de siempre con la piel de la plantilla (.rp-card + el título de «Datos del reporte») */
+#p-proyectos > #btnNuevoProyecto, #p-reportes > #btnImprimirReportes, #p-calendario > #calNav, #p-calendario > #calFiltro { display: none; }   /* antes del primer pintado: los mueve la cabecera */
+.rp-graf.proyectos-kpis .rp-kpis, .rp-graf.proyecto-kpis .rp-kpis { margin-top: 0; padding: 18px 0 20px; border-top: 0; }
+.proyectos-hoja { padding-bottom: 18px; }
+.proyectos-hoja > .rp-dh { flex-wrap: wrap; gap: 12px 20px; }
+.proyectos-hoja > .rp-dh .buscador { width: min(18rem, 100%); min-height: 36px; border-color: var(--campo); border-radius: 3px; }
+.proyectos-hoja > .lista, .proyectos-hoja > .cerrados { margin: 0 20px; }
+.proyectos-hoja > .cerrados { margin-top: 14px; }
+.proyectos-hoja .pficha { border-color: var(--line-2); border-radius: 4px; }
+#repDetalle > .mn-card, #p-roadmap .mn-card, #p-calendario .cal-detalle, #p-proyecto .lateral > .mn-card { border: 1px solid var(--line); border-radius: 5px; background: var(--card); padding: 20px 26px 22px 28px; }
+#repDetalle > .mn-card > h2, #p-roadmap .mn-card > h2, #p-calendario .cal-detalle > h2, #p-proyecto .lateral > .mn-card > h2 { margin: 0 0 14px; font-family: var(--f-ui); font-size: 18px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink); }
+#repDetalle { gap: 22px; align-items: start; }   /* el anillo no se estira al alto de «Avance por proyecto» */
+#p-reportes, #p-roadmap, #p-calendario, #p-proyectos { gap: 22px; }
+.rp-top-der .cal-nav { flex-wrap: wrap; }
+.rp-top-der .cal-filtro { flex: none; }
+/* ---- el proyecto: título de la plantilla, la fila de KPIs y el tablero de la maqueta (.kb · .col · .tk) dentro de UNA tarjeta */
+#proyectoCab h1 { font-family: var(--f-ui); font-size: 22px; font-weight: 500; letter-spacing: 0; }
+#p-proyecto .dos-columnas.ancha > .apilado:not(.lateral) { padding: 4px 20px 20px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); gap: 14px; }
+#p-proyecto .tab { font-size: 14.5px; font-weight: 500; }
+.tablero .col { padding: 12px; border: 1px solid var(--line-2); border-radius: 5px; background: var(--bg); gap: 8px; }
+.tablero .col h3 { padding: 0 0 8px; font-family: var(--f-ui); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.tablero .tarjeta { padding: 10px 12px; border-radius: 4px; background: var(--card); }
+.tablero .tarjeta .t { font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.35; }
+.tablero .tarjeta .f { gap: 4px 8px; font-size: 12.5px; color: var(--ink-3); }
+@media (min-width: 721px) {
+  #tab-lista th { padding: 12px 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--th); font-family: var(--f-ui); font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-2); }
+  #tab-lista td { padding: 11px 16px; border-bottom-color: var(--line-2); font-size: 14.5px; }
+}
+/* ---- tableta y celular: Servicios en fichas (la barra de 12 pasos a todo el ancho) desde 900 px — a 820 sus cinco columnas ya no caben y «Espera a»
+   quedaba cortado; Vigencias en fichas desde 640; Compras rueda de lado dentro de su tarjeta, como la maqueta */
+@media (max-width: 900px) {
+  #serviciosTabla thead { display: none; }
+  #serviciosTabla tr.srv-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--line-2); }
+  #serviciosTabla tr.srv-fila td { padding: 8px 16px 0; border: 0; text-align: left; white-space: normal; }
+  #serviciosTabla tr.srv-fila td:first-child { grid-column: 1 / -1; min-width: 0; padding-top: 12px; }
+  #serviciosTabla .srv-avance, #serviciosTabla .srv-actual { grid-column: 1 / -1; min-width: 0; }
+  #serviciosTabla .srv-track { min-width: 0; }
+  #serviciosTabla .srv-espera { padding-bottom: 12px; color: var(--ink-2); font-size: 13px; }
+  #serviciosTabla .srv-espera::before { content: 'Espera a: '; }
+  #serviciosTabla .srv-desde { padding-bottom: 12px; color: var(--ink-3); font-size: 13px; }
+}
+@media (max-width: 640px) {
+  #vigenciasTabla thead { display: none; }
+  #vigenciasTabla tr.vig-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--line-2); }
+  #vigenciasTabla tr.vig-fila td { padding: 8px 16px 0; border: 0; text-align: left; white-space: normal; }
+  #vigenciasTabla tr.vig-fila td:first-child { grid-column: 1 / -1; min-width: 0; padding-top: 12px; }
+  #vigenciasTabla .vig-unidad { display: none; }
+  #vigenciasTabla .vig-faltan { justify-self: end; }
+  #vigenciasTabla .vig-resp { grid-column: 1 / -1; padding-bottom: 12px; color: var(--ink-2); font-size: 13px; }
+  #vigenciasTabla .vig-resp::before { content: 'Responsable: '; }
+  #vigenciasTabla .vig-resp.is-vacio { display: none; }
+  #vigenciasTabla tr.vig-fila:has(.vig-resp.is-vacio) .vig-vence, #vigenciasTabla tr.vig-fila:has(.vig-resp.is-vacio) .vig-faltan { padding-bottom: 12px; }
+  .srv-track.is-grande { padding: 16px 16px 2px; }
+  .srv-track.is-grande .srv-trl { display: none; }   /* los 12 nombres no caben bajo la barra: la tabla de abajo los trae */
+  .rp-datos > .srv-leyenda { padding: 0 16px 12px; }
+  .rp-datos > .srv-guia { margin: 6px 16px 0; }
+  .rp-ley-graf { margin-left: 0; }
+  #repDetalle > .mn-card, #p-roadmap .mn-card, #p-calendario .cal-detalle, #p-proyecto .lateral > .mn-card { padding: 16px; }
+  #p-proyecto .dos-columnas.ancha > .apilado:not(.lateral) { padding: 4px 12px 14px; }
+  .proyectos-hoja > .lista, .proyectos-hoja > .cerrados { margin: 0 12px; }
+  .proyectos-hoja > .rp-dh .buscador { width: 100%; }
 }

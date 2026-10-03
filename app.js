@@ -25,10 +25,11 @@ import { pintarFinanzas, alCambiarCobranza, fijarIrDesdeFinanzas } from './cobra
 import { fijarNavGuardados } from './guardados.js';   // v1.0.0 (cubeta 2): «Guardados» (ERP_Vistas o este equipo)
 import { pintarArmazon, engancharArmazon, fijarNavArmazon, pintarCuenta, cerrarHoja } from './armazon.js';   // v1.0.0: rail, panel, cabecera, Cuenta (rediseño 2026-10-02)
 import { leerRuta, puedeVerPantalla } from './reglas.js';
+import { cabecera, vistaDe, soltarIdsFuera, filaKpis } from './reporte.js';   // v1.0.0 (cubeta 3): la cabecera y la fila de KPIs de la plantilla en Proyectos y en el proyecto
 import { pintarVigencias, alCambiarVigencias } from './vigencias.js';   // v0.166.0: Vigencias (solo gerencia)
 import { pintarServicios, alCambiarServicios } from './servicios.js';   // v0.168.0: Servicios (gerencia y colaborador)
 import { pintarCompras, alCambiarCompras } from './compras.js';   // v0.169.0: Compras (gerencia y colaborador)
-import { pintarRoadmap, pintarRoadmapProyecto, roadmapFull, engancharRoadmap, olvidarLugarRoadmap, pintarCalendario, engancharCalendario, enfocarCal, pintarMensajes, engancharMensajes, devolverChat, mensajesNuevos, proyectoDeMensajes, pintarArchivos, engancharArchivos, pintarReportes, engancharReportes, anillo, abrirCargaPersona, pintarCargaPersona } from './vistas.js';
+import { pintarRoadmap, pintarRoadmapProyecto, roadmapFull, engancharRoadmap, olvidarLugarRoadmap, pintarCalendario, engancharCalendario, enfocarCal, pintarMensajes, engancharMensajes, devolverChat, mensajesNuevos, proyectoDeMensajes, pintarArchivos, engancharArchivos, pintarReportes, engancharReportes, fijarRepintarReportes, anillo, abrirCargaPersona, pintarCargaPersona } from './vistas.js';
 
 // NO llamar `msal` a esta variable: taparia el global del bundle UMD.
 const pca = new msal.PublicClientApplication({
@@ -346,7 +347,7 @@ function irA(p, sub = null) {
     if (p === 'calendario') enfocarCal();   // U-02 (v0.86.0): al ENTRAR, la agenda del celular aterriza en hoy (no en repintar(): ese corre en cada refresco y moveria la pantalla)
 }
 /** v1.0.0: el sufijo que apunta a una tarjeta de la pantalla de hoy la trae a la vista (el reporte de Reportes, «Por mes» de Capital, Equipo de Cuenta). */
-const TARJETA_DE_SUB = { reportes: { avance: 'repGlobal', carga: 'repPersonas', semanas: 'repSemanas', actividad: 'repActividad', vencidas: 'repVencidas' }, cuenta: { equipo: 'cuentaEquipo' } };   // v1.0.0 (cubeta 2): #capital/mes ya es página (capital.js), no una tarjeta a la que bajar
+const TARJETA_DE_SUB = { cuenta: { equipo: 'cuentaEquipo' } };   // v1.0.0 (cubeta 2): #capital/mes ya es página (capital.js), no una tarjeta a la que bajar; cubeta 3: #reportes/<r> tambien (vistas.js pintarReportes)
 function enfocarSub(p, sub) {
     const id = sub && TARJETA_DE_SUB[p] && TARJETA_DE_SUB[p][sub]; const x = id && $(id); if (!x) return;
     const t = x.closest('.mn-card, section') || x; if (t.scrollIntoView) t.scrollIntoView({ block: 'start' });
@@ -956,7 +957,30 @@ function pintarActividad() {
 function pintarProyectos() { conservarFoco($('p-proyectos'), ['open', 'todos'], pintarProyectosAhora); }
 // C-14 (29-sep): el boton que quita el filtro de equipo se escribia dos veces con el mismo handler.
 const botonVerTodos = rotulo => boton(rotulo, 'mn-btn is-ghost is-sm', () => { estado.filtroEquipo = null; repintar(); }, { todos: '1' });
+/**
+ * v1.0.0 (rediseño 2026-10-02, cubeta 3; plan «Trabajo»; maqueta tablero()): la cabecera de la plantilla (título + «?» + «Nuevo proyecto», que se
+ * MUEVE a sus acciones como «Nueva partida» en Capital) y la fila de KPIs de la maqueta sobre los frentes activos del ámbito. Solo piel: la lista
+ * (v0.25.0), el buscador, los cerrados plegados y el filtro de equipo son los de siempre.
+ */
+const AYUDA_PROYECTOS = 'Un renglón por frente activo, del que vence antes al que vence después: la hoja de calendario es el fin del frente (rojo vencido, ámbar cerca) y las tres cifras son sus tarjetas abiertas, vencidas y hechas. La unidad del rail (el ámbito) filtra la lista y los KPIs; los cerrados van plegados al pie.';
+function pintarCabeceraProyectos() {
+    const cont = $('proyectosCab'), btn = $('btnNuevoProyecto'), conFoco = document.activeElement === btn;   // moverlo a la cabecera nueva le quita el foco
+    conservarFoco(cont, ['rp'], () => { soltarIdsFuera(cont); cont.textContent = ''; cont.appendChild(cabecera({ id: 'proyectos', titulo: 'Proyectos', ayuda: AYUDA_PROYECTOS, sub: 'Frentes activos, del que vence antes al que vence después.', subId: 'proyectosSub', acciones: [btn] }, vistaDe('proyectos'), repintar)); });
+    if (conFoco && document.activeElement !== btn) btn.focus();
+    // la fila de KPIs de la maqueta (tablero(): tareas abiertas · prioridad alta · con fecha · personas · proyectos), sobre los activos del ámbito
+    const vivos = visibles(), ids = new Set(vivos.map(p => p.id)), ab = estado.tareas.filter(t => ids.has(Number(t.ProyectoId)) && t.Columna !== HECHO);
+    const nV = vencidasEn(ab), nA = ab.filter(t => t.Prioridad === 'alta').length, nP = new Set(ab.map(t => String(t.Asignado || '').toLowerCase()).filter(Boolean)).size;
+    const card = $('proyectosKpisCard'); card.textContent = '';
+    card.appendChild(filaKpis([
+        { clave: 'abiertas', valor: String(ab.length), texto: plural(ab.length, 'Tarjeta abierta', 'Tarjetas abiertas') },
+        { clave: 'vencidas', valor: String(nV), texto: plural(nV, 'Vencida', 'Vencidas'), clase: nV ? 'neg' : '' },
+        { clave: 'alta', valor: String(nA), texto: 'Prioridad alta' },
+        { clave: 'personas', valor: String(nP), texto: plural(nP, 'Persona con abiertas', 'Personas con abiertas') },
+        { clave: 'frentes', valor: String(vivos.length), texto: plural(vivos.length, 'Frente activo', 'Frentes activos') }
+    ], 'proyectosKpis'));
+}
 function pintarProyectosAhora() {
+    pintarCabeceraProyectos();
     $('btnNuevoProyecto').disabled = !PUEDE.proyecto(estado.rol);
     $('btnNuevoProyecto').title = PUEDE.proyecto(estado.rol) ? '' : 'Solo gerencia crea proyectos';
     $('btnNuevoProyecto').hidden = !PUEDE.proyecto(estado.rol);   // U-05 (16-sep): en celular el title no existe y el boton gris no explicaba nada; quien no puede crear no lo ve
@@ -1030,6 +1054,16 @@ function pintarCabeceraProyecto(p, ts, a) {
     // F6: un cerrado se reabre (solo gerencia); el boton solo existe en ese estado.
     $('btnReabrirProyecto').classList.toggle('oculto', !(PUEDE.proyecto(estado.rol) && p.Estado === 'cerrado'));
     $('btnEliminarProyecto').classList.toggle('oculto', !PUEDE.borrar(estado.rol));   // v0.13.0: solo gerencia, en cualquier estado
+    // v1.0.0 (cubeta 3; maqueta tablero()): la fila de KPIs del frente bajo la cabecera; la cabecera contraída (v0.29.0) también la pliega
+    { const ab = ts.filter(t => t.Columna !== HECHO), nV = vencidasEn(ab), nA = ab.filter(t => t.Prioridad === 'alta').length;
+      const dF = diasPara(p.Vence), card = $('proyectoKpisCard'); card.textContent = ''; card.classList.toggle('oculto', cabeceraContraida());
+      card.appendChild(filaKpis([
+          { clave: 'abiertas', valor: String(ab.length), texto: plural(ab.length, 'Tarjeta abierta', 'Tarjetas abiertas') },
+          { clave: 'vencidas', valor: String(nV), texto: plural(nV, 'Vencida', 'Vencidas'), clase: nV ? 'neg' : '' },
+          { clave: 'alta', valor: String(nA), texto: 'Prioridad alta' },
+          { clave: 'hechas', valor: `${a.pct}%`, texto: `${a.hechas} de ${a.total} ${plural(a.total, 'hecha', 'hechas')}` },
+          { clave: 'fin', valor: p.Vence ? fechaCorta(p.Vence) : '—', texto: p.Estado !== 'activo' ? 'Frente cerrado' : dF === null ? 'Sin fin del frente' : `Fin del frente · ${fraseVence(dF, 'dias')}`, clase: p.Estado === 'activo' && dF !== null && dF < 0 ? 'neg' : '' }
+      ], 'proyectoKpis')); }
     // B2: la linea que resume el frente arriba, donde se lee sin bajar a la lateral.
     const dias = diasPara(p.Vence);
     // C8: el chip «vence en N d · faltan M» de la lista, junto al %, en escritorio y celular. Cuando
@@ -1437,7 +1471,7 @@ $('selProyecto').addEventListener('keydown', e => { if (e.key === 'Escape') { $(
 function cabeceraContraida() { try { return localStorage.getItem('cabecera') === 'contraida'; } catch (_) { return false; } }
 function fijarCabecera(contraida) {
     try { if (contraida) localStorage.setItem('cabecera', 'contraida'); else localStorage.removeItem('cabecera'); } catch (_) {}
-    $('proyectoCab').classList.toggle('contraida', contraida);
+    $('proyectoCab').classList.toggle('contraida', contraida); $('proyectoKpisCard').classList.toggle('oculto', contraida);   // v1.0.0 (cubeta 3): la fila de KPIs se pliega con ella
     $('btnCabecera').setAttribute('aria-expanded', contraida ? 'false' : 'true'); $('btnCabecera').title = contraida ? 'Desplegar la cabecera' : 'Contraer la cabecera';
 }
 $('btnCabecera').addEventListener('click', () => fijarCabecera(!cabeceraContraida()));
@@ -1513,6 +1547,7 @@ fijarNavGuardados(irA);
 alCambiarVigencias(repintar);   // v0.166.0
 alCambiarServicios(repintar);   // v0.168.0
 alCambiarCompras(repintar);   // v0.169.0
+fijarRepintarReportes(repintar);   // v1.0.0 (cubeta 3): guardar una vista de Trabajo la pinta en «Guardados» del panel
 engancharCapital(); alCambiarCapital(repintar); fijarIrAProyecto(id => abrirProyecto(id));   // v0.100.0; C-04 (26-sep): recibe el id
 $('pCapitalIr').addEventListener('click', () => { const p = proyectoAbierto(); if (!p) return; estado.filtroCapital = p.id; irA('capital'); });
 engancharRoadmap(); engancharCalendario(); engancharArchivos(); engancharReportes();   // v0.10.0 · v0.26.0 roadmap a pantalla completa

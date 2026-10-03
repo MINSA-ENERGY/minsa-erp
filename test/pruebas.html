@@ -2068,7 +2068,11 @@ try {
         // ---- v0.10.0: Roadmap · Calendario · Mensajes · Archivos · Reportes (foto de referencia, 12-sep) + titulo con icono + anillo
         {
             const hoyIso = new Date().toISOString();
-            R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-proyectos', 'p-mis', 'p-roadmap', 'p-calendario', 'p-mensajes', 'p-archivos', 'p-reportes', 'p-cuenta'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));   // v1.0.0: + Cuenta; cubeta 2: Capital, Gastos y Finanzas pasan a la plantilla (abajo)
+            R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-mis', 'p-mensajes', 'p-archivos', 'p-cuenta'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));   // v1.0.0: + Cuenta; cubeta 2: Capital, Gastos y Finanzas pasan a la plantilla (abajo); cubeta 3: Proyectos, Roadmap, Calendario y Reportes también (abajo)
+            // v1.0.0 (cubeta 3; sustituye a Proyectos, Roadmap, Calendario y Reportes en la de arriba): Trabajo lleva la cabecera de la plantilla —
+            // la pinta cada pantalla al entrar—; aquí, que su hueco existe y la cabecera fija con icono se fue
+            R.ok('v1.0.0 (cubeta 3): Proyectos, Roadmap, Calendario y Reportes traen el hueco de la cabecera de la plantilla (#proyectosCab, #roadmapCab, #calCab, #reportesCuerpo) y ya no la cabecera fija con icono',
+                ['proyectosCab', 'roadmapCab', 'calCab', 'reportesCuerpo'].every(id => !!$(id) && $(id).classList.contains('rp-cuerpo')) && ['p-proyectos', 'p-roadmap', 'p-calendario', 'p-reportes'].every(id => !$(id).querySelector('.cabecera > .titulo-ico')));
             // v1.0.0 (cubeta 2; sustituye a Capital, Gastos y Finanzas en la de arriba): las pantallas de Dinero ya no traen cabecera fija con icono —
             // la pinta la plantilla de reporte (título + «?») al entrar; aquí, que el hueco de la plantilla existe y la cabecera vieja se fue
             R.ok('v1.0.0 (cubeta 2): Capital, Gastos y Finanzas traen el hueco de la cabecera de la plantilla (#capitalCab, #gastosCab, #finanzasCuerpo) y ya no la cabecera fija con icono',
@@ -2868,6 +2872,8 @@ try {
                   R.ok('R-02 (v0.131.0): «Cerrar» cierra el diálogo y deja Reportes', !$('dlgPersona').open && visible('p-reportes'));
                   // C-12 / C-14 (v0.146.0): con el dialogo abierto, repintar devuelve el foco a la misma tarjeta; el refresco lo repinta y, sin abiertas, lo dice
                   { const vis = await import('../vistas.js');
+                    // v1.0.0 (cubeta 3): «Carga por persona» es su página (#reportes/carga); en #reportes (= Avance) su tarjeta va oculta y no toma foco
+                    await irHash('#reportes/carga'); await esperar(() => visible('p-reportes') && !document.querySelector('#repPersonas').closest('.oculto'), 'reportes › carga');
                     const fc = document.querySelector(`#repPersonas button[data-abre="pe:${yo}"]`); fc.focus(); vis.pintarReportes();
                     R.ok('C-14 (v0.146.0): con el foco en una fila de Carga, repintar Reportes se lo devuelve a la misma persona', document.activeElement !== fc && document.activeElement?.dataset.abre === `pe:${yo}`, document.activeElement && document.activeElement.tagName);
                     document.activeElement.click(); await esperar(() => $('dlgPersona').open, 'dialogo 3');
@@ -3899,12 +3905,12 @@ try {
             svg().querySelector('rect.rp-hit').dispatchEvent(new PointerEvent('pointerenter')); await dormir(10);
             R.ok('v1.0.0 (cubeta 2): al pasar el puntero, el globo con el mes y el monto y la guía vertical', document.querySelector('#rpGrafica .rp-globo').classList.contains('is-on') && /US\$/.test(document.querySelector('#rpGrafica .rp-globo').textContent) && svg().querySelector('.rp-guia').classList.contains('is-on'));
             const nMes = Number(svg().dataset.n);
-            document.querySelector('[data-rp="tipo:bar"]').click(); await dormir(10);
+            document.querySelector('#finanzasCuerpo [data-rp="tipo:bar"]').click(); await dormir(10);
             R.ok('v1.0.0 (cubeta 2): LÍNEA | BARRAS cambia el tipo', svg().dataset.tipo === 'bar' && svg().querySelectorAll('rect.rp-barra').length === nMes);
-            document.querySelector('[data-rp="tipo:line"]').click(); await dormir(10);
-            document.querySelector('[data-rp="grano:anio"]').click(); await dormir(10);
-            R.ok('v1.0.0 (cubeta 2): MES | TRIMESTRE | AÑO agrupa (por año, menos puntos); DÍA y SEMANA deshabilitados (datos mensuales)', Number(svg().dataset.n) < nMes && document.querySelector('[data-rp="grano:dia"]').disabled && document.querySelector('[data-rp="grano:semana"]').disabled);
-            document.querySelector('[data-rp="grano:mes"]').click(); await dormir(10);
+            document.querySelector('#finanzasCuerpo [data-rp="tipo:line"]').click(); await dormir(10);
+            document.querySelector('#finanzasCuerpo [data-rp="grano:anio"]').click(); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): MES | TRIMESTRE | AÑO agrupa (por año, menos puntos); DÍA y SEMANA deshabilitados (datos mensuales)', Number(svg().dataset.n) < nMes && document.querySelector('#finanzasCuerpo [data-rp="grano:dia"]').disabled && document.querySelector('#finanzasCuerpo [data-rp="grano:semana"]').disabled);
+            document.querySelector('#finanzasCuerpo [data-rp="grano:mes"]').click(); await dormir(10);
             const nVal = svg().querySelectorAll('.rp-val').length; clic('rpValores'); await dormir(10);
             R.ok('v1.0.0 (cubeta 2): «Mostrar valores» (123) apaga y prende las etiquetas', nVal > 0 && svg().querySelectorAll('.rp-val').length === 0 && $('rpValores').getAttribute('aria-pressed') === 'false');
             clic('rpValores'); await dormir(10);
@@ -4166,15 +4172,20 @@ try {
             R.ok('vigencias: semáforo — 6 días rojo, 40 ámbar, 107 verde', !!filas[1].querySelector('.mn-chip.is-danger') && !!filas[2].querySelector('.mn-chip.is-warn') && /107 días/.test(filas[3].textContent) && !!filas[3].querySelector('.mn-chip.is-ok'));
             R.ok('vigencias: unidad, responsable (— si no hay) y la nota bajo el título', /CALYTEK/.test(filas[1].textContent) && /la renovación se ingresa antes/.test(filas[1].textContent) && filas[2].querySelector('.vig-resp').textContent === '—' && /Francisco/.test(filas[0].textContent));
             R.ok('vigencias: un título con etiqueta sale como TEXTO y no ejecuta', !window.__xssVig && filas[1].querySelector('.vig-titulo').textContent.startsWith('<img') && !document.querySelector('#vigenciasTabla img'));
-            const kpis = [...document.querySelectorAll('#vigenciasKpis .cob-kpi')];
-            R.ok('vigencias: resumen 1 vencida · 1 en rojo · 1 en ámbar · corte de 2 días al día', kpis.length === 4 && /Vencidas1/.test(kpis[0].textContent) && /1/.test(kpis[1].querySelector('.cob-v').textContent) && kpis[2].querySelector('.cob-v').textContent === '1' && /2 días/.test($('vigenciasCorte').textContent) && /al día/.test($('vigenciasCorte').textContent), kpis.map(k => k.textContent).join(' | '));
+            const kpiV = k => document.querySelector(`#vigenciasKpis [data-kpi="${k}"] b`)?.textContent, corteV = () => document.querySelector('#vigenciasCuerpo #rpCorte');
+            R.ok('vigencias (v1.0.0, cubeta 3: KPIs de la plantilla y el corte en el chip de la cabecera): resumen 1 vencida · 1 en rojo · 1 en ámbar · 4 documentos · corte de 2 días al día (verde)', document.querySelectorAll('#vigenciasKpis .rp-kpi').length === 5 && kpiV('vencidas') === '1' && kpiV('rojo') === '1' && kpiV('ambar') === '1' && kpiV('total') === '4' && corteV()?.dataset.dias === '2' && corteV().classList.contains('is-ok'), [...document.querySelectorAll('#vigenciasKpis .rp-kpi')].map(k => k.textContent).join(' | '));
+            R.ok('vigencias (v1.0.0, cubeta 3): la plantilla — «Lo que vence» + «?» y el KPI de la siguiente (la Fianza, no la vencida)', $('rpTitulo').textContent === 'Lo que vence' && !!document.querySelector('#vigenciasCuerpo .rp-qm') && /Fianza/.test(document.querySelector('#vigenciasKpis [data-kpi="siguiente"]').textContent));
+            $('vigenciasUnidad').click(); await dormir(10); document.querySelector('.rp-menu [data-opcion="CALYTEK"]').click(); await esperar(() => document.querySelectorAll('#vigenciasTabla tr.vig-fila').length === 1, 'vigencias de CALYTEK');
+            clic('rpExportar'); await dormir(10); const RPv = await import('../reporte.js');
+            R.ok('vigencias (v1.0.0, cubeta 3): «TODAS LAS UNIDADES ⌄» filtra la tabla y los KPIs, y el CSV sale de lo que se ve', /Fianza/.test(document.querySelector('#vigenciasTabla tr.vig-fila').textContent) && kpiV('total') === '1' && /CALYTEK/.test($('vigenciasUnidad').textContent) && /^vigencias_/.test(RPv.ultimoCsv.nombre) && RPv.ultimoCsv.texto.trim().split(String.fromCharCode(13, 10)).length === 2);
+            $('vigenciasUnidad').click(); await dormir(10); document.querySelector('.rp-menu [data-opcion=""]').click(); await esperar(() => document.querySelectorAll('#vigenciasTabla tr.vig-fila').length === 4, 'vigencias todas');
             // (d) corte viejo
             DB.datos['vigencias.json'] = JSON.stringify({ ...FIX, generado: local(-20).slice(0, 19) });
-            clic('btnLeerVigencias'); await esperar(() => $('vigenciasCorte') && /20 días/.test($('vigenciasCorte').textContent), 'corte viejo');
-            R.ok('vigencias: un corte de 20 días pide re-publicar', /re-publicar/.test($('vigenciasCorte').textContent));
+            clic('btnLeerVigencias'); await esperar(() => corteV() && corteV().dataset.dias === '20', 'corte viejo');
+            R.ok('vigencias (v1.0.0, cubeta 3: el corte va en el chip de la cabecera): un corte de 20 días pide re-publicar — el chip en ROJO y su title lo dice', corteV().classList.contains('is-danger') && /re-publicar/.test(corteV().title));
             // (e) el refresco de la app no relee el archivo; cero escrituras. Deja el JSON bueno sembrado para las capturas.
             DB.datos['vigencias.json'] = JSON.stringify(FIX);
-            clic('btnLeerVigencias'); await esperar(() => $('vigenciasCorte') && /2 días/.test($('vigenciasCorte').textContent), 'corte fresco');
+            clic('btnLeerVigencias'); await esperar(() => corteV() && corteV().dataset.dias === '2', 'corte fresco');
             const nLeidas = leidasDatos();
             await recargarYEsperar();
             R.ok('vigencias: «Actualizar» de la app no vuelve a bajar vigencias.json', leidasDatos() === nLeidas);
@@ -4233,10 +4244,32 @@ try {
             R.ok('servicios: texto con HTML se pinta como texto (sin XSS)', !window.__xssSrv && /<img src=x/.test(renglones[0].querySelector('.srv-espera').textContent));
             R.ok('servicios: la guía de los 12 pasos trae a quién depende cada uno', $('serviciosPasos').querySelectorAll('li').length === 12 && /José Sandoval/.test($('serviciosPasos').textContent));
             R.ok('servicios: resumen 4 abiertos · 1 en cobro · 2 detenidos', /4/.test($('serviciosKpis').children[0].textContent) && /1/.test($('serviciosKpis').children[1].textContent) && /2/.test($('serviciosKpis').children[2].textContent));
+            // ---- v1.0.0 (rediseño, cubeta 3): Servicios con la plantilla — cabecera y corte, filtro, el detalle de un expediente y «Ciclo»
+            { const pagS = () => document.querySelector('#serviciosCuerpo .rp-pag')?.dataset.reporte, corteS = () => document.querySelector('#serviciosCuerpo #rpCorte');
+              R.ok('servicios (v1.0.0, cubeta 3): la página es la plantilla — «Servicios LATINA» + «?», el chip «corte: fecha» (1 día, al día) y los 5 KPIs de la maqueta', pagS() === 'servicios' && $('rpTitulo').textContent === 'Servicios LATINA' && !!document.querySelector('#serviciosCuerpo .rp-qm') && corteS()?.dataset.dias === '1' && corteS().classList.contains('is-ok') && document.querySelectorAll('#serviciosKpis .rp-kpi').length === 5 && /Lo que más espera: E10/.test(document.querySelector('#serviciosKpis [data-kpi="espera"]').textContent), corteS() && corteS().dataset.dias);
+              R.ok(`servicios (v1.0.0, cubeta 3; ${ROL}): sin un solo monto en la página (el dinero vive en Finanzas)`, !/\$\s?\d|\bUSD\b|\bMXN\b/.test($('serviciosCuerpo').textContent));
+              $('serviciosFiltro').click(); await dormir(10); document.querySelector('.rp-menu [data-opcion="detenidos"]').click(); await esperar(() => document.querySelectorAll('#serviciosTabla tr.srv-fila').length === 2, 'servicios detenidos');
+              R.ok('servicios (v1.0.0, cubeta 3): «TODOS LOS EXPEDIENTES ⌄» → «Detenidos» deja E4 y E3, y el botón lo dice', [...document.querySelectorAll('#serviciosTabla tr.srv-fila')].map(f => f.dataset.clave).join() === 'E4,E3' && /DETENIDOS/.test($('serviciosFiltro').textContent));
+              $('serviciosFiltro').click(); await dormir(10); document.querySelector('.rp-menu [data-opcion="todos"]').click(); await esperar(() => document.querySelectorAll('#serviciosTabla tr.srv-fila').length === 4, 'servicios todos');
+              clic('rpExportar'); await dormir(10); const RPs = await import('../reporte.js');
+              R.ok('servicios (v1.0.0, cubeta 3): exportar baja el CSV de los expedientes (BOM, encabezados, uno por renglón)', /^servicios_\d{4}-\d{2}-\d{2}\.csv$/.test(RPs.ultimoCsv.nombre) && RPs.ultimoCsv.texto.charCodeAt(0) === 0xFEFF && /^.Expediente,Tipo,Folio/.test(RPs.ultimoCsv.texto) && RPs.ultimoCsv.texto.trim().split(String.fromCharCode(13, 10)).length === 5, RPs.ultimoCsv.nombre);
+              document.querySelector('#serviciosTabla a[data-expediente="E3"]').click(); await esperar(() => pagS() === 'servicio-detalle', 'detalle E3');
+              const fp = [...document.querySelectorAll('#servicioPasosTabla tr.srv-paso-fila')];
+              R.ok('servicios (v1.0.0, cubeta 3): un expediente abre #servicios/E3 — su barra grande con los 12 nombres, sus KPIs y la tabla de sus 12 pasos (el 4 a medias con su nota, el 6 en curso con de quién depende)', location.hash === '#servicios/E3' && $('rpTitulo').textContent.startsWith('Expediente E3') && document.querySelectorAll('#servicioDetalle .srv-trl span').length === 12 && document.querySelectorAll('#servicioDetalle .srv-p').length === 12 && fp.length === 12 && fp[4].classList.contains('is-rebotado') && /PDH-009 nunca se envió/.test(fp[4].textContent) && fp[6].classList.contains('is-actual') && /José Sandoval/.test(fp[6].textContent) && /^6 de 11/.test(document.querySelector('#servicioKpis [data-kpi="paso"]').textContent), location.hash);
+              R.ok('servicios (v1.0.0, cubeta 3): el panel de Operación resalta el expediente (#servicios/E3)', document.querySelector('#panelArbol .panel-modulo:not([hidden]) .ch.on')?.dataset.ir === '#servicios/E3');
+              await irHash('#servicios/ciclo'); await esperar(() => pagS() === 'servicios-ciclo', 'ciclo');
+              const fc = n => document.querySelector(`#serviciosCicloTabla tr.srv-ciclo-fila[data-paso="${n}"]`);
+              R.ok('servicios (v1.0.0, cubeta 3): «Ciclo de 12 pasos» = una barra por paso y la tabla de los 12 con cuántos expedientes hay (azul) y cuántos detenidos (rojo)', document.querySelector('#serviciosCuerpo #rpGrafica svg')?.dataset.n === '12' && document.querySelectorAll('#serviciosCicloTabla tr.srv-ciclo-fila').length === 12 && fc(11).querySelector('.rp-c')?.textContent === '1' && fc(3).querySelector('.rp-c.r')?.textContent === '1' && !fc(0).querySelector('.rp-c'));
+              fc(3).querySelector('.rp-exp').click(); await dormir(20);
+              R.ok('servicios (v1.0.0, cubeta 3): tocar un paso despliega sus expedientes, cada uno con su liga', !!document.querySelector('#serviciosCicloTabla tr.hijo a[data-expediente="E4"]'));
+              await irHash('#servicios/E99'); await esperar(() => pagS() === 'servicios', 'expediente que no existe');
+              R.ok('servicios (v1.0.0, cubeta 3): un expediente que no está en el corte cae a la lista y lo dice', /No hay un expediente E99/.test($('serviciosSub').textContent) && document.querySelectorAll('#serviciosTabla tr.srv-fila').length === 4);
+              await irHash('#servicios'); await esperar(() => pagS() === 'servicios' && !/E99/.test($('serviciosSub').textContent), 'servicios otra vez'); }
             // (d) corte viejo
             DB.datos['servicios.json'] = JSON.stringify({ ...FIX, generado: local(-20).slice(0, 19) });
-            clic('btnLeerServicios'); await esperar(() => $('serviciosCorte') && /20 días/.test($('serviciosCorte').textContent), 'servicios corte viejo');
-            R.ok('servicios: un corte de 20 días pide re-publicar', /re-publicar/.test($('serviciosCorte').textContent));
+            const corteViejoS = () => document.querySelector('#serviciosCuerpo #rpCorte');
+            clic('btnLeerServicios'); await esperar(() => corteViejoS() && corteViejoS().dataset.dias === '20', 'servicios corte viejo');
+            R.ok('servicios (v1.0.0, cubeta 3: el corte va en el chip de la cabecera): un corte de 20 días pide re-publicar — el chip en ROJO y su title lo dice', corteViejoS().classList.contains('is-danger') && /re-publicar/.test(corteViejoS().title));
             // (e) el refresco de la app no relee el archivo
             const nLeidas = leidasOp();
             await recargarYEsperar();
@@ -4284,21 +4317,134 @@ try {
             clic('btnLeerCompras'); await esperar(() => $('comprasTabla'), 'compras tabla');
             const ren = () => [...document.querySelectorAll('#comprasTabla tr.cmp-fila')];
             R.ok('compras: una fila por orden, la más nueva primero', ren().map(f => f.dataset.folio).join() === 'PDH-009,PDH-008,PDH-001', ren().map(f => f.dataset.folio).join());
-            R.ok('compras: el total con IVA y su moneda; el concepto une las partidas', /23,780\.00 MXN/.test(ren()[0].querySelector('.cmp-total').textContent) && / \+ Servicio a pozo/.test(ren()[0].querySelector('.cmp-concepto').textContent));
-            R.ok('compras: «Emitido en el año» suma solo las de este año, con IVA', /36,424\.00 MXN/.test($('comprasKpis').children[1].textContent) && /2 órdenes/.test($('comprasKpis').children[1].textContent), $('comprasKpis').children[1].textContent);
+            R.ok('compras (v1.0.0, cubeta 3: el total en la columna «Total MXN», como la maqueta): el total con IVA; el concepto une las partidas', /^\$23,780\.00$/.test(ren()[0].querySelector('.cmp-total').textContent) && /Total MXN/.test(document.querySelector('#comprasTabla thead').textContent) && / \+ Servicio a pozo/.test(ren()[0].querySelector('.cmp-concepto').textContent), ren()[0].querySelector('.cmp-total').textContent);
+            R.ok('compras (v1.0.0, cubeta 3: KPI de la plantilla): «Emitido en el año» suma solo las de este año, con IVA', /\$36,424\.00/.test($('comprasKpis').children[1].textContent) && /2 órdenes/.test($('comprasKpis').children[1].textContent), $('comprasKpis').children[1].textContent);
+            { const kpiC = k => document.querySelector(`#comprasKpis [data-kpi="${k}"] b`)?.textContent, svgC = document.querySelector('#comprasCuerpo #rpGrafica svg');
+              R.ok('compras (v1.0.0, cubeta 3): la plantilla de la maqueta — «Órdenes de compra», una barra por orden, 5 KPIs (3 órdenes, 1 partida que no cuadra) y el desplegable PROVEEDOR', document.querySelector('#comprasCuerpo .rp-pag')?.dataset.reporte === 'compras' && $('rpTitulo').textContent === 'Órdenes de compra' && svgC?.dataset.tipo === 'bar' && svgC.dataset.n === '3' && document.querySelectorAll('#comprasKpis .rp-kpi').length === 5 && kpiC('ordenes') === '3' && kpiC('nocuadra') === '1' && /PROVEEDOR: TODOS/.test($('comprasProveedor').textContent)); }
             R.ok('compras: texto con HTML se pinta como texto (sin XSS)', !window.__xssCmp && /<img src=x/.test(ren()[0].textContent));
-            ren()[0].querySelector('.cmp-abrir').click(); await esperar(() => document.querySelector('#comprasTabla .cmp-detalle'), 'partidas');
-            const det = document.querySelector('#comprasTabla .cmp-detalle');
-            R.ok('compras: el folio abre las partidas con cantidad × P.U., su importe y el desglose', det.querySelectorAll('.cmp-partidas li').length === 2 && /2,000 Litros × 10\.00/.test(det.textContent) && /Subtotal 20,500\.00 · IVA 3,280\.00 · Total 23,780\.00 MXN/.test(det.textContent) && document.querySelector('[data-folio="PDH-009"] .cmp-abrir').getAttribute('aria-expanded') === 'true', det.textContent);
-            R.ok('compras: una partida que no cuadra (cantidad × P.U. ≠ importe) se señala en la fila', /una partida no cuadra/.test(ren()[1].querySelector('.cmp-concepto').textContent) && !/no cuadra/.test(ren()[0].textContent));
+            ren()[0].querySelector('.rp-exp').click(); await esperar(() => document.querySelector('#comprasTabla tr.hijo.cmp-partida'), 'partidas');
+            const det = [...document.querySelectorAll('#comprasTabla tr.hijo.cmp-partida')], r0 = ren()[0].textContent;
+            R.ok('compras (v1.0.0, cubeta 3: las partidas son renglones desplegables, maqueta com-ordenes): el folio abre sus partidas con cantidad, × P.U. e importe; la orden trae subtotal, IVA y total', det.length === 2 && /2,000 Litros/.test(det[0].textContent) && /× \$10\.00/.test(det[0].textContent) && /\$20,500\.00/.test(r0) && /\$3,280\.00/.test(r0) && /\$23,780\.00/.test(r0) && document.querySelector('[data-folio="PDH-009"] .rp-exp').getAttribute('aria-expanded') === 'true', det.map(x => x.textContent).join(' | '));
+            R.ok('compras (v1.0.0, cubeta 3: la marca «no cuadra» de la maqueta, junto al folio): una partida que no cuadra se señala en su orden y no en las demás', /no cuadra/.test(ren()[1].querySelector('.cmp-folio').textContent) && !/no cuadra/.test(ren()[0].textContent));
             const nLeidas = leidasOp();
             await recargarYEsperar();
-            R.ok('compras: el refresco no relee el archivo y la orden abierta sigue abierta', leidasOp() === nLeidas && !!document.querySelector('#comprasTabla .cmp-detalle'));
+            R.ok('compras: el refresco no relee el archivo y la orden abierta sigue abierta', leidasOp() === nLeidas && !!document.querySelector('#comprasTabla tr.hijo.cmp-partida'));
+            // v1.0.0 (cubeta 3): #compras/partidas = todas las órdenes abiertas y el CSV por partida
+            await irHash('#compras/partidas'); await esperar(() => document.querySelector('#comprasCuerpo .rp-pag')?.dataset.reporte === 'compras-partidas', 'partidas por orden');
+            clic('rpExportar'); await dormir(10); const RPc = await import('../reporte.js');
+            R.ok('compras (v1.0.0, cubeta 3): «Partidas por orden» nace con TODAS las órdenes abiertas (5 partidas) y exporta una fila por partida', $('rpTitulo').textContent === 'Partidas por orden' && document.querySelectorAll('#comprasTabla tr.hijo.cmp-partida').length === 5 && !document.querySelector('#comprasTabla .rp-exp') && /^compras-partidas_/.test(RPc.ultimoCsv.nombre) && RPc.ultimoCsv.texto.trim().split(String.fromCharCode(13, 10)).length === 6, RPc.ultimoCsv.nombre);
+            await irHash('#compras'); await esperar(() => document.querySelector('#comprasCuerpo .rp-pag')?.dataset.reporte === 'compras', 'órdenes otra vez');
             DB.datos['compras.json'] = JSON.stringify({ ...FIX, generado: local(-20).slice(0, 19) });
-            clic('btnLeerCompras'); await esperar(() => $('comprasCorte') && /20 días/.test($('comprasCorte').textContent), 'compras corte viejo');
-            R.ok('compras: un corte de 20 días pide re-publicar', /re-publicar/.test($('comprasCorte').textContent));
+            const corteC = () => document.querySelector('#comprasCuerpo #rpCorte');
+            clic('btnLeerCompras'); await esperar(() => corteC() && corteC().dataset.dias === '20', 'compras corte viejo');
+            R.ok('compras (v1.0.0, cubeta 3: el corte va en el chip de la cabecera): un corte de 20 días pide re-publicar — el chip en ROJO y su title lo dice', corteC().classList.contains('is-danger') && /re-publicar/.test(corteC().title));
             R.ok('compras: CERO escrituras (solo lee)', escritas() === esc0);
         }
+        pestana('inicio'); await dormir(30);
+    }
+    // ==================================================================================================================
+    // v1.0.0 (rediseño 2026-10-02, cubeta 3 «Operación + Trabajo»): los 5 reportes de Trabajo con la plantilla (tendencia, KPIs, la tarjeta de
+    // detalle de siempre y «Datos del reporte»), el ámbito, los Guardados de Trabajo, y la cabecera/KPIs de Proyectos, del proyecto, de Roadmap y
+    // de Calendario. Solo LEE, salvo la vista guardada, que se borra al final.
+    {
+        for (const d of document.querySelectorAll('dialog[open]')) d.close();
+        document.querySelector('#avisos .cerrar')?.click();
+        ESTADO.filtroEquipo = null;
+        const celular = matchMedia('(max-width: 720px)').matches;
+        const pagR = () => document.querySelector('#reportesCuerpo .rp-pag')?.dataset.reporte;
+        const kpiR = k => document.querySelector(`#reportesCuerpo #rpKpis [data-kpi="${k}"]`);
+        const vivo = sel => !!document.querySelector(sel) && !document.querySelector(sel).closest('.oculto');
+        const filasDatos = () => document.querySelectorAll('#reportesTabla > tbody > tr:not(.hijo):not(.tot)').length;
+        const RPt = await import('../reporte.js');
+        // (a) #reportes a secas = Avance; cada página por su ruta, con su título, su tarjeta de detalle a la vista y su «Datos del reporte»
+        await irHash('#reportes'); await esperar(() => pagR() === 'reportes-avance', 'reportes = avance', 4000).catch(() => {});
+        R.ok('v1.0.0 (cubeta 3): #reportes a secas es «Avance» — cabecera de la plantilla con «?», rango (desde hoy, sin chip de corte) e «Imprimir»; el anillo y las barras por frente a la vista; «Datos del reporte» al pie',
+            pagR() === 'reportes-avance' && $('rpTitulo').textContent === 'Avance' && !!document.querySelector('#reportesCuerpo .rp-qm') && !!$('rpRango') && !document.querySelector('#reportesCuerpo #rpCorte') && !!document.querySelector('#reportesCuerpo .rp-top-der #btnImprimirReportes') && vivo('#repGlobal') && vivo('#repProyectos') && !vivo('#repPersonas') && !!document.querySelector('#reportesDatos #rpDatos'));
+        const PAGS = [['avance', 'Avance', '#repProyectos'], ['carga', 'Carga por persona', '#repPersonas'], ['semanas', 'Hechas y nuevas', '#repSemanas'], ['actividad', 'Actividad 30 días', '#repActividad'], ['vencidas', 'Vencidas', '#repVencidas']];
+        const malas = [];
+        for (const [r, t, sec] of PAGS) {
+            await irHash('#reportes/' + r);
+            const ok = await esperar(() => pagR() === 'reportes-' + r && $('rpTitulo')?.textContent === t && vivo(sec) && document.querySelectorAll('#repDetalle > [data-rep]:not(.oculto)').length === (r === 'avance' ? 2 : 1) && !!document.querySelector('#reportesDatos .rp-tabla') && document.querySelector('#panelArbol .panel-modulo:not([hidden]) .ch.on')?.dataset.ir === '#reportes/' + r, r, 4000).then(() => true, () => false);
+            if (!ok) malas.push(r);
+        }
+        R.ok('v1.0.0 (cubeta 3): las 5 páginas de Reportes abren por su ruta con su título, SU tarjeta de detalle (las demás ocultas), «Datos del reporte» y su entrada del panel resaltada', !malas.length, malas.join());
+        // (b) las cifras nuevas cuadran con las tarjetas de siempre
+        await irHash('#reportes/avance'); await esperar(() => pagR() === 'reportes-avance', 'avance');
+        { const pctAnillo = document.querySelector('#repGlobal svg.anillo text.pct').textContent;
+          R.ok('v1.0.0 (cubeta 3): Avance — el KPI «Avance actual» es el % del anillo, la fila compara contra hace 30/60/180/365 días y la tabla trae un renglón por frente activo', kpiR('actual')?.querySelector('b').textContent === pctAnillo && ['hace30', 'hace60', 'hace180', 'hace365'].every(k => !!kpiR(k)) && filasDatos() === document.querySelectorAll('#repProyectos [data-rep-p]').length && !!document.querySelector('#reportesCuerpo #rpGrafica svg'), `${kpiR('actual')?.textContent} vs ${pctAnillo}`); }
+        { const exp = document.querySelector('#reportesTabla .rp-exp'); if (exp) { exp.click(); await dormir(20); }
+          R.ok('v1.0.0 (cubeta 3): un frente de «Datos del reporte» se despliega en sus cubetas (solo las que tienen tarjetas)', !exp || (!!document.querySelector('#reportesTabla tr.hijo') && document.querySelector('#reportesTabla .rp-exp').getAttribute('aria-expanded') === 'true' && [...document.querySelectorAll('#reportesTabla tr.hijo')].every(h => /\d/.test(h.children[1].textContent)))); }
+        clic('rpExportar'); await dormir(10);
+        R.ok('v1.0.0 (cubeta 3): exportar baja el CSV de Avance (BOM, un renglón por frente activo)', /^reporte-avance_\d{4}-\d{2}-\d{2}\.csv$/.test(RPt.ultimoCsv.nombre) && RPt.ultimoCsv.texto.charCodeAt(0) === 0xFEFF && RPt.ultimoCsv.texto.trim().split(String.fromCharCode(13, 10)).length === 1 + document.querySelectorAll('#repProyectos [data-rep-p]').length, RPt.ultimoCsv.nombre);
+        $('rpRango').click(); await dormir(10); document.querySelector('.rp-menu [data-rango="todo"]').click(); await dormir(20);
+        R.ok('v1.0.0 (cubeta 3): el rango se cuenta desde HOY y «Todo el historial» empieza en el mes de la tarjeta más vieja', /^\d{4}-\d{2}-01 a \d{4}-\d{2}-\d{2}$/.test($('rpRango').textContent.trim()) && $('rpRango').textContent.includes(new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)), $('rpRango').textContent);
+        $('rpRango').click(); await dormir(10); document.querySelector('.rp-menu [data-rango="2a"]').click(); await dormir(20);
+        await irHash('#reportes/carga'); await esperar(() => pagR() === 'reportes-carga', 'carga');
+        { const suma = [...document.querySelectorAll('#repPersonas .rep-fila .rep-barra > b')].reduce((n, b) => n + Number(b.textContent || 0), 0);
+          R.ok('v1.0.0 (cubeta 3): Carga — el KPI de hoy suma las abiertas de «Carga por persona» y la tabla trae una fila por persona', Number(kpiR('actual')?.querySelector('b').textContent) === suma && filasDatos() === document.querySelectorAll('#repPersonas .rep-fila').length, `${kpiR('actual')?.textContent} vs ${suma}`); }
+        await irHash('#reportes/semanas'); await esperar(() => pagR() === 'reportes-semanas', 'semanas');
+        R.ok('v1.0.0 (cubeta 3): Hechas y nuevas — dos series con su leyenda (Hechas · Nuevas) y 5 KPIs', document.querySelector('#reportesCuerpo #rpGrafica svg')?.dataset.series === '2' && /Hechas/.test(document.querySelector('#reportesCuerpo .rp-ley-graf')?.textContent || '') && /Nuevas/.test(document.querySelector('#reportesCuerpo .rp-ley-graf')?.textContent || '') && document.querySelectorAll('#reportesCuerpo #rpKpis .rp-kpi').length === 5);
+        await irHash('#reportes/actividad'); await esperar(() => pagR() === 'reportes-actividad', 'actividad');
+        { const suma = [...document.querySelectorAll('#repActividad .rep-fila .rep-barra > b')].reduce((n, b) => n + Number(b.textContent || 0), 0);
+          R.ok('v1.0.0 (cubeta 3): Actividad — 30 barras (una por día), sin rango, y el KPI de acciones suma lo de «Actividad por persona»', document.querySelector('#reportesCuerpo #rpGrafica svg')?.dataset.n === '30' && !$('rpRango') && Number(kpiR('acciones')?.querySelector('b').textContent) === suma, `${kpiR('acciones')?.textContent} vs ${suma}`); }
+        await irHash('#reportes/vencidas'); await esperar(() => pagR() === 'reportes-vencidas', 'vencidas');
+        { const nV = document.querySelectorAll('#repVencidas [data-abre^="t:"]').length;
+          R.ok('v1.0.0 (cubeta 3): Vencidas — el KPI de hoy y el total de la tabla son el conteo de «Vencidas por proyecto»', Number(kpiR('actual')?.querySelector('b').textContent) === nV && (nV === 0 || Number(document.querySelector('#reportesTabla tr.tot td:nth-child(2)').textContent) === nV), `${kpiR('actual')?.textContent} vs ${nV}`);
+          if (nV) {
+              document.querySelector('#reportesTabla .rp-exp').click(); await dormir(20);
+              const b = document.querySelector('#reportesTabla tr.hijo [data-abre^="t:"]'); b.click(); await esperar(() => $('dlgTarea').open, 'tarjeta desde Datos del reporte');
+              R.ok('v1.0.0 (cubeta 3): una vencida de «Datos del reporte» abre su tarjeta (/t/<id>)', $('dlgTarea').open && location.hash.endsWith('/t/' + b.dataset.abre.slice(2)), location.hash);
+              clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'tarjeta cerrada');
+          } }
+        // (c) el ámbito filtra los reportes de Trabajo
+        await irHash('#reportes/avance'); await esperar(() => pagR() === 'reportes-avance', 'avance');
+        document.querySelector(celular ? '#hojaAmbito [data-equipo="CALYTEK"]' : '#railEquipos [data-equipo="CALYTEK"]').click(); await dormir(30);
+        { const nCal = ESTADO.proyectos.filter(p => p.Estado === 'activo' && p.Equipo === 'CALYTEK').length;
+          R.ok('v1.0.0 (cubeta 3): el ámbito (una unidad del rail) filtra los reportes de Trabajo — Avance de CALYTEK trae solo sus frentes y el subtítulo lo dice', pagR() === 'reportes-avance' && filasDatos() === nCal && /CALYTEK/.test($('reportesSub').textContent), `${filasDatos()} vs ${nCal}`); }
+        // (d) Guardados de Trabajo: el disquete guarda la vista (ruta, rango, periodo y ÁMBITO) con Modulo «trabajo»; el panel la lista y la abre
+        if (escribe) {
+            const GU = await import('../guardados.js');
+            await irHash('#reportes/carga'); await esperar(() => pagR() === 'reportes-carga', 'carga con ámbito');
+            clic('rpGuardar'); await esperar(() => $('rpGuNombre'), 'guardar una vista de Trabajo');
+            const sugerido = $('rpGuNombre').value;
+            poner('rpGuNombre', 'Carga de CALYTEK (prueba)'); clic('rpGuGuardar');
+            await esperar(() => $('rpPop').hidden && GU.guardadosDe('trabajo').some(v => v.titulo === 'Carga de CALYTEK (prueba)'), 'vista de Trabajo guardada');
+            const gv = GU.guardadosDe('trabajo').find(v => v.titulo === 'Carga de CALYTEK (prueba)');
+            R.ok('v1.0.0 (cubeta 3): el disquete de un reporte de Trabajo guarda la VISTA con Modulo «trabajo», su ruta y su ámbito (en ERP_Vistas, o en este equipo sin la lista)', /^Carga por persona · /.test(sugerido) && gv.modulo === 'trabajo' && gv.definicion.tipo === 'reporte' && gv.definicion.ruta === '#reportes/carga' && gv.definicion.ambito === 'CALYTEK'
+                && (GU.estadoGuardados().modo === 'local' || DB.listas.vistas.items.some(x => x.fields.Modulo === 'trabajo' && x.fields.Title === 'Carga de CALYTEK (prueba)')), JSON.stringify(gv && gv.definicion));
+            clic('quitarAmbito'); await dormir(20); await irHash('#proyectos'); await esperar(() => visible('p-proyectos'), 'proyectos');
+            const sv = [...document.querySelectorAll('#panelArbol [data-modulo="trabajo"] .panel-guardados .sv')].find(b => /Carga de CALYTEK \(prueba\)/.test(b.textContent));
+            R.ok('v1.0.0 (cubeta 3): «Guardados» del panel de Trabajo lista la vista guardada', !!sv);
+            if (sv) { sv.click(); await esperar(() => pagR() === 'reportes-carga' && location.hash === '#reportes/carga', 'vista de Trabajo abierta', 4000).catch(() => {}); }
+            R.ok('v1.0.0 (cubeta 3): abrir la vista guardada lleva a #reportes/carga y vuelve a poner su ámbito (CALYTEK)', location.hash === '#reportes/carga' && ESTADO.filtroEquipo === 'CALYTEK' && !$('chipAmbito').hidden, `${location.hash} · ${ESTADO.filtroEquipo}`);
+            await GU.borrarVista(gv); ESTADO.filtroEquipo = null;
+            R.ok('v1.0.0 (cubeta 3): quitar la vista de Trabajo la borra (de ERP_Vistas o de este equipo)', !GU.guardadosDe('trabajo').some(v => v.titulo === 'Carga de CALYTEK (prueba)') && (GU.estadoGuardados().modo === 'local' || !DB.listas.vistas.items.some(x => x.fields.Modulo === 'trabajo')));
+        } else {
+            await irHash('#reportes/carga'); await esperar(() => pagR() === 'reportes-carga', 'carga');
+            R.ok(`${ROL} (v1.0.0, cubeta 3): sin disquete en los reportes de Trabajo (lectura no guarda vistas)`, !$('rpGuardar'));
+            ESTADO.filtroEquipo = null;
+        }
+        // (e) Proyectos, el proyecto, Roadmap y Calendario con la cabecera y las tarjetas de la plantilla
+        await irHash('#proyectos'); await esperar(() => visible('p-proyectos'), 'proyectos');
+        { const kp = k => document.querySelector(`#proyectosKpis [data-kpi="${k}"] b`)?.textContent;
+          const ids = new Set(ESTADO.proyectos.filter(p => p.Estado === 'activo').map(p => p.id)), ab = ESTADO.tareas.filter(t => ids.has(Number(t.ProyectoId)) && t.Columna !== 'hecho').length;
+          R.ok('v1.0.0 (cubeta 3): Proyectos lleva la cabecera de la plantilla («Proyectos» + «?») con «Nuevo proyecto» en sus acciones (solo gerencia lo ve) y la fila de KPIs de la maqueta',
+              document.querySelector('#proyectosCab .rp-h')?.textContent === 'Proyectos' && !!document.querySelector('#proyectosCab .rp-qm') && !!document.querySelector('#proyectosCab .rp-top-der #btnNuevoProyecto') && $('btnNuevoProyecto').hidden === !gerencia
+              && document.querySelectorAll('#proyectosKpis .rp-kpi').length === 5 && Number(kp('frentes')) === ids.size && Number(kp('abiertas')) === ab, `${kp('frentes')}/${ids.size} · ${kp('abiertas')}/${ab}`); }
+        { const pL = ESTADO.proyectos.find(p => p.Clave === CLAVE);
+          await irHash('#p/' + CLAVE); await esperar(() => visible('p-proyecto'), 'proyecto');
+          const abL = ESTADO.tareas.filter(t => Number(t.ProyectoId) === pL.id && t.Columna !== 'hecho').length, caja = document.querySelector('#p-proyecto .dos-columnas > .apilado:not(.lateral)');
+          R.ok('v1.0.0 (cubeta 3): el proyecto trae la fila de KPIs de la maqueta (abiertas · vencidas · alta · % hechas · fin) y su tablero en UNA tarjeta, con las columnas de la maqueta (.col en versalitas)',
+              Number(document.querySelector('#proyectoKpis [data-kpi="abiertas"] b')?.textContent) === abL && document.querySelectorAll('#proyectoKpis .rp-kpi').length === 5 && getComputedStyle(caja).borderTopStyle === 'solid'
+              && (!document.querySelector('#tableroCols .col h3') || getComputedStyle(document.querySelector('#tableroCols .col h3')).textTransform === 'uppercase'), `${document.querySelector('#proyectoKpis [data-kpi="abiertas"] b')?.textContent}/${abL}`);
+          const contraida = $('proyectoCab').classList.contains('contraida');
+          clic('btnCabecera'); await dormir(10); const plegada = $('proyectoKpisCard').classList.contains('oculto');
+          clic('btnCabecera'); await dormir(10);
+          R.ok('v1.0.0 (cubeta 3): contraer la cabecera del proyecto pliega también su fila de KPIs (y desplegarla la devuelve)', plegada === !contraida && $('proyectoKpisCard').classList.contains('oculto') === contraida); }
+        await irHash('#roadmap'); await esperar(() => visible('p-roadmap'), 'roadmap');
+        R.ok('v1.0.0 (cubeta 3): Roadmap con la cabecera de la plantilla («Roadmap» + «?») y su subtítulo de siempre (#roadmapSub)', document.querySelector('#roadmapCab .rp-h')?.textContent === 'Roadmap' && !!document.querySelector('#roadmapCab .rp-qm') && /frentes? /.test($('roadmapSub').textContent));
+        await irHash('#calendario'); await esperar(() => visible('p-calendario'), 'calendario');
+        R.ok('v1.0.0 (cubeta 3): Calendario con la cabecera de la plantilla; el mes (‹ Hoy ›) y «todo | solo mías» van en sus acciones y el subtítulo sigue contando', document.querySelector('#calCab .rp-h')?.textContent === 'Calendario' && !!document.querySelector('#calCab .rp-top-der #calNav') && !!document.querySelector('#calCab .rp-top-der #calFiltro') && /tarjetas? con fecha este mes/.test($('calSub').textContent));
         pestana('inicio'); await dormir(30);
     }
     // ==================================================================================================================

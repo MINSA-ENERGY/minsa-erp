@@ -8,7 +8,7 @@
 //   import { pintarReporte } from './reporte.js';
 //   pintarReporte($('comprasCuerpo'), {
 //       id: 'compras-ordenes', titulo: 'Órdenes de compra', ayuda: 'Cómo se calcula: …', corte: datos.generado,
-//       grafica: { tipos: false, grano: false, moneda: 'MXN', datos: v => ({ puntos: ordenes.map(o => ({ etiqueta: o.folio, y: o.total })) }) },
+//       grafica: { tipos: false, grano: false, moneda: v => 'MXN', datos: v => ({ puntos: ordenes.map(o => ({ etiqueta: o.folio, y: o.total })) }) },
 //       kpis: v => [{ valor: '7', texto: 'Órdenes emitidas' }, { valor: fmtCorto(total, 'MXN'), texto: 'Emitido en 2026' }],
 //       datos: {
 //           columnas: [{ texto: '' }, { texto: 'Fecha' }, { texto: 'Total MXN', n: true }],
@@ -22,6 +22,11 @@
 //
 // `v` es el estado de la vista ({ tipo, grano, rango, valores, serieVis, moneda, abiertos }); vive la sesión por `id` y el tipo de gráfica
 // y la moneda se recuerdan por dispositivo. Cada clic que cambia `v` vuelve a pintar el reporte (pintarReporte con el mismo def).
+//
+// Lo que sumó la cubeta 3 (Operación + Trabajo), todo opcional: `hasta` (AAAA-MM-DD: el rango sin chip de corte, lo que no sale de JSON) ·
+// `kpisId` · `datosEn` (otra caja para «Datos del reporte») · en `grafica`: `fmtCorto`/`fmtLargo`/`fmtEje` (cifras que no son dinero),
+// `leyenda` [{ color, nombre }] y `nombresEnGlobo` · en cada KPI: `malo` (subir es malo), `dif` + `difClase` (un cambio ya escrito), `titulo`
+// · y `desplegable({ id, opciones, actual, alElegir })`, el «TODOS LOS EXPEDIENTES ⌄» de la maqueta.
 
 import { el, boton, iconoSvg, TRAZOS, conservarFoco } from './comun.js';
 import { RANGOS, GRANOS, escala, textoRango, fmtMonto, fmtCorto, fmtEje, textoPct, colorCorte, diaIso, fechaCorta, csv, nombreCsv } from './reporte-reglas.js';
@@ -107,11 +112,13 @@ export function cabecera(def, v, repintar) {
         g.title = 'Guardar esta vista en «Guardados»'; g.setAttribute('aria-label', g.title); g.appendChild(icono('disco')); bx.appendChild(g);
         lado.appendChild(bx);
     }
-    if (def.rango && def.corte) {
+    // v1.0.0 (cubeta 3): lo que NO sale de un JSON (los reportes de Trabajo) cuenta el rango desde `def.hasta` (hoy) y no pinta el chip del corte
+    const finRango = def.corte ? diaIso(def.corte) : def.hasta || null;
+    if (def.rango && finRango) {
         const caja = el('div', 'rp-rng');
-        const b = boton('', 'rp-rng-b', ev => { ev.stopPropagation(); abrirMenu(b, m => { for (const r of RANGOS) m.appendChild(opcionMenu(`${r.texto} · ${textoRango(r.clave, diaIso(def.corte), def.primera)}`, v.rango === r.clave, () => { v.rango = r.clave; repintar(); }, { rango: r.clave })); }); }, { rp: 'rango' });
-        b.id = 'rpRango'; b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false'); b.title = 'Rango de fechas (contado desde el corte)';
-        b.appendChild(el('span', '', textoRango(v.rango, diaIso(def.corte), def.primera))); b.appendChild(icono('chev'));
+        const b = boton('', 'rp-rng-b', ev => { ev.stopPropagation(); abrirMenu(b, m => { for (const r of RANGOS) m.appendChild(opcionMenu(`${r.texto} · ${textoRango(r.clave, finRango, def.primera)}`, v.rango === r.clave, () => { v.rango = r.clave; repintar(); }, { rango: r.clave })); }); }, { rp: 'rango' });
+        b.id = 'rpRango'; b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false'); b.title = def.corte ? 'Rango de fechas (contado desde el corte)' : 'Rango de fechas (contado desde hoy)';
+        b.appendChild(el('span', '', textoRango(v.rango, finRango, def.primera))); b.appendChild(icono('chev'));
         caja.appendChild(b); lado.appendChild(caja);
     }
     const ask = el('button', 'ask rp-ask'); ask.type = 'button'; ask.hidden = true; ask.dataset.preguntar = def.id || '';   // hueco de «Preguntar» (cubeta 4)
@@ -142,9 +149,25 @@ function controles(g, v, repintar) {
     val.id = 'rpValores'; val.title = 'Mostrar valores'; val.setAttribute('aria-label', 'Mostrar valores'); val.setAttribute('aria-pressed', String(v.valores));
     const n = el('span', 'rp-n123'); n.appendChild(el('span', '', '123')); n.appendChild(icono('onda')); val.appendChild(n); tl.appendChild(val);
     c.appendChild(tl);
+    // v1.0.0 (cubeta 3): con varias series (Hechas y nuevas) la leyenda va en la fila de controles: color + nombre de cada una
+    if (g.leyenda && g.leyenda.length) { const ly = el('div', 'rp-ley-graf'); for (const s of g.leyenda) { const x = el('span', 'rp-leyenda'); const i = el('i'); i.style.background = s.color; x.appendChild(i); x.appendChild(document.createTextNode(s.nombre)); ly.appendChild(x); } c.appendChild(ly); }
     c.appendChild(el('span', 'rp-esp'));
     if (g.grano !== false) c.appendChild(segmentado('Periodo', GRANOS, v.grano, k => { v.grano = k; repintar(); }, 'grano'));
     return c;
+}
+/**
+ * v1.0.0 (cubeta 3): un desplegable de la maqueta (.dd: «TODOS LOS EXPEDIENTES ⌄», «PROVEEDOR: PRODEOS ⌄», «TODAS LAS UNIDADES ⌄») con el
+ * menú flotante de la plantilla. `opciones` [{ clave, texto }]; el botón dice la elegida en versalitas.
+ */
+export function desplegable({ id, opciones, actual, alElegir, titulo = '', prefijo = '' }) {
+    const dd = el('div', 'rp-dd');
+    const elegida = opciones.find(o => o.clave === actual) || opciones[0];
+    const b = boton('', 'rp-dd-b', ev => { ev.stopPropagation(); abrirMenu(b, m => { for (const o of opciones) m.appendChild(opcionMenu(o.texto, o.clave === (elegida && elegida.clave), () => alElegir(o.clave), { opcion: String(o.clave) })); }); }, { rp: 'dd:' + (id || '') });
+    if (id) b.id = id;
+    b.dataset.valor = elegida ? String(elegida.clave) : ''; b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false'); if (titulo) b.title = titulo;
+    b.appendChild(el('span', '', (prefijo + (elegida ? elegida.texto : '')).toUpperCase())); b.appendChild(icono('chev'));
+    dd.appendChild(b);
+    return dd;
 }
 
 const graficas = new WeakMap();   // la caja de la gráfica → con qué se pintó (para volver a pintarla al cambiar el ancho)
@@ -156,6 +179,8 @@ let idGrad = 0;
 export function grafica(caja, o) {
     graficas.set(caja, o);
     caja.textContent = '';
+    // v1.0.0 (cubeta 3): una gráfica que no es de dinero (tarjetas, %, expedientes) trae sus formatos; sin ellos, los de moneda de siempre
+    const fCorto = o.fmtCorto || (y => fmtCorto(y, o.moneda)), fLargo = o.fmtLargo || (y => fmtMonto(y, o.moneda, o.decimales ?? 2)), fEje = o.fmtEje || (m => fmtEje(m, o.moneda));
     const series = o.series || [{ color: null, puntos: o.puntos || [] }];
     const p0 = series[0].puntos;
     if (!p0.length) { caja.appendChild(el('p', 'rp-vacio', o.vacio || 'Sin datos en este rango.')); return; }
@@ -172,7 +197,7 @@ export function grafica(caja, o) {
     lg.appendChild(svgEl('stop', { offset: 0 }, 'rp-stop1')); lg.appendChild(svgEl('stop', { offset: 1 }, 'rp-stop0')); defs.appendChild(lg); svg.appendChild(defs);
     for (const m of esc.marcas) {
         svg.appendChild(svgEl('line', { x1: L, x2: W - R + 12, y1: ys(m), y2: ys(m) }, m === 0 ? 'rp-cero' : 'rp-reja'));
-        const t = svgEl('text', { x: L - 10, y: ys(m) + 4, 'text-anchor': 'end' }, 'rp-eje'); t.textContent = fmtEje(m, o.moneda); svg.appendChild(t);
+        const t = svgEl('text', { x: L - 10, y: ys(m) + 4, 'text-anchor': 'end' }, 'rp-eje'); t.textContent = fEje(m); svg.appendChild(t);
     }
     svg.appendChild(svgEl('line', { x1: L, x2: L, y1: T - 6, y2: ys(Math.max(esc.piso, 0)) }, 'rp-cero'));
     const cada = Math.max(1, Math.round(n / (estrecha ? 4 : 6)));
@@ -186,7 +211,7 @@ export function grafica(caja, o) {
                 s.puntos.forEach((p, i) => {
                     const x = k > 1 ? xs(i) - gw / 2 + si * bw : xs(i) - bw / 2, y0 = ys(Math.max(0, esc.piso)), y1 = ys(p.y);
                     svg.appendChild(pintar(svgEl('rect', { x, y: Math.min(y0, y1), width: Math.max(1, bw - (k > 1 ? 1 : 0)), height: Math.max(0, Math.abs(y0 - y1)) }, 'rp-barra' + (o.neg || p.y < 0 ? ' is-neg' : '')), 'fill'));
-                    if (o.valores && k === 1 && p.y && (n <= 16 || i % 2 === 0)) { const t = svgEl('text', { x: xs(i), y: y1 - 7, 'text-anchor': 'middle' }, 'rp-val'); t.textContent = fmtCorto(p.y, o.moneda); svg.appendChild(t); }
+                    if (o.valores && k === 1 && p.y && (n <= 16 || i % 2 === 0)) { const t = svgEl('text', { x: xs(i), y: y1 - 7, 'text-anchor': 'middle' }, 'rp-val'); t.textContent = fCorto(p.y); svg.appendChild(t); }
                 });
             } else {
                 const d = s.puntos.map((p, i) => `${i ? 'L' : 'M'}${xs(i).toFixed(1)},${ys(p.y).toFixed(1)}`).join('');
@@ -199,7 +224,7 @@ export function grafica(caja, o) {
                     const yy = ys(p.y) - 9;
                     if (o.valores && (i % lbl === 0 || i === n - 1) && p.y !== prev && !(usados[i] || []).some(u => Math.abs(u - yy) < 14)) {
                         (usados[i] = usados[i] || []).push(yy);
-                        const t = svgEl('text', { x: xs(i), y: yy, 'text-anchor': 'middle' }, 'rp-val' + (k > 1 ? ' is-multi' : '')); t.textContent = fmtCorto(p.y, o.moneda); svg.appendChild(t); prev = p.y;
+                        const t = svgEl('text', { x: xs(i), y: yy, 'text-anchor': 'middle' }, 'rp-val' + (k > 1 ? ' is-multi' : '')); t.textContent = fCorto(p.y); svg.appendChild(t); prev = p.y;
                     }
                 });
             }
@@ -215,9 +240,10 @@ export function grafica(caja, o) {
             const p = s.puntos[i]; if (!p) continue;
             const r = el('div', 'rp-g-r');
             if (s.color) { const q = el('i', 'rp-ley'); q.style.background = s.color; r.appendChild(q); }
-            r.appendChild(el('b', '', fmtMonto(p.y, o.moneda, o.decimales ?? 2)));
+            r.appendChild(el('b', '', fLargo(p.y)));
+            if (o.nombresEnGlobo && s.nombre) r.appendChild(el('small', 'rp-g-n', s.nombre));   // v1.0.0 (cubeta 3): «Hechas» / «Nuevas» junto a su cifra (los segmentos de Dinero no: su nombre es una frase)
             globo.appendChild(r);
-            if (k === 1 && p.inc != null && p.inc !== p.y && o.incTexto) globo.appendChild(el('small', '', `${o.incTexto}: ${fmtMonto(p.inc, o.moneda, o.decimales ?? 2)}`));
+            if (k === 1 && p.inc != null && p.inc !== p.y && o.incTexto) globo.appendChild(el('small', '', `${o.incTexto}: ${fLargo(p.inc)}`));
         }
         const escalaX = (svg.getBoundingClientRect().width || W) / W, ymax = Math.max(...series.map(s => (s.puntos[i] || {}).y || 0));
         // el globo se queda dentro de la caja: no más a la izquierda o a la derecha que su mitad
@@ -241,9 +267,11 @@ window.addEventListener('resize', () => { clearTimeout(reajuste); reajuste = set
 export function filaKpis(kpis, id = 'rpKpis') {
     const f = el('div', 'rp-kpis'); f.id = id;
     for (const k of kpis) {
-        const d = el('div', 'rp-kpi'); if (k.clave) d.dataset.kpi = k.clave;
+        const d = el('div', 'rp-kpi'); if (k.clave) d.dataset.kpi = k.clave; if (k.titulo) d.title = k.titulo;
         d.appendChild(el('b', k.clase || '', k.valor));
-        if (k.pct !== null && k.pct !== undefined) d.appendChild(el('i', k.pct >= 0 ? 'pos' : 'neg', textoPct(k.pct)));
+        // v1.0.0 (cubeta 3): `malo` = subir es malo (vencidas, abiertas): el color sigue al sentido; `dif` = un cambio ya escrito («+5 pts»)
+        if (k.pct !== null && k.pct !== undefined) d.appendChild(el('i', (k.pct >= 0) !== !!k.malo ? 'pos' : 'neg', textoPct(k.pct)));
+        else if (k.dif) d.appendChild(el('i', k.difClase || '', k.dif));
         d.appendChild(el('small', '', k.texto));
         f.appendChild(d);
     }
@@ -353,8 +381,9 @@ function tarjetaDatos(t, v, repintar, def) {
 
 /** Los id de la plantilla (rpTitulo, rpKpis, rpMoneda…) son de la página A LA VISTA: los que quedaron en otra pantalla (oculta) se sueltan
  *  para que no haya dos iguales en el documento. Lo llaman pintarReporte y quien pinta solo la cabecera (Capital, Gastos). */
-export function soltarIdsFuera(cont) {
-    for (const x of document.querySelectorAll('[id^="rp"]')) if (x.id !== 'rpPop' && !cont.contains(x) && !x.closest('#rpPop')) x.removeAttribute('id');
+export function soltarIdsFuera(cont, ...otros) {
+    const dentro = x => cont.contains(x) || otros.some(o => o && o.contains(x));   // v1.0.0 (cubeta 3): «Datos del reporte» puede vivir en otra caja (datosEn)
+    for (const x of document.querySelectorAll('[id^="rp"]')) if (x.id !== 'rpPop' && !dentro(x) && !x.closest('#rpPop')) x.removeAttribute('id');
 }
 
 /**
@@ -365,9 +394,13 @@ export function pintarReporte(cont, def) {
     const v = vistaDe(def.id);
     if (def.monedaInicial && (!v.moneda || (def.datos && def.datos.monedas && !def.datos.monedas.includes(v.moneda)))) v.moneda = def.monedaInicial;
     const repintar = () => pintarReporte(cont, def);
+    // v1.0.0 (cubeta 3): `datosEn` pinta «Datos del reporte» en OTRA caja (Reportes de Trabajo: la tarjeta de detalle de siempre va en medio)
+    const otra = def.datosEn || null;
+    const pintarDatos = () => { if (!otra) return; otra.textContent = ''; if (def.datos) otra.appendChild(tarjetaDatos(def.datos, v, repintar, def)); };
+    if (otra) conservarFoco(otra, ['rp', 'moneda', 'opcion'], () => { cerrarMenu(); soltarIdsFuera(cont, otra); pintarDatos(); });
     conservarFoco(cont, ['rp', 'rango', 'moneda'], () => {
         cerrarMenu();
-        soltarIdsFuera(cont);
+        soltarIdsFuera(cont, otra);
         cont.textContent = '';
         const pag = el('div', 'rp-pag'); pag.dataset.reporte = def.id;
         pag.appendChild(cabecera(def, v, repintar));
@@ -380,14 +413,15 @@ export function pintarReporte(cont, def) {
                 const caja = el('div', 'rp-grafica'); caja.id = 'rpGrafica'; card.appendChild(caja);
                 const d = def.grafica.datos(v);
                 const o = { tipo: def.grafica.tipos === false ? 'bar' : v.tipo, moneda: def.grafica.moneda ? def.grafica.moneda(v) : v.moneda, valores: v.valores, serieVis: v.serieVis, neg: def.grafica.neg,
-                    vacio: d.vacio || def.grafica.vacio, incTexto: def.grafica.incTexto, titulo: def.titulo, decimales: def.grafica.decimales };
+                    vacio: d.vacio || def.grafica.vacio, incTexto: def.grafica.incTexto, titulo: def.titulo, decimales: def.grafica.decimales,
+                    fmtCorto: def.grafica.fmtCorto, fmtLargo: def.grafica.fmtLargo, fmtEje: def.grafica.fmtEje, nombresEnGlobo: def.grafica.nombresEnGlobo };   // v1.0.0 (cubeta 3)
                 if (d.series) o.series = d.series; else o.puntos = d.puntos || [];
                 pendiente = () => grafica(caja, o);   // se pinta ya montada: mide su ancho real
             }
-            if (def.kpis) { const ks = def.kpis(v); if (ks && ks.length) card.appendChild(filaKpis(ks)); }
+            if (def.kpis) { const ks = def.kpis(v); if (ks && ks.length) card.appendChild(filaKpis(ks, def.kpisId || 'rpKpis')); }   // v1.0.0 (cubeta 3): kpisId (#serviciosKpis…)
             pag.appendChild(card);
         }
-        if (def.datos) pag.appendChild(tarjetaDatos(def.datos, v, repintar, def));
+        if (def.datos && !otra) pag.appendChild(tarjetaDatos(def.datos, v, repintar, def));
         for (const x of def.despues ? def.despues(v) : []) pag.appendChild(x);
         cont.appendChild(pag);
         if (pendiente) pendiente();

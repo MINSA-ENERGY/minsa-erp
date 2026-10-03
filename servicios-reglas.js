@@ -48,6 +48,38 @@ export function resumenServicios(lista) {
     return r;
 }
 
+// ---------------------------------------------------------------- v1.0.0 (rediseño 2026-10-02, cubeta 3): la plantilla de reporte
+
+/** ¿Está detenido? (bloqueado o con un paso pasado a medias: lo mismo que cuenta resumenServicios). */
+export const detenido = e => !!(e.bloqueado || (e.rotos || []).length);
+/** El filtro de «Datos del reporte» (maqueta: el desplegable sobre la tabla). */
+export const FILTROS_SERVICIOS = [{ clave: 'todos', texto: 'Todos los expedientes' }, { clave: 'curso', texto: 'En curso' }, { clave: 'detenidos', texto: 'Detenidos' }, { clave: 'cobro', texto: 'En cobro (paso 11)' }];
+export function filtrarServicios(lista, filtro) {
+    if (filtro === 'detenidos') return lista.filter(detenido);
+    if (filtro === 'cobro') return lista.filter(e => e.paso === N_PASOS - 1);
+    if (filtro === 'curso') return lista.filter(e => !detenido(e) && e.paso !== N_PASOS - 1);
+    return lista.slice();
+}
+/** Días de calendario de `desde` (AAAA-MM-DD) a `hoy` (AAAA-MM-DD); null sin fecha. */
+export function diasDesdeFecha(desde, hoy) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(desde || '') || !/^\d{4}-\d{2}-\d{2}$/.test(hoy || '')) return null;
+    const f = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+    return Math.round((f(hoy) - f(desde)) / 86400000);
+}
+/** El que más lleva esperando (por `desde`): { clave, dias } o null si ninguno trae fecha. */
+export function esperaMasLarga(lista, hoy) {
+    let m = null;
+    for (const e of lista) { const d = diasDesdeFecha(e.desde, hoy); if (d !== null && (!m || d > m.dias)) m = { clave: e.clave, dias: d }; }
+    return m;
+}
+/** «Ciclo»: los 12 pasos con sus expedientes (el más nuevo arriba) y cuántos de ellos están detenidos: [{ n, paso, quien, exps, detenidos }]. */
+export function expedientesPorPaso(lista, pasos) {
+    const orden = ordenarServicios(lista);
+    return pasos.map((p, i) => { const exps = orden.filter(e => e.paso === i); return { n: i, paso: p.paso, quien: p.quien, exps, detenidos: exps.filter(detenido).length }; });
+}
+/** El texto del estado de UN paso de un expediente (la tabla del detalle). */
+export const TEXTO_PASO = { hecho: 'hecho', actual: 'en curso', bloqueado: 'esperando', rebotado: 'quedó a medias', pendiente: 'pendiente' };
+
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 /** 2026-09-23 -> «23-sep» (sin pasar por Date: es fecha de calendario). Vacío -> «—». */
 export const fechaCorta = iso => { if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || '')) return '—'; const [, m, d] = iso.split('-'); return `${Number(d)}-${MESES[Number(m) - 1]}`; };

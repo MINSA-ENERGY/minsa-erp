@@ -21,7 +21,7 @@ import { abrirSubir, puedeLigarEn } from './docs.js';
 import { abrirNuevoGasto, estadoGastos, misRolesErp } from './gastos.js';
 import { estadoServicios } from './servicios.js';
 import { mensajesNuevos } from './vistas.js';
-import { guardadosDe, puedeAbrir, abrirGuardado, iconoDe, estadoGuardados } from './guardados.js';   // v1.0.0 (cubeta 2): «Guardados» del panel
+import { guardadosDe, puedeAbrir, abrirGuardado, iconoDe, estadoGuardados, asegurarGuardados } from './guardados.js';   // v1.0.0 (cubeta 2): «Guardados» del panel
 
 // app.js pasa su navegacion: irARuta(hash) escribe el hash y aplica la ruta (sincrono, sin popstate: no cierra dialogos ajenos);
 // irA(pantalla) va a una pantalla sin sufijo; abrirProyecto(id) abre el frente en su Tablero.
@@ -516,6 +516,7 @@ export function pintarCuenta() {
 
 /** Lo llama repintar() de app.js en cada pintada: módulo resaltado, panel, chips, unidades, chip de ámbito, anillo y contadores. */
 export function pintarArmazon() {
+    if (moduloActual() === 'trabajo' && estado.sesion) asegurarGuardados(() => nav.repintar());   // v1.0.0 (cubeta 3): los «Guardados» de Trabajo se leen al entrar al módulo (una vez por sesión)
     pintarModulos(); pintarUnidades(); pintarArbol(); pintarChips(); pintarChipAmbito(); pintarAnillo(); pintarContadorAvisos();
     document.body.dataset.modulo = moduloActual();
     if (menuAbierto() && menuDe) colocarMenu();

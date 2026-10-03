@@ -132,14 +132,23 @@
     </section>
 
     <!-- Proyectos -->
+    <!-- v1.0.0 (rediseño, cubeta 3): la cabecera de la plantilla (#proyectosCab: título + «?» + «Nuevo proyecto», que app.js le mueve), la fila
+         de KPIs de la maqueta (tablero(): abiertas, prioridad alta, vencidas, personas, frentes) y los frentes en una tarjeta «Datos». La lista
+         sigue siendo la de v0.25.0 (un renglón por frente, por lo que vence antes); los cerrados, plegados al pie. -->
     <section id="p-proyectos" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M4 10h16M9 10v9"/></svg></span><h1>Proyectos</h1><button id="btnNuevoProyecto" class="mn-btn is-primary is-sm" type="button">Nuevo proyecto</button><p class="sub" id="proyectosSub">Frentes activos, del que vence antes al que vence después.</p></header>
-      <!-- v0.7.0: el filtro por equipo vive en el rail (por rama, con icono); en celular el rail es barra de pestanas y el filtro es este select. -->
-      <label class="filtro-movil solo-movil" for="filtroEquipoMovil"><span class="mn-label">Equipo</span><select id="filtroEquipoMovil"></select></label>
-      <!-- C3: buscador fuera del proyecto (nombre, clave, descripcion) -->
-      <input id="textoProyectos" class="buscador" type="search" placeholder="Buscar un proyecto" aria-label="Buscar un proyecto" aria-keyshortcuts="/" autocomplete="off">
-      <div class="lista" id="listaProyectos"></div>
-      <details class="cerrados"><summary id="sumCerrados">Proyectos cerrados</summary><div class="lista" id="listaCerrados"></div></details>
+      <button id="btnNuevoProyecto" class="mn-btn is-primary is-sm" type="button">Nuevo proyecto</button>
+      <div class="rp-cuerpo" id="proyectosCab"></div>
+      <section class="rp-card rp-graf proyectos-kpis" id="proyectosKpisCard"><div id="proyectosKpis"></div></section>
+      <section class="rp-card proyectos-hoja">
+        <div class="rp-dh"><h3>Frentes activos</h3>
+          <!-- v0.7.0: el filtro por equipo vive en el rail (por rama, con icono); en celular el rail es barra de pestanas y el filtro es este select. -->
+          <label class="filtro-movil solo-movil" for="filtroEquipoMovil"><span class="mn-label">Equipo</span><select id="filtroEquipoMovil"></select></label>
+          <!-- C3: buscador fuera del proyecto (nombre, clave, descripcion) -->
+          <input id="textoProyectos" class="buscador" type="search" placeholder="Buscar un proyecto" aria-label="Buscar un proyecto" aria-keyshortcuts="/" autocomplete="off">
+        </div>
+        <div class="lista" id="listaProyectos"></div>
+        <details class="cerrados"><summary id="sumCerrados">Proyectos cerrados</summary><div class="lista" id="listaCerrados"></div></details>
+      </section>
     </section>
 
     <!-- Proyecto -->
@@ -161,6 +170,9 @@
         <p class="resumen-linea" id="pResumen"></p>
         <p class="sub" id="pDesc" title=""></p>
       </header>
+      <!-- v1.0.0 (rediseño, cubeta 3): la fila de KPIs de la maqueta (tablero(): abiertas · vencidas · prioridad alta · % hechas · fin del frente);
+           la pinta pintarCabeceraProyecto y se pliega con la cabecera contraída. -->
+      <section class="rp-card rp-graf proyecto-kpis" id="proyectoKpisCard"><div id="proyectoKpis"></div></section>
       <div class="dos-columnas ancha">
         <div class="apilado">
           <div class="tabs-fila"><!-- U-17 (v0.114.0): «Filtrar» fuera de la fila que rueda -->
@@ -228,7 +240,8 @@
 
     <!-- v0.10.0: Roadmap global (un frente por fila) -->
     <section id="p-roadmap" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h8M3 12h12M3 18h6"/><path d="M14 4l6 2-6 2z"/><circle cx="18" cy="12" r="1.5"/><path d="M12 18h9"/></svg></span><h1>Roadmap</h1><p class="sub" id="roadmapSub"></p></header>
+      <!-- v1.0.0 (rediseño, cubeta 3): la cabecera de la plantilla (título + «?» + subtítulo #roadmapSub); la pinta pintarRoadmap. -->
+      <div class="rp-cuerpo" id="roadmapCab"></div>
       <!-- v0.40.0 (Carlos, 14-sep): la línea de tiempo toma toda la hilera y «Fines de frente próximos» baja debajo de ella (antes lateral de 340 px). -->
       <div class="bandas">
         <!-- v0.22.0 (iteracion 4): cada tarjeta con fecha es un rombo sobre la barra de su frente; la leyenda dice que es cada cosa -->
@@ -239,10 +252,11 @@
 
     <!-- v0.10.0: Calendario mensual -->
     <section id="p-calendario" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v15H4z"/><path d="M4 10h16M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17h2"/></svg></span><h1>Calendario</h1>
-        <div class="cal-nav"><button id="calAnterior" class="mn-btn is-sm is-icono" type="button" aria-label="Mes anterior" title="Mes anterior">‹</button><button id="calHoy" class="mn-btn is-sm" type="button">Hoy</button><button id="calSiguiente" class="mn-btn is-sm is-icono" type="button" aria-label="Mes siguiente" title="Mes siguiente">›</button><span class="cal-titulo" id="calTitulo"></span></div>
-        <div class="filtros grupo cal-filtro" id="calFiltro" role="group" aria-label="Qué tarjetas pinta el calendario"></div>
-        <p class="sub" id="calSub"></p></header>
+      <!-- v1.0.0 (rediseño, cubeta 3): la cabecera de la plantilla (#calCab); pintarCalendario le MUEVE a sus acciones el mes (‹ Hoy ›) y el filtro
+           «todo | solo mías», como «Nueva partida» en Capital. -->
+      <div class="rp-cuerpo" id="calCab"></div>
+      <div class="cal-nav" id="calNav"><button id="calAnterior" class="mn-btn is-sm is-icono" type="button" aria-label="Mes anterior" title="Mes anterior">‹</button><button id="calHoy" class="mn-btn is-sm" type="button">Hoy</button><button id="calSiguiente" class="mn-btn is-sm is-icono" type="button" aria-label="Mes siguiente" title="Mes siguiente">›</button><span class="cal-titulo" id="calTitulo"></span></div>
+      <div class="filtros grupo cal-filtro" id="calFiltro" role="group" aria-label="Qué tarjetas pinta el calendario"></div>
       <div class="cal-rejilla" id="calRejilla"></div>
       <section class="mn-card cal-detalle oculto" id="calDetalle"></section>
       <div class="cal-agenda" id="calAgenda"></div>
@@ -291,16 +305,22 @@
     </section>
 
     <!-- v0.10.0: Reportes -->
+    <!-- v1.0.0 (rediseño, cubeta 3): CINCO páginas (#reportes/avance · carga · semanas · actividad · vencidas; a secas = Avance) con la
+         plantilla de reporte: #reportesCuerpo = cabecera + tarjeta 1 (tendencia + KPIs), luego la tarjeta de detalle de siempre de esa página
+         (#repDetalle: se pintan las seis y se ve la de la página, data-rep) y #reportesDatos = «Datos del reporte». «Imprimir» lo mueve la
+         cabecera a sus acciones. -->
     <section id="p-reportes" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><h1>Reportes</h1><button id="btnImprimirReportes" class="mn-btn is-sm" type="button" title="Imprimir o guardar como PDF">Imprimir</button><p class="sub" id="reportesSub"></p></header>
-      <div class="rep-rejilla">
-        <section class="mn-card rep-global"><h2>Avance global</h2><div class="rep-anillo" id="repGlobal"></div></section>
-        <section class="mn-card"><h2>Avance por proyecto</h2><div class="rep-lista" id="repProyectos"></div><div class="rep-leyenda" id="repProyectosLeyenda"></div></section>
-        <section class="mn-card"><h2>Carga por persona · abiertas (vencidas en rojo)</h2><div class="rep-lista" id="repPersonas"></div></section>
-        <section class="mn-card"><h2>Hechas y nuevas por semana · últimas 8</h2><div id="repSemanas"></div><p class="mn-help" id="repSemanasSub"></p></section>
-        <section class="mn-card"><h2>Actividad por persona · 30 días</h2><div class="rep-lista" id="repActividad"></div></section>
-        <section class="mn-card rep-vencidas"><h2>Vencidas por proyecto</h2><div class="mini" id="repVencidas"></div></section>
+      <button id="btnImprimirReportes" class="mn-btn is-sm" type="button" title="Imprimir o guardar como PDF">Imprimir</button>
+      <div class="rp-cuerpo" id="reportesCuerpo"></div>
+      <div class="rep-rejilla" id="repDetalle">
+        <section class="mn-card rep-global" data-rep="avance"><h2>Avance global</h2><div class="rep-anillo" id="repGlobal"></div></section>
+        <section class="mn-card" data-rep="avance"><h2>Avance por proyecto</h2><div class="rep-lista" id="repProyectos"></div><div class="rep-leyenda" id="repProyectosLeyenda"></div></section>
+        <section class="mn-card" data-rep="carga"><h2>Carga por persona · abiertas (vencidas en rojo)</h2><div class="rep-lista" id="repPersonas"></div></section>
+        <section class="mn-card" data-rep="semanas"><h2>Hechas y nuevas por semana · últimas 8</h2><div id="repSemanas"></div><p class="mn-help" id="repSemanasSub"></p></section>
+        <section class="mn-card" data-rep="actividad"><h2>Actividad por persona · 30 días</h2><div class="rep-lista" id="repActividad"></div></section>
+        <section class="mn-card rep-vencidas" data-rep="vencidas"><h2>Vencidas por proyecto</h2><div class="mini" id="repVencidas"></div></section>
       </div>
+      <div class="rp-cuerpo" id="reportesDatos"></div>
     </section>
 
     <!-- v0.100.0 (Carlos, 25-sep): Capital de trabajo = partidas ESTIMADAS (necesidad | fondeo) ligadas a un proyecto, en MXN.
@@ -332,21 +352,20 @@
     <section id="p-finanzas" class="pantalla oculto">
       <div class="rp-cuerpo" id="finanzasCuerpo"></div>
     </section>
-    <!-- v0.166.0: Vigencias (vigencias.js). Cabecera fija; vigencias.js pinta #vigenciasCuerpo. -->
+    <!-- v0.166.0: Vigencias (vigencias.js). v1.0.0 (rediseño, cubeta 3): «Lo que vence» con la plantilla de reporte; todo se pinta en
+         #vigenciasCuerpo (cabecera incluida). -->
     <section id="p-vigencias" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg></span><h1>Vigencias</h1><p class="sub" id="vigenciasSub">Documentos que caducan, el más próximo primero.</p></header>
-      <div class="gastos-cuerpo" id="vigenciasCuerpo"></div>
+      <div class="rp-cuerpo" id="vigenciasCuerpo"></div>
     </section>
 
-    <!-- v0.169.0: Compras (compras.js). Cabecera fija; compras.js pinta #comprasCuerpo. -->
+    <!-- v0.169.0: Compras (compras.js). v1.0.0 (cubeta 3): #compras (Órdenes) y #compras/partidas con la plantilla; todo en #comprasCuerpo. -->
     <section id="p-compras" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg></span><h1>Compras</h1><p class="sub" id="comprasSub">Las órdenes de compra que emite MINSA, la más nueva primero.</p></header>
-      <div class="gastos-cuerpo" id="comprasCuerpo"></div>
+      <div class="rp-cuerpo" id="comprasCuerpo"></div>
     </section>
-    <!-- v0.168.0: Servicios (servicios.js). Cabecera fija; servicios.js pinta #serviciosCuerpo. -->
+    <!-- v0.168.0: Servicios (servicios.js). v1.0.0 (cubeta 3): #servicios (Expedientes), #servicios/<E#> (uno) y #servicios/ciclo con la
+         plantilla; todo en #serviciosCuerpo. -->
     <section id="p-servicios" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v3H9z"/><path d="M8 4.5H5V21h14V4.5h-3"/><path d="M8 12l2 2 4-4M8 17h8"/></svg></span><h1>Servicios</h1><p class="sub" id="serviciosSub">Expedientes de LATINA y en cuál de los 12 pasos va cada uno.</p></header>
-      <div class="gastos-cuerpo" id="serviciosCuerpo"></div>
+      <div class="rp-cuerpo" id="serviciosCuerpo"></div>
     </section>
 
     <!-- v0.162.0: Gastos (gastos.js, traido de la ERP v1). Cabecera fija; gastos.js pinta #gastosCuerpo (Mis gastos · Tesoreria · Contabilidad). -->

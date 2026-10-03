@@ -6,10 +6,17 @@
 // graficos son SVG por DOM o cajas con ancho en %.
 
 import { CONFIG } from './config.js';
-import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona, HECHO, plural } from './reglas.js';
+import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona, HECHO, plural, PUEDE } from './reglas.js';
 import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, comentariosDe, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo, conservarFoco, filtroArchivosVacio } from './comun.js';
 import { pintarChat, irAlComentario } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
-import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';   // v0.17.0: la misma tabla que Docs del proyecto; v0.18.0: y el mismo orden; v0.36.0: y el mismo arbol
+import { tablaDocs, filaRaiz, filasDeExpediente, ordenarDocs } from './docs.js';
+// v1.0.0 (rediseño 2026-10-02, cubeta 3): los 5 reportes de Trabajo con la plantilla de reporte, su tendencia y «Guardados» de Trabajo
+import { REPORTES_TRABAJO, paginaReporte, serieNivel, pctAvanceAl, abiertasAl, vencidasAl, avanceAl, flujoMensual, flujoEnDias, actividadPorDia, accionesEnVentana, actividadDesglose,
+    diasVencida, primerMes, textoPuntos, DIAS_KPI_TRABAJO } from './trabajo-reglas.js';
+import { recortar, agrupar, fechaCorta as fechaRp } from './reporte-reglas.js';
+import { pintarReporte, vistaDe, cabecera, soltarIdsFuera } from './reporte.js';
+import { abrirGuardar } from './segmentos.js';
+import { asegurarGuardados, guardarVista, estadoGuardados, registrarExtra } from './guardados.js';   // v0.17.0: la misma tabla que Docs del proyecto; v0.18.0: y el mismo orden; v0.36.0: y el mismo arbol
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -320,12 +327,17 @@ function claseFrente(p, venc) {
  */
 // C-16 (v0.137.0): la escala, el refresco de 120 s y el resize rehacian los botones de escala, las barras y los rombos con el foco dentro
 const CLAVES_FOCO = ['escala', 'roadmapBarra', 'roadmapP', 'hito'];
+const AYUDA_ROADMAP = 'Un renglón por frente activo: la barra va de su creación al fin del frente y su relleno es el avance; cada rombo es una tarjeta con fecha (rojo vencida, ámbar cerca, verde hecha). La unidad del rail (el ámbito) filtra los frentes. Abajo, los fines de frente de los próximos 60 días.';
+const AYUDA_CAL = 'Las tarjetas de los frentes activos del ámbito por el día en que vencen, y los fines de frente. Rojo vencida, ámbar vence pronto, verde hecha. «Solo mías» deja las tuyas; los fines de frente se quedan, son de todos.';
 export function pintarRoadmap() { conservarFoco($('p-roadmap'), CLAVES_FOCO, pintarRoadmapCuerpo); }
 function pintarRoadmapCuerpo() {
     // El filtro por equipo del rail aplica PAREJO: filas e hitos (el revisor vio cifras globales con «2 frentes de CALYTEK» arriba).
     const ps = ordenarProyectos(visibles());   // C-03: la regla del rail vive en reglas.js
     const n = ps.length, frentes = n === 1 ? '1 frente' : `${n} frentes`;   // U-08 (v0.78.0): plural real, y lo que es la barra lo dice la leyenda, no dos veces
-    $('roadmapSub').textContent = estado.filtroEquipo ? `${frentes} de ${nombreEquipoFiltrado()}; quita el filtro en el rail para ver todos.` : `${frentes} ${plural(n, 'activo')}, del que vence antes al que vence después.`;
+    // v1.0.0 (cubeta 3): la cabecera de la plantilla (título + «?»); el subtítulo de siempre va en ella (#roadmapSub)
+    const cab = $('roadmapCab');
+    conservarFoco(cab, ['rp'], () => { soltarIdsFuera(cab); cab.textContent = ''; cab.appendChild(cabecera({ id: 'roadmap', titulo: 'Roadmap', ayuda: AYUDA_ROADMAP, subId: 'roadmapSub',
+        sub: estado.filtroEquipo ? `${frentes} de ${nombreEquipoFiltrado()}; quita el filtro en el rail para ver todos.` : `${frentes} ${plural(n, 'activo')}, del que vence antes al que vence después.` }, vistaDe('roadmap'), pintarRoadmap)); });
     const tsDe = new Map(ps.map(p => [p.id, tareasDe(p, estado.tareas)]));   // C-06 (v0.78.0): las tarjetas de cada frente se filtran UNA vez (antes tres: hitos, fila e hito de fin)
     const caja = $('roadmapCaja'); const previo = lugarPrevio('global', caja); caja.textContent = ''; caja.dataset.anchoPintado = String(caja.clientWidth);   // C-01 (v0.78.0): el umbral de agrupado sale de este ancho; si cambia, se repinta. C-07 (v0.120.0): el scroll se lee antes de vaciar
     const ley = $('roadmapLeyenda'); ley.textContent = ''; ley.classList.toggle('oculto', !ps.length);
@@ -417,6 +429,10 @@ const LEYENDA_CAL = [['danger', 'vencida'], ['warn', 'vence pronto'], ['idle', '
 function elegirDia(dia, soltar = true) { estado.calDia = soltar && estado.calDia === dia ? null : dia; pintarCalendario(); enfocarCal(); }
 export function pintarCalendario() {
     const mes = mesActual(); const hoy = hoyDia();   // C-06 (v0.154.0): sin escribir estado.mesCal — solo ‹ › y «Hoy» lo fijan; antes la PWA abierta al cruzar de mes se quedaba en el anterior
+    // v1.0.0 (cubeta 3): la cabecera de la plantilla; el mes (‹ Hoy ›) y «todo | solo mías» se MUEVEN a sus acciones (el foco se queda donde estaba)
+    { const cab = $('calCab'), nav = $('calNav'), fil = $('calFiltro'), foco = document.activeElement;
+      conservarFoco(cab, ['rp'], () => { soltarIdsFuera(cab); cab.textContent = ''; cab.appendChild(cabecera({ id: 'calendario', titulo: 'Calendario', ayuda: AYUDA_CAL, sub: ' ', subId: 'calSub', acciones: [nav, fil] }, vistaDe('calendario'), pintarCalendario)); });
+      if (foco && foco !== document.activeElement && foco.isConnected && (nav.contains(foco) || fil.contains(foco))) foco.focus(); }
     $('calTitulo').textContent = nombreMes(mes);
     const activosF = visibles();   // C-03
     const idsF = new Set(activosF.map(p => p.id));   // v0.13.1
@@ -988,6 +1004,15 @@ function pintarTarde(orden, venc) {
     }
     if (!venc.length) tv.appendChild(el('p', 'vacio', 'Nada vencido.'));
 }
+/**
+ * v1.0.0 (rediseño 2026-10-02, cubeta 3; plan «Trabajo»: «5 reportes de trabajo con la plantilla»): Reportes se parte en CINCO páginas
+ * (#reportes/avance · carga · semanas · actividad · vencidas; #reportes a secas = Avance). Cada una lleva la plantilla de reporte
+ * (reporte.js): cabecera con su «?», rango e «Imprimir» · tarjeta 1 con la TENDENCIA por mes (trabajo-reglas.js) y los KPIs contra
+ * 30/60/180/365 días · la tarjeta de detalle de siempre (la de v0.10.0–v0.146.0, con sus clics: el frente, la persona, la tarjeta) ·
+ * «Datos del reporte» con su tabla desplegable y su CSV. Las cinco tarjetas de siempre se siguen pintando todas (la E2E y el driver las
+ * conocen por id) y se ve la de la página, como las dos tablas de Capital. El ámbito (el filtro de unidad del rail) aplica a todo.
+ * Supera a «v0.46.0: los 5 KPI de arriba salieron»: la plantilla del plan trae su fila de KPIs, que ahora COMPARA contra el pasado.
+ */
 export function pintarReportes() {
     const ps = visibles();   // C-03
     const idsPs = new Set(ps.map(p => p.id));   // v0.13.1
@@ -1000,13 +1025,193 @@ export function pintarReportes() {
     const venc = todas.filter(t => estadoVence(t, CONFIG.vencePronto) === 'danger');   // C-10 (v0.129.0): estadoVence ya descarta las hechas
     // U-13 / C-06 (v0.129.0): plural concordado, y la fecha es la de la ultima lectura (estado.cargadoEl), no la del reloj: sin red, lo impreso decia hoy sobre datos viejos
     const nP = ps.length, nT = todas.length;
-    $('reportesSub').textContent = `${nP} ${plural(nP, 'frente')} ${plural(nP, 'activo')}${estado.filtroEquipo ? ` de ${nombreEquipoFiltrado()}` : ''} · ${nT} ${plural(nT, 'tarjeta')} · leído de las listas el ${fechaHora(new Date(estado.cargadoEl || Date.now()).toISOString())}.`;
-    // v0.46.0 (Carlos, 15-sep): los 5 KPI de arriba (proyectos activos · abiertas · hechas · vencidas · sin dueño) SALIERON.
+    const sub = `${nP} ${plural(nP, 'frente')} ${plural(nP, 'activo')}${estado.filtroEquipo ? ` de ${nombreEquipoFiltrado()}` : ''} · ${nT} ${plural(nT, 'tarjeta')} · leído de las listas el ${fechaHora(new Date(estado.cargadoEl || Date.now()).toISOString())}.`;
     // C-07 (v0.129.0): el refresco de 120 s recrea las filas; se anota la fila con foco y se le devuelve al terminar (antes caia al body). Desde C-16 lo hace conservarFoco (comun.js), abajo.
     const orden = ordenarProyectos(ps);   // C-03 (18-sep): cinco bloques, cada uno su funcion; el calculo comun se queda aqui
-    conservarFoco($('p-reportes'), ['repP', 'abre'], () => { pintarAvance(a, orden); pintarCarga(todas, hist); pintarSemanas(hist); pintarActividad(idsHist); pintarTarde(orden, venc); });   // C-16 (v0.137.0): la logica de C-07 vive en comun.js
+    const pag = paginaReporte(estado.sub);
+    for (const s of document.querySelectorAll('#repDetalle > [data-rep]')) s.classList.toggle('oculto', !s.dataset.rep.split(' ').includes(pag));
+    conservarFoco($('repDetalle'), ['repP', 'abre'], () => { pintarAvance(a, orden); pintarCarga(todas, hist); pintarSemanas(hist); pintarActividad(idsHist); pintarTarde(orden, venc); });   // C-16 (v0.137.0): la logica de C-07 vive en comun.js
+    pintarPlantillaReporte(pag, { ps, orden, todas, hist, idsHist, venc, sub });
 }
 export function engancharReportes() {
     $('btnImprimirReportes').addEventListener('click', () => window.print());
     $('peCerrar').addEventListener('click', () => cerrarDialogo('dlgPersona'));   // R-02 (v0.131.0)
+}
+
+// ---------------------------------------------------------------- v1.0.0 (cubeta 3): los 5 reportes de Trabajo con la plantilla
+
+let repintarApp = () => {};
+/** app.js le pasa su repintar (guardar una vista la pinta en «Guardados» del panel). */
+export function fijarRepintarReportes(fn) { repintarApp = fn; }
+// abrir una vista guardada de Trabajo pone su ÁMBITO (la unidad que tenía al guardarse, o ninguna); ruta y rango/periodo los pone guardados.js
+registrarExtra('reportes', d => { const eq = d && d.ambito; estado.filtroEquipo = eq && CONFIG.equipos.some(e => e.clave === eq) ? eq : null; });
+
+const AYUDA_REP = {
+    avance: 'Avance = las tarjetas que están en la última cubeta (Hecho) entre todas las del frente, sumando los frentes activos del ámbito. La línea es cómo iba al cierre de cada mes: se reconstruye con el día en que nació cada tarjeta y el día en que se hizo.',
+    carga: 'Las tarjetas abiertas de cada persona en los frentes activos del ámbito (las vencidas, aparte) y cuántas ha hecho, contando también los frentes ya cerrados. La línea es cuántas abiertas había al cierre de cada mes.',
+    semanas: 'Cuántas tarjetas se hicieron (por el día en que se hicieron) y cuántas nacieron (por el día en que se crearon) en cada periodo, contando también los frentes ya cerrados. Si nacen más de las que se hacen, el pendiente crece.',
+    actividad: 'Lo que cada persona registró en la bitácora de los frentes del ámbito en los últimos 30 días: comentarios, movimientos de tarjetas, tarjetas creadas y lo demás (asignar, editar, ligar…). Las barras son las acciones de cada día.',
+    vencidas: 'Las tarjetas abiertas cuya fecha ya pasó, por frente (vencer hoy todavía no es estar vencida). La línea es cuántas había vencidas al cierre de cada mes.'
+};
+const NOTA_TENDENCIA = 'La tendencia se reconstruye con el día en que nació cada tarjeta y el día en que se hizo: una tarjeta reabierta cuenta como abierta desde que nació, una fecha de vencimiento que se movió cuenta con la de hoy y una tarjeta borrada no cuenta.';
+const entero = m => (Number.isInteger(m) ? m.toLocaleString('en-US') : '');
+const cifra = n => n ? String(n) : null;   // la maqueta pinta «—» donde no hay nada
+const rojo = n => n ? { t: String(n), clase: 'rp-rojo' } : null;
+/** La fila de KPIs de un NIVEL (avance, abiertas, vencidas): hoy y hace 30/60/180/365 días; «—» si todavía no había tarjetas ese día. */
+function kpisDeNivel(ts, nivel, hoy, { formato = String, texto, malo = false, puntos = false }) {
+    const ahora = nivel(ts, hoy), out = [{ clave: 'actual', valor: formato(ahora), texto }];
+    for (const d of DIAS_KPI_TRABAJO) {
+        const dia = sumarDias(hoy, -d), v = nivel(ts, dia);
+        if (!avanceAl(ts, dia).total) { out.push({ clave: 'hace' + d, valor: '—', texto: `hace ${d} días`, titulo: 'Todavía no había tarjetas ese día' }); continue; }
+        if (puntos) { const dif = ahora - v; out.push({ clave: 'hace' + d, valor: formato(v), texto: `hace ${d} días`, dif: textoPuntos(dif), difClase: dif > 0 ? 'pos' : dif < 0 ? 'neg' : '' }); }
+        else out.push({ clave: 'hace' + d, valor: formato(v), texto: `hace ${d} días`, pct: v ? (ahora - v) / Math.abs(v) * 100 : null, malo });
+    }
+    return out;
+}
+/** La gráfica de un NIVEL por mes: recortada al rango (desde hoy) y agrupada por MES | TRIMESTRE | AÑO (el nivel del periodo = su último mes). */
+const graficaNivel = (ts, hoy, nivel, fmt) => ({
+    tipos: true, grano: true, moneda: () => '', decimales: 0, ...fmt, vacio: 'Sin tarjetas en este rango.',
+    datos: v => ({ puntos: agrupar(recortar(serieNivel(ts, hoy, nivel), v.rango, hoy), v.grano).map(p => ({ etiqueta: p.etiqueta, y: p.v })) })
+});
+const FMT_CONTEO = { fmtCorto: y => entero(Math.round(y)), fmtLargo: y => `${entero(Math.round(y))} ${plural(Math.round(y), 'tarjeta')}`, fmtEje: entero };
+/** El botón de una tarjeta dentro de «Datos del reporte»: la abre el delegado data-abre de app.js (t:<id>), como Vencidas de siempre. */
+function botonTarjeta(t) { const b = el('button', 'rp-lk rp-lk-b', t.Title); b.type = 'button'; b.dataset.abre = `t:${t.id}`; b.title = 'Abrir la tarjeta'; return b; }
+
+/** Las definiciones de las 5 páginas (lo que cambia de una a otra); la cabecera, el guardar y el «Imprimir» los pone pintarPlantillaReporte. */
+function defsReporte(pag, x, hoy) {
+    const { orden, todas, hist, idsHist, venc } = x;
+    if (pag === 'avance') {
+        const pct = y => `${Math.round(y)}%`;
+        return {
+            primera: primerMes(todas, hoy),
+            grafica: graficaNivel(todas, hoy, pctAvanceAl, { fmtCorto: pct, fmtLargo: y => `${Math.round(y * 10) / 10}% hechas`, fmtEje: m => `${entero(m)}%` }),
+            kpis: () => kpisDeNivel(todas, pctAvanceAl, hoy, { formato: pct, texto: 'Avance actual', puntos: true }),
+            datos: {
+                columnas: [{ texto: 'Frente' }, { texto: 'Tarjetas' }, { texto: 'Hechas' }, { texto: 'Abiertas' }, { texto: 'Vencidas' }, { texto: 'Avance' }, { texto: 'Fin del frente' }],
+                filas: () => orden.map(p => {
+                    const ts = tareasDe(p, estado.tareas), ap = avance(ts, columnasDe(p));
+                    return { clave: 'p' + p.id, datos: { repDato: String(p.id) }, celdas: [{ t: p.Title, lk: true }, String(ap.total), cifra(ap.hechas), cifra(ap.total - ap.hechas), rojo(vencidasEn(ts)), ap.total ? `${ap.pct}%` : null, p.Vence ? fechaRp(p.Vence) : 'sin fecha'],
+                        hijos: ap.columnas.filter(c => ap.porColumna[c.clave]).map(c => { const n = ap.porColumna[c.clave] || 0, hecha = c.clave === HECHO; return { celdas: [c.nombre, cifra(n), hecha ? cifra(n) : null, hecha ? null : cifra(n), rojo(vencidasEn(ts.filter(t => t.Columna === c.clave))), ap.total && n ? `${Math.round(n * 100 / ap.total)}% del frente` : null, null] }; }) };
+                }),
+                pie: () => { const g = avanceGlobal(todas, columnasDeTarea); return [{ celdas: [{ t: 'Total de los frentes activos', lk: true }, String(g.total), cifra(g.hechas), cifra(g.total - g.hechas), rojo(venc.length), g.total ? `${g.pct}%` : null, null] }]; },
+                vacio: 'Sin frentes activos en este ámbito.',
+                csv: () => ({ columnas: ['Frente', 'Clave', 'Unidad', 'Tarjetas', 'Hechas', 'Abiertas', 'Vencidas', 'Avance %', 'Fin del frente'],
+                    filas: orden.map(p => { const ts = tareasDe(p, estado.tareas), ap = avance(ts, columnasDe(p)); return [p.Title, p.Clave, equipoDe(p).nombre, ap.total, ap.hechas, ap.total - ap.hechas, vencidasEn(ts), ap.total ? ap.pct : '', diaDe(p.Vence) || '']; }) }),
+                nota: `Toca un frente para ver sus cubetas. ${NOTA_TENDENCIA}`
+            }
+        };
+    }
+    if (pag === 'carga') {
+        const carga = cargaPorPersona(todas, CONFIG.vencePronto, new Date(), hist);
+        const grupos = q => abiertasDePersona(todas, q, orden, CONFIG.vencePronto);
+        const nombre = q => q ? nombreDe(q, estado.roles) : 'Sin dueño';
+        return {
+            primera: primerMes(todas, hoy),
+            grafica: graficaNivel(todas, hoy, abiertasAl, FMT_CONTEO),
+            kpis: () => kpisDeNivel(todas, abiertasAl, hoy, { texto: 'Tarjetas abiertas hoy', malo: true }),
+            datos: {
+                columnas: [{ texto: 'Persona' }, { texto: 'Abiertas' }, { texto: 'Vencidas' }, { texto: 'Hechas' }, { texto: 'Frentes' }],
+                filas: () => carga.map(c => { const gs = grupos(c.quien); return { clave: 'q:' + (c.quien || '-'), datos: { repDatoQ: c.quien || 'sin-dueno' },
+                    celdas: [{ t: nombre(c.quien), lk: gs.length > 0 }, cifra(c.abiertas), rojo(c.vencidas), cifra(c.hechas), cifra(gs.length)],
+                    hijos: gs.map(g => ({ celdas: [g.p.Title, cifra(g.tareas.length), rojo(g.vencidas), null, null] })) }; }),
+                pie: () => { const s = k => carga.reduce((n, c) => n + c[k], 0); return [{ celdas: [{ t: 'Total', lk: true }, cifra(s('abiertas')), rojo(s('vencidas')), cifra(s('hechas')), null] }]; },
+                vacio: 'Sin tarjetas.',
+                csv: () => ({ columnas: ['Persona', 'Correo', 'Abiertas', 'Vencidas', 'Hechas', 'Frentes con abiertas'], filas: carga.map(c => [nombre(c.quien), c.quien, c.abiertas, c.vencidas, c.hechas, grupos(c.quien).length]) }),
+                nota: `Toca a una persona para ver sus abiertas por frente (en la tarjeta de arriba, su nombre abre la lista de tarjetas). ${NOTA_TENDENCIA}`
+            }
+        };
+    }
+    if (pag === 'semanas') {
+        const fm = flujoMensual(hist, hoy), serie = (v, k) => agrupar(recortar(fm.map(f => ({ k: f.k, v: f[k], inc: f[k] })), v.rango, hoy), v.grano);
+        const periodos = v => { const h = serie(v, 'hechas'), nv = serie(v, 'nuevas'); return h.map((p, i) => ({ k: p.k, etiqueta: p.etiqueta, hechas: p.inc, nuevas: nv[i] ? nv[i].inc : 0 })).reverse(); };
+        const SERIES = [{ k: 'hechas', nombre: 'Hechas', color: 'var(--seg-1)' }, { k: 'nuevas', nombre: 'Nuevas', color: 'var(--serie-nuevas)' }];
+        return {
+            primera: primerMes(hist, hoy),
+            grafica: { tipos: true, grano: true, moneda: () => '', decimales: 0, ...FMT_CONTEO, leyenda: SERIES, nombresEnGlobo: true, vacio: 'Sin tarjetas en este rango.',
+                datos: v => ({ series: SERIES.map(s => ({ color: s.color, nombre: s.nombre, puntos: serie(v, s.k).map(p => ({ etiqueta: p.etiqueta, y: p.inc })) })) }) },
+            kpis: () => {
+                const a30 = flujoEnDias(hist, hoy, 30), b30 = flujoEnDias(hist, sumarDias(hoy, -30), 30), bal = a30.nuevas - a30.hechas;
+                const sem = hechasPorSemana(hist, 8).reduce((n, s) => n + s.n, 0) / 8;
+                return [
+                    { clave: 'hechas30', valor: String(a30.hechas), texto: 'Hechas · 30 días', pct: b30.hechas ? (a30.hechas - b30.hechas) / b30.hechas * 100 : null, titulo: `Los 30 días anteriores: ${b30.hechas}` },
+                    { clave: 'nuevas30', valor: String(a30.nuevas), texto: 'Nuevas · 30 días', pct: b30.nuevas ? (a30.nuevas - b30.nuevas) / b30.nuevas * 100 : null, malo: true, titulo: `Los 30 días anteriores: ${b30.nuevas}` },
+                    { clave: 'balance', valor: `${bal > 0 ? '+' : bal < 0 ? '−' : ''}${Math.abs(bal)}`, texto: bal > 0 ? 'el pendiente creció (30 días)' : bal < 0 ? 'el pendiente bajó (30 días)' : 'el pendiente se mantuvo (30 días)', clase: bal > 0 ? 'neg' : '' },
+                    { clave: 'hechas365', valor: String(flujoEnDias(hist, hoy, 365).hechas), texto: 'Hechas · 12 meses' },
+                    { clave: 'semana', valor: sem.toFixed(1), texto: 'Hechas por semana (últimas 8)' }
+                ];
+            },
+            datos: {
+                columnas: [{ texto: 'Periodo' }, { texto: 'Hechas' }, { texto: 'Nuevas' }, { texto: 'Balance' }],
+                filas: v => periodos(v).map(p => { const b = p.nuevas - p.hechas; return { celdas: [p.etiqueta, cifra(p.hechas), cifra(p.nuevas), b ? { t: `${b > 0 ? '+' : '−'}${Math.abs(b)}`, clase: b > 0 ? 'rp-rojo' : 'rp-verde' } : null] }; }),
+                pie: v => { const ps = periodos(v), h = ps.reduce((n, p) => n + p.hechas, 0), nv = ps.reduce((n, p) => n + p.nuevas, 0), b = nv - h;
+                    return ps.length ? [{ celdas: [{ t: 'Total del rango', lk: true }, cifra(h), cifra(nv), b ? { t: `${b > 0 ? '+' : '−'}${Math.abs(b)}`, clase: b > 0 ? 'rp-rojo' : 'rp-verde' } : null] }] : []; },
+                vacio: 'Sin tarjetas en este rango.',
+                csv: v => ({ columnas: ['Periodo', 'Hechas', 'Nuevas', 'Balance (nuevas − hechas)'], filas: periodos(v).map(p => [p.etiqueta, p.hechas, p.nuevas, p.nuevas - p.hechas]) }),
+                nota: 'Balance = nuevas − hechas: en rojo si el pendiente creció en ese periodo. Una tarjeta hecha sin fecha de hecho no cuenta en ningún periodo; una borrada, tampoco.'
+            }
+        };
+    }
+    if (pag === 'actividad') {
+        const act = estado.actividad.filter(a => idsHist.has(Number(a.ProyectoId)));
+        const dg = actividadDesglose(act, 30), ahora = accionesEnVentana(act, 30, 0), antes = accionesEnVentana(act, 30, 30);
+        const s = k => dg.reduce((n, r) => n + r[k], 0);
+        return {
+            rango: false,
+            grafica: { tipos: false, grano: false, moneda: () => '', decimales: 0, fmtCorto: y => entero(y), fmtLargo: y => `${y} ${plural(y, 'acción', 'acciones')}`, fmtEje: entero, vacio: 'Sin actividad en 30 días.',
+                datos: () => ({ puntos: actividadPorDia(act, 30).map(d => ({ etiqueta: `${diaNum(d.dia)} ${mesCorto(d.dia)}`, y: d.n })) }) },
+            kpis: () => [
+                { clave: 'acciones', valor: String(ahora), texto: 'Acciones · 30 días', titulo: `Los 30 días anteriores: ${antes}`, ...(antes >= 10 ? { pct: (ahora - antes) / antes * 100 } : { dif: `antes ${antes}` }) },   // con menos de 10 antes, un % (+8600%) no dice nada
+                { clave: 'personas', valor: String(dg.length), texto: plural(dg.length, 'Persona activa', 'Personas activas') },
+                { clave: 'comentarios', valor: String(s('comentarios')), texto: 'Comentarios' },
+                { clave: 'movimientos', valor: String(s('movimientos')), texto: 'Tarjetas movidas' },
+                { clave: 'mas', valor: dg.length ? nombreCorto(dg[0].quien, estado.roles) : '—', texto: dg.length ? `La más activa · ${dg[0].n}` : 'Nadie registró nada', titulo: dg.length ? nombreDe(dg[0].quien, estado.roles) : '' }
+            ],
+            datos: {
+                columnas: [{ texto: 'Persona' }, { texto: 'Acciones' }, { texto: 'Comentarios' }, { texto: 'Movimientos' }, { texto: 'Creadas' }, { texto: 'Otras' }],
+                filas: () => dg.map(r => ({ datos: { repDatoQ: r.quien }, celdas: [nombreDe(r.quien, estado.roles), String(r.n), cifra(r.comentarios), cifra(r.movimientos), cifra(r.creadas), cifra(r.otras)] })),
+                pie: () => dg.length ? [{ celdas: [{ t: 'Total', lk: true }, String(ahora), cifra(s('comentarios')), cifra(s('movimientos')), cifra(s('creadas')), cifra(s('otras'))] }] : [],
+                vacio: 'Sin actividad en 30 días.',
+                csv: () => ({ columnas: ['Persona', 'Correo', 'Acciones', 'Comentarios', 'Movimientos', 'Creadas', 'Otras'], filas: dg.map(r => [nombreDe(r.quien, estado.roles), r.quien, r.n, r.comentarios, r.movimientos, r.creadas, r.otras]) }),
+                nota: `De la bitácora de los frentes del ámbito (también los cerrados); la app lee los últimos ${CONFIG.actividadDias} días, así que la comparación contra los 30 anteriores está completa. «Otras» = asignar, editar, ligar, subir, marcar visto…`
+            }
+        };
+    }
+    // vencidas
+    const porP = new Map(); for (const t of venc) { const k = Number(t.ProyectoId); if (!porP.has(k)) porP.set(k, []); porP.get(k).push(t); }
+    const conV = orden.filter(p => porP.has(p.id)).map(p => ({ p, vs: porP.get(p.id).slice().sort(porVence) }));
+    const quien = t => t.Asignado ? nombreDe(t.Asignado, estado.roles) : 'sin dueño';
+    return {
+        primera: primerMes(todas, hoy),
+        grafica: graficaNivel(todas, hoy, vencidasAl, FMT_CONTEO),
+        kpis: () => kpisDeNivel(todas, vencidasAl, hoy, { texto: 'Vencidas hoy', malo: true }),
+        datos: {
+            columnas: [{ texto: 'Frente' }, { texto: 'Vencidas' }, { texto: 'La más vieja' }, { texto: 'Sin dueño' }],
+            filas: () => conV.map(({ p, vs }) => ({ clave: 'v' + p.id, datos: { repDato: String(p.id) },
+                celdas: [{ t: p.Title, lk: true }, rojo(vs.length), `hace ${Math.max(...vs.map(t => diasVencida(t, hoy)))} d`, cifra(vs.filter(t => !t.Asignado).length)],
+                hijos: vs.map(t => ({ celdas: [{ nodo: botonTarjeta(t) }, null, `hace ${diasVencida(t, hoy)} d`, quien(t)] })) })),
+            pie: () => conV.length ? [{ celdas: [{ t: 'Total', lk: true }, rojo(venc.length), null, cifra(venc.filter(t => !t.Asignado).length)] }] : [],
+            vacio: 'Nada vencido.',
+            csv: () => ({ columnas: ['Frente', 'Tarjeta', 'Asignado', 'Vence', 'Días vencida'], filas: conV.flatMap(({ p, vs }) => vs.map(t => [p.Title, t.Title, t.Asignado ? nombreDe(t.Asignado, estado.roles) : '', diaDe(t.Vence) || '', diasVencida(t, hoy)])) }),
+            nota: `Toca un frente para ver sus vencidas; cada una abre su tarjeta. ${NOTA_TENDENCIA}`
+        }
+    };
+}
+/** Pinta la plantilla de la página `pag` de Reportes en #reportesCuerpo (cabecera + tarjeta 1) y #reportesDatos («Datos del reporte»). */
+function pintarPlantillaReporte(pag, x) {
+    const hoy = hoyDia(), id = 'reportes-' + pag, titulo = REPORTES_TRABAJO[pag], imp = $('btnImprimirReportes');
+    asegurarGuardados(() => repintarApp());   // «Guardados» de Trabajo (ERP_Vistas o este equipo): una lectura por sesión
+    const d = defsReporte(pag, x, hoy);
+    const guardar = PUEDE.tarea(estado.rol) ? btn => {
+        const g = estadoGuardados(), w = vistaDe(id);
+        abrirGuardar(btn, { notaGuardar: g.modo === 'local' ? g.nota : '' }, {
+            sugerido: `${titulo}${estado.filtroEquipo ? ' · ' + nombreEquipoFiltrado() : ''}`,
+            alGuardar: (t, compartida) => guardarVista({ titulo: t, compartida, modulo: 'trabajo', definicion: { tipo: 'reporte', ruta: '#reportes/' + pag, vistaId: id,
+                vista: { rango: w.rango, grano: w.grano, tipo: w.tipo }, ambito: estado.filtroEquipo || null } }).then(() => repintarApp())
+        });
+    } : null;
+    pintarReporte($('reportesCuerpo'), {
+        id, titulo, ayuda: AYUDA_REP[pag], sub: x.sub, subId: 'reportesSub', hasta: hoy, rango: d.rango !== false, primera: d.primera, acciones: imp ? [imp] : [], guardar,
+        grafica: d.grafica, kpis: d.kpis, datosEn: $('reportesDatos'),
+        datos: { tablaId: 'reportesTabla', nombreCsv: 'reporte-' + pag, ...d.datos }
+    });
 }

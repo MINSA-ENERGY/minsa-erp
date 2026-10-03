@@ -55,6 +55,15 @@ export function resumenVigencias(ordenadas) {
     return r;
 }
 
+// ---------------------------------------------------------------- v1.0.0 (rediseño 2026-10-02, cubeta 3): la plantilla de reporte
+
+/** Las unidades que hay, en orden (el desplegable «TODAS LAS UNIDADES» de la maqueta); sin unidad, «—». */
+export const unidadesDe = lista => [...new Set(lista.map(v => String(v.unidad || '—')))].sort((a, b) => a.localeCompare(b, 'es'));
+/** Las de una unidad (o todas con null). */
+export const filtrarVigencias = (lista, unidad) => unidad ? lista.filter(v => String(v.unidad || '—') === unidad) : lista.slice();
+/** La más próxima que NO ha vencido (para el KPI «la siguiente»); null si no hay. Recibe la lista ya ordenada (con `dias`). */
+export const siguienteVigencia = ordenadas => ordenadas.find(v => v.dias >= 0) || null;
+
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 /** 2027-01-17 -> «17-ene-2027» (sin pasar por Date: la fecha es de calendario, no un instante). */
 export const fechaVigencia = iso => { const [a, m, d] = iso.split('-'); return `${Number(d)}-${MESES[Number(m) - 1]}-${a}`; };

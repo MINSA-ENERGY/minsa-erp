@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { problemaServicios, estadosPasos, ordenarServicios, resumenServicios, fechaCorta, N_PASOS } from '../servicios-reglas.js';
+import { problemaServicios, estadosPasos, ordenarServicios, resumenServicios, fechaCorta, N_PASOS, detenido, filtrarServicios, FILTROS_SERVICIOS,
+    diasDesdeFecha, esperaMasLarga, expedientesPorPaso, TEXTO_PASO } from '../servicios-reglas.js';
 
 let n = 0;
 const ok = (nombre, cond) => { assert.ok(cond, nombre); n++; };
@@ -40,6 +41,17 @@ ok('resumen: total', r.total === 4);
 ok('resumen: en cobro', r.cobro === 2);
 ok('resumen: detenidos (bloqueado o a medias)', r.detenidos === 2);
 ok('fecha corta', fechaCorta('2026-09-23') === '23-sep' && fechaCorta('') === '—' && fechaCorta('ayer') === '—');
+
+// --- v1.0.0 (cubeta 3): la plantilla de reporte — filtro, espera más larga y «Ciclo»
+const L4 = [ex('E2', 11), ex('E3', 6, { rotos: [{ paso: 4, txt: 'x' }], desde: '2026-09-23' }), ex('E4', 3, { bloqueado: true, desde: '2026-09-01' }), ex('E5', 1, { desde: '2026-09-30' })];
+ok('detenido: bloqueado o con un paso a medias', detenido(L4[1]) && detenido(L4[2]) && !detenido(L4[0]) && !detenido(L4[3]));
+ok('filtrarServicios: detenidos · en cobro · en curso · todos', filtrarServicios(L4, 'detenidos').map(e => e.clave).join() === 'E3,E4' && filtrarServicios(L4, 'cobro').map(e => e.clave).join() === 'E2'
+    && filtrarServicios(L4, 'curso').map(e => e.clave).join() === 'E5' && filtrarServicios(L4, 'todos').length === 4 && FILTROS_SERVICIOS.length === 4);
+ok('diasDesdeFecha: de calendario, null sin fecha', diasDesdeFecha('2026-09-23', '2026-10-02') === 9 && diasDesdeFecha('', '2026-10-02') === null);
+ok('esperaMasLarga: el de la fecha más vieja; null si ninguno trae fecha', JSON.stringify(esperaMasLarga(L4, '2026-10-02')) === JSON.stringify({ clave: 'E4', dias: 31 }) && esperaMasLarga([ex('E2', 1)], '2026-10-02') === null);
+const ciclo = expedientesPorPaso(L4, PASOS);
+ok('expedientesPorPaso: los 12 pasos, cada expediente en el suyo, con sus detenidos', ciclo.length === 12 && ciclo[11].exps.map(e => e.clave).join() === 'E2' && ciclo[3].detenidos === 1 && ciclo[0].exps.length === 0 && ciclo.reduce((s, p) => s + p.exps.length, 0) === 4);
+ok('TEXTO_PASO: un texto por estado de la barra', ['hecho', 'actual', 'bloqueado', 'rebotado', 'pendiente'].every(k => TEXTO_PASO[k]));
 
 // --- el contrato REAL: lo que produce servicios.py hoy pasa la validacion de la app
 const salida = execFileSync('python', [join(raiz, '.claude/skills/_compartido/scripts/servicios.py'), '--json'], { encoding: 'utf8' });
