@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" id="metaTema" content="#f7f7f7">
+<meta name="theme-color" id="metaTema" content="#f7f8fa">
 <!-- CSP estricta, misma que calytek-planta-app: sin scripts ni estilos en linea. Las fuentes van
      vendorizadas en ./vendor/fuentes (OFL), por eso font-src sigue en 'self'. -->
 <meta http-equiv="Content-Security-Policy" content="
@@ -28,52 +28,62 @@
 </head>
 <body>
 
-<!-- Un solo DOM para celular y computadora: el rail .mn-rail es columna en escritorio y barra de
-     pestanas abajo en celular (patrones.md §5). Nada de innerHTML en app.js: todo textContent. -->
-<div class="mn-shell app" id="shell">
+<!-- v1.0.0 (rediseño 2026-10-02; plan cerebro/docs/plan-erp-rediseno-2026-10-02.md, cubeta 1 «Armazón»): rail de 64 px oscuro con la
+     etiqueta bajo cada icono · panel del módulo de 284 px (armazon.js lo pinta) · contenido. Un solo DOM para celular y computadora: en
+     ≤ 720 px el rail es la barra de abajo (solo los módulos), el panel es una hoja (☰) y arriba va la barra con título, Buscar, Avisos y Cuenta.
+     Los iconos los pone armazon.js desde TRAZOS de comun.js ([data-icono]). Nada de innerHTML: todo DOM. -->
+<div class="app" id="shell">
 
-  <aside class="mn-rail rail oculto" id="rail">
-    <div class="marca"><!-- v0.28.1 (Carlos, 14-sep): la MARCA es el boton que pliega; el chevron solo se ve plegado y despliega. Estado en localStorage `rail`. --><button type="button" id="btnMarca" class="marca-btn" title="Plegar la barra" aria-expanded="true" aria-controls="rail"><img class="logo solo-claro" src="./marca/lockup.svg" alt="MINSA ENERGY" width="724" height="256"><img class="logo solo-oscuro" src="./marca/lockup-oscuro.svg" alt="MINSA ENERGY" width="724" height="256"><span>ERP</span></button><button type="button" id="btnPlegar" class="plegar" aria-expanded="false" aria-controls="rail" title="Desplegar la barra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button></div>
-    <nav id="pestanas" role="tablist" aria-label="Secciones">
-      <!-- v0.102.0 (Carlos, 25-sep): orden por uso — lo mío (Inicio · Mis tareas · Mensajes), el trabajo (Proyectos · Roadmap · Calendario · Archivos), gerencia (Reportes · Capital) -->
-      <!-- v0.167.0 (Carlos, 2-oct; maqueta HV1C5pzx): tres bloques — Trabajo · Dinero · Operación. El bloque es display:contents, asi que la barra movil (los seis sin .rail-extra) no cambia de orden; el rotulo es aria-hidden y solo se ve en escritorio desplegado. -->
-      <div class="rail-bloque" role="presentation"><p class="mn-label rail-grupo" aria-hidden="true">Trabajo</p>
-      <button type="button" data-p="inicio" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v10H3z"/><path d="M9 21v-6h6v6"/></svg><span>Inicio</span></button>
-      <button type="button" data-p="mis" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6"/></svg><span>Mis tareas</span><b class="mn-rail-hot" id="nMis" hidden></b></button>
-      <button type="button" data-p="mensajes" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.6-4.5A8 8 0 1 1 21 12z"/><path d="M8.5 11h7M8.5 14h4"/></svg><span>Mensajes</span><b class="mn-rail-hot is-info" id="nMensajes" hidden></b></button>
-      <button type="button" data-p="proyectos" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M4 10h16M9 10v9"/></svg><span>Proyectos</span><b class="mn-rail-hot is-info" id="nProyectos" hidden></b></button>
-      <button type="button" data-p="roadmap" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h8M3 12h12M3 18h6"/><path d="M14 4l6 2-6 2z"/><circle cx="18" cy="12" r="1.5"/><path d="M12 18h9"/></svg><span>Roadmap</span></button>
-      <button type="button" data-p="calendario" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v15H4z"/><path d="M4 10h16M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17h2"/></svg><span>Calendario</span></button>
-      <button type="button" data-p="archivos" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Archivos</span></button>
-      <button type="button" data-p="reportes" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Reportes</span></button>
-      </div>
-      <div class="rail-bloque" role="presentation"><p class="mn-label rail-grupo" aria-hidden="true">Dinero</p>
-      <!-- v0.162.0: Gastos (traido de la ERP v1). Lo usa todo el equipo desde el celular: va en la barra de abajo, no en el menu «···» -->
-      <button type="button" data-p="gastos" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span>Gastos</span></button>
-      <!-- v0.100.0: capital de trabajo — solo gerencia (app.js quita .oculto); en celular vive en el menu «···» -->
-      <button type="button" data-p="capital" role="tab" class="rail-extra oculto" id="railCapital"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3z"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5v5M17.5 9.5v5"/></svg><span>Capital</span></button>
-      <!-- v0.165.0: Finanzas > Cobranza (solo gerencia; cobranza.js). Lee cobranza.json de la biblioteca ERP_Datos. -->
-      <button type="button" data-p="finanzas" role="tab" class="rail-extra oculto" id="railFinanzas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16"/><path d="M6 15l4-4 3 3 5-6"/><path d="M15 8h3v3"/></svg><span>Finanzas</span></button>
-      <!-- v0.169.0: Compras (gerencia y colaborador; compras.js). Lee compras.json de la biblioteca ERP_Operacion. -->
-      <button type="button" data-p="compras" role="tab" class="rail-extra oculto" id="railCompras"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><span>Compras</span></button>
-      </div>
-      <div class="rail-bloque" role="presentation"><p class="mn-label rail-grupo" aria-hidden="true">Operación</p>
-      <!-- v0.168.0: Servicios (gerencia y colaborador; servicios.js). Lee servicios.json de la biblioteca ERP_Operacion. -->
-      <button type="button" data-p="servicios" role="tab" class="rail-extra oculto" id="railServicios"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v3H9z"/><path d="M8 4.5H5V21h14V4.5h-3"/><path d="M8 12l2 2 4-4M8 17h8"/></svg><span>Servicios</span></button>
-      <!-- v0.166.0: Vigencias (solo gerencia; vigencias.js). Lee vigencias.json de la biblioteca ERP_Datos. -->
-      <button type="button" data-p="vigencias" role="tab" class="rail-extra oculto" id="railVigencias"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg><span>Vigencias</span></button>
-      </div>
-    </nav>
-    <div class="equipos" id="railEquipos"></div>
-    <!-- v0.48.0 (Carlos, 15-sep; artifact M3B6fy3g «A4»): dos renglones. 1) nombre + rol como ROTULO DE DATOS (mono, versalitas; la burbuja
-         celeste se fue) y el menu «···» a la derecha, que ahora guarda tambien Actualizar con la hora de la ultima lectura; 2) el tema como
-         SEGMENTO Claro | Oscuro a todo el ancho — se lee cual esta activo sin descifrar un icono resaltado. -->
-    <div class="sesion"><div class="sesion-fila"><span id="quien" class="quien"></span><details class="menu-rail" id="menuRail"><summary class="mn-btn is-sm is-icono" aria-label="Más opciones" title="Actualizar · Equipo · Ver en SharePoint · Salir">···</summary><div class="menu-caja"><button id="btnActualizar" class="mn-btn is-sm" type="button" title="Volver a leer las listas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg><span>Actualizar</span><span class="sync" id="syncRail" data-corto></span></button><button id="btnEquipo" class="mn-btn is-sm" type="button" title="Quién tiene qué rol">Equipo</button><a id="lnkSharePoint" class="mn-btn is-sm oculto" href="#" target="_blank" rel="noopener" title="Las mismas listas en Microsoft Lists (vista Tablero)">Ver en SharePoint</a><button id="btnSalir" class="mn-btn is-sm salir" type="button">Salir</button></div></details></div>
-    <div class="tema seg" role="group" aria-label="Tema"><button class="mn-btn is-sm" type="button" data-tema="claro" title="Claro" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span>Claro</span></button><button class="mn-btn is-sm" type="button" data-tema="oscuro" title="Oscuro" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>Oscuro</span></button></div></div>
+  <nav class="rail oculto" id="rail" aria-label="Módulos">
+    <div class="rail-marca"><img src="./marca/simbolo-oscuro.svg" alt="MINSA ENERGY" width="298" height="350"></div>
+    <button type="button" class="rb rb-nuevo" id="btnNuevo" aria-haspopup="menu" aria-expanded="false" aria-controls="menuNuevo" title="Nuevo: tarea, gasto, archivo o foto"><span class="ico" data-icono="mas"></span><span class="rot">Nuevo</span></button>
+    <!-- Los 5 módulos (decisión 1). Inicio lleva el contador ROJO de mis vencidas (#nMis, el de siempre). Clic en el módulo activo pliega o
+         despliega el panel (escritorio; localStorage `panel`). -->
+    <div class="rail-modulos" id="modulos">
+      <button type="button" class="rb" data-m="inicio" aria-label="Inicio"><span class="ico" data-icono="grid"></span><span class="rot">Inicio</span><b class="bdg" id="nMis" hidden></b></button>
+      <button type="button" class="rb" data-m="trabajo" aria-label="Trabajo"><span class="ico" data-icono="ciclo"></span><span class="rot">Trabajo</span></button>
+      <button type="button" class="rb" data-m="archivos" aria-label="Archivos"><span class="ico" data-icono="folder"></span><span class="rot">Archivos</span></button>
+      <button type="button" class="rb" data-m="dinero" aria-label="Dinero"><span class="ico" data-icono="dinero"></span><span class="rot">Dinero</span></button>
+      <button type="button" class="rb" data-m="operacion" aria-label="Operación"><span class="ico" data-icono="matraz"></span><span class="rot">Operación</span></button>
+    </div>
+    <span class="rsep" aria-hidden="true"></span>
+    <!-- Las unidades (CONFIG.equipos, cuadro de su color con su icono de siempre) = el ÁMBITO global; el nombre va en title/aria-label. -->
+    <div class="rail-unidades" id="railEquipos" role="group" aria-label="Ámbito por unidad"></div>
+    <div class="rail-pie">
+      <button type="button" class="rb rb-anillo" id="anilloDia" aria-label="Mi día"></button>
+      <button type="button" class="rb" id="btnBuscar" aria-label="Buscar" title="Buscar"><span class="ico" data-icono="lupa"></span><span class="rot">Buscar</span></button>
+      <button type="button" class="rb" id="btnAvisos" aria-label="Avisos" title="Avisos"><span class="ico" data-icono="campana"></span><span class="rot">Avisos</span><b class="bdg" id="nAvisos" hidden></b></button>
+      <button type="button" class="rb" id="btnCuenta" aria-label="Cuenta" title="Cuenta"><span class="ico" data-icono="persona"></span><span class="rot">Cuenta</span></button>
+    </div>
+  </nav>
+
+  <!-- El panel del módulo: buscador del árbol arriba, las entradas del plan y «Guardados» al pie. En ≤ 1100 px se abre encima (☰ o clic en el
+       módulo activo); en ≤ 720 px es una hoja y además trae el ámbito (las unidades no caben en la barra de abajo). -->
+  <aside class="panel oculto" id="panel" aria-label="Panel del módulo">
+    <div class="panel-cab"><h1 id="panelTitulo">Inicio</h1><button type="button" class="panel-cerrar" id="btnCerrarHoja" aria-label="Cerrar el panel" title="Cerrar"><span class="ico" data-icono="x"></span></button></div>
+    <div class="srch"><input id="panelBusca" type="search" placeholder="Buscar en el panel" aria-label="Buscar en el panel" autocomplete="off"><span class="ico" data-icono="lupa"></span></div>
+    <div class="panel-sc" id="panelArbol"></div>
+    <div class="hoja-ambito" id="hojaAmbito" role="group" aria-label="Ámbito por unidad"></div>
   </aside>
+  <div class="hoja-fondo" id="hojaFondo" hidden></div>
 
   <main class="contenido">
-    <div id="barraMovil" class="barra-movil oculto"><span class="logo chica"><img class="logo solo-claro" src="./marca/lockup.svg" alt="MINSA ENERGY" width="724" height="256"><img class="logo solo-oscuro" src="./marca/lockup-oscuro.svg" alt="MINSA ENERGY" width="724" height="256"></span><span class="rol-movil" id="rolMovil"></span><details class="menu-movil" id="menuMovil"><summary class="mn-btn is-sm is-icono" aria-label="Menú">···</summary><div class="menu-caja"><button id="btnActualizarMovil" class="mn-btn is-sm" type="button">Actualizar ahora</button><button class="mn-btn is-sm ir-movil" type="button" data-ir="roadmap">Roadmap</button><button class="mn-btn is-sm ir-movil" type="button" data-ir="archivos">Archivos</button><button class="mn-btn is-sm ir-movil" type="button" data-ir="reportes">Reportes</button><button class="mn-btn is-sm ir-movil oculto" type="button" data-ir="capital" id="irCapitalMovil">Capital</button><button class="mn-btn is-sm ir-movil oculto" type="button" data-ir="finanzas" id="irFinanzasMovil">Finanzas</button><button class="mn-btn is-sm ir-movil oculto" type="button" data-ir="compras" id="irComprasMovil">Compras</button><button class="mn-btn is-sm ir-movil oculto" type="button" data-ir="servicios" id="irServiciosMovil">Servicios</button><button class="mn-btn is-sm ir-movil oculto" type="button" data-ir="vigencias" id="irVigenciasMovil">Vigencias</button><button id="btnEquipoMovil" class="mn-btn is-sm" type="button">Equipo</button><a id="lnkSharePointMovil" class="mn-btn is-sm oculto" href="#" target="_blank" rel="noopener">Ver en SharePoint</a><div class="tema" role="group" aria-label="Tema"><button class="mn-btn is-sm is-icono" type="button" data-tema="claro" title="Claro" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button class="mn-btn is-sm is-icono" type="button" data-tema="oscuro" title="Oscuro" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button></div><button id="btnSalirMovil" class="mn-btn is-sm salir" type="button">Salir</button></div></details></div>
+    <!-- La cabecera del armazón. Celular: ☰ · título del módulo · Buscar · Avisos · Cuenta, y abajo los CHIPS del módulo (sus entradas de
+         primer nivel: todo destino a ≤ 2 toques). Tableta: ☰ y el ámbito. Escritorio: solo el chip «Ámbito: X ✕» cuando hay uno puesto.
+         #btnPreguntar es el hueco de «Preguntar» (cubeta 4): oculto. -->
+    <div id="barraMovil" class="cabecera-app oculto">
+      <div class="cab-fila">
+        <button type="button" class="cab-btn" id="btnHoja" aria-label="Abrir el panel del módulo" aria-controls="panel" aria-expanded="false" title="Panel del módulo"><span class="ico" data-icono="menu"></span></button>
+        <span class="cab-titulo" id="tituloMovil"></span>
+        <span class="chip-ambito" id="chipAmbito" hidden></span>
+        <span class="cab-esp"></span>
+        <button type="button" class="ask" id="btnPreguntar" hidden><span class="ico" data-icono="ai"></span>PREGUNTAR</button>
+        <button type="button" class="cab-btn solo-cel" id="btnBuscarMovil" aria-label="Buscar" title="Buscar"><span class="ico" data-icono="lupa"></span></button>
+        <button type="button" class="cab-btn solo-cel" id="btnAvisosMovil" aria-label="Avisos" title="Avisos"><span class="ico" data-icono="campana"></span><b class="bdg" id="nAvisosMovil" hidden></b></button>
+        <button type="button" class="cab-btn solo-cel" id="btnCuentaMovil" aria-label="Cuenta" title="Cuenta"><span class="ico" data-icono="persona"></span></button>
+      </div>
+      <nav class="chips-modulo" id="chipsModulo" aria-label="Secciones del módulo"></nav>
+    </div>
     <p class="sync oculto" id="syncMovil"></p>
     <div id="avisos" role="status" aria-live="polite"></div>
     <div id="sinRed" class="sin-red-banda oculto" role="status">Sin conexión: puedes ver, no guardar. Se vuelve a leer solo cuando regrese la red.</div>
@@ -343,8 +353,34 @@
       <div class="bloques" id="misLista"></div>
     </section>
 
+    <!-- v1.0.0 (armazón; decisiones 9 y 10 del plan): Cuenta = página (#cuenta). Nombre y rol · tema Claro|Oscuro (sustituye al segmento del pie
+         del rail; misma llave `tema` de localStorage) · Actualizar con la hora de la última lectura · Ver en SharePoint · Salir · versión. «Equipo y
+         roles» pasó de diálogo (F13) a tarjeta de esta página (#cuenta/equipo), con la misma tabla y las mismas fichas. -->
+    <section id="p-cuenta" class="pantalla oculto">
+      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><span class="ico" data-icono="persona"></span></span><h1>Cuenta</h1><p class="sub">Tu sesión en este dispositivo, el tema y quién tiene qué rol.</p></header>
+      <div class="cuenta-rejilla">
+        <section class="mn-card cuenta-tu" id="cuentaTu">
+          <h2>Tu cuenta</h2>
+          <p id="quien" class="quien"></p>
+          <div class="tema seg" role="group" aria-label="Tema"><button class="mn-btn is-sm" type="button" data-tema="claro" title="Claro" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span>Claro</span></button><button class="mn-btn is-sm" type="button" data-tema="oscuro" title="Oscuro" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>Oscuro</span></button></div>
+          <div class="cuenta-acc"><button id="btnActualizar" class="mn-btn is-sm" type="button" title="Volver a leer las listas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg><span>Actualizar</span><span class="sync" id="syncRail" data-corto></span></button><a id="lnkSharePoint" class="mn-btn is-sm oculto" href="#" target="_blank" rel="noopener" title="Las mismas listas en Microsoft Lists (vista Tablero)">Ver en SharePoint</a><button id="btnSalir" class="mn-btn is-sm salir" type="button">Salir</button></div>
+          <p class="mn-help cuenta-version mn-mono" id="cuentaVersion"></p>
+        </section>
+        <section class="mn-card cuenta-equipo" id="cuentaEquipo">
+          <h2>Equipo y roles</h2>
+          <div class="tabla eq-tabla"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Activo</th><th>Abiertas</th></tr></thead><tbody id="eqLista"></tbody></table></div>
+          <div class="eq-fichas" id="eqFichas"></div>
+          <p class="mn-help">Los roles se cambian en la lista <code>PROY_Roles</code> de SharePoint, no aquí.</p>
+        </section>
+      </div>
+    </section>
+
     <p class="pie mn-mono" id="pie"></p>
   </main>
+  <!-- v1.0.0: «+ Nuevo» del celular, flotando sobre la barra (sustituye al FAB de «Nueva tarea», que sigue en el menú como «Tarea»). El menú es UNO
+       para el rail y para este botón; armazon.js lo coloca junto a quien lo abrió. -->
+  <button type="button" class="fab-nuevo" id="fabNuevo" aria-haspopup="menu" aria-expanded="false" aria-controls="menuNuevo" aria-label="Nuevo"><span class="ico" data-icono="mas"></span><span>Nuevo</span></button>
+  <div class="menu-nuevo" id="menuNuevo" role="menu" aria-label="Nuevo" hidden></div>
 </div>
 
 <!-- Tarjeta (ver / mover / editar) -->
@@ -574,14 +610,21 @@
   </div>
 </dialog>
 
-<!-- Equipo (F13): quien tiene que rol, solo lectura; cambiar roles sigue en SharePoint -->
-<dialog id="dlgEquipo" class="mn-dialog">
-  <div class="mn-dialog-head"><h2>Equipo</h2><button class="mn-btn is-ghost is-sm" id="eqCerrar" type="button">Cerrar</button></div>
+<!-- v1.0.0: Equipo (F13) dejó de ser diálogo: es la tarjeta «Equipo y roles» de la página Cuenta (#cuenta/equipo). -->
+<!-- v1.0.0 (armazón): Buscar — versión mínima (pantallas, proyectos y tarjetas en memoria, sin acentos). El buscador global completo
+     (archivos, personas, órdenes, expedientes, vigencias, `/` y Ctrl+K) es de la cubeta 4: se engancha en armazon.js `buscar()`. -->
+<dialog id="dlgBuscar" class="mn-dialog dlg-buscar" aria-labelledby="bsTitulo">
+  <div class="mn-dialog-head"><h2 id="bsTitulo">Buscar</h2><button class="mn-btn is-ghost is-sm" id="bsCerrar" type="button">Cerrar</button></div>
   <div class="mn-dialog-body">
-    <div class="tabla eq-tabla"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Activo</th><th>Abiertas</th></tr></thead><tbody id="eqLista"></tbody></table></div>
-    <div class="eq-fichas" id="eqFichas"></div>
-    <p class="mn-help">Los roles se cambian en la lista <code>PROY_Roles</code> de SharePoint, no aquí.</p>
+    <div class="srch"><input id="bsTexto" type="search" placeholder="Busca una pantalla, un proyecto o una tarjeta" aria-label="Buscar en la app" autocomplete="off"><span class="ico" data-icono="lupa"></span></div>
+    <div class="bs-res" id="bsResultados" role="list"></div>
   </div>
+</dialog>
+<!-- v1.0.0 (armazón): Avisos — versión mínima (mis vencidas, mensajes nuevos por frente, te mencionaron). La marca de «visto» compartida
+     (PROY_Roles.Visto), las vigencias y los lotes archivados son de la cubeta 4: se enganchan en armazon.js `avisosDe()`. -->
+<dialog id="dlgAvisos" class="mn-dialog dlg-avisos-app" aria-labelledby="avTitulo">
+  <div class="mn-dialog-head"><h2 id="avTitulo">Avisos</h2><button class="mn-btn is-ghost is-sm" id="avCerrar" type="button">Cerrar</button></div>
+  <div class="mn-dialog-body"><div class="av-lista" id="avLista" role="list"></div></div>
 </dialog>
 
 <!-- Confirmacion propia (sustituye a confirm()) -->

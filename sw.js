@@ -7,7 +7,7 @@
 // Cada peticion del armazon lleva `cache: 'reload'`: GitHub Pages sirve con max-age=600 y sin
 // eso el service worker nuevo se llena con los archivos VIEJOS (medido en captura, 2026-08-17).
 
-const CACHE = 'minsa-erp-v193';
+const CACHE = 'minsa-erp-v194';
 
 function traerDeLaRed(recurso) {
     return fetch(new Request(recurso, { cache: 'reload', credentials: 'same-origin' }));
@@ -19,6 +19,7 @@ const ARMAZON = [
     './estilo.css',
     './minsa-ui.css',
     './app.js',
+    './armazon.js',         // v1.0.0: rail, panel, cabecera, Cuenta (rediseño 2026-10-02)
     './config.js',
     './comun.js',
     './graph.js',
@@ -42,19 +43,15 @@ const ARMAZON = [
     './esquema.json',
     './manifest.json',
     './vendor/msal-browser.min.js',
-    './vendor/fuentes/Barlow-400.woff2',
-    './vendor/fuentes/Barlow-500.woff2',
-    './vendor/fuentes/Barlow-600.woff2',
-    './vendor/fuentes/Saira-500.woff2',
-    './vendor/fuentes/Saira-600.woff2',
+    './vendor/fuentes/SourceSans3-latin-var.woff2',   // v1.0.0: la letra de la maqueta (sustituye a Saira, Barlow y Bai Jamjuree)
     './vendor/fuentes/IBMPlexMono-400.woff2',
     './vendor/fuentes/IBMPlexMono-500.woff2',
-    './vendor/fuentes/BaiJamjuree-700.woff2',   // v0.151.0: faltaba; se cacheaba por accidente hasta S-25
     './iconos/icono-192.png',
     './iconos/icono-512.png',
     './iconos/icono-512-recortable.png',
     './marca/lockup.svg',
-    './marca/lockup-oscuro.svg'
+    './marca/lockup-oscuro.svg',
+    './marca/simbolo-oscuro.svg'   // v1.0.0: la cabeza del rail
 ];
 // S-25 (v0.151.0): las rutas del armazon, resueltas contra el scope; el fetch guarda SOLO estas y por su ruta sin query —
 // antes toda GET del origen con respuesta ok entraba a la cache, y cada variante `?x=` quedaba como entrada propia.

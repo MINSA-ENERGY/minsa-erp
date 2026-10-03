@@ -429,4 +429,50 @@ assert.equal(plural(3, 'nuevo'), 'nuevos'); n++;
 assert.equal(plural(2, 'conversación', 'conversaciones'), 'conversaciones'); n++;
 assert.equal(plural(1, 'mensaje nuevo', 'mensajes nuevos'), 'mensaje nuevo'); n++;
 
+// v1.0.0 (rediseño 2026-10-02, cubeta 1): la tabla ruta → módulo, los módulos por rol, los sufijos nuevos y el anillo «Mi día».
+{
+    const { MODULOS, MODULO_DE, modulosDe, principalDe, puedeVerPantalla, leerRuta, rutaActiva, miDia } = await import('../reglas.js');
+    ok('MODULOS: los 5 del plan, en su orden', MODULOS.map(m => m.clave).join() === 'inicio,trabajo,archivos,dinero,operacion' && MODULOS[4].nombre === 'Operación');
+    ok('modulosDe: 5 a gerencia, 5 a colaborador, 4 a lectura (sin Operación)', modulosDe('gerencia').length === 5 && modulosDe('colaborador').length === 5 && modulosDe('lectura').map(m => m.clave).join() === 'inicio,trabajo,archivos,dinero');
+    ok('principalDe: Inicio→Resumen, Trabajo→Proyectos, Archivos→Archivos, Operación→Servicios, Cuenta→#cuenta',
+        principalDe('inicio', 'gerencia') === '#inicio' && principalDe('trabajo', 'lectura') === '#proyectos' && principalDe('archivos', 'colaborador') === '#archivos' && principalDe('operacion', 'colaborador') === '#servicios' && principalDe('cuenta', 'lectura') === '#cuenta' && principalDe('nada', 'gerencia') === '#inicio');
+    ok('principalDe: Dinero es Por cobrar para gerencia y Mis gastos para los demás', principalDe('dinero', 'gerencia') === '#finanzas/cobrar/saldo' && principalDe('dinero', 'colaborador') === '#gastos' && principalDe('dinero', 'lectura') === '#gastos');
+    ok('puedeVerPantalla: Capital/Finanzas/Vigencias solo gerencia; Servicios/Compras gerencia y colaborador; lo demás todos; lo desconocido nadie',
+        ['capital', 'finanzas', 'vigencias'].every(p => puedeVerPantalla(p, 'gerencia') && !puedeVerPantalla(p, 'colaborador') && !puedeVerPantalla(p, 'lectura'))
+        && ['servicios', 'compras'].every(p => puedeVerPantalla(p, 'gerencia') && puedeVerPantalla(p, 'colaborador') && !puedeVerPantalla(p, 'lectura'))
+        && ['inicio', 'mis', 'mensajes', 'proyectos', 'proyecto', 'roadmap', 'calendario', 'reportes', 'archivos', 'gastos', 'cuenta'].every(p => puedeVerPantalla(p, 'lectura'))
+        && !puedeVerPantalla('constructor', 'gerencia') && !puedeVerPantalla('nada', 'gerencia'));
+    // las 15 rutas de hoy (las 14 pantallas de RE_HASH + #p/<clave>) → pantalla y módulo
+    const VIEJAS = [['#inicio', 'inicio', 'inicio'], ['#proyectos', 'proyectos', 'trabajo'], ['#mis', 'mis', 'inicio'], ['#roadmap', 'roadmap', 'trabajo'], ['#calendario', 'calendario', 'trabajo'],
+        ['#mensajes', 'mensajes', 'inicio'], ['#archivos', 'archivos', 'archivos'], ['#reportes', 'reportes', 'trabajo'], ['#capital', 'capital', 'dinero'], ['#gastos', 'gastos', 'dinero'],
+        ['#finanzas', 'finanzas', 'dinero'], ['#vigencias', 'vigencias', 'operacion'], ['#servicios', 'servicios', 'operacion'], ['#compras', 'compras', 'operacion'], ['#p/lau-asea-03-001', 'proyecto', 'trabajo']];
+    for (const [h, p, m] of VIEJAS) { const r = leerRuta(h); ok(`leerRuta(${h}) → ${p} en ${m}`, !!r && r.pantalla === p && r.modulo === m && MODULO_DE[p] === m && r.sub === null && r.tareaId === null); }
+    ok('las 15 rutas de hoy son las 14 pantallas de RE_HASH más #p/<clave>', VIEJAS.length === 15);
+    // sus sufijos vigentes
+    { const r = leerRuta('#p/lau-demo/docs/t/12'); ok('leerRuta: #p/<clave>/<pestaña>/t/<id>', r.pantalla === 'proyecto' && r.clave === 'lau-demo' && r.tab === 'docs' && r.tareaId === 12); }
+    ok('leerRuta: cada pestaña del proyecto vale y otra no', ['lista', 'docs', 'chat', 'tablero', 'resumen', 'roadmap', 'capital'].every(t => leerRuta('#p/x/' + t).tab === t) && leerRuta('#p/x/nope') === null && leerRuta('#p/X') === null && leerRuta('#p') === null);
+    ok('leerRuta: /t/<id> sobre cualquier pantalla', leerRuta('#mis/t/5').tareaId === 5 && leerRuta('#mis/t/5').pantalla === 'mis' && leerRuta('#finanzas/cobrar/saldo/t/7').tareaId === 7);
+    { const r = leerRuta('#mensajes/f/lau-demo'); ok('leerRuta: #mensajes/f/<clave>', r.pantalla === 'mensajes' && r.msj.tipo === 'f' && r.msj.clave === 'lau-demo'); }
+    ok('leerRuta: #mensajes/d/<alias> sigue siendo ruta (la app la manda a la bandeja con aviso)', leerRuta('#mensajes/d/jefa').msj.tipo === 'd');
+    { const r = leerRuta('#capital/f/lau-demo'); ok('leerRuta: #capital/f/<clave>', r.pantalla === 'capital' && r.msj.clave === 'lau-demo' && r.modulo === 'dinero'); }
+    ok('leerRuta: #gastos/tesoreria y #gastos/contabilidad', leerRuta('#gastos/tesoreria').subGastos === 'tesoreria' && leerRuta('#gastos/contabilidad').subGastos === 'contabilidad');
+    // los sufijos nuevos del plan
+    ok('leerRuta: #finanzas/cobrar/<r> y #finanzas/pagar/<r>', leerRuta('#finanzas/cobrar/saldo').sub === 'cobrar/saldo' && leerRuta('#finanzas/pagar/proveedor').sub === 'pagar/proveedor' && leerRuta('#finanzas/cobrar').sub === 'cobrar' && leerRuta('#finanzas/cobrar/saldo/extra') === null && leerRuta('#finanzas/otra') === null);
+    ok('leerRuta: #capital/mes y #reportes/<r>', leerRuta('#capital/mes').sub === 'mes' && leerRuta('#reportes/carga').sub === 'carga' && leerRuta('#capital/otro') === null);
+    ok('leerRuta: #servicios/<E#> (en mayúsculas) y #servicios/ciclo', leerRuta('#servicios/E3').sub === 'E3' && leerRuta('#servicios/e10').sub === 'E10' && leerRuta('#servicios/ciclo').sub === 'ciclo' && leerRuta('#servicios/x3') === null);
+    ok('leerRuta: #compras/partidas y nada más', leerRuta('#compras/partidas').sub === 'partidas' && leerRuta('#compras/otras') === null);
+    ok('leerRuta: #archivos/<seccion>[/…]', leerRuta('#archivos/recientes').sub === 'recientes' && leerRuta('#archivos/bibliotecas/CALYTEK/02_Planta').sub === 'bibliotecas/CALYTEK/02_Planta' && leerRuta('#archivos/otra') === null);
+    ok('leerRuta: #cuenta y #cuenta/equipo, en el módulo cuenta', leerRuta('#cuenta').modulo === 'cuenta' && leerRuta('#cuenta/equipo').sub === 'equipo' && leerRuta('#cuenta/x') === null);
+    ok('leerRuta: lo que no es ruta de la app es null', [null, '', '#', '#nada', 'inicio', '#inicio/', '#inicio/tesoreriax', '#p/a/b/c'].every(h => leerRuta(h) === null));
+    ok('rutaActiva: la ruta más larga que es prefijo por segmentos, sin /t/<id>', rutaActiva(['#p/lau', '#proyectos'], '#p/lau/docs/t/4') === '#p/lau' && rutaActiva(['#finanzas/cobrar/saldo', '#finanzas/cobrar'], '#finanzas/cobrar/saldo') === '#finanzas/cobrar/saldo' && rutaActiva(['#p/la'], '#p/lau') === null && rutaActiva([], '#inicio') === null);
+    // «Mi día»: mis abiertas que vencen hoy o ya vencieron + las que hice hoy
+    const yo = 'yo@x', hoy = new Date('2026-10-02T18:00:00Z');
+    const ts = [{ id: 1, Asignado: 'YO@x', Columna: 'por-hacer', Vence: '2026-10-02T18:00:00Z' }, { id: 2, Asignado: 'yo@x', Columna: 'en-curso', Vence: '2026-09-20T18:00:00Z' },
+        { id: 3, Asignado: 'yo@x', Columna: 'por-hacer', Vence: '2026-10-09T18:00:00Z' }, { id: 4, Asignado: 'yo@x', Columna: 'por-hacer' },
+        { id: 5, Asignado: 'yo@x', Columna: 'hecho', HechoEl: '2026-10-02T15:00:00Z' }, { id: 6, Asignado: 'otro@x', Columna: 'por-hacer', Vence: '2026-10-01T18:00:00Z' },
+        { id: 7, Asignado: 'yo@x', Columna: 'hecho', HechoEl: '2026-09-30T15:00:00Z' }];
+    { const d = miDia(ts, yo, hoy); ok('miDia: 1 hecha hoy de 3 (la de hoy, la vencida y la hecha hoy; sin las de otro, las sin fecha ni las de la otra semana)', d.hechas === 1 && d.total === 3); }
+    ok('miDia: sin nada para hoy = 0 de 0', JSON.stringify(miDia([], yo, hoy)) === '{"hechas":0,"total":0}');
+}
+
 console.log(`reglas: ok (${n} comprobaciones)`);

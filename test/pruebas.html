@@ -324,7 +324,9 @@ const avisoCon = texto => [...document.querySelectorAll('#avisos .mensaje, .dlg-
 const clic = id => $(id).click();
 const poner = (id, v) => { $(id).value = v; $(id).dispatchEvent(new Event('input', { bubbles: true })); $(id).dispatchEvent(new Event('change', { bubbles: true })); };
 const filas = clave => DB.listas[clave].items;
-const pestana = p => document.querySelector(`#pestanas button[data-p="${p}"]`).click();
+// v1.0.0 (armazón): cada pantalla tiene UNA entrada canónica en el panel de su módulo (data-p); el panel pinta los 6 árboles siempre
+// (el del módulo actual a la vista), así que la entrada existe desde cualquier pantalla. Antes: el botón del rail #pestanas.
+const pestana = p => document.querySelector(`#panel [data-p="${p}"]`).click();
 const tab = t => document.querySelector(`.tab[data-tab="${t}"]`).click();
 async function confirmar() { const d = $('dlg'); await esperar(() => d.open, 'diálogo abierto', 2000).catch(() => {}); if (d.open) clic('dlgOk'); }
 // v0.53.0: abre el popover de edicion de ESE campo desde su boton con lapiz (titulo · asignado · vence · prioridad · color · descripcion).
@@ -914,28 +916,58 @@ try {
         { const mod = await import('../comun.js'); R.ok('v0.95.0 (C-13): «× limpiar» deja el filtro igual a filtroVacio()', JSON.stringify(mod.estado.filtroTareas) === JSON.stringify(mod.filtroVacio()), JSON.stringify(mod.estado.filtroTareas)); }
         // D5: los contadores del rail tienen nombre accesible.
         R.ok('D5: los contadores del rail llevan aria-label («N vencidas» / «N activos»)', $('nProyectos').getAttribute('aria-label') === '1 activo' && /^\d+ vencidas?$/.test($('nMis').getAttribute('aria-label')) && $('nProyectos').title === '1 activo', $('nMis').getAttribute('aria-label'));
-        // D6: el pie del rail — Equipo, Ver en SharePoint y Salir dentro del menú «···».
-        R.ok('D6 + v0.48.0 (A4): Actualizar, Equipo, Ver en SharePoint y Salir viven en el menú «···» del rail; el tema, fuera, como segmento con rótulo', $('menuRail').contains($('btnEquipo')) && $('menuRail').contains($('lnkSharePoint')) && $('menuRail').contains($('btnSalir')) && $('menuRail').contains($('btnActualizar')) && $('btnActualizar').contains($('syncRail')) && !$('menuRail').contains(document.querySelector('.rail .tema')) && document.querySelector('.rail .tema').classList.contains('seg') && document.querySelectorAll('.rail .tema button > span').length === 2 && $('btnSalir') === $('menuRail').querySelector('.menu-caja').lastElementChild);
+        // v1.0.0 (sustituye a D6 + v0.48.0 «A4»): el pie del rail y su menú «···» se fueron; Actualizar (con su hora), Ver en SharePoint,
+        // Salir (al final), el tema como segmento con rótulo y Equipo y roles viven en la página Cuenta.
+        R.ok('v1.0.0 (sustituye a D6 + A4): Cuenta trae Actualizar con su hora, Ver en SharePoint y Salir al final; el tema como segmento Claro | Oscuro con rótulo; y la tarjeta Equipo y roles',
+            $('cuentaTu').contains($('btnActualizar')) && $('btnActualizar').contains($('syncRail')) && $('cuentaTu').contains($('lnkSharePoint')) && $('cuentaTu').contains($('btnSalir'))
+            && $('btnSalir') === $('cuentaTu').querySelector('.cuenta-acc').lastElementChild && $('cuentaTu').querySelector('.tema').classList.contains('seg')
+            && $('cuentaTu').querySelectorAll('.tema button > span').length === 2 && $('p-cuenta').contains($('eqLista')) && !$('menuRail') && !$('dlgEquipo'));
         R.ok('v0.48.0: el rol es un rótulo de datos (`.rol`), ya no un chip', !!document.querySelector('#quien .rol') && !document.querySelector('#quien .mn-chip'));
-        // v0.28.0: el rail se pliega con un botón y la elección sobrevive en localStorage `rail`.
-        // El perfil de Edge conserva localStorage entre corridas (capturas.mjs corre claro y oscuro seguidos): se parte del estado desplegado sin suponerlo.
-        if ($('shell').classList.contains('rail-plegado')) { clic('btnPlegar'); await dormir(10); }
-        R.ok('v0.28.1: desplegado, la marca es el botón que pliega (aria-expanded=true) y cada pestaña lleva su rótulo en el title', !$('shell').classList.contains('rail-plegado') && $('btnMarca').getAttribute('aria-expanded') === 'true' && document.querySelector('#pestanas [data-p="mis"]').title === 'Mis tareas');
-        clic('btnMarca'); await dormir(10);
-        R.ok('v0.28.1: clic en la marca pone .rail-plegado, el chevron queda aria-expanded=false y guarda `rail=plegado`', $('shell').classList.contains('rail-plegado') && $('btnPlegar').getAttribute('aria-expanded') === 'false' && localStorage.getItem('rail') === 'plegado');
-        clic('btnPlegar'); await dormir(10);
-        R.ok('v0.28.1: el chevron despliega: quita la clase y borra la llave', !$('shell').classList.contains('rail-plegado') && localStorage.getItem('rail') === null);
-        $('menuRail').open = true; clic('btnEquipo'); await esperar(() => $('dlgEquipo').open, 'equipo desde el menú');
-        R.ok('D6: elegir una opción cierra el menú', !$('menuRail').open);
-        // B8: Atrás cierra cualquier diálogo (los seis sin hash): el diálogo empuja una entrada y popstate lo cierra.
-        R.ok('B8: abrir Equipo empujó una entrada de historial sin cambiar el hash', history.state && history.state.dlg === 'dlgEquipo' && location.hash === '#p/' + CLAVE, JSON.stringify(history.state));
-        window.dispatchEvent(new PopStateEvent('popstate')); await esperar(() => !$('dlgEquipo').open, 'Atrás cerró Equipo');
-        R.ok('B8: Atrás cierra el diálogo y la pantalla se queda donde estaba', !$('dlgEquipo').open && visible('p-proyecto'));
-        // E4: el refresco automático no se pausa con un diálogo de lectura; al cerrarlo, si pasó más de 60 s, relee.
+        // v1.0.0 (sustituye a v0.28.0/v0.28.1, el rail plegable con la marca y el chevron): el rail mide 64 px siempre; lo que se pliega es el
+        // PANEL del módulo, con un clic en el módulo activo (escritorio), y la elección vive en localStorage `panel`. En tableta y celular el
+        // mismo clic abre la hoja / vuelve a la principal; ahí se prueba el ☰.
+        { const activo = () => document.querySelector('#modulos .rb.is-on');
+          const rotulos = [...document.querySelectorAll('#modulos [data-m]')].every(b => b.getAttribute('aria-label') === b.querySelector('.rot').textContent && b.querySelector('.rot').textContent.length > 3);
+          if (!matchMedia('(max-width: 1100px)').matches) {
+              if ($('shell').classList.contains('panel-plegado')) { activo().click(); await dormir(10); }
+              R.ok('v1.0.0 (sustituye a v0.28.1 «desplegado, la marca pliega»): el panel nace desplegado, el módulo activo lo declara (aria-expanded=true) y cada módulo lleva su rótulo visible = aria-label',
+                  !$('shell').classList.contains('panel-plegado') && activo().dataset.m === 'trabajo' && activo().getAttribute('aria-expanded') === 'true' && rotulos && visible('panel'));
+              activo().click(); await dormir(10);
+              R.ok('v1.0.0 (sustituye a v0.28.1 «clic en la marca pone .rail-plegado»): clic en el módulo activo pliega el panel (.panel-plegado, aria-expanded=false, guarda `panel=plegado`) y la pantalla no cambia',
+                  $('shell').classList.contains('panel-plegado') && activo().getAttribute('aria-expanded') === 'false' && localStorage.getItem('panel') === 'plegado' && !visible('panel') && location.hash === '#p/' + CLAVE);
+              activo().click(); await dormir(10);
+              R.ok('v1.0.0 (sustituye a v0.28.1 «el chevron despliega»): otro clic lo despliega y borra la llave', !$('shell').classList.contains('panel-plegado') && localStorage.getItem('panel') === null && visible('panel'));
+          } else {
+              R.ok('v1.0.0: cada módulo lleva su rótulo visible = aria-label', rotulos);
+              clic('btnHoja'); await dormir(10);
+              R.ok('v1.0.0 (tableta/celular): ☰ abre el panel como hoja (body.hoja-abierta, aria-expanded=true) con el árbol del módulo', document.body.classList.contains('hoja-abierta') && $('btnHoja').getAttribute('aria-expanded') === 'true' && !$('hojaFondo').hidden && !document.querySelector('#panelArbol [data-modulo="trabajo"]').hidden);
+              clic('hojaFondo'); await dormir(10);
+              R.ok('v1.0.0 (tableta/celular): tocar fuera cierra la hoja y la pantalla no cambia', !document.body.classList.contains('hoja-abierta') && $('hojaFondo').hidden && location.hash === '#p/' + CLAVE);
+          } }
+        // v1.0.0 (sustituye a D6 «elegir una opción cierra el menú», el del «···»): «+ Nuevo» abre su menú; elegir cierra el menú.
+        { const trig = matchMedia('(max-width: 720px)').matches ? $('fabNuevo') : $('btnNuevo');
+          trig.click(); await dormir(10);
+          const items = [...$('menuNuevo').querySelectorAll('[data-nuevo]')].map(b => b.dataset.nuevo + (b.disabled ? '-' : '')).join();
+          R.ok('v1.0.0: «+ Nuevo» abre su menú — Tarea · Gasto · Subir archivo · Foto (lectura: solo Gasto vivo)', !$('menuNuevo').hidden && trig.getAttribute('aria-expanded') === 'true' && items === (escribe ? 'tarea,gasto,subir,foto' : 'tarea-,gasto,subir-,foto-'), items);
+          if (escribe) {
+              $('menuNuevo').querySelector('[data-nuevo="tarea"]').click(); await esperar(() => $('dlgNuevaTarea').open, 'nueva tarea desde + Nuevo');
+              R.ok('v1.0.0 (sustituye a D6): elegir «Tarea» dentro del frente cierra el menú y abre «Nueva tarea» de ESE frente', $('menuNuevo').hidden && trig.getAttribute('aria-expanded') === 'false' && location.hash === '#p/' + CLAVE);
+              clic('ntCancelar'); await esperar(() => !$('dlgNuevaTarea').open, 'nueva tarea cancelada');
+          } else {
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await dormir(10);
+              R.ok('v1.0.0 (sustituye a D6, lectura): Esc cierra el menú sin hacer nada', $('menuNuevo').hidden && !$('dlgNuevaTarea').open);
+          } }
+        // B8: Atrás cierra cualquier diálogo (los que no van en el hash): el diálogo empuja una entrada y popstate lo cierra.
+        // v1.0.0: Equipo ya no es diálogo (es la tarjeta de Cuenta); la misma prueba corre sobre «Toda la actividad» del frente.
+        clic('btnActividadProyecto'); await esperar(() => $('dlgActividad').open, 'actividad del frente');
+        R.ok('B8 (v1.0.0, sobre «Toda la actividad»): abrir un diálogo de lectura empujó una entrada de historial sin cambiar el hash', history.state && history.state.dlg === 'dlgActividad' && location.hash === '#p/' + CLAVE, JSON.stringify(history.state));
+        window.dispatchEvent(new PopStateEvent('popstate')); await esperar(() => !$('dlgActividad').open, 'Atrás cerró la actividad');
+        R.ok('B8: Atrás cierra el diálogo y la pantalla se queda donde estaba', !$('dlgActividad').open && visible('p-proyecto'));
+        // E4: el refresco automático no se pausa con un diálogo de lectura; al cerrarlo, si pasó más de 60 s, relee. (v1.0.0: sobre «Toda la actividad»)
         { const llamadasE4 = DB.llamadas.length;
-          clic('btnEquipo'); await esperar(() => $('dlgEquipo').open, 'equipo');
+          clic('btnActividadProyecto'); await esperar(() => $('dlgActividad').open, 'actividad');
           const mod = await import('../comun.js'); mod.estado.cargadoEl = Date.now() - 61000;
-          clic('eqCerrar'); await esperar(() => !$('btnActualizar').disabled && DB.llamadas.length > llamadasE4, 'relectura al cerrar Equipo');
+          clic('acCerrar'); await esperar(() => !$('btnActualizar').disabled && DB.llamadas.length > llamadasE4, 'relectura al cerrar la actividad');
           R.ok('E4: cerrar un diálogo de lectura tras > 60 s relee las listas', DB.llamadas.length > llamadasE4); }
         // C8: el reloj del frente cruzado con lo pendiente, en la cabecera y en el renglón de la lista.
         { const mod = await import('../comun.js'); const p0 = mod.estado.proyectos.find(x => x.id === proyectoId); const venceAntes = p0.Vence;
@@ -1625,13 +1657,15 @@ try {
         await abrirLau();
         // F13 (v0.4.0): «Ver en SharePoint» y la pantalla Equipo.
         R.ok('F13: «Ver en SharePoint» apunta a la lista de tareas (webUrl real de Graph)', !$('lnkSharePoint').classList.contains('oculto') && $('lnkSharePoint').href.endsWith('/Lists/PROY_Tareas') && $('lnkSharePoint').target === '_blank');
-        clic('btnEquipo'); await esperar(() => $('dlgEquipo').open, 'equipo');
+        // v1.0.0: Equipo dejó de ser diálogo: su entrada (#btnEquipo, panel de Cuenta) lleva a la tarjeta «Equipo y roles» de #cuenta/equipo.
+        clic('btnEquipo'); await esperar(() => visible('p-cuenta') && location.hash === '#cuenta/equipo', 'Equipo y roles en Cuenta');
         R.ok('F13: Equipo lista los 3 roles con nombre, correo, rol, activo y abiertas', document.querySelectorAll('#eqLista tr').length === 3 && $('eqLista').textContent.includes('Jefa Demo') && $('eqLista').textContent.includes('gerencia') && $('eqLista').textContent.includes('jefa@example.invalid') && document.querySelectorAll('#eqLista tr td:nth-child(4) .mn-chip.is-ok').length === 3);
         // A2 (v0.5.0): las mismas filas como fichas para celular (la tabla de 5 columnas no cabe en 354 px).
         R.ok('A2: Equipo pinta además una ficha por persona, con nombre, correo, rol y abiertas',
             document.querySelectorAll('#eqFichas .eq-ficha').length === 3 && $('eqFichas').textContent.includes('jefa@example.invalid') && $('eqFichas').textContent.includes('abierta'),
             $('eqFichas').textContent.slice(0, 120));
-        clic('eqCerrar');
+        R.ok('v1.0.0 (sustituye a «abrir Equipo» del diálogo F13): «Equipo y roles» es la tarjeta de la página Cuenta, con el botón Cuenta resaltado y ningún módulo', visible('cuentaEquipo') && $('btnCuenta').classList.contains('is-on') && !document.querySelector('#modulos .rb.is-on') && $('cuentaVersion').textContent.startsWith('MINSA ERP v'));
+        await abrirLau();
         // U11 (v0.4.0): Imprimir = window.print().
         let impreso = false; const printReal = window.print; window.print = () => { impreso = true; };
         clic('btnImprimir'); window.print = printReal;
@@ -1988,9 +2022,12 @@ try {
               R.ok('C-20 (v0.145.0): ese «+N más» aterriza en Mis tareas con el filtro «vencidas» puesto', location.hash === '#mis' && document.querySelector('#filtroMis .kpi.is-on').dataset.mis === 'vencidas', document.querySelector('#filtroMis .kpi.is-on').dataset.mis);
               pestana('inicio'); await dormir(30); document.querySelector('#hoyFiltro [data-hoy="todo"]').click(); await dormir(30);
               const ids = new Set([...mias7, ajena].map(x => x.id)); DB.listas.tareas.items = filas('tareas').filter(x => !ids.has(x.id)); await recargarYEsperar(); pestana('inicio'); await dormir(30); }
-            // U-15 · U-17 (v0.145.0): Esc cierra el menú «···» del rail y devuelve el foco a su botón; los rótulos de grupo sin botón son encabezados de nivel 3.
-            { $('menuRail').open = true; $('menuRail').querySelector('.menu-caja button').focus(); $('menuRail').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-              R.ok('U-15 (v0.145.0): Esc cierra el menú «···» del rail y el foco vuelve a su summary (a <= 720 px el rail no se pinta: solo se cierra)', !$('menuRail').open && (matchMedia('(max-width: 720px)').matches || document.activeElement === $('menuRail').querySelector('summary')));
+            // U-15 · U-17 (v0.145.0): Esc cierra el menú y devuelve el foco a su botón; los rótulos de grupo sin botón son encabezados de nivel 3.
+            // v1.0.0: el menú «···» del rail se fue; la misma regla corre sobre «+ Nuevo» (el del rail en escritorio, el flotante en celular).
+            { const trig = matchMedia('(max-width: 720px)').matches ? $('fabNuevo') : $('btnNuevo');
+              trig.click(); await dormir(10); const dentro = $('menuNuevo').contains(document.activeElement);
+              $('menuNuevo').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+              R.ok('U-15 (v1.0.0, sobre «+ Nuevo»): el menú abre con el foco en su primera opción; Esc lo cierra y el foco vuelve a su botón', dentro && $('menuNuevo').hidden && document.activeElement === trig && trig.getAttribute('aria-expanded') === 'false');
               const gs = [...document.querySelectorAll('#inicioHoy .hoy-g')];
               R.ok('U-17 (v0.145.0): cada rótulo de grupo de la cola que no es botón lleva role=heading y aria-level=3', gs.length > 0 && gs.every(g => g.tagName === 'BUTTON' ? !g.getAttribute('role') : g.getAttribute('role') === 'heading' && g.getAttribute('aria-level') === '3'), gs.map(g => g.tagName + ':' + g.getAttribute('role')).join(',')); }
             // C-14 (v0.94.0): 7 tarjetas que vencen en 4 dias llenan «Esta semana» mas alla del tope; su «+N más» aterriza en el Calendario.
@@ -2031,21 +2068,33 @@ try {
         // ---- v0.10.0: Roadmap · Calendario · Mensajes · Archivos · Reportes (foto de referencia, 12-sep) + titulo con icono + anillo
         {
             const hoyIso = new Date().toISOString();
-            R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-proyectos', 'p-mis', 'p-roadmap', 'p-calendario', 'p-mensajes', 'p-archivos', 'p-reportes', 'p-capital', 'p-gastos', 'p-finanzas'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));
-            R.ok('v0.10.0: el rail trae las 9 secciones (v0.162.0: + Gastos; 12 con Capital, Finanzas y Vigencias, v0.100.0/v0.165.0/v0.166.0: solo gerencia las ve) y las que no caben en la barra móvil van en el menú «···»', document.querySelectorAll('#pestanas button').length === 14 && document.querySelectorAll('#menuMovil .ir-movil').length === 8 && document.querySelectorAll('#pestanas button:not(.oculto)').length === (gerencia ? 14 : ROL === 'colaborador' ? 11 : 9) && document.querySelectorAll('#menuMovil .ir-movil:not(.oculto)').length === (gerencia ? 8 : ROL === 'colaborador' ? 5 : 3));   // v0.168.0: + Servicios (gerencia y colaborador)
-            // v0.167.0: tres bloques en el rail; cada pestana en el suyo; Operacion sin pestanas visibles no pinta rotulo
-            {
-                const bloques = [...document.querySelectorAll('#pestanas .rail-bloque')];
-                const de = b => [...b.querySelectorAll(':scope > button')].map(x => x.dataset.p).join(',');
-                const rot = bloques.map(b => b.querySelector('.rail-grupo')?.textContent).join('|');
-                const opVisible = getComputedStyle(bloques[2].querySelector('.rail-grupo')).display !== 'none';
-                R.ok('v0.167.0: el rail va en Trabajo · Dinero · Operación, cada pestaña en su bloque, y el rótulo de Operación solo se pinta si hay una pestaña visible',
-                    bloques.length === 3 && rot === 'Trabajo|Dinero|Operación'
-                    && de(bloques[0]) === 'inicio,mis,mensajes,proyectos,roadmap,calendario,archivos,reportes'
-                    && de(bloques[1]) === 'gastos,capital,finanzas,compras' && de(bloques[2]) === 'servicios,vigencias'
-                    && (innerWidth <= 720 ? !opVisible : opVisible === (gerencia || ROL === 'colaborador')),   // v0.168.0: con Servicios, Operación se ve también a colaborador
-                    `${rot} / ${bloques.map(de).join(' / ')} / op=${opVisible}`);
-            }
+            R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-proyectos', 'p-mis', 'p-roadmap', 'p-calendario', 'p-mensajes', 'p-archivos', 'p-reportes', 'p-capital', 'p-gastos', 'p-finanzas', 'p-cuenta'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));   // v1.0.0: + Cuenta
+            // v1.0.0 (rediseño 2026-10-02, sustituye a «el rail trae las 9 secciones … y las que no caben van en el menú «···»» de v0.10.0–v0.169.0):
+            // el rail trae los 5 MÓDULOS (5/5/4 por rol); los destinos que no son módulo viven en el panel (un árbol por módulo) y, en celular, en los
+            // chips del módulo. El menú «···» del celular se fue.
+            { const mods = [...document.querySelectorAll('#modulos [data-m]')], vis = mods.filter(b => !b.classList.contains('oculto')).map(b => b.dataset.m).join();
+              R.ok('v1.0.0: el rail trae los 5 módulos — Inicio · Trabajo · Archivos · Dinero · Operación — y el rol ve 5 (gerencia), 5 (colaborador) o 4 (lectura, sin Operación); ni #pestanas ni el menú «···» del celular',
+                  mods.map(b => b.dataset.m).join() === 'inicio,trabajo,archivos,dinero,operacion' && vis === (ROL === 'lectura' ? 'inicio,trabajo,archivos,dinero' : 'inicio,trabajo,archivos,dinero,operacion') && !$('menuMovil') && !$('pestanas'), vis);
+              // cada pantalla de hoy tiene UNA entrada canónica (data-p) en el panel de SU módulo (la tabla ruta → módulo del plan)
+              const enModulo = { inicio: 'inicio,mis,mensajes', trabajo: 'proyectos,roadmap,calendario,reportes', archivos: 'archivos', dinero: 'finanzas,gastos,capital', operacion: 'servicios,compras,vigencias', cuenta: 'cuenta' };
+              const ps = m => [...document.querySelectorAll(`#panelArbol [data-modulo="${m}"] [data-p]`)].map(b => b.dataset.p).join(',');
+              R.ok('v1.0.0 (sustituye a «tres bloques Trabajo · Dinero · Operación» de v0.167.0): cada pantalla de hoy tiene su entrada en el panel de su módulo, en el orden del plan',
+                  Object.entries(enModulo).every(([m, l]) => ps(m) === l), Object.keys(enModulo).map(ps).join(' / '));
+              // los permisos por rol, en el panel y en los chips (gerencia; gerencia + colaborador; todos)
+              const ve = id => !!$(id) && !$(id).closest('.oculto');
+              R.ok('v1.0.0: Por cobrar, Por pagar, Capital y Vigencias en el panel y en los chips solo para gerencia; Servicios y Compras para gerencia y colaborador; Gastos para todos',
+                  ['panelFinanzas', 'panelPorPagar', 'panelCapital', 'panelVigencias', 'chipFinanzas', 'chipPorPagar', 'chipCapital', 'chipVigencias'].every(id => ve(id) === gerencia)
+                  && ['panelServicios', 'panelCompras', 'chipServicios', 'chipCompras'].every(id => ve(id) === escribe) && ve('panelGastos') && ve('chipGastos'));
+              // celular: una fila de chips por módulo con sus entradas de primer nivel; solo se ve la del módulo actual
+              const chips = m => [...document.querySelectorAll(`#chipsModulo [data-modulo="${m}"] .chip-m:not(.oculto)`)].map(b => b.dataset.chip).join(',');
+              R.ok('v1.0.0: los chips del celular — Inicio (resumen, mis tareas, mensajes) · Trabajo (proyectos, roadmap, calendario, reportes) · Dinero y Operación según el rol; una sola fila a la vista',
+                  chips('inicio') === 'inicio,mis,mensajes' && chips('trabajo') === 'proyectos,roadmap,calendario,reportes'
+                  && chips('dinero') === (gerencia ? 'finanzas,finanzas,gastos,capital' : 'gastos') && chips('operacion') === (gerencia ? 'servicios,compras,vigencias' : escribe ? 'servicios,compras' : '')
+                  && [...document.querySelectorAll('#chipsModulo .chips-fila')].filter(f => !f.hidden).length === 1, ['inicio', 'trabajo', 'dinero', 'operacion'].map(chips).join(' / '));
+              // «a 1 toque» (premortem del plan): toda pantalla de hoy que el rol ve es chip de su módulo → ≤ 2 toques (módulo + chip); el proyecto, chip Proyectos + su ficha
+              const destinos = Object.values(enModulo).join(',').split(',').filter(p => p !== 'cuenta' && (!['finanzas', 'capital', 'vigencias'].includes(p) || gerencia) && (!['servicios', 'compras'].includes(p) || escribe));
+              const enChips = new Set([...document.querySelectorAll('#chipsModulo .chip-m:not(.oculto)')].map(b => b.dataset.chip));
+              R.ok('v1.0.0 («a 1 toque»): cada pantalla de hoy que el rol ve está a ≤ 2 toques en el celular (módulo + chip)', destinos.length >= 9 && destinos.every(p => enChips.has(p)), destinos.filter(p => !enChips.has(p)).join() || destinos.join()); }
             // una tarjeta que vence HOY y una hecha hace 2 dias, para el calendario, el roadmap y «hechas por semana»
             const tHoy = { id: DB.siguienteId++, fields: { Title: 'Vence hoy para el calendario', ProyectoId: proyectoId, Columna: 'en-curso', Asignado: YO, Prioridad: 'normal', Vence: hoyIso, Desde: new Date(Date.now() - 5 * 86400000).toISOString() } };
             filas('tareas').push(tHoy);
@@ -2838,13 +2887,15 @@ try {
         // ---- v0.13.0 (2026-09-12): menu «⋮» tambien en escritorio con submenu Editar; Eliminar proyecto (solo gerencia, rojo);
         //      tema sin apagado (un clic elige); contadores del rail cuadrados; rotulo del rail a 12 px.
         {
-            const marca = document.querySelector('#rail .marca');
-            R.ok('v0.13.0: el rótulo «PROYECTOS» mide 12 px y cabe dentro del rail sin recortarse', getComputedStyle(marca.querySelector('span')).fontSize === '12px' && marca.scrollWidth <= marca.clientWidth, `${marca.scrollWidth}/${marca.clientWidth}`);
+            const marca = document.querySelector('#rail .rail-marca img');
+            R.ok('v1.0.0 (sustituye a v0.13.0 «el rótulo PROYECTOS cabe en el rail»): la cabeza del rail es el símbolo MINSA en su versión oscura oficial y cabe en el rail sin recortarse',
+                !!marca && marca.getAttribute('src') === './marca/simbolo-oscuro.svg' && marca.alt === 'MINSA ENERGY' && (matchMedia('(max-width: 720px)').matches || (marca.getBoundingClientRect().width >= 16 && marca.getBoundingClientRect().right <= $('rail').getBoundingClientRect().right)),
+                marca && JSON.stringify(marca.getBoundingClientRect()));
             R.ok('v0.98.0: el contador del rail es texto (sin caja ni fondo), no una píldora ni un cuadrado', getComputedStyle($('nProyectos')).borderRadius === '0px' && getComputedStyle($('nProyectos')).backgroundColor === 'rgba(0, 0, 0, 0)', getComputedStyle($('nProyectos')).borderRadius);
             R.ok('v0.98.0: ningún .mn-chip visible lleva fondo ni radio (los datos son texto; v0.102.0: salvo Tipo y Estado de la tabla de documentos)', [...document.querySelectorAll('.mn-chip')].filter(c => !c.closest('.dtabla .c-tipo, .dtabla .c-estado')).every(c => { const s = getComputedStyle(c); return s.backgroundColor === 'rgba(0, 0, 0, 0)' && parseFloat(s.borderTopLeftRadius) === 0; }), String(document.querySelectorAll('.mn-chip').length) + ' chips');
-            const temaBtn = t => document.querySelector(`#rail .tema button[data-tema="${t}"]`);
+            const temaBtn = t => document.querySelector(`#p-cuenta .tema button[data-tema="${t}"]`);   // v1.0.0: el segmento vive en Cuenta (antes #rail .tema)
             const temaAntes = localStorage.getItem('tema');
-            R.ok('v0.13.0: sin elección guardada, el tema del sistema aparece marcado (siempre hay uno)', document.querySelectorAll('#rail .tema button[aria-pressed="true"]').length === 1);
+            R.ok('v0.13.0: sin elección guardada, el tema del sistema aparece marcado (siempre hay uno)', document.querySelectorAll('#p-cuenta .tema button[aria-pressed="true"]').length === 1);
             temaBtn('oscuro').click(); temaBtn('oscuro').click(); await dormir(10);
             R.ok('v0.13.0: dos clics en Oscuro dejan Oscuro elegido (ya no se apaga al segundo)', document.documentElement.dataset.theme === 'dark' && temaBtn('oscuro').getAttribute('aria-pressed') === 'true' && localStorage.getItem('tema') === 'oscuro');
             temaBtn('claro').click(); await dormir(10);
@@ -3099,9 +3150,9 @@ try {
         R.ok('lectura (v0.58.0): Mis tareas trae la sembrada como renglón vencido de la tabla densa, bajo el separador «Vencidas» y con «1 sep» en la columna de la izquierda', document.querySelectorAll('#misLista .tr').length === 1 && document.querySelector('#misLista .tr').classList.contains('is-vencida') && document.querySelector('#misLista > .bloq').dataset.bloque === 'vencidas' && $('misLista').querySelector('.tr .k b').textContent.trim() === '1' && $('misLista').querySelector('.tr .k small').textContent.trim() === 'sep');
         pestana('inicio'); await dormir(50);
         R.ok('lectura (v0.41.0): Inicio no trae KPI; la vencida la dice el contador rojo del rail', !document.getElementById('inicioKpis') && !$('nMis').hidden && $('nMis').textContent === '1', $('nMis').textContent);
-        clic('btnEquipo'); await esperar(() => $('dlgEquipo').open, 'equipo');
+        clic('btnEquipo'); await esperar(() => visible('p-cuenta') && location.hash === '#cuenta/equipo', 'Equipo y roles en Cuenta');   // v1.0.0: página, no diálogo
         R.ok('A2 (lectura): Equipo trae tabla y fichas con la misma gente', document.querySelectorAll('#eqFichas .eq-ficha').length === document.querySelectorAll('#eqLista tr').length);
-        clic('eqCerrar');
+        pestana('inicio'); await dormir(30);
         // v0.10.0 (lectura): las cinco pantallas nuevas se ven y no ofrecen nada que escriba.
         await irHash('#roadmap'); await esperar(() => visible('p-roadmap'), 'roadmap');
         R.ok('v0.10.0 (lectura): Roadmap se ve con su barra', document.querySelectorAll('#roadmapCaja .g-barra[data-roadmap-barra]').length === 1);
@@ -3199,7 +3250,7 @@ try {
         if (!gerencia) {
             cap().push({ id: DB.siguienteId++, fields: { Title: 'Partida sembrada de prueba', ProyectoId: pid, Tipo: 'necesidad', Monto: 1234, Estado: 'estimado' } });
             const nAntes = leidasCapital(); await recargarYEsperar();
-            R.ok(`${ROL} (v0.100.0): sin «Capital» en el rail ni en el menú «···», y PROY_Capital ni se lee`, $('railCapital').classList.contains('oculto') && $('irCapitalMovil').classList.contains('oculto') && leidasCapital() === nAntes && ESTADO.capital.length === 0, `leidas=${leidasCapital() - nAntes}`);
+            R.ok(`${ROL} (v0.100.0): sin «Capital» en el panel de su módulo ni en sus chips (v1.0.0; antes rail y menú «···»), y PROY_Capital ni se lee`, $('panelCapital').classList.contains('oculto') && $('chipCapital').classList.contains('oculto') && leidasCapital() === nAntes && ESTADO.capital.length === 0, `leidas=${leidasCapital() - nAntes}`);
             await irHash('#capital'); await esperar(() => visible('p-inicio'), 'capital negado');
             R.ok(`${ROL} (v0.100.0): una liga pegada a #capital cae a Inicio con aviso`, visible('p-inicio') && !visible('p-capital') && !!avisoCon('solo para gerencia'), location.hash);
             await irHash(`#p/${CLAVE}/resumen`); await esperar(() => $('p-proyecto').classList.contains('ver-resumen'), 'resumen');
@@ -3213,7 +3264,7 @@ try {
             DB.listas.capital.items = [];
             await recargarYEsperar();
             pestana('capital'); await esperar(() => visible('p-capital'), 'capital');
-            R.ok('gerencia (v0.100.0): «Capital» en el rail y en el menú «···»; la sección trae el encabezado de la casa y sale vacía', !$('railCapital').classList.contains('oculto') && !$('irCapitalMovil').classList.contains('oculto') && !!document.querySelector('#p-capital > header.cabecera > .titulo-ico svg') && document.querySelector('#p-capital h1').textContent === 'Capital' && !!$('capitalTabla').querySelector('.vacio') && $('capitalFalta').classList.contains('oculto') && location.hash === '#capital', location.hash);
+            R.ok('gerencia (v0.100.0): «Capital» en el panel de su módulo y en sus chips (v1.0.0; antes rail y menú «···»); la sección trae el encabezado de la casa y sale vacía', !$('panelCapital').classList.contains('oculto') && !$('chipCapital').classList.contains('oculto') && !!document.querySelector('#p-capital > header.cabecera > .titulo-ico svg') && document.querySelector('#p-capital h1').textContent === 'Capital' && !!$('capitalTabla').querySelector('.vacio') && $('capitalFalta').classList.contains('oculto') && location.hash === '#capital', location.hash);
             R.ok('gerencia (v0.100.0): UN primario verde por vista («Nueva partida», mn-btn is-primary is-sm)', $('btnNuevaPartida').className === 'mn-btn is-primary is-sm' && document.querySelectorAll('#p-capital .mn-btn.is-primary').length === 1);
             // crear una necesidad
             clic('btnNuevaPartida'); await esperar(() => $('dlgPartida').open, 'dlgPartida');
@@ -3500,7 +3551,7 @@ try {
         const archivoFalso = (nombre, tipo) => new File(['bytes de prueba del comprobante'], nombre, { type: tipo });
         const ponerArchivoEn = (id, f) => { const dt = new DataTransfer(); dt.items.add(f); $(id).files = dt.files; $(id).dispatchEvent(new Event('change', { bubbles: true })); };
         const tabOn = () => document.querySelector('#tabsGastos .tab.is-on')?.dataset.tab;
-        R.ok('Gastos: el rail lo trae, también en la barra del celular (sin rail-extra)', !!document.querySelector('#pestanas button[data-p="gastos"]:not(.rail-extra)'));
+        R.ok('Gastos (v1.0.0; antes «el rail lo trae, también en la barra del celular»): el panel de Dinero lo trae a todo rol, y su chip también', !!$('panelGastos') && !$('panelGastos').closest('.oculto') && !!$('chipGastos') && !$('chipGastos').classList.contains('oculto'));
         try {
             if (SIN_GASTOS) {
                 await irGastos('#gastos'); await esperar(() => $('gastosNoHabilitado'), 'Gastos no habilitado');
@@ -3757,8 +3808,8 @@ try {
         if (ROL !== 'gerencia') {
             const n0 = leidasDatos();
             await irHash('#finanzas'); await esperar(() => visible('p-inicio'), 'finanzas negado');
-            R.ok(`${ROL} (v0.165.0): sin «Finanzas» en el rail ni en el menú «···»; #finanzas cae a Inicio y cobranza.json ni se lee`,
-                $('railFinanzas').classList.contains('oculto') && $('irFinanzasMovil').classList.contains('oculto') && leidasDatos() === n0 && $('finanzasCuerpo').textContent === '');
+            R.ok(`${ROL} (v0.165.0): sin «Finanzas» en el panel de su módulo ni en sus chips (v1.0.0; antes rail y menú «···»); #finanzas cae a Inicio y cobranza.json ni se lee`,
+                $('panelFinanzas').classList.contains('oculto') && $('chipFinanzas').classList.contains('oculto') && leidasDatos() === n0 && $('finanzasCuerpo').textContent === '');
             document.querySelector('#avisos .cerrar')?.click();
         } else {
             const esc0 = escritas();
@@ -3775,8 +3826,8 @@ try {
             // (a) sin archivo: lo dice y nombra la biblioteca
             DB.datos['cobranza.json'] = null;
             await irHash('#finanzas'); await esperar(() => $('cobranzaNoHabilitada'), 'cobranza sin archivo');
-            R.ok('gerencia (v0.165.0): «Finanzas» en el rail y en el menú «···»; sin cobranza.json lo dice y nombra ERP_Datos',
-                !$('railFinanzas').classList.contains('oculto') && !$('irFinanzasMovil').classList.contains('oculto') && /ERP_Datos/.test($('cobranzaNoHabilitada').textContent) && /cobranza\.json/.test($('cobranzaNoHabilitada').textContent));
+            R.ok('gerencia (v0.165.0): «Finanzas» en el panel de su módulo y en sus chips (v1.0.0; antes rail y menú «···»); sin cobranza.json lo dice y nombra ERP_Datos',
+                !$('panelFinanzas').classList.contains('oculto') && !$('chipFinanzas').classList.contains('oculto') && /ERP_Datos/.test($('cobranzaNoHabilitada').textContent) && /cobranza\.json/.test($('cobranzaNoHabilitada').textContent));
             // (b) version que la app no lee: error con el motivo
             DB.datos['cobranza.json'] = JSON.stringify({ ...FIX, version: 2 });
             clic('btnLeerCobranza'); await esperar(() => $('cobranzaError'), 'cobranza version');
@@ -3858,8 +3909,8 @@ try {
         if (ROL !== 'gerencia') {
             const n0 = leidasDatos();
             await irHash('#vigencias'); await esperar(() => visible('p-inicio'), 'vigencias negado');
-            R.ok(`${ROL} (v0.166.0): sin «Vigencias» en el rail ni en el menú «···»; #vigencias cae a Inicio y vigencias.json ni se lee`,
-                $('railVigencias').classList.contains('oculto') && $('irVigenciasMovil').classList.contains('oculto') && leidasDatos() === n0 && $('vigenciasCuerpo').textContent === '');
+            R.ok(`${ROL} (v0.166.0): sin «Vigencias» en el panel de su módulo ni en sus chips (v1.0.0; antes rail y menú «···»); #vigencias cae a Inicio y vigencias.json ni se lee`,
+                $('panelVigencias').classList.contains('oculto') && $('chipVigencias').classList.contains('oculto') && leidasDatos() === n0 && $('vigenciasCuerpo').textContent === '');
             document.querySelector('#avisos .cerrar')?.click();
         } else {
             const esc0 = escritas();
@@ -3875,8 +3926,8 @@ try {
             // (a) sin archivo
             DB.datos['vigencias.json'] = null;
             await irHash('#vigencias'); await esperar(() => $('vigenciasNoHabilitada'), 'vigencias sin archivo');
-            R.ok('gerencia (v0.166.0): «Vigencias» en el rail y en el menú «···»; sin vigencias.json lo dice y nombra ERP_Datos',
-                !$('railVigencias').classList.contains('oculto') && !$('irVigenciasMovil').classList.contains('oculto') && /ERP_Datos/.test($('vigenciasNoHabilitada').textContent) && /vigencias\.json/.test($('vigenciasNoHabilitada').textContent));
+            R.ok('gerencia (v0.166.0): «Vigencias» en el panel de su módulo y en sus chips (v1.0.0; antes rail y menú «···»); sin vigencias.json lo dice y nombra ERP_Datos',
+                !$('panelVigencias').classList.contains('oculto') && !$('chipVigencias').classList.contains('oculto') && /ERP_Datos/.test($('vigenciasNoHabilitada').textContent) && /vigencias\.json/.test($('vigenciasNoHabilitada').textContent));
             // (b) version que la app no lee
             DB.datos['vigencias.json'] = JSON.stringify({ ...FIX, version: 2 });
             clic('btnLeerVigencias'); await esperar(() => $('vigenciasError'), 'vigencias version');
@@ -3918,8 +3969,8 @@ try {
         if (ROL !== 'gerencia' && ROL !== 'colaborador') {
             const n0 = leidasOp();
             await irHash('#servicios'); await esperar(() => visible('p-inicio'), 'servicios negado');
-            R.ok(`${ROL} (v0.168.0): sin «Servicios» en el rail ni en el menú «···»; #servicios cae a Inicio y servicios.json ni se lee`,
-                $('railServicios').classList.contains('oculto') && $('irServiciosMovil').classList.contains('oculto') && leidasOp() === n0 && $('serviciosCuerpo').textContent === '');
+            R.ok(`${ROL} (v0.168.0): sin «Servicios» en el panel de su módulo ni en sus chips (v1.0.0; antes rail y menú «···»); #servicios cae a Inicio y servicios.json ni se lee`,
+                $('panelServicios').classList.contains('oculto') && $('chipServicios').classList.contains('oculto') && leidasOp() === n0 && $('serviciosCuerpo').textContent === '');
             document.querySelector('#avisos .cerrar')?.click();
         } else if (sinPermiso) {
             await irHash('#servicios'); await esperar(() => $('serviciosSinAcceso') || $('serviciosNoHabilitada'), 'servicios sin biblioteca');
@@ -3940,8 +3991,8 @@ try {
             DB.datos['servicios.json'] = null;
             await irHash('#servicios'); await esperar(() => $('serviciosNoHabilitada') || $('serviciosSinAcceso'), 'servicios sin archivo');
             const aviso = gerencia ? $('serviciosNoHabilitada') : $('serviciosSinAcceso');
-            R.ok(`${ROL} (v0.168.0): «Servicios» en el rail y en el menú «···»; sin servicios.json lo dice y nombra ERP_Operacion (gerencia: falta publicar; colaborador: pedir acceso)`,
-                !$('railServicios').classList.contains('oculto') && !$('irServiciosMovil').classList.contains('oculto') && !!aviso && /ERP_Operacion/.test(aviso.textContent));
+            R.ok(`${ROL} (v0.168.0): «Servicios» en el panel de su módulo y en sus chips (v1.0.0; antes rail y menú «···»); sin servicios.json lo dice y nombra ERP_Operacion (gerencia: falta publicar; colaborador: pedir acceso)`,
+                !$('panelServicios').classList.contains('oculto') && !$('chipServicios').classList.contains('oculto') && !!aviso && /ERP_Operacion/.test(aviso.textContent));
             // (b) version que la app no lee
             DB.datos['servicios.json'] = JSON.stringify({ ...FIX, version: 2 });
             clic('btnLeerServicios'); await esperar(() => $('serviciosError'), 'servicios version');
@@ -3981,8 +4032,8 @@ try {
         if (ROL !== 'gerencia' && ROL !== 'colaborador') {
             const n0 = leidasOp();
             await irHash('#compras'); await esperar(() => visible('p-inicio'), 'compras negado');
-            R.ok(`${ROL} (v0.169.0): sin «Compras» en el rail ni en el menú «···»; #compras cae a Inicio y compras.json ni se lee`,
-                $('railCompras').classList.contains('oculto') && $('irComprasMovil').classList.contains('oculto') && leidasOp() === n0 && $('comprasCuerpo').textContent === '');
+            R.ok(`${ROL} (v0.169.0): sin «Compras» en el panel de su módulo ni en sus chips (v1.0.0; antes rail y menú «···»); #compras cae a Inicio y compras.json ni se lee`,
+                $('panelCompras').classList.contains('oculto') && $('chipCompras').classList.contains('oculto') && leidasOp() === n0 && $('comprasCuerpo').textContent === '');
             document.querySelector('#avisos .cerrar')?.click();
         } else if (sinPermiso) {
             await irHash('#compras'); await esperar(() => $('comprasSinAcceso') || $('comprasNoHabilitada'), 'compras sin biblioteca');
@@ -4001,8 +4052,8 @@ try {
             DB.datos['compras.json'] = null;
             await irHash('#compras'); await esperar(() => $('comprasNoHabilitada') || $('comprasSinAcceso'), 'compras sin archivo');
             const aviso = gerencia ? $('comprasNoHabilitada') : $('comprasSinAcceso');
-            R.ok(`${ROL} (v0.169.0): «Compras» en el rail y en el menú «···»; sin compras.json lo dice y nombra ERP_Operacion`,
-                !$('railCompras').classList.contains('oculto') && !$('irComprasMovil').classList.contains('oculto') && !!aviso && /ERP_Operacion/.test(aviso.textContent));
+            R.ok(`${ROL} (v0.169.0): «Compras» en el panel de su módulo y en sus chips (v1.0.0; antes rail y menú «···»); sin compras.json lo dice y nombra ERP_Operacion`,
+                !$('panelCompras').classList.contains('oculto') && !$('chipCompras').classList.contains('oculto') && !!aviso && /ERP_Operacion/.test(aviso.textContent));
             DB.datos['compras.json'] = JSON.stringify({ ...FIX, version: 2 });
             clic('btnLeerCompras'); await esperar(() => $('comprasError'), 'compras version');
             R.ok('compras (v0.169.0): una versión distinta del cosechador se dice, no se pinta a medias', /versión 2/.test($('comprasError').textContent) && !$('comprasTabla'));
@@ -4025,6 +4076,146 @@ try {
             R.ok('compras: un corte de 20 días pide re-publicar', /re-publicar/.test($('comprasCorte').textContent));
             R.ok('compras: CERO escrituras (solo lee)', escritas() === esc0);
         }
+        pestana('inicio'); await dormir(30);
+    }
+    // ==================================================================================================================
+    // v1.0.0 (rediseño 2026-10-02, cubeta 1 «Armazón»): rail de 5 módulos, panel, chips, hoja, «+ Nuevo», ámbito, «Mi día», Avisos, Buscar y
+    // Cuenta, y UNA prueba por cada ruta de hoy (las 14 pantallas de RE_HASH + #p/<clave>, con sus sufijos vigentes) → pantalla y módulo.
+    // Va AL FINAL a propósito: visita pantallas que leen JSON (Finanzas, Servicios, Compras…) y sus bloques de arriba parten de no haberlas leído.
+    {
+        for (const d of document.querySelectorAll('dialog[open]')) d.close();
+        document.querySelector('#avisos .cerrar')?.click();
+        ESTADO.filtroEquipo = null;
+        const celular = matchMedia('(max-width: 720px)').matches;
+        const seVe = e => !!e && getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden' && e.getClientRects().length > 0;
+        const moduloOn = () => document.querySelector('#modulos .rb.is-on')?.dataset.m || ($('btnCuenta').classList.contains('is-on') ? 'cuenta' : '');
+        const pantallaVisible = () => [...document.querySelectorAll('.pantalla')].find(x => !x.classList.contains('oculto'))?.id;
+        const { leerRuta, puedeVerPantalla, principalDe, miDia } = await import('../reglas.js');
+        const C = await import('../comun.js');
+        const llega = async (h, pid, mod) => esperar(() => pantallaVisible() === pid && moduloOn() === mod, 'ruta ' + h, 4000).then(() => true, () => false);
+        // (a) las 15 rutas de hoy y sus sufijos vigentes → pantalla y módulo resaltado (sin permiso: Inicio, como siempre)
+        const VIEJAS = ['#inicio', '#proyectos', '#mis', '#roadmap', '#calendario', '#mensajes', '#archivos', '#reportes', '#capital', '#gastos', '#finanzas', '#vigencias', '#servicios', '#compras', `#p/${CLAVE}`,
+            `#p/${CLAVE}/docs`, `#p/${CLAVE}/chat`, `#mensajes/f/${CLAVE}`, `#capital/f/${CLAVE}`, '#gastos/tesoreria', '#gastos/contabilidad'];
+        for (const h of VIEJAS) {
+            const r = leerRuta(h), entra = puedeVerPantalla(r.pantalla, ROL), pid = entra ? 'p-' + r.pantalla : 'p-inicio', mod = entra ? r.modulo : 'inicio';
+            await irHash(h); const ok = await llega(h, pid, mod);
+            R.ok(`v1.0.0 (ruta de hoy): ${h} abre ${pid} con «${mod}» resaltado${entra ? '' : ' (sin permiso: Inicio con aviso, como antes)'}`, ok, `${pantallaVisible()} · ${moduloOn()} · ${location.hash}`);
+            document.querySelector('#avisos .cerrar')?.click();
+        }
+        // (b) los sufijos NUEVOS: caen en la pantalla de hoy que trae ese dato, con su módulo, y el hash conserva el sufijo
+        const NUEVAS = [['#finanzas/cobrar/saldo', 'p-finanzas', 'dinero'], ['#finanzas/pagar/proveedor', 'p-finanzas', 'dinero'], ['#capital/mes', 'p-capital', 'dinero'], ['#reportes/carga', 'p-reportes', 'trabajo'],
+            ['#servicios/E3', 'p-servicios', 'operacion'], ['#servicios/ciclo', 'p-servicios', 'operacion'], ['#compras/partidas', 'p-compras', 'operacion'], ['#archivos/recientes', 'p-archivos', 'archivos'],
+            ['#cuenta', 'p-cuenta', 'cuenta'], ['#cuenta/equipo', 'p-cuenta', 'cuenta']];
+        for (const [h, pid0, mod0] of NUEVAS) {
+            const entra = puedeVerPantalla(leerRuta(h).pantalla, ROL), pid = entra ? pid0 : 'p-inicio', mod = entra ? mod0 : 'inicio';
+            await irHash(h); const ok = await llega(h, pid, mod);
+            R.ok(`v1.0.0 (ruta nueva): ${h} cae en ${pid} con «${mod}» resaltado${entra ? ' y el hash conserva el sufijo' : ' (sin permiso: Inicio)'}`, ok && (!entra || location.hash === h), `${pantallaVisible()} · ${moduloOn()} · ${location.hash}`);
+            document.querySelector('#avisos .cerrar')?.click();
+        }
+        if (gerencia) {
+            await irHash('#finanzas/pagar/saldo'); const pp = await esperar(() => document.querySelector('#tabsFinanzas [data-tab="porpagar"][aria-selected="true"]'), 'pestaña Por pagar', 4000).then(() => true, () => false);
+            await irHash('#finanzas/cobrar/saldo'); const cc = await esperar(() => document.querySelector('#tabsFinanzas [data-tab="cobranza"][aria-selected="true"]'), 'pestaña Cobranza', 4000).then(() => true, () => false);
+            R.ok('v1.0.0: #finanzas/pagar/<r> deja Finanzas en «Por pagar» y #finanzas/cobrar/<r> en «Cobranza» (hasta que tengan página propia)', pp && cc);
+            document.querySelector('#tabsFinanzas [data-tab="porpagar"]').click(); await esperar(() => location.hash === '#finanzas/pagar/saldo', 'sufijo de Por pagar', 4000).catch(() => {});
+            R.ok('v1.0.0: elegir «Por pagar» dentro de Finanzas mueve el sufijo (#finanzas/pagar/saldo) y el panel lo resalta', location.hash === '#finanzas/pagar/saldo' && document.querySelector('#panelArbol .panel-modulo:not([hidden]) .ch.on')?.dataset.ir === '#finanzas/pagar/saldo', location.hash);
+        }
+        // /t/<id> sigue abriendo la ficha sobre cualquier ruta, también las nuevas
+        { const t0 = ESTADO.tareas[0];
+          await irHash(`#reportes/carga/t/${t0.id}`); await esperar(() => $('dlgTarea').open, 'ficha sobre #reportes/carga');
+          R.ok('v1.0.0: /t/<id> abre la ficha encima de una ruta nueva (#reportes/carga/t/<id>)', $('dlgTarea').open && visible('p-reportes'));
+          clic('tCerrar'); await esperar(() => !$('dlgTarea').open && location.hash === '#reportes/carga', 'ficha cerrada');
+          R.ok('v1.0.0: al cerrar la ficha el hash vuelve a la ruta con su sufijo', location.hash === '#reportes/carga', location.hash); }
+        // (c) el panel resalta lo que está en pantalla, lleva a su ruta y se filtra con su buscador
+        { await irHash('#roadmap'); await esperar(() => visible('p-roadmap'), 'roadmap');
+          const on = () => document.querySelector('#panelArbol .panel-modulo:not([hidden]) .ch.on');
+          R.ok('v1.0.0: el panel de Trabajo está puesto, titulado «Trabajo», con «Roadmap» resaltado (aria-current=page)', !document.querySelector('#panelArbol [data-modulo="trabajo"]').hidden && $('panelTitulo').textContent === 'Trabajo' && on()?.dataset.ir === '#roadmap' && on().getAttribute('aria-current') === 'page');
+          document.querySelector('#panel [data-ir="#reportes/vencidas"]').click(); await esperar(() => visible('p-reportes'), 'reportes por el panel');
+          R.ok('v1.0.0: una entrada con sufijo lleva a su ruta y queda resaltada', location.hash === '#reportes/vencidas' && on()?.dataset.ir === '#reportes/vencidas', location.hash);
+          poner('panelBusca', 'calendário');
+          const quedan = [...document.querySelectorAll('#panelArbol [data-modulo="trabajo"] .ch')].filter(b => !b.classList.contains('no-casa') && !b.closest('.oculto')).map(b => b.dataset.ir || b.dataset.accion);
+          R.ok('v1.0.0: el buscador del panel deja solo lo que casa, sin acentos («calendário» → Calendario)', quedan.join() === '#calendario', quedan.join());
+          poner('panelBusca', '');
+          R.ok('v1.0.0: con el buscador vacío vuelve todo el árbol', ![...document.querySelectorAll('#panelArbol .ch')].some(b => b.classList.contains('no-casa'))); }
+        // (d) tocar un módulo abre su pantalla principal (Inicio→Resumen, Trabajo→Proyectos, Archivos→Archivos, Dinero→Por cobrar o Mis gastos, Operación→Servicios)
+        await irHash('#cuenta'); await esperar(() => visible('p-cuenta'), 'cuenta');
+        for (const m of ['inicio', 'trabajo', 'archivos', 'dinero', 'operacion']) {
+            const b = document.querySelector(`#modulos [data-m="${m}"]`); if (b.classList.contains('oculto')) continue;
+            const esperado = principalDe(m, ROL); b.click(); await esperar(() => location.hash === esperado, 'principal de ' + m, 4000).catch(() => {});
+            R.ok(`v1.0.0: tocar «${b.querySelector('.rot').textContent}» abre su principal ${esperado}`, location.hash === esperado && moduloOn() === m && pantallaVisible() === 'p-' + leerRuta(esperado).pantalla, `${location.hash} · ${moduloOn()}`);
+            document.querySelector('#avisos .cerrar')?.click();
+        }
+        // (e) celular: barra de módulos abajo, cabecera con título · Buscar · Avisos · Cuenta, chips y hoja; escritorio: rail a la izquierda
+        if (celular) {
+            await irHash('#proyectos'); await esperar(() => visible('p-proyectos'), 'proyectos');
+            R.ok('v1.0.0 (celular): la barra de abajo son los módulos (fija, sin unidades ni Cuenta); arriba el título del módulo, Buscar, Avisos y Cuenta; «+ Nuevo» flota',
+                getComputedStyle($('rail')).position === 'fixed' && !seVe($('railEquipos')) && !seVe($('btnCuenta')) && seVe($('btnBuscarMovil')) && seVe($('btnAvisosMovil')) && seVe($('btnCuentaMovil')) && seVe($('fabNuevo')) && $('tituloMovil').textContent === 'Trabajo');
+            document.querySelector('#chipsModulo [data-modulo="trabajo"] [data-ir="#roadmap"]').click(); await esperar(() => visible('p-roadmap'), 'roadmap por el chip');
+            R.ok('v1.0.0 (celular): el chip «Roadmap» lleva a #roadmap y queda resaltado', location.hash === '#roadmap' && document.querySelector('#chipsModulo .chips-fila:not([hidden]) .chip-m.on')?.dataset.ir === '#roadmap');
+            clic('btnHoja'); await dormir(10);
+            R.ok('v1.0.0 (celular): ☰ abre la hoja con el árbol del módulo y el ámbito (las 6 unidades)', document.body.classList.contains('hoja-abierta') && seVe($('panel')) && document.querySelectorAll('#hojaAmbito button[data-equipo]').length === 6 && seVe($('hojaAmbito')),
+                `abierta=${document.body.classList.contains('hoja-abierta')} panel=${seVe($('panel'))} (${getComputedStyle($('panel')).visibility}/${getComputedStyle($('panel')).display}) unidades=${document.querySelectorAll('#hojaAmbito button[data-equipo]').length} ambito=${seVe($('hojaAmbito'))}`);
+            document.querySelector('#panel [data-ir="#calendario"]').click(); await esperar(() => visible('p-calendario'), 'calendario por la hoja');
+            R.ok('v1.0.0 (celular): una entrada de la hoja navega y la cierra', !document.body.classList.contains('hoja-abierta') && location.hash === '#calendario');
+        } else {
+            R.ok('v1.0.0 (escritorio): el rail va a la izquierda con las unidades y «+ Nuevo»; ni chips ni botones del celular', getComputedStyle($('rail')).position === 'sticky' && seVe($('railEquipos')) && seVe($('btnNuevo')) && !seVe($('chipsModulo')) && !seVe($('fabNuevo')) && !seVe($('btnBuscarMovil')));
+        }
+        // (f) «+ Nuevo» fuera de un proyecto pregunta en cuál; Foto y Subir archivo abren «Subir» con o sin cámara
+        const trig = celular ? $('fabNuevo') : $('btnNuevo');
+        if (escribe) {
+            await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio');
+            trig.click(); await dormir(10); $('menuNuevo').querySelector('[data-nuevo="tarea"]').click(); await dormir(10);
+            const ops = [...$('menuNuevo').querySelectorAll('[data-proyecto]')], activosN = ESTADO.proyectos.filter(p => p.Estado === 'activo').length;
+            R.ok('v1.0.0: «+ Nuevo › Tarea» fuera de un proyecto pregunta en cuál (los activos del ámbito)', !$('menuNuevo').hidden && ops.length === activosN && ops.length > 0, `${ops.length} de ${activosN}`);
+            const pLau = ESTADO.proyectos.find(p => p.Clave === CLAVE);
+            ops.find(b => b.dataset.proyecto === String(pLau.id)).click(); await esperar(() => $('dlgNuevaTarea').open, 'nueva tarea por el selector');
+            R.ok('v1.0.0: elegir el frente abre ese proyecto con «Nueva tarea» encima y el menú cerrado', visible('p-proyecto') && location.hash === '#p/' + CLAVE && $('menuNuevo').hidden);
+            clic('ntCancelar'); await esperar(() => !$('dlgNuevaTarea').open, 'nueva tarea cancelada');
+            trig.click(); await dormir(10); $('menuNuevo').querySelector('[data-nuevo="foto"]').click(); await esperar(() => $('dlgSubir').open, 'subir (foto)');
+            R.ok('v1.0.0: «+ Nuevo › Foto» dentro del frente abre «Subir» con el selector en cámara (accept=image/*, capture=environment)', $('sbArchivos').getAttribute('accept') === 'image/*' && $('sbArchivos').getAttribute('capture') === 'environment');
+            clic('sbCancelar'); await esperar(() => !$('dlgSubir').open, 'subir cerrado'); await dormir(30);
+            trig.click(); await dormir(10); $('menuNuevo').querySelector('[data-nuevo="subir"]').click(); await esperar(() => $('dlgSubir').open, 'subir');
+            R.ok('v1.0.0: «+ Nuevo › Subir archivo» abre «Subir» con el selector de siempre (sin cámara)', !$('sbArchivos').hasAttribute('capture') && !$('sbArchivos').hasAttribute('accept'));
+            clic('sbCancelar'); await esperar(() => !$('dlgSubir').open, 'subir cerrado');
+        }
+        { await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio');
+          trig.click(); await dormir(10); $('menuNuevo').querySelector('[data-nuevo="gasto"]').click();
+          await esperar(() => visible('p-gastos') && ($('dlgGasto').open || !!avisoCon('Gastos aún no está habilitado') || !!avisoCon('rol es de lectura')), 'gasto desde + Nuevo');
+          R.ok('v1.0.0: «+ Nuevo › Gasto» lleva a Gastos y abre «Registrar gasto» (o dice por qué no: sin lista o rol de lectura)', visible('p-gastos') && $('menuNuevo').hidden && ($('dlgGasto').open || !!avisoCon('Gastos aún no está habilitado') || !!avisoCon('rol es de lectura')));
+          if ($('dlgGasto').open) C.cerrarDialogo('dlgGasto');
+          document.querySelector('#avisos .cerrar')?.click(); }
+        // (g) el ámbito: elegir una unidad pone el chip «Ámbito: X ✕»; es global y la ✕ lo quita sin moverse
+        { await irHash('#proyectos'); await esperar(() => visible('p-proyectos'), 'proyectos');
+          document.querySelector(celular ? '#hojaAmbito [data-equipo="CALYTEK"]' : '#railEquipos [data-equipo="CALYTEK"]').click(); await dormir(20);
+          R.ok('v1.0.0: elegir una unidad pone el ÁMBITO — chip «Ámbito: CALYTEK ✕» en la cabecera y Proyectos filtrado', !$('chipAmbito').hidden && seVe($('chipAmbito')) && $('chipAmbito').textContent.includes('Ámbito: CALYTEK') && $('proyectosSub').textContent.startsWith('Solo CALYTEK') && !$('chipAmbito').classList.contains('no-aplica'), $('chipAmbito').textContent);
+          await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio con ámbito');
+          R.ok('v1.0.0: el ámbito es global — en Inicio sigue el chip, marcado «no filtra esta pantalla»', !$('chipAmbito').hidden && $('chipAmbito').classList.contains('no-aplica') && ESTADO.filtroEquipo === 'CALYTEK');
+          clic('quitarAmbito'); await dormir(20);
+          R.ok('v1.0.0: la ✕ del chip quita el ámbito sin mover de pantalla', $('chipAmbito').hidden && ESTADO.filtroEquipo === null && visible('p-inicio') && !document.querySelector('#railEquipos .is-on')); }
+        // (h) el anillo «Mi día»
+        { const d = miDia(ESTADO.tareas, YO), a = $('anilloDia');
+          R.ok('v1.0.0: el anillo «Mi día» cuenta hechas hoy / de hoy con la regla de reglas.js y lo dice en su aria-label', a.dataset.hechas === String(d.hechas) && a.dataset.total === String(d.total) && a.querySelector('.dia-anillo-n').textContent === (d.total ? `${d.hechas}/${d.total}` : '0') && a.getAttribute('aria-label').startsWith('Mi día'), `${a.dataset.hechas}/${a.dataset.total} vs ${d.hechas}/${d.total}`);
+          a.click(); await esperar(() => visible('p-mis'), 'mis desde el anillo');
+          R.ok('v1.0.0: el anillo lleva a Mis tareas', location.hash === '#mis' && moduloOn() === 'inicio'); }
+        // (i) Avisos (mínimo de la cubeta 1): la lista y el contador de la campana
+        { const nV = $('nMis').hidden ? 0 : Number($('nMis').textContent), nM = $('nMensajes').hidden ? 0 : Number($('nMensajes').textContent), nA = $('nAvisos').hidden ? 0 : Number($('nAvisos').textContent);
+          clic(celular ? 'btnAvisosMovil' : 'btnAvisos'); await esperar(() => $('dlgAvisos').open, 'avisos');
+          const filas = [...$('avLista').querySelectorAll('[data-aviso]')];
+          R.ok('v1.0.0: la campana cuenta mis vencidas + mensajes sin leer, y Avisos los lista (o dice que no hay nada)', nA === nV + nM && (filas.length ? filas.every(f => f.dataset.ir && f.querySelector('b').textContent.length > 3) : !!$('avLista').querySelector('.vacio')) && (nV === 0 || filas.some(f => f.dataset.aviso === 'vencidas')), `campana ${nA} = ${nV} + ${nM} · ${filas.map(f => f.dataset.aviso).join()}`);
+          if (filas.length) { const ir = filas[0].dataset.ir; filas[0].click(); await esperar(() => !$('dlgAvisos').open, 'aviso elegido');
+              R.ok('v1.0.0: tocar un aviso cierra la lista y lleva a su pantalla', !$('dlgAvisos').open && location.hash.startsWith(ir), `${location.hash} vs ${ir}`); }
+          else { clic('avCerrar'); await esperar(() => !$('dlgAvisos').open, 'avisos cerrado'); } }
+        // (j) Buscar (mínimo de la cubeta 1): pantallas y proyectos sin acentos; elegir lleva ahí
+        { clic(celular ? 'btnBuscarMovil' : 'btnBuscar'); await esperar(() => $('dlgBuscar').open, 'buscar');
+          poner('bsTexto', 'calendário');
+          R.ok('v1.0.0: Buscar encuentra la pantalla «Calendario» aunque se escriba con acento', [...$('bsResultados').querySelectorAll('.bs-r')].some(b => b.dataset.ir === '#calendario'));
+          poner('bsTexto', 'lau');
+          const r = $('bsResultados').querySelector(`.bs-r[data-ir="#p/${CLAVE}"]`);
+          R.ok('v1.0.0: Buscar encuentra el proyecto por su nombre', !!r);
+          if (r) { r.click(); await esperar(() => visible('p-proyecto'), 'proyecto desde Buscar'); }
+          R.ok('v1.0.0: elegir un resultado cierra Buscar y lleva ahí', !$('dlgBuscar').open && location.hash === '#p/' + CLAVE, location.hash); }
+        // (k) Cuenta: el botón de persona (sin avatar) abre la página con nombre y rol
+        { clic(celular ? 'btnCuentaMovil' : 'btnCuenta'); await esperar(() => visible('p-cuenta'), 'cuenta por el botón');
+          R.ok('v1.0.0: el botón de persona (sin avatar, decisión 10) abre Cuenta con nombre y rol', location.hash === '#cuenta' && $('quien').textContent.includes(ROL) && moduloOn() === 'cuenta' && !document.querySelector('#rail .avatar, #rail img:not(.rail-marca img)')); }
         pestana('inicio'); await dormir(30);
     }
 } catch (e) {

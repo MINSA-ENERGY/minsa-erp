@@ -1169,3 +1169,84 @@ export function ordenarPartidas(partidas, col = 'fecha', dir = 1) {
         return c * dir || Number(a.id) - Number(b.id);
     });
 }
+
+// ---------------------------------------------------------------- armazón (v1.0.0, rediseño 2026-10-02)
+// Plan cerebro/docs/plan-erp-rediseno-2026-10-02.md, cubeta 1: 5 módulos en el rail, panel por módulo y la tabla ruta → módulo.
+// Las rutas de hoy siguen siendo canónicas; se agregan sufijos que, mientras su página no exista, caen a la pantalla de hoy.
+
+/** Los 5 módulos del rail, en su orden (decisión 1 del plan). */
+export const MODULOS = [
+    { clave: 'inicio', nombre: 'Inicio' },
+    { clave: 'trabajo', nombre: 'Trabajo' },
+    { clave: 'archivos', nombre: 'Archivos' },
+    { clave: 'dinero', nombre: 'Dinero' },
+    { clave: 'operacion', nombre: 'Operación' }
+];
+/** La tabla ruta → módulo: cada pantalla dice qué módulo se resalta. `cuenta` no es módulo: la resalta el botón de persona del rail. */
+export const MODULO_DE = { inicio: 'inicio', mis: 'inicio', mensajes: 'inicio', proyectos: 'trabajo', proyecto: 'trabajo', roadmap: 'trabajo', calendario: 'trabajo', reportes: 'trabajo', archivos: 'archivos', finanzas: 'dinero', gastos: 'dinero', capital: 'dinero', servicios: 'operacion', compras: 'operacion', vigencias: 'operacion', cuenta: 'cuenta' };
+/** Quién entra a cada pantalla (la regla que irA aplicaba a mano desde v0.100.0/v0.168.0): Capital, Finanzas y Vigencias solo gerencia; Servicios y Compras gerencia y colaborador. */
+export function puedeVerPantalla(pantalla, rol) {
+    if (pantalla === 'capital' || pantalla === 'finanzas' || pantalla === 'vigencias') return PUEDE.capital(rol);
+    if (pantalla === 'servicios' || pantalla === 'compras') return PUEDE.tarea(rol);
+    return Object.prototype.hasOwnProperty.call(MODULO_DE, pantalla);
+}
+/** Los módulos que pinta el rail: 5 a gerencia y a colaborador, 4 a lectura (Operación no le trae nada). */
+export function modulosDe(rol) { return MODULOS.filter(m => m.clave !== 'operacion' || PUEDE.tarea(rol)); }
+/** La pantalla principal de un módulo (lo que abre tocarlo en el celular): Dinero es Por cobrar para gerencia y Mis gastos para los demás. */
+export function principalDe(modulo, rol) {
+    const r = { inicio: '#inicio', trabajo: '#proyectos', archivos: '#archivos', dinero: PUEDE.capital(rol) ? '#finanzas/cobrar/saldo' : '#gastos', operacion: '#servicios', cuenta: '#cuenta' }[modulo];
+    return r || '#inicio';
+}
+const PANTALLAS_HASH = ['inicio', 'proyectos', 'mis', 'roadmap', 'calendario', 'mensajes', 'archivos', 'reportes', 'capital', 'gastos', 'finanzas', 'vigencias', 'servicios', 'compras', 'cuenta'];
+const TABS_PROYECTO = ['lista', 'docs', 'chat', 'tablero', 'resumen', 'roadmap', 'capital'];
+/** Los sufijos NUEVOS por pantalla (plan, «Rutas»). Lo que no casa aquí no es ruta de la app y cae a Inicio, como antes. */
+const SUFIJOS = {
+    finanzas: s => /^(cobrar|pagar)(\/[a-z0-9-]+)?$/.test(s),
+    capital: s => s === 'mes',
+    reportes: s => /^[a-z0-9-]+$/.test(s),
+    servicios: s => s === 'ciclo' || /^e\d+$/i.test(s),
+    compras: s => s === 'partidas',
+    archivos: s => /^(recientes|fijados|proyecto|bibliotecas|mias)(\/[A-Za-z0-9._-]+)*$/.test(s),
+    cuenta: s => s === 'equipo'
+};
+/**
+ * Lee un hash de la app. Devuelve null si no es ruta de la app; si lo es: { pantalla, modulo, clave, tab, sub, msj, subGastos, tareaId }.
+ * Conserva la gramatica de RE_HASH (v0.162.0) —#p/<clave>[/<pestaña>], /f|d/<x> y /tesoreria|contabilidad en cualquier pantalla, /t/<id>
+ * al final de todo— y suma los sufijos de SUFIJOS en `sub` (el de servicios va en mayusculas: «E3»).
+ */
+export function leerRuta(hash) {
+    const h = String(hash || '');
+    if (!/^#[^#]/.test(h)) return null;
+    const segs = h.slice(1).split('/');
+    let tareaId = null;
+    if (segs.length >= 3 && segs[segs.length - 2] === 't' && /^\d+$/.test(segs[segs.length - 1])) { tareaId = Number(segs.pop()); segs.pop(); }
+    const base = { clave: null, tab: null, sub: null, msj: null, subGastos: null, tareaId };
+    if (segs[0] === 'p') {
+        if (segs.length < 2 || segs.length > 3 || !/^[a-z0-9-]+$/.test(segs[1])) return null;
+        if (segs.length === 3 && !TABS_PROYECTO.includes(segs[2])) return null;
+        return { ...base, pantalla: 'proyecto', modulo: 'trabajo', clave: segs[1], tab: segs[2] || null };
+    }
+    const [pantalla, ...resto] = segs;
+    if (!PANTALLAS_HASH.includes(pantalla)) return null;
+    const r = { ...base, pantalla, modulo: MODULO_DE[pantalla] };
+    if (!resto.length) return r;
+    if (resto.length === 2 && (resto[0] === 'f' || resto[0] === 'd') && /^[a-z0-9._-]+$/.test(resto[1])) { r.msj = { tipo: resto[0], clave: resto[1] }; return r; }
+    if (resto.length === 1 && (resto[0] === 'tesoreria' || resto[0] === 'contabilidad')) { r.subGastos = resto[0]; return r; }
+    const s = resto.join('/');
+    if (!SUFIJOS[pantalla] || !SUFIJOS[pantalla](s)) return null;
+    r.sub = pantalla === 'servicios' && s !== 'ciclo' ? s.toUpperCase() : s;
+    return r;
+}
+/** La entrada del panel que corresponde al hash: la ruta mas larga que es prefijo (por segmentos) del hash sin /t/<id>; null si ninguna. */
+export function rutaActiva(rutas, hash) {
+    const h = String(hash || '').replace(/\/t\/\d+$/, '');
+    let mejor = null;
+    for (const r of rutas || []) if (r && (h === r || h.startsWith(r + '/')) && (!mejor || r.length > mejor.length)) mejor = r;
+    return mejor;
+}
+/** Anillo «Mi día» del rail: de lo que me toca HOY (mis abiertas que vencen hoy o ya vencieron, más las que hice hoy), cuántas hice. */
+export function miDia(tareas, correo, hoy = new Date()) {
+    const hechas = misHechasHoy(tareas, correo, hoy).length;
+    const deHoy = misAbiertas(tareas, correo).filter(t => { const d = diasPara(t.Vence, hoy); return d !== null && d <= 0; }).length;
+    return { hechas, total: hechas + deHoy };
+}

@@ -1,66 +1,61 @@
-/* MINSA Proyectos — lo que la piel (minsa-ui.css, generada de marca/minsa-design/ui/base.css con
-   --sin-paleta) NO trae: la PALETA, las fuentes locales, el acomodo de cada pantalla, el tablero de
-   4 columnas y la entrada.
-   v0.7.0 (2026-09-12): la paleta es la del Tablero de escritorio (minsa-tablero-app/app/src/estilos.css,
-   la de Seekwise que Carlos pidio el 2026-09-03), copiada LITERAL en claro y oscuro, a peticion de
-   Carlos («vamos a utilizar los colores de minsa-tablero»). Los .mn-* la consumen por el shim de
-   abajo, igual que en el tablero; los componentes no cambian. */
+/* MINSA ERP — lo que la piel (minsa-ui.css, generada de marca/minsa-design/ui/base.css con --sin-paleta) NO trae: la PALETA, las
+   fuentes locales, el ARMAZÓN (rail, panel, cabecera) y el acomodo de cada pantalla.
+   v1.0.0 (rediseño 2026-10-02; plan cerebro/docs/plan-erp-rediseno-2026-10-02.md, decisión 4): la paleta y la letra son las de la maqueta
+   «MINSA ERP Reportes» (minsa-erp-app/docs/rediseno/maqueta-reportes.html, hecha desde una captura real de ChartMogul), con un OSCURO
+   DERIVADO (rail igual, superficies navy). Supera a la del Tablero (v0.7.0, «vamos a utilizar los colores de minsa-tablero»). Los .mn-*
+   la siguen consumiendo por el shim de 34 tokens de abajo; los componentes no cambian. Las primitivas --blue-700, --sky-*, --amber-*…
+   se quedan con su valor oficial: las usan los tonos de tarjeta y los iconos de archivo (datos, no cromo). */
 
-/* ---- fuentes locales (OFL). La piel solo trae las variables --font-*; los @font-face los pone la app. */
-@font-face { font-family: "Saira"; font-weight: 500; font-display: swap; src: url("./vendor/fuentes/Saira-500.woff2") format("woff2"); }
-@font-face { font-family: "Saira"; font-weight: 600; font-display: swap; src: url("./vendor/fuentes/Saira-600.woff2") format("woff2"); }
-@font-face { font-family: "Barlow"; font-weight: 400; font-display: swap; src: url("./vendor/fuentes/Barlow-400.woff2") format("woff2"); }
-@font-face { font-family: "Barlow"; font-weight: 500; font-display: swap; src: url("./vendor/fuentes/Barlow-500.woff2") format("woff2"); }
-@font-face { font-family: "Barlow"; font-weight: 600; font-display: swap; src: url("./vendor/fuentes/Barlow-600.woff2") format("woff2"); }
+/* ---- fuentes locales (OFL). La piel solo trae las variables --font-*; los @font-face los pone la app.
+   v1.0.0: Source Sans 3 variable 400–700 (subconjunto latin, vendor/fuentes/SourceSans3-OFL.txt) sustituye a Saira, Barlow y Bai Jamjuree;
+   IBM Plex Mono se queda para los datos (claves, montos, horas). */
+@font-face { font-family: "Source Sans 3"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("./vendor/fuentes/SourceSans3-latin-var.woff2") format("woff2"); }
 @font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-display: swap; src: url("./vendor/fuentes/IBMPlexMono-400.woff2") format("woff2"); }
 @font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-display: swap; src: url("./vendor/fuentes/IBMPlexMono-500.woff2") format("woff2"); }
-/* v0.12.1: rotulo «PROYECTOS» del rail (Carlos, 12-sep, opcion E30 del artifact). Solo el 700 latin; no entra a --font-*. */
-@font-face { font-family: "Bai Jamjuree"; font-weight: 700; font-display: swap; src: url("./vendor/fuentes/BaiJamjuree-700.woff2") format("woff2"); }
 
-/* ==== PALETA (copiada de minsa-tablero-app/app/src/estilos.css; si cambia alla, cambia aqui) ==== */
+/* ==== PALETA ==== */
 :root {
-  --ink-900: #1c1c1c; --ink-700: #383d41;
-  --blue-800: #072884; --blue-700: #0833a3; --blue-600: #0f45c4; --blue-100: #e4ecfe;
-  --orange-700: #d4620f; --orange-500: #f0913f; --orange-100: #fdeee2;
-  --teal-700: #0d9488; --teal-500: #22b8a6; --teal-100: #e0f5f2;
-  --green-800: #1f6b28; --green-700: #2c8a37; --green-500: #61cd6a; --green-100: #e6f8e8;
-  --sky-700: #0a76b4; --sky-600: #0f8fd6; --sky-400: #69c6ff; --sky-100: #e8f6ff;
-  --slate-950: #171717; --slate-900: #262626; --slate-800: #333333; --slate-600: #5c5c5c;
-  --slate-500: #767676; --slate-400: #9c9c9c; --slate-300: #c4c4c4; --slate-200: #e4e4e4;
-  --slate-150: #ebebeb; --slate-100: #f2f2f2; --slate-50: #f7f7f7;
-  --red-700: #9c211c; --red-600: #c8322b; --red-100: #fdeceb;
-  --amber-700: #a86400; --amber-600: #e08c00; --amber-100: #fff5e2;
+  /* primitivas oficiales que siguen en uso (tonos de tarjeta --tono-*, iconos de archivo); NO se cambian: tokens-divergentes.py las coteja */
+  --blue-700: #0833a3; --green-700: #2c8a37; --sky-700: #0a76b4; --sky-600: #0f8fd6;
+  --red-600: #c8322b; --amber-700: #a86400; --amber-600: #e08c00; --slate-400: #9c9c9c;
 
-  --page: var(--slate-50); --card: #ffffff; --sunken: var(--slate-100); --banda: #f4f4f4;   /* v0.29.0: cebra de .dtabla, mas tenue que --sunken */
-  --rail: var(--page); --rail-on: #ffffff;   /* v0.44.0 (Carlos, 15-sep; artifact AHsKBeHt, R7 «Transparente»): la barra toma el gris de la pagina, sin filete; el activo es pastilla blanca con sombra corta */
-  --rail-tx: var(--slate-800); --rail-tx-strong: var(--slate-950); --rail-tx-mute: var(--slate-500); --rail-tx-faint: var(--slate-400);
-  --rail-line: transparent; --rail-hover: var(--slate-150); --rail-chip: var(--slate-200);
-  --tx: var(--slate-950); --tx-body: var(--slate-800); --tx-mute: var(--slate-500); --tx-faint: var(--slate-400);
-  --line: var(--slate-200); --line-soft: var(--slate-150);
-  --brand: var(--blue-700); --on-brand: #ffffff;
-  --serie: var(--orange-700); --serie2: var(--teal-700);
-  --ok-fg: var(--green-800); --ok-bg: var(--green-100); --ok-solid: var(--green-700);
-  --warn-fg: var(--amber-700); --warn-bg: var(--amber-100); --warn-solid: var(--amber-600);
-  --bad-fg: var(--red-700); --bad-bg: var(--red-100); --bad-solid: var(--red-600);
-  --info-fg: var(--sky-700); --info-bg: var(--sky-100); --info-solid: var(--sky-600);
-  --idle-fg: var(--slate-600); --idle-bg: var(--slate-100); --idle-solid: var(--slate-400);
+  /* la maqueta «MINSA ERP Reportes», literal (nombres sin escala: ninguno choca con tokens/colors.css) */
+  --rail: #212d42; --rail-on: #36435b; --rail-ink: #c3cad6; --rail-sep: #3a465c; --rail-hover: #2c3950;
+  --bg: #f7f8fa; --card: #ffffff; --side: #ffffff; --side-on: #eceff3; --line: #dfe3e9; --line-2: #e9ecf0; --th: #f7f8fa; --campo: #cbd2dc;
+  --ink: #1c2533; --ink-2: #4b5566; --ink-3: #8b93a1; --lk: #3d4a5e;
+  --navy: #1d2c47; --blue: #2a6bd9; --red: #e0435f; --amber: #c8870d; --green: #1d9a6a;
+  --hover: #f3f5f8; --chip: #e9edf3;
+  --relleno: #2a6bd9;   /* el azul de lo que va RELLENO con texto blanco («+ Nuevo»): no cambia con el tema */
+
+  /* los tokens de la app de siempre, ahora sobre la maqueta (los usan 2,500 renglones de abajo) */
+  --page: var(--bg); --sunken: #f1f3f6; --banda: #f9fafb;
+  --tx: var(--ink); --tx-body: var(--ink); --tx-mute: var(--ink-2); --tx-faint: var(--ink-3);
+  --line-soft: var(--line-2);
+  --brand: var(--blue); --on-brand: #ffffff;
+  --serie: #d4691c; --serie2: #138c80;
+  --ok-fg: #167a53; --ok-bg: #ddf3ea; --ok-solid: var(--green);       /* las etiquetas .tag de la maqueta: g · a · r · b */
+  --warn-fg: #97650a; --warn-bg: #fbf0d9; --warn-solid: var(--amber);
+  --bad-fg: #c2304c; --bad-bg: #fde8ec; --bad-solid: var(--red);
+  --info-fg: #2257b4; --info-bg: #e3ecfb; --info-solid: var(--blue);
+  --idle-fg: var(--ink-2); --idle-bg: #eef1f5; --idle-solid: #a2aab6;
   --sobre-solido: #ffffff;   /* v0.27.0: tinta sobre un relleno solido (icono de archivo, etiqueta de expediente) */
-  --f-display: "Saira", "Barlow", system-ui, sans-serif;
-  --f-ui: "Barlow", system-ui, -apple-system, sans-serif;
+  --f-display: "Source Sans 3", "Source Sans Pro", "Segoe UI", system-ui, sans-serif;
+  --f-ui: "Source Sans 3", "Source Sans Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
   --f-data: "IBM Plex Mono", ui-monospace, monospace;
+  /* la maqueta es de esquinas cortas: campos y botones 3–4 px, tarjetas 5–6 px */
+  --r-sm: 4px; --r-md: 6px; --r-lg: 10px;
 
-  /* Colores de EQUIPO (config.js los referencia por nombre). Los 4 primeros son los del rail del
-     tablero; los 2 de Ventas son propuesta aceptada en el artifact c52cb229 (2026-09-12). */
-  --eq-calytek: var(--ok-solid); --eq-pitepec: var(--serie); --eq-rabasa: var(--serie2);
-  --eq-administracion: var(--info-solid); --eq-ventas-quimicos: var(--brand); --eq-ventas-ambiental: var(--warn-solid);
+  /* Colores de EQUIPO (config.js los referencia por nombre): el cuadro del rail y el icono tenue de las listas. */
+  --eq-calytek: var(--green); --eq-pitepec: var(--serie); --eq-rabasa: var(--serie2);
+  --eq-administracion: #2f86c9; --eq-ventas-quimicos: var(--blue); --eq-ventas-ambiental: var(--amber);
 }
 /* ---- shim: los 34 tokens semanticos que minsa-ui.css consume (vendorizar.py --sin-paleta los lista) ---- */
 :root {
   --surface-page: var(--page); --surface-card: var(--card); --surface-sunken: var(--sunken);
-  --surface-hover: var(--rail-hover); --surface-active: var(--rail-chip); --surface-selected: var(--sunken);
+  --surface-hover: var(--hover); --surface-active: var(--chip); --surface-selected: var(--side-on);
   --text-strong: var(--tx); --text-body: var(--tx-body); --text-muted: var(--tx-mute); --text-faint: var(--tx-faint);
   --text-link: var(--brand); --brand-primary: var(--brand); --brand-accent: var(--ok-solid); --text-on-brand: var(--on-brand);
-  --focus-ring: var(--sky-400);
+  --focus-ring: var(--blue);
   --border-hairline: var(--line-soft); --border-default: var(--line);
   --status-ok-fg: var(--ok-fg); --status-ok-bg: var(--ok-bg); --status-ok-solid: var(--ok-solid);
   --status-warn-fg: var(--warn-fg); --status-warn-bg: var(--warn-bg); --status-warn-solid: var(--warn-solid);
@@ -69,51 +64,38 @@
   --status-idle-fg: var(--idle-fg); --status-idle-bg: var(--idle-bg); --status-idle-solid: var(--idle-solid);
   --font-display: var(--f-display); --font-ui: var(--f-ui); --font-data: var(--f-data);
 }
-/* Las DOS listas oscuras son la MISMA (media query y atributo); se cambian juntas, como en el tablero. */
+/* El OSCURO derivado (decisión 4): el rail no cambia; las superficies son navy y la tinta clara. Las DOS listas son la MISMA (media
+   query y atributo) y se cambian juntas. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --page: #131313; --card: #1f1f1f; --sunken: #181818; --banda: #1a1a1a;
-    --rail: var(--page); --rail-on: #242424;
-    --rail-tx: var(--slate-300); --rail-tx-strong: #ffffff; --rail-tx-mute: var(--slate-500); --rail-tx-faint: var(--slate-600);
-    --rail-line: transparent; --rail-hover: rgba(255,255,255,.05); --rail-chip: rgba(255,255,255,.09);
-    --tx: #ffffff; --tx-body: var(--slate-150); --tx-mute: var(--slate-300); --tx-faint: #8a8a8a;
-    --line: #333333; --line-soft: #2a2a2a;
-    --brand: #7f9bff; --on-brand: #0f0f0f;
-    --serie: var(--orange-500); --serie2: var(--teal-500);
-    --ok-fg: #86efac; --ok-bg: rgba(97,205,106,.14); --ok-solid: var(--green-500);
-    --warn-fg: #fbbf5c; --warn-bg: rgba(224,140,0,.18); --warn-solid: #fbbf5c;
-    --bad-fg: #f4948b; --bad-bg: rgba(200,50,43,.20); --bad-solid: #f4948b;
-    --info-fg: #8fd6ff; --info-bg: rgba(15,143,214,.16); --info-solid: #8fd6ff;
-    --sobre-solido: #141414;
-    --idle-fg: var(--slate-300); --idle-bg: #2b2b2b; --idle-solid: #454545;
+    --bg: #131a26; --card: #1b2433; --side: #182131; --side-on: #26324a; --line: #2c3a50; --line-2: #243145; --th: #1f2939; --campo: #3a4a63;
+    --ink: #e7ecf4; --ink-2: #aeb8c8; --ink-3: #7f8a9c; --lk: #c3cdde;
+    --navy: #3b5b96; --blue: #6f9df2; --red: #f07890; --amber: #e2a73c; --green: #43c08f;
+    --hover: #222d40; --chip: #2a3650;
+    --page: var(--bg); --sunken: #111723; --banda: #1e2737;
+    --ok-fg: #7fdcb5; --ok-bg: rgba(29,154,106,.20); --warn-fg: #f0c46a; --warn-bg: rgba(200,135,13,.22);
+    --bad-fg: #f59aac; --bad-bg: rgba(224,67,95,.22); --info-fg: #a4c2f7; --info-bg: rgba(42,107,217,.24);
+    --idle-fg: var(--ink-2); --idle-bg: #232e41; --idle-solid: #56627a;
+    --serie: #f0913f; --serie2: #22b8a6; --eq-administracion: #69b6ec;
+    --on-brand: #0d1420; --sobre-solido: #111723;
     --shadow-pop: 0 10px 34px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.40); --shadow-raise: 0 1px 3px rgba(0,0,0,.35);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #131313; --card: #1f1f1f; --sunken: #181818; --banda: #1a1a1a;
-  --rail: var(--page); --rail-on: #242424;
-  --rail-tx: var(--slate-300); --rail-tx-strong: #ffffff; --rail-tx-mute: var(--slate-500); --rail-tx-faint: var(--slate-600);
-  --rail-line: transparent; --rail-hover: rgba(255,255,255,.05); --rail-chip: rgba(255,255,255,.09);
-  --tx: #ffffff; --tx-body: var(--slate-150); --tx-mute: var(--slate-300); --tx-faint: #8a8a8a;
-  --line: #333333; --line-soft: #2a2a2a;
-  --brand: #7f9bff; --on-brand: #0f0f0f;
-  --serie: var(--orange-500); --serie2: var(--teal-500);
-  --ok-fg: #86efac; --ok-bg: rgba(97,205,106,.14); --ok-solid: var(--green-500);
-  --warn-fg: #fbbf5c; --warn-bg: rgba(224,140,0,.18); --warn-solid: #fbbf5c;
-  --bad-fg: #f4948b; --bad-bg: rgba(200,50,43,.20); --bad-solid: #f4948b;
-  --info-fg: #8fd6ff; --info-bg: rgba(15,143,214,.16); --info-solid: #8fd6ff;
-  --sobre-solido: #141414;
-  --idle-fg: var(--slate-300); --idle-bg: #2b2b2b; --idle-solid: #454545;
+  --bg: #131a26; --card: #1b2433; --side: #182131; --side-on: #26324a; --line: #2c3a50; --line-2: #243145; --th: #1f2939; --campo: #3a4a63;
+  --ink: #e7ecf4; --ink-2: #aeb8c8; --ink-3: #7f8a9c; --lk: #c3cdde;
+  --navy: #3b5b96; --blue: #6f9df2; --red: #f07890; --amber: #e2a73c; --green: #43c08f;
+  --hover: #222d40; --chip: #2a3650;
+  --page: var(--bg); --sunken: #111723; --banda: #1e2737;
+  --ok-fg: #7fdcb5; --ok-bg: rgba(29,154,106,.20); --warn-fg: #f0c46a; --warn-bg: rgba(200,135,13,.22);
+  --bad-fg: #f59aac; --bad-bg: rgba(224,67,95,.22); --info-fg: #a4c2f7; --info-bg: rgba(42,107,217,.24);
+  --idle-fg: var(--ink-2); --idle-bg: #232e41; --idle-solid: #56627a;
+  --serie: #f0913f; --serie2: #22b8a6; --eq-administracion: #69b6ec;
+  --on-brand: #0d1420; --sobre-solido: #111723;
   --shadow-pop: 0 10px 34px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.40); --shadow-raise: 0 1px 3px rgba(0,0,0,.35);
 }
-/* El rail toma los tokens --rail-* del tablero (blanco en claro, negro en oscuro). */
-.rail { background: var(--rail); color: var(--rail-tx); border-color: var(--rail-line); }
-/* v0.44.0: la pestaña activa del rail es una PASTILLA blanca con hairline y sombra corta (la barra ya no tiene fondo propio). Los equipos, al pasar y al filtrar, tambien en blanco. */
-.rail nav button.is-on { background: var(--rail-on); color: var(--brand-primary); box-shadow: 0 0 0 1px var(--line), 0 1px 3px rgba(20,24,32,.10), 0 4px 10px rgba(20,24,32,.07); }
-.rail .equipos button.is-on, .rail .equipos button:hover { background: var(--rail-on); }
-@media (max-width: 720px) { .rail { border-top-color: var(--border-hairline); background: var(--surface-card); } }   /* en celular la barra va ABAJO, fija: conserva fondo y hairline para separarse del contenido que pasa debajo */
 
 /* ---- utilidades propias */
 .oculto { display: none !important; }
@@ -129,31 +111,208 @@
   :root:not([data-theme="light"]) .solo-oscuro { display: inline; }
 }
 
-/* ---- armazon */
+/* ==== ARMAZÓN v1.0.0 (maqueta «MINSA ERP Reportes»): rail 64 px oscuro · panel del módulo 284 px · contenido.
+   La pagina sigue rodando con el BODY (no con un <main> de alto fijo, como la maqueta): las pantallas de hoy, el arnés y las capturas
+   miden window.scrollY; rail y panel van pegados (sticky) a la altura de la ventana. ==== */
+.app { display: grid; grid-template-columns: 64px 284px minmax(0, 1fr); min-height: 100dvh; }
+.app.panel-plegado:not(.sin-sesion) { grid-template-columns: 64px minmax(0, 1fr); }
+.app.panel-plegado .panel { display: none; }
 .app.sin-sesion { grid-template-columns: 1fr; }
 .contenido { min-width: 0; padding: var(--sp-4) var(--sp-5) calc(var(--sp-7) + env(safe-area-inset-bottom)); }
-.rail .marca { display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-3) var(--sp-3); font-family: var(--font-display); font-weight: 600; color: var(--text-strong); }
-.rail .marca .logo { width: 92px; height: auto; }
-/* v0.12.1: «PROYECTOS» en Bai Jamjuree 700 versalitas, separado del lockup por un hairline verde en degradado (30 px) — elegido por Carlos entre 106 variantes (artifact «Rotulo Proyectos», 12-sep). El ::before es la linea; el color sale de --brand-accent, asi que en claro es el verde 700 y en oscuro el 500 legible. */
-/* v0.13.0 (Carlos, 12-sep): mas chico —12 px, tracking .12em— para que quepa dentro del rail (232 px) sin recortarse; el hairline baja a 24 px. */
-.rail .marca span { font-family: "Bai Jamjuree", var(--font-display); font-weight: 700; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; line-height: 1; margin-top: -2px; display: inline-flex; align-items: center; white-space: nowrap; min-width: 0; }
-.rail .marca span::before { content: ""; flex: none; width: 1px; height: 24px; margin: 0 10px 0 2px; background: linear-gradient(180deg, transparent, var(--brand-accent) 30%, var(--brand-accent) 70%, transparent); }
-.rail nav { display: contents; }
-/* v0.167.0 (Carlos, 2-oct; maqueta HV1C5pzx): la barra en tres bloques. El bloque es display:contents (los botones siguen siendo hijos
-   del rail para el layout) y su rotulo copia al de rama. Un bloque sin pestanas visibles (Operacion para quien no es gerencia) no pinta rotulo. */
-.rail .rail-bloque { display: contents; }
-.rail .rail-grupo { margin: 0; padding: var(--sp-3) var(--sp-3) var(--sp-1); letter-spacing: .15em; color: var(--rail-tx-faint); }
-.rail .rail-bloque:first-child .rail-grupo { padding-top: 0; }
-.rail .rail-bloque:not(:has(> button:not(.oculto))) .rail-grupo { display: none; }
-@media (max-width: 720px) { .rail .rail-grupo { display: none; } }
-.rail nav button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.rail .equipos { margin-top: var(--sp-3); display: grid; gap: 1px; }
-/* v0.7.0: rotulo de RAMA como el .railgroup del tablero (mayusculas, tracking .15em) y cada equipo con su icono. */
-.rail .equipos .rama { padding: var(--sp-3) var(--sp-3) var(--sp-1); letter-spacing: .15em; color: var(--rail-tx-faint); }
-.rail .equipos button { min-height: var(--control-h-sm); font-weight: 500; font-size: .8rem; gap: var(--sp-2); }
-.rail .equipos button .n { margin-left: auto; font-family: var(--font-data); font-size: .72rem; font-weight: 500; padding: 1px 6px; border-radius: var(--r-pill); background: var(--rail-chip); color: var(--rail-tx); }
-.rail .equipos button.is-on { background: var(--rail-on); color: var(--rail-tx-strong); font-weight: 600; }
-/* El elegido NO rellena el icono (revisor 12-sep: trazo blanco sobre los pasteles del oscuro daba 1.6–2.6:1); el fondo del boton ya lo marca, como en el tablero. */
+
+/* ---- rail */
+.rail { position: sticky; top: 0; height: 100dvh; z-index: var(--z-rail); background: var(--rail); color: var(--rail-ink); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0 12px; overflow: hidden; }
+.rail .rb { position: relative; width: 56px; min-height: 48px; padding: 5px 0 4px; border: 0; border-radius: 7px; background: none; color: var(--rail-ink); font: inherit; display: grid; justify-items: center; align-content: center; gap: 2px; cursor: pointer; }
+.rail .rb:hover { background: var(--rail-hover); }
+.rail .rb.is-on { background: var(--rail-on); color: #ffffff; }
+.rail .rb:focus-visible, .rail .uni-rb:focus-visible { outline: 2px solid #8fb0e8; outline-offset: -2px; }
+.rail .rb .ico { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.rail .rb .rot { font-family: var(--f-ui); font-size: 10.5px; line-height: 1.1; letter-spacing: .01em; white-space: nowrap; max-width: 56px; overflow: hidden; text-overflow: ellipsis; }
+.rail-marca { flex: none; padding: 2px 0 6px; }
+.rail-marca img { display: block; width: 22px; height: auto; }
+/* «+ Nuevo»: el único botón con relleno del rail (cuadro azul, cruz blanca) */
+.rail .rb-nuevo .ico { width: 26px; height: 26px; padding: 4px; border-radius: 6px; background: var(--relleno); color: #ffffff; stroke-width: 2.2; }
+.rail .rb-nuevo[aria-expanded="true"] { background: var(--rail-on); }
+.rail-modulos { display: grid; gap: 4px; flex: none; }
+.rsep { flex: none; width: 36px; height: 1px; background: var(--rail-sep); margin: 4px 0; }
+/* las unidades: el cuadro de su color con su icono blanco (maqueta .app-t); el elegido lleva el anillo blanco. Ruedan si la ventana es baja. */
+.rail-unidades { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; align-content: start; justify-items: center; gap: 2px; scrollbar-width: none; }
+.rail-unidades::-webkit-scrollbar { display: none; }
+.uni-rb { position: relative; width: 44px; height: 36px; padding: 0; border: 0; border-radius: 7px; background: none; display: grid; place-items: center; cursor: pointer; }
+.rail .uni-rb:hover { background: var(--rail-hover); }
+.rail .uni-rb.is-on { background: var(--rail-on); }
+.eqi.is-solido { width: 24px; height: 24px; border-radius: 5px; background: var(--c); color: #ffffff; }
+.eqi.is-solido svg { width: 15px; height: 15px; stroke-width: 2.2; }
+.uni-rb.is-on .eqi.is-solido { box-shadow: 0 0 0 2px var(--rail), 0 0 0 4px #ffffff; }
+.rail .uni-rb .n { position: absolute; right: 1px; bottom: 0; font: 600 9.5px/1 var(--f-data); color: var(--rail-ink); }
+.rail-pie { flex: none; display: grid; gap: 2px; }
+/* insignia roja (mis vencidas en Inicio, avisos en la campana) — la .bdg de la maqueta */
+.bdg { position: absolute; top: 3px; right: 9px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--red); color: #ffffff; font: 700 9.5px/15px var(--f-ui); text-align: center; }
+/* anillo «Mi día» */
+.dia-anillo { position: relative; width: 30px; height: 30px; display: grid; place-items: center; }
+.dia-anillo svg { position: absolute; inset: 0; width: 30px; height: 30px; }
+.dia-anillo .fondo { fill: none; stroke: #4a5873; stroke-width: 2; }
+.dia-anillo .lleno { fill: none; stroke: #8fb0e8; stroke-width: 2; stroke-linecap: round; }
+.dia-anillo-n { position: relative; font: 600 9.5px/1 var(--f-ui); color: #e6ebf3; font-variant-numeric: tabular-nums; }
+
+/* ---- panel del módulo (maqueta .side) */
+.panel { position: sticky; top: 0; height: 100dvh; z-index: 4; min-width: 0; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+.panel-cab { display: flex; align-items: center; gap: var(--sp-2); padding: 22px 14px 14px 18px; }
+.panel-cab h1 { flex: 1; min-width: 0; margin: 0; font-family: var(--f-ui); font-size: 21px; font-weight: 500; color: var(--ink); }
+.panel-cerrar { display: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--ink-2); place-items: center; cursor: pointer; }
+.panel-cerrar .ico { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.srch { position: relative; margin: 0 16px 16px; }
+.srch input { width: 100%; box-sizing: border-box; border: 1px solid var(--campo); border-radius: 3px; padding: 8px 34px 8px 11px; font: inherit; font-size: 14.5px; background: var(--card); color: var(--ink); }
+.srch input::placeholder { color: var(--ink-3); }
+.srch .ico { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.panel-sc { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 18px; }
+.panel .gh { display: flex; align-items: center; gap: 2px; padding: 4px 12px 10px 16px; color: var(--ink-2); font-size: 14px; }
+.panel .gh span { flex: 1; }
+.panel .gh-btn { width: 36px; height: 36px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.panel .gh-btn:hover { background: var(--hover); }
+.panel .gh-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.panel .gsep { border-top: 1px solid var(--line); margin: 14px 0 18px; }
+.panel .fo { display: flex; align-items: center; gap: 9px; min-height: 38px; width: calc(100% - 22px); margin-left: 11px; padding: 7px 8px 7px 6px; border: 0; border-radius: 3px; background: none; text-align: left; font: inherit; font-size: 14.5px; font-weight: 500; color: var(--ink); cursor: pointer; }
+.panel .fo svg { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--ink-2); stroke-width: 1.4; stroke-linejoin: round; }
+.panel .fo:hover, .panel .ch:hover { background: var(--hover); }
+.panel .ch { display: flex; align-items: center; gap: 8px; width: calc(100% - 44px); min-height: 38px; margin-left: 22px; padding: 7px 10px 7px 12px; border: 0; border-radius: 3px; background: none; text-align: left; font: inherit; font-size: 14.5px; color: var(--ink); cursor: pointer; }
+.panel .ch .tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel .ch.on { background: var(--side-on); font-weight: 600; }
+.panel .ch.is-sub { width: calc(100% - 52px); margin-left: 30px; font-size: 13.5px; padding-left: 8px; }
+.panel .ch.is-sep { margin-top: 6px; }
+.panel .ch .eqi.is-sm { width: 20px; height: 20px; } .panel .ch .eqi.is-sm svg { width: 12px; height: 12px; }
+.panel .ch .n { flex: none; font: 500 .72rem var(--f-data); color: var(--ink-3); }
+.panel .ch .n.is-info { color: var(--info-fg); }
+.panel .ch-accion { color: var(--blue); }
+.panel .panel-vacio { margin: 0; padding: 0 18px; color: var(--ink-3); font-size: 13px; }
+#panelArbol .no-casa { display: none !important; }
+.panel .fo-hijos[hidden][data-busca] { display: block !important; }   /* buscando, se ven las entradas que casan aunque su carpeta esté plegada */
+.hoja-ambito { display: none; }
+.hoja-fondo { position: fixed; inset: 0; z-index: 35; background: rgba(15, 22, 35, .38); }
+
+/* ---- cabecera del armazón (#barraMovil): en escritorio solo asoma con el chip de ámbito */
+.cabecera-app { display: none; }
+.cabecera-app.con-ambito { display: block; margin-bottom: var(--sp-3); }
+.cab-fila { display: flex; align-items: center; gap: var(--sp-2); min-height: 36px; }
+.cabecera-app #btnHoja, .cabecera-app .cab-titulo, .cabecera-app .solo-cel { display: none; }
+.cab-esp { flex: 1; }
+.cab-titulo { min-width: 0; font-size: 19px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cab-btn { position: relative; width: 40px; height: 40px; flex: none; padding: 0; border: 1px solid var(--campo); border-radius: 3px; background: var(--card); color: var(--ink); place-items: center; cursor: pointer; }
+.cab-btn .ico { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.cab-btn .bdg { top: -5px; right: -5px; }
+.cab-btn.is-on { background: var(--side-on); }
+.chip-ambito { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 3px 3px 3px 6px; border: 1px solid var(--campo); border-radius: 3px; background: var(--card); color: var(--ink); font-size: 13.5px; }
+.chip-ambito .tx { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip-ambito.no-aplica { border-style: dashed; color: var(--ink-3); }
+.chip-ambito .quitar { width: 30px; height: 30px; flex: none; padding: 0; border: 0; border-radius: 3px; background: none; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.chip-ambito .quitar:hover { background: var(--hover); }
+.chip-ambito .quitar svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.ask { height: 36px; padding: 0 13px 0 10px; border: 0; border-radius: 3px; background: var(--navy); color: #ffffff; display: flex; align-items: center; gap: 8px; font: inherit; font-weight: 600; font-size: 13px; letter-spacing: .04em; cursor: pointer; }
+.ask .ico { width: 20px; height: 20px; fill: none; stroke: #ffffff; stroke-width: 1.6; }
+/* los chips del módulo = el control segmentado de la maqueta (.seg) */
+.chips-modulo { display: none; overflow-x: auto; scrollbar-width: none; margin-top: var(--sp-2); }   /* solo en celular */
+.chips-modulo::-webkit-scrollbar { display: none; }
+.chips-fila { display: inline-flex; min-width: max-content; height: 40px; border: 1px solid #2d3b55; border-radius: 2px; overflow: hidden; background: var(--card); }
+.chip-m { padding: 0 12px; border: 0; background: none; font: inherit; font-size: 12.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--navy); white-space: nowrap; cursor: pointer; }
+.chip-m + .chip-m { border-left: 1px solid var(--campo); }
+.chip-m.on { background: var(--navy); color: #ffffff; }
+:root[data-theme="dark"] .chips-fila { border-color: var(--campo); } :root[data-theme="dark"] .chip-m { color: var(--ink); } :root[data-theme="dark"] .chip-m.on { color: #ffffff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chips-fila { border-color: var(--campo); } :root:not([data-theme="light"]) .chip-m { color: var(--ink); } :root:not([data-theme="light"]) .chip-m.on { color: #ffffff; } }
+
+/* ---- «+ Nuevo» (un menú para el rail y para el botón flotante del celular; armazon.js lo coloca) */
+.fab-nuevo { display: none; }
+.menu-nuevo { position: fixed; z-index: var(--z-pop); min-width: 220px; max-width: min(320px, calc(100vw - 16px)); max-height: min(440px, calc(100dvh - 24px)); overflow-y: auto; padding: 4px 0; background: var(--card); border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 6px 20px rgba(20, 30, 50, .16); }
+.menu-nuevo .mn-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 8px 14px; border: 0; background: none; text-align: left; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; }
+.menu-nuevo .mn-item:hover:not(:disabled), .menu-nuevo .mn-item:focus-visible { background: var(--hover); }
+.menu-nuevo .mn-item:disabled { color: var(--ink-3); cursor: default; }
+.menu-nuevo .mn-item > svg { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--ink-2); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.menu-nuevo .mn-item.is-volver > svg { transform: rotate(180deg); }
+.menu-nuevo .mn-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-nuevo .mn-label, .menu-nuevo .vacio { margin: 0; padding: 6px 14px; }
+
+/* ---- Buscar y Avisos (diálogos mínimos de la cubeta 1) */
+.dlg-buscar .srch { margin: 0 0 var(--sp-3); }
+.bs-res, .av-lista { display: grid; gap: 2px; }
+.bs-g { margin: var(--sp-2) 0 2px; }
+.bs-r, .av-r { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 6px 8px; border: 0; border-radius: 3px; background: none; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.bs-r:hover, .av-r:hover, .bs-r:focus-visible, .av-r:focus-visible { background: var(--hover); }
+.bs-r .t, .av-r .t { flex: 1; min-width: 0; display: grid; }
+.bs-r b, .av-r b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bs-r small, .av-r small { color: var(--ink-3); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av-r.is-danger b { color: var(--bad-fg); }
+.av-r .flecha { width: 14px; height: 14px; flex: none; fill: none; stroke: var(--ink-3); stroke-width: 2; }
+
+/* ---- Cuenta (#cuenta) */
+.cuenta-rejilla { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+.cuenta-tu { display: grid; gap: var(--sp-3); }
+.cuenta-tu .quien { margin: 0; display: grid; gap: 2px; overflow-wrap: anywhere; color: var(--text-strong); }
+.cuenta-tu .quien b { font-size: 1.05rem; font-weight: 600; }
+/* v0.48.0: el rol es un ROTULO DE DATOS (mono, versalitas, gris), no un chip */
+.quien .rol { font-family: var(--font-data); font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; color: var(--text-muted); }
+.cuenta-acc { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.cuenta-acc a.mn-btn { text-decoration: none; }
+.cuenta-acc #btnActualizar .sync { padding-left: var(--sp-1); white-space: nowrap; }
+.cuenta-acc #btnActualizar .sync:empty { display: none; }
+.cuenta-version { margin: 0; }
+body[data-modulo="cuenta"] #pie { display: none; }   /* la versión ya va en la tarjeta «Tu cuenta» */
+@media (max-width: 900px) { .cuenta-rejilla { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- tableta (721–1100 px): rail de 56 y el panel se abre ENCIMA (☰ o clic en el módulo activo), como la maqueta */
+@media (max-width: 1100px) {
+  .app:not(.sin-sesion) { grid-template-columns: 56px minmax(0, 1fr); }
+  .rail .rb { width: 50px; } .rail .rb .rot { font-size: 9.5px; max-width: 50px; }
+  .app.panel-plegado .panel { display: flex; }
+  .panel { position: fixed; top: 0; bottom: 0; left: 56px; height: auto; width: min(284px, calc(100vw - 56px)); z-index: 40; box-shadow: 6px 0 22px rgba(20, 30, 50, .18); transform: translateX(-115%); transition: transform .2s; visibility: hidden; }
+  body.hoja-abierta .panel { transform: none; visibility: visible; }
+  .panel-cerrar { display: grid; }
+  .cabecera-app { display: block; margin-bottom: var(--sp-3); }
+  .cabecera-app #btnHoja { display: grid; }
+}
+
+/* ---- celular (≤ 720 px): la barra de abajo son los módulos; arriba ☰ · título · Buscar · Avisos · Cuenta y los chips; el panel es una hoja */
+@media (max-width: 720px) {
+  .app:not(.sin-sesion) { grid-template-columns: minmax(0, 1fr); }
+  .contenido { padding: var(--sp-3) var(--sp-3) calc(var(--sp-7) + 24px + env(safe-area-inset-bottom)); }
+  .rail { position: fixed; top: auto; left: 0; right: 0; bottom: 0; height: auto; flex-direction: row; padding: 4px 4px calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -1px 0 rgba(0, 0, 0, .12); }
+  .rail > :not(.rail-modulos) { display: none; }
+  .rail-modulos { display: flex; width: 100%; gap: 2px; }
+  .rail-modulos .rb { flex: 1; width: auto; min-width: 0; min-height: 52px; }
+  .rail .rb .rot { font-size: 10.5px; max-width: 100%; }
+  .rail-modulos .bdg { right: calc(50% - 20px); }
+  .panel { left: 0; right: 0; top: auto; bottom: 0; width: 100%; max-height: 86dvh; border-right: 0; border-radius: 12px 12px 0 0; box-shadow: 0 -8px 30px rgba(20, 30, 50, .22); transform: translateY(105%); }
+  .panel-cab { padding-top: 14px; }
+  .hoja-ambito { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+  .hoja-ambito .mn-label { flex-basis: 100%; margin: 0; }
+  .hoja-ambito .uni-rb { width: 44px; height: 44px; }
+  .hoja-ambito .uni-rb.is-on { background: var(--side-on); }
+  .cabecera-app { position: sticky; top: 0; z-index: 25; margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)) var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--bg); border-bottom: 1px solid var(--line); }
+  .cabecera-app .cab-titulo { display: block; }
+  .cabecera-app .solo-cel { display: grid; }
+  .cab-fila { flex-wrap: wrap; row-gap: 6px; }
+  .chip-ambito { order: 5; flex-basis: 100%; justify-content: space-between; }
+  .chips-modulo { display: block; }
+  .fab-nuevo { display: inline-flex; align-items: center; gap: 6px; position: fixed; right: 14px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: var(--z-sticky); height: 48px; padding: 0 18px 0 14px; border: 0; border-radius: 24px; background: var(--relleno); color: #ffffff; font: inherit; font-weight: 600; font-size: 15px; box-shadow: 0 4px 14px rgba(20, 30, 50, .28); cursor: pointer; }
+  .fab-nuevo .ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+  body.is-chat .fab-nuevo, body:has(dialog[open]) .fab-nuevo, body.hoja-abierta .fab-nuevo, .app.sin-sesion .fab-nuevo { display: none; }
+  /* v1.0.0: «+ Nuevo › Tarea» sustituye al FAB de «Nueva tarea» (U8); el botón sigue en la fila de pestañas de escritorio */
+  #btnNuevaTarea { display: none; }
+  /* B5: lo que flota abajo a la derecha tapaba el pie de la última tarjeta: las pantallas guardan su hueco (en el chat no hay botón) */
+  .tablero-caja, .docs, .tabla, .chat { padding-bottom: calc(var(--control-h) + var(--sp-3)); }
+  .pantalla:not(#p-proyecto):not(#p-mensajes) { padding-bottom: calc(var(--control-h) + var(--sp-3)); }
+}
+.sync { font-size: .72rem; color: var(--text-faint); }
+.sync.viejo { color: var(--status-warn-fg); }
+.tema { display: inline-flex; gap: var(--sp-1); }
+.tema .mn-btn { color: var(--text-muted); }
+.tema button[aria-pressed="true"] { color: var(--brand-primary); border-color: var(--brand-primary); }
+.tema svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+/* v0.48.0: SEGMENTO Claro | Oscuro — caja hundida, el activo es pastilla de tarjeta. v1.0.0: vive en Cuenta. */
+.tema.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; margin: 0; padding: 2px; background: var(--surface-sunken); border: 1px solid var(--border-hairline); border-radius: var(--r-sm); max-width: 260px; }
+.tema.seg .mn-btn { min-height: 38px; height: 38px; padding: 0 var(--sp-2); border: 0; border-radius: 3px; background: transparent; color: var(--text-muted); font-size: .85rem; gap: var(--sp-1); }
+.tema.seg button[aria-pressed="true"] { background: var(--surface-card); color: var(--text-strong); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.tema.seg .mn-btn:hover { background: var(--surface-hover); }
+.tema.seg button[aria-pressed="true"]:hover { background: var(--surface-card); }
+#btnActualizar .ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
 /* ---- icono de equipo (comun.js iconoEquipo): cuadro tenue del color del equipo, trazo del color. Reusa el
    mismo `--c` en rail, lista, cabecera del proyecto y tarjeta. color-mix: Chrome 111+ / Safari 16.2+. */
@@ -163,112 +322,7 @@
 .eqi.is-lg { width: 40px; height: 40px; border-radius: var(--r-md); } .eqi.is-lg svg { width: 22px; height: 22px; }
 .kv .proy { display: inline-flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; }
 .kv .proy .eqi { vertical-align: middle; }
-.rail .sesion { margin-top: auto; padding: var(--sp-3) var(--sp-2) 0; border-top: 1px solid var(--border-hairline); display: grid; gap: var(--sp-2); font-size: .8rem; color: var(--text-muted); }
-/* A5: el nombre en negrita; el correo va en el title. `break-all` partia
-   «gerencia» en «gerenci» + «a»; `anywhere` solo parte cuando de verdad no cabe. */
-.rail .sesion .quien { overflow-wrap: anywhere; color: var(--text-strong); display: grid; gap: 2px; min-width: 0; }
-.rail .sesion .quien b { font-weight: 600; }
-/* v0.48.0 (Carlos, 15-sep; artifact M3B6fy3g «A4»): el rol es un ROTULO DE DATOS — la misma metrica que el rotulo
-   «EQUIPOS» del rail (mono, versalitas, gris). Antes era `mn-chip is-info`: el unico celeste de toda la columna. */
-.rail .sesion .quien .rol { font-family: var(--font-data); font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; color: var(--text-muted); }
-/* v0.48.0: renglon 1 = nombre/rol + «···» a la derecha; renglon 2 = el tema como segmento a todo el ancho. */
-.rail .sesion-fila { display: flex; align-items: center; gap: var(--sp-2); }
-.rail .sesion-fila .quien { flex: 1; }
-.rail .sesion-fila .menu-rail { flex: none; }
-/* Auditoria 2026-09-12 (#1, #13): el pie del rail tenia tres botones distintos lado a lado —«Actualizar»
-   sin borde y gris, «···» en 700, sol/luna con filete tenue— porque `.mn-rail button` (0,1,1) pisa a
-   `.mn-btn` (0,1,0) en borde, fondo, color y gap. Todo control del rail que sea `.mn-btn` vuelve al
-   boton de la piel con esta regla (0,2,0); los menus ya no re-implementan el boton: llevan `.mn-btn.is-sm`
-   en el HTML. El gap sigue en --sp-1 solo aqui: el rail mide 232 px y con --sp-2 el pie se parte en dos. */
-.rail .sesion-botones { display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; }
-.rail .mn-btn { border: 1px solid var(--border-default); background: var(--surface-card); color: var(--text-body); justify-content: center; gap: var(--sp-2); }
-.rail .mn-btn:hover { background: var(--surface-hover); }
-/* D6 (v0.6.0): el pie del rail apilaba seis controles en dos renglones; Equipo, Ver en SharePoint y
-   Salir van en un menu «···» que abre HACIA ARRIBA (el rail termina en el borde de la ventana).
-   v0.48.0: Actualizar entra tambien al menu, con la hora de la ultima lectura (`.sync`) a su derecha; el menu
-   abre pegado al borde derecho del rail porque el «···» ya vive ahi. */
-.menu-rail { position: relative; }
-.menu-rail > summary { list-style: none; cursor: pointer; letter-spacing: .1em; }
-.menu-rail > summary::-webkit-details-marker { display: none; }
-.menu-rail .menu-caja { position: absolute; right: 0; bottom: calc(100% + 4px); z-index: var(--z-pop); background: var(--surface-card); border: 1px solid var(--border-hairline); border-radius: var(--r-md); box-shadow: var(--shadow-pop); padding: var(--sp-2); display: grid; gap: var(--sp-2); min-width: 210px; }
-.menu-caja .salir { margin-top: var(--sp-1); }
-.menu-caja #btnActualizar { justify-content: flex-start; }
-.menu-caja #btnActualizar .sync { margin-left: auto; padding-left: var(--sp-2); white-space: nowrap; }
-.menu-caja #btnActualizar .sync:empty { display: none; }
-.sync { font-size: .72rem; color: var(--text-faint); }
-.sync.viejo { color: var(--status-warn-fg); }
-.tema { display: inline-flex; gap: var(--sp-1); margin-left: auto; }
-.tema .mn-btn { color: var(--text-muted); }
-.tema button[aria-pressed="true"] { color: var(--brand-primary); border-color: var(--brand-primary); }
-.tema svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
-/* v0.48.0: SEGMENTO Claro | Oscuro en el rail — caja hundida, el activo es pastilla de tarjeta con sombra corta
-   (la misma pastilla que la pestana activa). Solo el rail lo lleva (`.tema.seg`); el menu movil conserva sus dos iconos. */
-.rail .tema.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; margin: 0; padding: 2px; background: var(--surface-sunken); border: 1px solid var(--border-hairline); border-radius: var(--r-sm); }
-.rail .tema.seg .mn-btn { min-height: 26px; height: 26px; padding: 0 var(--sp-2); border: 0; border-radius: 4px; background: transparent; color: var(--text-muted); font-size: .72rem; gap: var(--sp-1); }
-.rail .tema.seg .mn-btn svg { width: 14px; height: 14px; }
-.rail .tema.seg button[aria-pressed="true"] { background: var(--surface-card); color: var(--text-strong); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
-.rail .tema.seg .mn-btn:hover { background: var(--surface-hover); }
-.rail .tema.seg button[aria-pressed="true"]:hover { background: var(--surface-card); }
-
-/* ---- v0.28.0: rail PLEGABLE en escritorio (Carlos, 14-sep). `.app.rail-plegado` deja 64 px con solo
-   iconos: los rotulos, la marca, el nombre y el sync se ocultan; los contadores saltan a la esquina
-   del icono; el pie se apila. El title de cada pestana lo pone app.js (el rotulo ya no se ve). En
-   celular no aplica: ahi el rail ya es la barra de pestanas y el boton no se muestra. */
-/* v0.28.1: la marca entera es el boton de plegar (se queda como estaba, solo gana cursor y hover); el chevron vive solo plegado. */
-.rail .marca-btn { display: flex; align-items: center; gap: var(--sp-2); min-height: 0; padding: 0; border: 0; border-radius: var(--r-sm); background: none; font: inherit; color: inherit; cursor: pointer; min-width: 0; }
-.rail .marca-btn:hover { background: none; opacity: .8; }
-.app:not(.rail-plegado) .rail .plegar { display: none; }
-.rail .plegar { margin-left: auto; width: 28px; height: 28px; min-height: 0; padding: 0; justify-content: center; border-radius: var(--r-sm); color: var(--text-muted); flex: none; }
-.rail .plegar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
-@media (min-width: 721px) {
-  .app.rail-plegado { grid-template-columns: 64px 1fr; }
-  .rail-plegado .rail { padding-inline: var(--sp-2); }
-  .rail-plegado .rail .marca { padding: 0 0 var(--sp-3); justify-content: center; }
-  .rail-plegado .rail .marca-btn { display: none; }
-  .rail-plegado .rail .plegar { margin-left: 0; }
-  .rail-plegado .rail .plegar svg { transform: rotate(180deg); }
-  .rail-plegado .rail nav button > span, .rail-plegado .rail .equipos .rama, .rail-plegado .rail .equipos button > span:not(.eqi):not(.n),
-  .rail-plegado .rail .sesion .quien, .rail-plegado .rail .tema.seg .mn-btn > span { display: none; }
-  .rail-plegado .rail nav button, .rail-plegado .rail .equipos button { position: relative; justify-content: center; padding: 0; gap: 0; }
-  .rail-plegado .rail .equipos { gap: 2px; }
-  /* v0.167.0: plegado, el rotulo de bloque se vuelve un filete (el primero, nada) */
-  .rail-plegado .rail .rail-grupo { font-size: 0; padding: 0; margin: var(--sp-2) var(--sp-2); border-top: 1px solid var(--rail-line); }
-  .rail-plegado .rail .rail-bloque:first-child .rail-grupo { display: none; }
-  .rail-plegado .rail .mn-rail-hot { position: absolute; top: 2px; right: 2px; margin: 0; }
-  .rail-plegado .rail .equipos .n { position: absolute; top: 0; right: 0; margin: 0; }
-  .rail-plegado .rail .sesion { padding-inline: 0; }
-  .rail-plegado .rail .sesion-fila { justify-content: center; }
-  .rail-plegado .rail .tema.seg { grid-auto-flow: row; grid-auto-columns: auto; }   /* v0.48.0: el segmento se apila (sol / luna) a 64 px */
-  .rail-plegado .rail .tema.seg .mn-btn { padding: 0; }
-  .rail-plegado .rail .menu-rail > summary { width: 100%; }
-}
-#btnActualizar .ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-
-/* barra movil: solo por debajo de 720 px (el rail se vuelve pestanas abajo y no cabe la sesion) */
-.barra-movil { display: none; }
-@media (max-width: 720px) {
-  .contenido { padding: var(--sp-3) var(--sp-3) calc(var(--sp-7) + 24px + env(safe-area-inset-bottom)); }
-  .rail .marca, .rail .equipos, .rail .sesion, .rail .plegar { display: none; }
-  .rail nav button svg { width: 20px; height: 20px; }
-  .barra-movil { display: flex; align-items: center; gap: var(--sp-2); padding-bottom: var(--sp-2); }
-  .barra-movil .logo.chica img { width: 84px; height: auto; }
-  .barra-movil .rol-movil { font-size: .72rem; color: var(--text-muted); }
-  .menu-movil { margin-left: auto; position: relative; }
-  .menu-movil summary { list-style: none; cursor: pointer; }
-  .menu-movil summary::-webkit-details-marker { display: none; }
-  .menu-caja { position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-pop); background: var(--surface-card); border: 1px solid var(--border-hairline); border-radius: var(--r-md); box-shadow: var(--shadow-pop); padding: var(--sp-2); display: grid; gap: var(--sp-2); min-width: 200px; }
-  .menu-caja .tema { margin-left: 0; }
-  .menu-caja .tema button { flex: 1; }
-  /* U8: en celular «Nueva tarea» flota abajo a la derecha, encima de las pestanas; si no aplica, no estorba. */
-  #btnNuevaTarea { position: fixed; right: var(--sp-3); bottom: calc(var(--sp-7) + 20px + env(safe-area-inset-bottom)); z-index: var(--z-pop); border-radius: var(--r-pill); box-shadow: var(--shadow-pop); padding: 0 var(--sp-4); min-height: var(--control-h); background: var(--status-ok-solid); color: var(--text-on-brand); border-color: var(--status-ok-solid); }   /* v0.30.0 (B5): flotante LLENO de verde — un contorno transparente sobre el tablero deja leer las tarjetas a traves */
-  #btnNuevaTarea:disabled { display: none; }
-  /* B5: el FAB flota sobre la columna y tapaba el pie de la ultima tarjeta (205 x 60 px). */
-  .tablero-caja, .docs, .tabla, .chat { padding-bottom: calc(var(--control-h) + var(--sp-3)); }
-  /* A7: con un dialogo abierto el FAB asomaba sobre el backdrop y parecia pulsable. Va DENTRO del
-     @media: arriba de 720 px «Nueva tarea» es un boton mas de la barra y no hay nada que esconder. */
-  body:has(dialog[open]) #btnNuevaTarea { visibility: hidden; }
-}
-/* A6: «Al dia · leido hace N s» se pintaba dos veces en escritorio (rail + #syncMovil). */
+/* A6: «Al dia · leido hace N s» se pintaba dos veces en escritorio (Cuenta + #syncMovil). */
 #syncMovil { display: none; }
 @media (max-width: 720px) { #syncMovil:not(.oculto) { display: block; } }
 /* A8: parrafo de ayuda. .mn-label es un rotulo de UNA linea (mayusculas, mono, tracking);
@@ -295,7 +349,6 @@
 .mn-btn.is-icono { padding: 0; min-width: var(--control-h-sm); justify-content: center; }
 .mn-btn.is-icono svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .mn-dialog-head h2 { min-width: 0; overflow-wrap: anywhere; }
-.rail .sesion a.mn-btn { text-decoration: none; }
 /* F12: «ver toda» pegado al titulo de la tarjeta de actividad. v0.15.1 (captura de Carlos 13-sep): era float: right, y
    como el h2 no contenia el flotante, la lista .mini (un grid = contexto de formato propio) se ACORTABA a su lado en toda
    su altura (171 de 246 px en la lateral a 1366; el hover del renglon se partia). El h2 es ahora flex y contiene al boton. */
@@ -423,10 +476,10 @@ button.cab.grupo-proy { cursor: pointer; } button.cab.grupo-proy:hover { filter:
 .doc .t .mn-chip { margin-right: var(--sp-1); vertical-align: middle; }
 /* U11: imprimir = lo que hay en pantalla, sin cromo. Ctrl+P o el boton «Imprimir». */
 @media print {
-  .mn-rail, .barra-movil, .sync, #avisos, #sinRed, #sesionCaduca, .tabs, .tabs-fila, .filtros, .col-tabs, .proyecto-cab .acciones, .cab-plegar, .sel-lista, .sel-proyecto > summary svg, .lateral, .col .mas, .ver-toda, .pie, .tema, .docs-acciones { display: none !important; }
+  .rail, .panel, .cabecera-app, .fab-nuevo, .menu-nuevo, .hoja-fondo, .sync, #avisos, #sinRed, #sesionCaduca, .tabs, .tabs-fila, .filtros, .col-tabs, .proyecto-cab .acciones, .cab-plegar, .sel-lista, .sel-proyecto > summary svg, .lateral, .col .mas, .ver-toda, .pie, .tema, .docs-acciones { display: none !important; }
   body { background: #fff; color: #000; }
   .contenido { padding: 0; }
-  .mn-shell { display: block; }
+  .app { display: block; }
   .dos-columnas, .dos-columnas.ancha { grid-template-columns: 1fr; }
   #p-proyecto.ver-resumen .lateral { display: grid !important; }   /* v0.30.0 (L6): imprimir desde Resumen imprime el resumen, no una hoja con solo la cabecera */
   .tablero { grid-template-columns: repeat(var(--n, 4), 1fr); overflow: visible; }
@@ -1261,10 +1314,7 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 /* ---- titulo de pantalla con su icono a la izquierda, en un cuadro tenue de marca (como el icono de equipo en la cabecera del proyecto). */
 .titulo-ico { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--r-md); flex: none; color: var(--brand-primary); background: color-mix(in srgb, var(--brand-primary) 12%, transparent); }
 .titulo-ico svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-/* ---- rail: la insignia de Mensajes es informativa (azul), no alarma (rojo, la de vencidas). */
-.mn-rail .mn-rail-hot.is-info { background: var(--status-info-bg); color: var(--status-info-fg); }
-/* v0.13.0 (Carlos, 12-sep): el contador del rail deja la pildora por un cuadrado redondeado de 20 px con borde fino del mismo tono; solo cambia la forma, los colores siguen de minsa-ui. */
-.mn-rail .mn-rail-hot { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 5px; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent); font-size: .72rem; line-height: 1; }
+/* v1.0.0: las insignias .mn-rail-hot del rail viejo se fueron (ver «conteos» abajo y la .bdg del armazón). */
 /* ---- gantt: etiqueta fija a la izquierda + pista en %; la cabecera trae meses y el dia del lunes de cada semana. */
 .gantt-caja { overflow-x: auto; min-width: 0; --eti: 230px; --gantt-min: 640px; --escala: trimestre; }   /* C-09 (v0.120.0): la columna del nombre y el ancho minimo viven en la CAJA; vistas.js los lee con getComputedStyle */
 /* La tarjeta que contiene el gantt no puede tomar el ancho minimo de su contenido (a 390 desbordaba 176 px, medido). */
@@ -1546,13 +1596,7 @@ body.sin-scroll { overflow: hidden; }
 @media print { .cal-nav, #btnImprimirReportes, .archivos-filtros { display: none !important; } .gantt-caja { overflow: visible; max-height: none !important; } .rep-rejilla { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }   /* U-03 (18-sep): sin `exact` el navegador quita los fondos y las barras (segbar, hbar, columnas) se van con sus cifras blancas */   /* max-height: none !important (v0.79.0, va ANTES del @media de 720 y perderia sin el): que el tope de U-06 (celular) no recorte la impresion desde un viewport angosto */
 /* ---- celular */
 @media (max-width: 720px) {
-  .rail .rail-extra { display: none; }   /* Roadmap · Archivos · Reportes (y Capital) viven en el menu «···» de la barra movil; Gastos NO es rail-extra (v0.162.0): va en la barra, seis botones */
-  /* La insignia de la barra movil es absolute con right:25% (piel): sin position:relative en el boton se anclaba al rail entero y el «1» de Mis tareas caia sobre Mensajes (medido a 390 con 5 pestanas). */
-  .rail nav button { position: relative; padding: 0 2px; }
-  /* U-02 (mejorar-app, 16-sep): a 390 con 5 pestanas «MIS TAREAS» partia en dos renglones y la insignia (right: 25% de la piel) caia
-     sobre el texto: el rotulo ya no envuelve y la insignia se ancla a la esquina del icono (20 px centrado). */
-  .rail nav button > span { white-space: nowrap; letter-spacing: .02em; }
-  .rail nav .mn-rail-hot { top: 0; right: calc(50% - 30px); }
+  /* v1.0.0: la barra de abajo son los 5 módulos (armazón, arriba); las reglas del rail viejo (.rail-extra, U-02 de la insignia) se fueron con él. */
   /* U-08: el rol ya lo dice la barra de arriba junto al logo; el del subtitulo del saludo se esconde. */
   #inicioSub .rol-sub { display: none; }
   .titulo-ico { width: 32px; height: 32px; } .titulo-ico svg { width: 18px; height: 18px; }
@@ -2018,8 +2062,8 @@ body .mn-chip.is-danger { background: none; color: var(--status-danger-fg); } bo
 /* v0.102.0 (Carlos, 25-sep): EXCEPCION — en la tabla de documentos vuelven la etiqueta de expediente (Tipo, v0.27.0) y el sello (Estado, v0.27.0); aqui ya no se aplanan */
 body .dtabla .nombre .rev { background: none; padding: 0; color: var(--text-muted); }
 /* conteos: numero mono en el color de su semantica, sin caja */
-body .rail .equipos button .n, body .tab .n, body .mn-rail .mn-rail-hot, body .msj-rail .msj-frente .msj-hot, body .menu-quien > summary .n { background: none; box-shadow: none; border-radius: 0; padding: 0; min-width: 0; font-family: var(--font-data); font-size: .72rem; font-weight: 600; }
-body .mn-rail .mn-rail-hot { color: var(--status-danger-fg); } body .mn-rail .mn-rail-hot.is-info { background: none; color: var(--status-info-fg); }
+body .tab .n, body .msj-rail .msj-frente .msj-hot, body .menu-quien > summary .n { background: none; box-shadow: none; border-radius: 0; padding: 0; min-width: 0; font-family: var(--font-data); font-size: .72rem; font-weight: 600; }
+/* v1.0.0: los contadores del rail viejo (.equipos .n, .mn-rail-hot) se fueron con él: el rojo de vencidas es la .bdg de la maqueta y #nProyectos/#nMensajes son texto en el panel (.panel .ch .n). */
 body .menu-quien > summary .n { color: var(--brand-primary); }
 body .msj-rail .msj-frente .msj-hot { color: var(--status-info-fg); }
 body .mini .tuya { background: none; padding: 0; font-weight: 600; }
@@ -2043,34 +2087,14 @@ body .pficha .cal { border: 0; border-radius: 0; } body .pficha .cal .mes, body 
 body .pficha .cal .mes { color: var(--brand-primary); } body .pficha.is-danger .cal .mes { background: none; color: var(--status-danger-fg); } body .pficha.is-warn .cal .mes { background: none; color: var(--status-warn-fg); } body .pficha.is-cerrado .cal .mes { background: none; color: var(--status-ok-fg); } body .pficha .cal.sin .mes { background: none; color: var(--text-faint); }
 /* controles de seleccion con la esquina de la casa, no pildora */
 body .filtro-movil select, body .doc .tarjeta-de select, body .fila-menu .menu .menu-mover select, body .dtabla .c-tarjeta select, body .dtabla .tarjeta-liga { border-radius: var(--r-sm); }
-/* v0.99.0 (Carlos, 25-sep: «el fondo de la app de calytek-planta ... solo borra el recuadro de abajo a la derecha, lo de los
-   botones con el fade, y los botones de color verde como (nueva góndola)»). Copiado de planta R6 (v0.65.0, estilo.css 1193):
-   en escritorio, rejilla de plano de 24 px (mayor cada 120) detrás del rail y del contenido, que se apaga desde la esquina del
-   logo; la pestaña activa del rail es un degradado del acento que se desvanece a la derecha (el «fade»). SIN el cuadro de rótulo
-   (.rotulo, el cajetín de plano fijo abajo a la derecha: PROYECTO/ESCALA/FECHA/HOJA): no se copió ni su HTML ni su CSS.
-   El primario verde (.mn-btn.is-primary = el .principal de «+ Nueva góndola») gana la sombra ligera en reposo de planta. */
-:root { --rejilla-1: rgba(8, 51, 163, .08); --rejilla-2: rgba(8, 51, 163, .2); --sombra-pri: 0 1px 2px rgba(11, 18, 32, .18), 0 2px 6px rgba(11, 18, 32, .10); }
-:root[data-theme="dark"] { --rejilla-1: rgba(127, 155, 255, .10); --rejilla-2: rgba(127, 155, 255, .24); --sombra-pri: 0 1px 2px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --rejilla-1: rgba(127, 155, 255, .10); --rejilla-2: rgba(127, 155, 255, .24); --sombra-pri: 0 1px 2px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3); } }
+/* v0.99.0 (Carlos, 25-sep): el primario verde (.mn-btn.is-primary = el .principal de «+ Nueva góndola» de planta) gana la sombra ligera
+   en reposo. v1.0.0: la REJILLA de plano detrás del rail y del contenido y el «fade» de la pestaña activa salen — la maqueta «MINSA ERP
+   Reportes» es fondo liso (--bg) y el rail oscuro marca el módulo con su propio cuadro (.rb.is-on). Se recupera del commit 6395c66. */
+:root { --sombra-pri: 0 1px 2px rgba(11, 18, 32, .18), 0 2px 6px rgba(11, 18, 32, .10); }
+:root[data-theme="dark"] { --sombra-pri: 0 1px 2px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sombra-pri: 0 1px 2px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3); } }
 .mn-btn.is-primary { box-shadow: var(--sombra-pri); }
 .mn-btn.is-primary:disabled { box-shadow: none; }
-@media (min-width: 721px) {
-  .app { isolation: isolate; }
-  .app::before {
-    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-    background-image: radial-gradient(circle farthest-corner at 0 0, transparent 21%, var(--surface-page) 85%),
-      linear-gradient(var(--rejilla-2) 1px, transparent 1px), linear-gradient(90deg, var(--rejilla-2) 1px, transparent 1px),
-      linear-gradient(var(--rejilla-1) 1px, transparent 1px), linear-gradient(90deg, var(--rejilla-1) 1px, transparent 1px);
-    background-size: 100% 100%, 120px 120px, 120px 120px, 24px 24px, 24px 24px;
-    -webkit-mask-image: radial-gradient(circle farthest-corner at 0 0, #000 21%, transparent 85%); mask-image: radial-gradient(circle farthest-corner at 0 0, #000 21%, transparent 85%);
-  }
-  body:has(#pantallaEntrar:not(.oculto)) .app::before { display: none; }   /* la entrada trae su propio plano navy */
-  .rail { background: transparent; }
-  .rail nav button.is-on, .rail .equipos button.is-on {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, color-mix(in srgb, var(--brand-primary) 18%, transparent) 45%, color-mix(in srgb, var(--brand-primary) 7%, transparent) 80%, transparent 100%);
-    box-shadow: none;
-  }
-}
 /* v0.100.0 (Carlos, 25-sep): seccion Capital de trabajo. La tabla reusa la piel de .dtabla (cabecera, orden, filetes) con
    la clase .ctabla; no hay container-type en la seccion, asi que las fichas de Docs (@container) no le aplican: en celular
    se esconden Tipo/Categoria/Fecha/Estado y el renglon .p bajo el concepto las dice. Sin pastillas: el color dice. */
