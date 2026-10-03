@@ -2166,16 +2166,24 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 .choja-tit { margin: 0; font-family: var(--font-data); font-size: .66rem; letter-spacing: .07em; font-weight: 600; text-transform: uppercase; color: var(--text-muted); }
 .cmeses.choja tbody tr:nth-child(even) td { background: var(--banda); }
 .cmeses.choja tbody tr:nth-child(odd) td { background: var(--surface-card); }
-.cmeses td.c-mes { text-transform: none; }
-.cmeses td.c-mes::first-letter { text-transform: uppercase; }
+.cmeses td.c-mes { text-transform: none; }
+
+.cmeses td.c-mes::first-letter { text-transform: uppercase; }
+
 /* v0.111.0 (Carlos, 25-sep): la hoja entera con el fondo del renglon «Todos los proyectos» (--surface-card; sin bandas que
-   se confundian con el fondo de la app), el frente con su numero «1.» y la partida sangrada bajo su frente. */
-.choja tbody tr.partida:nth-child(n) td:not(.rn), .cmeses.choja tbody tr:nth-child(n) td { background: var(--surface-card); }
-.choja tbody tr.partida:hover td:not(.rn) { background: var(--surface-hover); }
-/* v0.112.0: sin renglon de letras */
-.choja .rn { background: var(--surface-sunken); }
+   se confundian con el fondo de la app), el frente con su numero «1.» y la partida sangrada bajo su frente. */
+
+.choja tbody tr.partida:nth-child(n) td:not(.rn), .cmeses.choja tbody tr:nth-child(n) td { background: var(--surface-card); }
+
+.choja tbody tr.partida:hover td:not(.rn) { background: var(--surface-hover); }
+
+/* v0.112.0: sin renglon de letras */
+
+.choja .rn { background: var(--surface-sunken); }
+
 .choja tr.cgrupo .rn { color: var(--text-strong); font-weight: 600; }
-.choja .cnum { display: none; }
+.choja .cnum { display: none; }
+
 #capitalTabla .choja tr.partida td.c-concepto { padding-left: calc(var(--sp-2) + 1.25rem); }
 @media (max-width: 720px) {
   .cresumen .c-n { display: none; }
