@@ -40,6 +40,16 @@ export function normalizarVista(r) {
     return { id: r.id, titulo, dueno: String(r.Dueno ?? r.dueno ?? '').trim().toLowerCase(), compartida: (r.Compartida ?? r.compartida) === true, modulo, definicion: def };
 }
 
+/** Un renglón de ERP_Vistas en la forma de la app, o null. v1.0.0 (vuelta 2, revisión de seguridad «baja»): lo de Dinero NUNCA vale desde la
+ *  lista (la app no lo escribe ahí; uno que aparezca lo plantó alguien a mano), y el `Dueno` —texto libre— vale solo si coincide con quien
+ *  creó el renglón según SharePoint (`_creadoPor`): un Miembro no planta una vista en el panel de otro. Si no coincide, cuenta como sin dueño
+ *  (y entonces solo se pinta si es Compartida). */
+function deLaLista(r) {
+    const v = normalizarVista(r); if (!v || v.modulo === 'dinero') return null;
+    const autor = String((r && r._creadoPor) || '').trim().toLowerCase();
+    // solo con un CORREO se coteja (revisor-entregable F4): si SharePoint diera el nombre visible, la vista propia dejaría de salir en su panel
+    return v.dueno && autor.includes('@') && v.dueno !== autor ? { ...v, dueno: '' } : v;
+}
 /** Lee ERP_Vistas (o el respaldo local). Nunca lanza: un error deja el modo local con su nota. Lo de este equipo se suma SIEMPRE (`local`). */
 export async function cargarGuardados() {
     const c = estado.cliente, s = estado.siteId;
@@ -51,7 +61,7 @@ export async function cargarGuardados() {
             return;
         }
         const rs = await c.renglones(s, L.vistas);
-        G.items = [...rs.map(normalizarVista).filter(Boolean), ...local()]; G.modo = 'lista'; G.nota = ''; G.error = null;
+        G.items = [...rs.map(deLaLista).filter(Boolean), ...local()]; G.modo = 'lista'; G.nota = ''; G.error = null;
     } catch (e) {
         G.modo = 'local'; G.items = local(); G.error = motivo(e);
         G.nota = `Se guardan en este equipo: no se pudo leer ${L.vistas} (${G.error}).`;

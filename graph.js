@@ -542,7 +542,7 @@ export async function subirFragmento(uploadUrl, trozo, a, b, total, host, avisar
     if (typeof navigator !== 'undefined' && navigator.onLine === false) { const e = errorHttp('sin conexión: la subida sigue en la cola', 0); e.sinRed = true; throw e; }
     const r = await conReintento(() => fetch(url, { method: 'PUT', credentials: 'omit', headers: { 'Content-Range': `bytes ${a}-${b}/${total}` }, body: trozo }), avisar);
     if (r.status === 200 || r.status === 201) return { listo: true, item: await r.json() };
-    if (r.status === 202) { let j = {}; try { j = await r.json(); } catch (_) { /* sin cuerpo */ } const m = /^(\d+)-/.exec(String((j.nextExpectedRanges || [])[0] || '')); return { listo: false, siguiente: m ? Number(m[1]) : b + 1 }; }
+    if (r.status === 202) { let j = {}; try { j = await r.json(); } catch (_) { /* sin cuerpo */ } const m = /^(\d+)-/.exec(String((j.nextExpectedRanges || [])[0] || '')); return { listo: false, siguiente: m ? Number(m[1]) : null }; }   // vuelta 2: sin dato, null (proximoByte decide)
     if (r.status === 409) throw errorHttp('ya existe un archivo con ese nombre', 409);
     throw errorHttp(`la subida se cortó (HTTP ${r.status})`, r.status);
 }

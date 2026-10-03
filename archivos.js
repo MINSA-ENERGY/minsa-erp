@@ -21,7 +21,7 @@ import { PUEDE, tareasDe, fechaMexico, slug, ordenarProyectos, plural, nombreDe,
 import { $, L, VERSION, estado, el, boton, chip, iconoSvg, TRAZOS, iconoArchivo, iconoEquipo, avisar, abrirDialogo, cerrarDialogo, confirmar, opciones, porId, proyectoPorClave, registrarActividad, equipoDe, fechaCorta, fechaHora, haceCuanto, agregarSinDuplicar, activos, irAHash, limpiar, conservarFoco } from './comun.js';
 import { baseDrive, baseSitio, subirFragmento, leerMonitorCopia, esSinRed } from './graph.js';
 import { construirManifiesto, validarManifiesto, bytesDelManifiesto, nombreCarpetaLote, NOMBRE_MANIFIESTO } from './lote.js';
-import { crearQuickXor, comoSubir, FRAGMENTO, leerMonitor, nombreSubible, nombreFoto, tamanoLegible, necesitaHash, buscarDuplicado, archivoDeGraph, sinArchivar,
+import { proximoByte, crearQuickXor, comoSubir, FRAGMENTO, leerMonitor, nombreSubible, nombreFoto, tamanoLegible, necesitaHash, buscarDuplicado, archivoDeGraph, sinArchivar,
     appOffice, nombreAppOffice, uriOffice, urlVistaPrevia, pendientesAlSalir, avisosDeCola, agregarAlFrente, leerSeccion, rutaSeccion, validarFijado, TOPE_RECIENTES, TOPE_HISTORIAL } from './archivos-reglas.js';
 import { leerCola, guardarEnCola, guardarBytes, existeEnCola, quitarDeCola, llaveDe, hayDisco } from './cola.js';
 import { comprimir } from './imagen.js';
@@ -289,13 +289,17 @@ async function subirRegistro(r) {
             item = await estado.cliente.subirEnDrive(base(), ruta, await r.archivo.arrayBuffer(), r.tipo, conflicto);
         } else {
             const s = await estado.cliente.crearSesionSubida(base(), ruta, conflicto);
+            let atascos = 0;   // vuelta 2: tramos seguidos en que SharePoint no avanzó; más de 3 = la subida se corta con su motivo
             for (let a = 0; a < r.tamano;) {
                 const b = Math.min(r.tamano, a + FRAGMENTO) - 1;
                 const trozo = await r.archivo.slice(a, b + 1).arrayBuffer();
                 const x = await subirFragmento(s.uploadUrl, trozo, a, b, r.tamano, host());
                 r.progreso = (b + 1) / r.tamano; pintarProgreso(r);
                 if (x.listo) { item = x.item; break; }
-                a = x.siguiente > a ? x.siguiente : b + 1;
+                const sig = proximoByte(b, x.siguiente);
+                atascos = sig <= a ? atascos + 1 : 0;
+                if (atascos > 3) throw new Error('SharePoint no avanza la subida (pide una y otra vez el mismo tramo): vuelve a intentarlo');
+                a = sig;
             }
             if (!item) throw new Error('la subida terminó sin que SharePoint confirmara el archivo');
         }
@@ -686,7 +690,7 @@ function tablaArchivos(p, items) {
         else tt.appendChild(el('span', '', a.nombre));
         tt.title = `${a.nombre} · ${tamanoLegible(a.tamano)}${a.creadoPor ? ' · subido por ' + nombreDe(a.creadoPor, estado.roles) : ''}`;
         caja2.appendChild(tt); tdN.appendChild(caja2); tr.appendChild(tdN);
-        tr.appendChild(el('td', 'c-del', a.modificado ? fechaDia(a.modificado) : '—'));   // v1.0.0 (cubeta 6): «3 oct 2026», como la maqueta
+        tr.appendChild(el('td', 'c-del', a.modificado ? fechaDia(a.modificado) : '—'));   // v1.0.0 (cubeta 6): la fecha de la app —«03/10/2026» (dd/mm/aaaa desde la vuelta 1, Carlos 3-oct)—
         const ta = tipoArchivo(a.nombre); const tdT = el('td', 'c-tipo'); const bt = el('span', 'mn-chip tipo is-' + ta.clave, ta.sigla); bt.title = ta.etiqueta; tdT.appendChild(bt); tr.appendChild(tdT);
         const tdE = el('td', 'c-estado'); const est = el('span', 'estado'); est.appendChild(a.enviado ? chip('enviado a archivar', 'ok') : chip('sin archivar', 'warn')); if (a.enviado && a.lote) est.title = a.lote; tdE.appendChild(est); tr.appendChild(tdE);
         const tarea = a.tareaId ? porId(estado.tareas, a.tareaId) : null;

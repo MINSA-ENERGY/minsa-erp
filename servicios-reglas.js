@@ -82,6 +82,6 @@ export function expedientesPorPaso(lista, pasos) {
 /** El texto del estado de UN paso de un expediente (la tabla del detalle). */
 export const TEXTO_PASO = { hecho: 'hecho', actual: 'en curso', bloqueado: 'esperando', rebotado: 'quedó a medias', pendiente: 'pendiente' };
 
-/** 2026-09-23 -> «23 sep 2026» (sin pasar por Date: es fecha de calendario). Vacío o no fecha -> «—». v1.0.0 (cubeta 6): el formateador único
+/** 2026-09-23 -> «23/09/2026» (dd/mm/aaaa desde la vuelta 1, Carlos 3-oct) (sin pasar por Date: es fecha de calendario). Vacío o no fecha -> «—». v1.0.0 (cubeta 6): el formateador único
  *  de la app (reglas.js fechaDia, como la maqueta); antes «23-sep». */
 export const fechaCorta = iso => /^\d{4}-\d{2}-\d{2}$/.test(iso || '') ? fechaDia(iso) : '—';

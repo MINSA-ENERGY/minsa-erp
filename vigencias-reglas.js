@@ -70,6 +70,6 @@ export const filtrarVigencias = (lista, unidad) => unidad ? lista.filter(v => St
 /** La más próxima que NO ha vencido (para el KPI «la siguiente»); null si no hay. Recibe la lista ya ordenada (con `dias`). */
 export const siguienteVigencia = ordenadas => ordenadas.find(v => v.dias >= 0) || null;
 
-/** 2027-01-17 -> «17 ene 2027» (sin pasar por Date: la fecha es de calendario, no un instante). v1.0.0 (cubeta 6): el formateador único de la
- *  app (reglas.js fechaDia, «1 oct 2026» como la maqueta); antes «17-ene-2027». */
+/** 2027-01-17 -> «17/01/2027» (dd/mm/aaaa desde la vuelta 1, Carlos 3-oct) (sin pasar por Date: la fecha es de calendario, no un instante). v1.0.0 (cubeta 6): el formateador único de la
+ *  app (reglas.js fechaDia); antes «17-ene-2027» y, en la cubeta 6, «17 ene 2027». */
 export const fechaVigencia = iso => fechaDia(iso);

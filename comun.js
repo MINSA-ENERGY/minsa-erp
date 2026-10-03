@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico, fechaDia, mesDiaDe, fechaVenceDe } from './reglas.js';
 
-export const VERSION = '0.173.0';
+export const VERSION = '1.0.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -336,7 +336,7 @@ export function fechaCorta(iso) {
 }
 /** C-14 (v0.120.0): «dd/mm» de una fecha (fechaCorta sin el año). */
 export const diaMes = iso => fechaCorta(iso).slice(0, 5);
-/** Fecha y hora (de México) de un instante: «3 oct 2026, 02:52». v1.0.0 (cubeta 6, fidelidad #12): el día con la forma única de la app
+/** Fecha y hora (de México) de un instante: «03/10/2026, 02:52» (dd/mm/aaaa desde la vuelta 1, Carlos 3-oct). v1.0.0 (cubeta 6, fidelidad #12): el día con la forma única de la app
  *  (fechaDia); antes «03/10, 02:52» (sin año). Un instante que no es fecha: «—». */
 export function fechaHora(iso) {
     if (!iso) return '—';

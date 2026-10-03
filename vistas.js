@@ -6,7 +6,7 @@
 // graficos son SVG por DOM o cajas con ancho en %.
 
 import { CONFIG } from './config.js';
-import { fechaDia } from './reglas.js';   // v1.0.0 (cubeta 6): la fecha que se muestra, una sola forma («1 oct 2026»)
+import { fechaDia } from './reglas.js';   // v1.0.0 (cubeta 6): la fecha que se muestra, una sola forma («01/10/2026» (dd/mm/aaaa desde la vuelta 1, Carlos 3-oct))
 import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona, HECHO, plural, PUEDE } from './reglas.js';
 import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, irAHash, textoConMenciones, comentariosDe, nuevosDe, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo, conservarFoco, filtroArchivosVacio } from './comun.js';
 import { pintarChat, irAlComentario } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
@@ -931,7 +931,7 @@ function pintarAvance(a, orden) {
     for (const p of orden) {
         const ap = avance(tareasDe(p, estado.tareas), columnasDe(p)); const d = diasPara(p.Vence);
         const fila = el('button', 'rep-fila'); fila.type = 'button'; fila.dataset.repP = String(p.id); fila.title = p.Title; fila.addEventListener('click', () => irFrenteId(Number(fila.dataset.repP)));   // C-01 (18-sep): por id al clic, no el objeto capturado
-        const meta = p.Vence ? fraseVence(d, 'corta', fechaDia(p.Vence)) : 'sin fin de frente';   // v1.0.0 (cubeta 6): la fecha como la maqueta («31 oct 2026»)
+        const meta = p.Vence ? fraseVence(d, 'corta', fechaDia(p.Vence)) : 'sin fin de frente';   // v1.0.0 (cubeta 6): la fecha de la app («31/10/2026» (dd/mm/aaaa desde la vuelta 1, Carlos 3-oct))
         const eti = etiRep(p.Title, meta, iconoEquipo(equipoDe(p), 'sm'), p.Vence && d < 0 ? 'is-danger' : '');   // C-04 (v0.79.0): ahora tambien dice «vence hoy»
         const sl = conSalud ? saludRep(p, hoy) : null; if (sl) eti.querySelector('.tx').appendChild(sl);
         // v1.0.0 (vuelta 1, revisión UI/UX «media»): las barras van por TIPO de cubeta —hechas · en proceso · por hacer, los tres colores del anillo—,

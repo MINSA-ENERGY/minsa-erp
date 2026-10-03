@@ -3255,8 +3255,9 @@ body { font-variant-numeric: tabular-nums; }
    v1.0.0 — VUELTA 1 de correcciones (2026-10-03; informes de los revisores de UI/UX y de código tras la cubeta 6)
    ================================================================================================================== */
 /* «Datos del reporte»: la columna del TOTAL (marcada por la definición del reporte: `total: true`) va FIJA a la derecha bajo 720 px, junto a la
-   primera, que ya es fija — a 390 junto a «Total clientes USD» se leía la cubeta 0–90 y el total quedaba tres columnas a la derecha. */
-@media (max-width: 720px) {
+   primera, que ya es fija — a 390 junto a «Total clientes USD» se leía la cubeta 0–90 y el total quedaba tres columnas a la derecha. Vuelta 2
+   (revisor-entregable): ≤ 1100, como la primera — a 820 el total salía cortado («Sin pag…»). */
+@media (max-width: 1100px) {
   .rp-tabla .rp-col-total { position: sticky; right: 0; z-index: 1; background: var(--card); box-shadow: inset 1px 0 0 var(--line); }
   .rp-tabla th.rp-col-total { background: var(--th); }
   .rp-tabla tr.hijo td.rp-col-total { background: var(--hijo); }

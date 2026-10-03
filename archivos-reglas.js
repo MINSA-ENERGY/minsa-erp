@@ -74,6 +74,10 @@ export function siguienteByte(j) {
     const m = /^(\d+)-/.exec(r);
     return m ? Number(m[1]) : null;
 }
+/** v1.0.0 (vuelta 2, revisor-entregable F6): el byte con que sigue una upload session tras mandar el tramo que acaba en `b` — el que pide
+ *  SharePoint (`siguiente`, de nextExpectedRanges) AUNQUE sea anterior: hay que reenviarlo; antes se saltaba a b + 1 y quedaba un hueco. Sin
+ *  dato, el que sigue al tramo. */
+export const proximoByte = (b, siguiente) => (Number.isInteger(siguiente) && siguiente >= 0 ? siguiente : b + 1);
 /** El estado de un monitor de copia (`status` de Graph): { listo, fallo, pct, id }. */
 export function leerMonitor(j) {
     const st = String((j && j.status) || '').toLowerCase();

@@ -2,7 +2,7 @@
 // port LITERAL de la referencia en C# de Microsoft (oráculo con BigInt), fragmentos de la upload session, «¿ya existe?», nombres, la liga
 // de Office, la cola, los avisos, las rutas #archivos/<sección> y la validación de un fijado.
 import assert from 'node:assert/strict';
-import { crearQuickXor, quickXorHash, comoSubir, fragmentos, rangoContenido, siguienteByte, leerMonitor, nombreSubible, extension, nombreFoto, tamanoLegible, escalaFoto,
+import { proximoByte, crearQuickXor, quickXorHash, comoSubir, fragmentos, rangoContenido, siguienteByte, leerMonitor, nombreSubible, extension, nombreFoto, tamanoLegible, escalaFoto,
     necesitaHash, buscarDuplicado, archivoDeGraph, sinArchivar, appOffice, uriOffice, urlVistaPrevia, resumenCola, pendientesAlSalir, avisosDeCola, agregarAlFrente,
     leerSeccion, rutaSeccion, validarFijado, LIMITE_PUT, FRAGMENTO, KIB_320 } from '../archivos-reglas.js';
 
@@ -90,6 +90,7 @@ ok('comoSubir: ≤ 10 MiB es un PUT; 10 MiB + 1 byte es upload session', comoSub
 ok('fragmentos: todos menos el último son múltiplos de 320 KiB', fragmentos(23 * 1048576 + 17).slice(0, -1).every(([a, b]) => (b - a + 1) % KIB_320 === 0));
 ok('fragmentos: exacto en 10 MiB = 2 fragmentos; 0 bytes = ninguno', fragmentos(2 * FRAGMENTO).length === 2 && fragmentos(0).length === 0);
 assert.throws(() => fragmentos(100, 1000)); n++;
+ok('vuelta 2 (F6): proximoByte manda lo que pide SharePoint aunque sea anterior al tramo, y sin dato el que sigue', proximoByte(10485759, 5242880) === 5242880 && proximoByte(10485759, 10485760) === 10485760 && proximoByte(10485759, null) === 10485760 && proximoByte(10485759, undefined) === 10485760);
 ok('Content-Range', rangoContenido(0, 5242879, 11534336) === 'bytes 0-5242879/11534336');
 ok('siguienteByte lee nextExpectedRanges', siguienteByte({ nextExpectedRanges: ['5242880-'] }) === 5242880 && siguienteByte({ nextExpectedRanges: ['0-99'] }) === 0 && siguienteByte({}) === null);
 ok('leerMonitor', leerMonitor({ status: 'completed', resourceId: 'x' }).listo && leerMonitor({ status: 'inProgress', percentageComplete: 40 }).pct === 40 && !leerMonitor({ status: 'inProgress' }).listo && leerMonitor({ status: 'failed' }).fallo);

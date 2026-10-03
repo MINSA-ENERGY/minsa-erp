@@ -26,7 +26,7 @@ import { fijarNavGuardados } from './guardados.js';   // v1.0.0 (cubeta 2): «Gu
 import { pintarArmazon, engancharArmazon, fijarNavArmazon, pintarCuenta, cerrarHoja, registrarFuenteAvisos } from './armazon.js';   // v1.0.0: rail, panel, cabecera, Cuenta (rediseño 2026-10-02)
 import { engancharModuloArchivos, alCambiarArchivos, iniciarCola, alRefrescar, pendientesCola, fuenteAvisosArchivos, revisarAntesDeCerrar, alCerrarSinArchivar, alCrearProyecto, pintarCarpetaProyecto, nArchivosDe } from './archivos.js';   // v1.0.0 (cubeta 5): Archivos (ERP_Proyectos, la cola, mandar a archivar)
 import { repintarDocsDeFicha } from './tablero.js';
-import { leerRuta, puedeVerPantalla, fechaDia } from './reglas.js';   // fechaDia: v1.0.0 (cubeta 6), la fecha que se muestra («1 oct 2026»)
+import { leerRuta, puedeVerPantalla, fechaDia } from './reglas.js';   // fechaDia: v1.0.0 (cubeta 6), la fecha que se muestra («01/10/2026»; «1 oct 2026» hasta la vuelta 1)
 import { cabecera, vistaDe, soltarIdsFuera, filaKpis } from './reporte.js';   // v1.0.0 (cubeta 3): la cabecera y la fila de KPIs de la plantilla en Proyectos y en el proyecto
 import { pintarVigencias, alCambiarVigencias } from './vigencias.js';   // v0.166.0: Vigencias (solo gerencia)
 import { pintarServicios, alCambiarServicios } from './servicios.js';   // v0.168.0: Servicios (gerencia y colaborador)

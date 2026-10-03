@@ -70,6 +70,9 @@ function cajaPop() {
         document.addEventListener('click', ev => { if (pop && !c.contains(ev.target) && !(pop.ancla && pop.ancla.contains(ev.target)) && ev.target.isConnected) cerrarPop(); });
         document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && pop) { ev.preventDefault(); ev.stopPropagation(); const a = pop.ancla; cerrarPop(); if (a && a.isConnected) a.focus(); } }, true);
         window.addEventListener('resize', () => { if (pop) colocar(); });
+        // vuelta 2 (revisor-entregable F3): navegar cierra la ventana. El clic en una entrada del panel repinta el panel y el botón queda
+        // desconectado, así que el «clic fuera» de arriba no la cerraba y el editor del reporte anterior flotaba sobre la página nueva.
+        for (const t of ['hashchange', 'popstate']) window.addEventListener(t, () => { if (pop) cerrarPop(); });
     }
     return c;
 }

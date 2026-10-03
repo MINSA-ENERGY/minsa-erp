@@ -4443,15 +4443,18 @@ try {
             vistas().push({ id: DB.siguienteId++, fields: { Title: 'Propiedad rara', Dueno: 'otra@example.invalid', Compartida: true, Modulo: 'dinero', Definicion: JSON.stringify({ tipo: 'segmento', lado: 'cobrar', join: 'Y', conds: [{ p: 'zz', op: 'es uno de', v: ['x'] }] }) } });
             vistas().push({ id: DB.siguienteId++, fields: { Title: 'Ajena privada', Dueno: 'otra@example.invalid', Compartida: false, Modulo: 'dinero', Definicion: JSON.stringify({ tipo: 'reporte', ruta: '#finanzas/cobrar/saldo', vistaId: 'x', vista: {} }) } });
             vistas().push({ id: DB.siguienteId++, fields: { Title: 'Condiciones rotas', Dueno: 'otra@example.invalid', Compartida: true, Modulo: 'dinero', Definicion: JSON.stringify({ tipo: 'segmento', lado: 'cobrar', join: 'Y', conds: 'no es lista' }) } });
-            clic('btnLeerCobranza'); await esperar(() => svDinero().some(b => /Propiedad rara/.test(b.textContent)), 'guardados releídos');
-            R.ok('v1.0.0 (cubeta 2): de ERP_Vistas no se pinta una Definicion que no es JSON ni la vista PRIVADA de otra persona; la compartida sí', !svDinero().some(b => /Roto|Ajena/.test(b.textContent)));
+            // vuelta 2 (revisión de seguridad «baja»): un segmento con propiedad desconocida ya solo puede llegar desde ESTE equipo —de la lista no se
+            // pinta nada de Dinero—, así que el caso «no se aplica y lo dice» se siembra en localStorage
+            try { localStorage.setItem(llaveV, JSON.stringify([...locales(), { id: 'loc-raro', titulo: 'Segmento raro del equipo', dueno: YO.toLowerCase(), compartida: false, modulo: 'dinero', definicion: { tipo: 'segmento', lado: 'cobrar', join: 'Y', conds: [{ p: 'zz', op: 'es uno de', v: ['x'] }] } }])); } catch (_) {}
+            clic('btnLeerCobranza'); await esperar(() => svDinero().some(b => /Segmento raro del equipo/.test(b.textContent)), 'guardados releídos');
+            R.ok('v1.0.0 (vuelta 2; sustituye a «(cubeta 2) de ERP_Vistas no se pinta una Definicion que no es JSON ni la vista PRIVADA de otra persona; la compartida sí»): de ERP_Vistas NO se pinta NINGÚN renglón de Dinero —ni el roto, ni el ajeno, ni el compartido—: la app no los escribe ahí, así que uno que aparece lo plantó alguien a mano', !svDinero().some(b => /Roto|Ajena|Propiedad rara|Condiciones rotas/.test(b.textContent)), svDinero().map(b => b.textContent).join(' | '));
             // v1.0.0 (vuelta 1, revisión de seguridad «baja»): un renglón MAL FORMADO no rompe la pestaña «Segmentos guardados» (antes: TypeError en cada apertura)
             clic('rpFiltro'); await esperar(() => $('rpPop') && !$('rpPop').hidden, 'ventana'); document.querySelector('#rpPop [data-rp="tab:guardados"]').click(); await dormir(20);
             R.ok('v1.0.0 (vuelta 1, seguridad baja): con renglones mal formados en ERP_Vistas (condiciones que no son lista, propiedad desconocida) «Segmentos guardados» abre igual y no los pinta', !!$('rpGuardadosLista') && !/Condiciones rotas|Propiedad rara/.test($('rpGuardadosLista').textContent), $('rpPop').textContent.slice(0, 160));
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await dormir(10);
             const nSeg = segs().length;
-            svDinero().find(b => /Propiedad rara/.test(b.textContent)).click(); await dormir(20);
-            R.ok('v1.0.0 (cubeta 2): un segmento guardado con una propiedad desconocida no se aplica y lo dice', segs().length === nSeg && !!avisoCon('propiedad desconocida'));
+            svDinero().find(b => /Segmento raro del equipo/.test(b.textContent)).click(); await dormir(20);
+            R.ok('v1.0.0 (cubeta 2; vuelta 2: sembrado en este equipo): un segmento guardado con una propiedad desconocida no se aplica y lo dice', segs().length === nSeg && !!avisoCon('propiedad desconocida'));
             document.querySelector('#avisos .cerrar')?.click();
             // sin poder leer ERP_Vistas: se guarda en este equipo y lo dice en una nota discreta (ningún error a la vista)
             DB.fallas.push({ metodo: 'GET', incluye: '/lists/lista-vistas/items', status: 403, veces: 1 });
@@ -4461,7 +4464,7 @@ try {
             let loc = []; try { loc = JSON.parse(localStorage.getItem('erp.vistas.' + YO.toLowerCase()) || '[]'); } catch (_) {}
             R.ok('v1.0.0 (cubeta 2): si ERP_Vistas no se puede leer, guardar va a localStorage (sin POST) y la nota discreta lo dice',
                 /en este equipo/.test($('guardadosNota').textContent) && loc.some(x => x.titulo === 'Vista local de prueba') && DB.llamadas.filter(c => c.startsWith('POST /sites/sitio-falso/lists/lista-vistas')).length === nPostVistas && !document.querySelector('#avisos .mensaje.error'));
-            try { localStorage.setItem(llaveV, JSON.stringify(locales().filter(x => x.titulo !== 'Vista local de prueba'))); } catch (_) {}
+            try { localStorage.setItem(llaveV, JSON.stringify(locales().filter(x => x.titulo !== 'Vista local de prueba' && x.titulo !== 'Segmento raro del equipo'))); } catch (_) {}
             clic('btnLeerCobranza'); await esperar(() => !$('guardadosNota') && $('cobranzaTabla'), 'guardados de vuelta a la lista');
             while (segs().length) { segs()[0].querySelector('[data-rp^="segquitar"]').click(); await dormir(5); }
             DB.listas.vistas.items = [];   // v1.0.0 (vuelta 1): «Antigüedad en pesos» —la que ven las capturas— vive en este equipo, no en la lista
@@ -5260,6 +5263,17 @@ try {
             const ico = document.querySelector('#btnNuevo .ico');
             if (ico) R.ok('v1.0.0 (vuelta 1): «+ Nuevo» del rail es un cuadro blanco con la cruz navy', getComputedStyle(ico).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(ico).color === 'rgb(29, 44, 71)', getComputedStyle(ico).backgroundColor + ' / ' + getComputedStyle(ico).color);
         });
+        // vuelta 2 (revisor-entregable F3): la ventana de filtros y segmentos se cierra al navegar (antes flotaba sobre la página nueva con el reporte viejo)
+        if (gerencia) await V1('vuelta 2 ventana al navegar', async () => {
+            await irHash('#finanzas/cobrar/saldo'); await esperar(() => $('rpFiltro'), 'saldo');
+            clic('rpFiltro'); await esperar(() => $('rpPop') && !$('rpPop').hidden, 'ventana abierta');
+            await irHash('#finanzas/cobrar/cliente'); await dormir(30);
+            const tras1 = $('rpPop').hidden;
+            await irHash('#finanzas/cobrar/saldo'); await esperar(() => $('rpFiltro'), 'saldo otra vez');   // «Por cliente» no lleva filtro: se vuelve a Saldo
+            clic('rpFiltro'); await esperar(() => $('rpPop') && !$('rpPop').hidden, 'ventana abierta otra vez');
+            history.back(); await dormir(60);
+            R.ok('vuelta 2 (F3): ir a otra página —por ruta o con Atrás— cierra la ventana de filtros y segmentos', tras1 && $('rpPop').hidden, `tras ruta ${tras1} · tras Atrás ${$('rpPop').hidden}`);
+        });
         const celular = matchMedia('(max-width: 720px)').matches;
         const AR = await import('../archivos.js'), CL = await import('../cola.js'), GU = await import('../guardados.js'), CM = await import('../comun.js'), BU = await import('../buscador.js');
         const SIN_PROY = params.get('gastos') === 'no';
@@ -5274,7 +5288,7 @@ try {
         const subir = async (nombre, texto, n) => { enZona([archivoDePrueba(texto, nombre, 'application/pdf', 1700000100000 + n)]); await esperar(() => enDB(nombre) && !enCola(nombre), 'subido ' + nombre); await esperar(() => fila(nombre), 'renglón de ' + nombre); };
         const enDisco = llave => { const b = window.__IDB.get('minsa-erp'); const a = b && b.almacenes.get('subidas'); return !!a && a.datos.has(llave); };
         // una regla de estilo.css bajo `max-width: 720px` (la E2E corre a 800 px; a 390 corre dentro de capturas.mjs y ahí se mide además la caja)
-        const reglaBajo720 = (sel, prop, valor) => { for (const h of document.styleSheets) { let rs; try { rs = h.cssRules; } catch (_) { continue; } for (const r of rs) if (r.media && /max-width:\s*720px/.test(r.media.mediaText)) for (const q of r.cssRules) if (q.selectorText && q.selectorText.split(',').map(s => s.trim()).includes(sel) && (valor === undefined ? !!q.style.getPropertyValue(prop) : q.style.getPropertyValue(prop) === valor)) return true; } return false; };
+        const reglaBajo720 = (sel, prop, valor, ancho = 720) => { for (const h of document.styleSheets) { let rs; try { rs = h.cssRules; } catch (_) { continue; } for (const r of rs) if (r.media && new RegExp('max-width:\\s*' + ancho + 'px').test(r.media.mediaText)) for (const q of r.cssRules) if (q.selectorText && q.selectorText.split(',').map(s => s.trim()).includes(sel) && (valor === undefined ? !!q.style.getPropertyValue(prop) : q.style.getPropertyValue(prop) === valor)) return true; } return false; };
         const rgb = c => (String(c).match(/[\d.]+/g) || []).slice(0, 3).map(Number);
         const lum = c => { const [r, g, b] = rgb(c).map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
         const contraste = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
@@ -5298,6 +5312,20 @@ try {
             const xs = GU.guardadosDe('trabajo').map(v => v.titulo);
             R.ok('vuelta 1 (A.2, seguridad baja): de ERP_Vistas, un renglón SIN Dueno solo se pinta si es Compartida (la privada sin dueño no se le enseña a nadie)', GU.estadoGuardados().modo === 'lista' && !xs.includes('Sin dueño privada (prueba)') && xs.includes('Sin dueño compartida (prueba)'), xs.join(' | '));
             DB.listas.vistas.items = DB.listas.vistas.items.filter(x => !/Sin dueño .* \(prueba\)/.test(x.fields.Title)); await GU.releerGuardados();
+        });
+        // ---- vuelta 2 (revisión de seguridad «baja»): un Miembro no planta vistas en el panel de otro ni mete Dinero en la lista
+        if (escribe && DB.listas.vistas) await V1('vuelta 2 dueño verificado', async () => {
+            const yo = String(window.__CUENTA.username).toLowerCase();
+            const defT = JSON.stringify({ tipo: 'reporte', ruta: '#reportes/carga', vistaId: 'reportes-carga', vista: {} });
+            const defD = JSON.stringify({ tipo: 'segmento', lado: 'cobrar', moneda: 'USD', join: 'y', conds: [] });
+            DB.listas.vistas.items.push({ id: DB.siguienteId++, creadoPor: 'otra.persona@example.invalid', fields: { Title: 'Plantada a mi nombre (prueba)', Dueno: yo, Compartida: false, Modulo: 'trabajo', Definicion: defT } });
+            DB.listas.vistas.items.push({ id: DB.siguienteId++, fields: { Title: 'Mía de verdad (prueba)', Dueno: yo, Compartida: false, Modulo: 'trabajo', Definicion: defT } });
+            DB.listas.vistas.items.push({ id: DB.siguienteId++, creadoPor: 'otra.persona@example.invalid', fields: { Title: 'Dinero plantado (prueba)', Dueno: yo, Compartida: true, Modulo: 'dinero', Definicion: defD } });
+            await GU.releerGuardados();
+            const xs = GU.guardadosDe('trabajo').map(v => v.titulo), ds = GU.guardadosDe('dinero').map(v => v.titulo);
+            R.ok('vuelta 2 (seguridad baja): de ERP_Vistas, el Dueno vale solo si lo escribió esa persona (createdBy) — la plantada a mi nombre no sale en mi panel y la mía sí; un renglón de Dinero en la lista no se pinta nunca',
+                GU.estadoGuardados().modo === 'lista' && !xs.includes('Plantada a mi nombre (prueba)') && xs.includes('Mía de verdad (prueba)') && !ds.includes('Dinero plantado (prueba)'), xs.join(' | ') + ' // ' + ds.join(' | '));
+            DB.listas.vistas.items = DB.listas.vistas.items.filter(x => !/\(prueba\)$/.test(x.fields.Title) || !/Plantada|Mía de verdad|Dinero plantado/.test(x.fields.Title)); await GU.releerGuardados();
         });
         // ---- B.5 (código, fondo): lo guardado en ESTE equipo no desaparece cuando ERP_Vistas responde
         if (escribe && DB.listas.vistas) await V1('B.5', async () => {
@@ -5398,7 +5426,7 @@ try {
         if (gerencia) await V1('C.4 Dinero', async () => {
             await irHash('#finanzas/cobrar/saldo'); await esperar(() => document.querySelector('#finanzasCuerpo #cobranzaTabla tr.tot'), 'Por cobrar · Saldo');
             const th = document.querySelector('#cobranzaTabla th.rp-col-total'), td = document.querySelector('#cobranzaTabla tr.tot td.rp-col-total');
-            R.ok('vuelta 1 (C.4, UI fondo): en «Datos del reporte» la columna del TOTAL («Sin pago probado») va marcada y, bajo 720 px, fija a la derecha (sticky) junto a la primera', !!th && th.textContent === 'Sin pago probado' && !!td && reglaBajo720('.rp-tabla .rp-col-total', 'position', 'sticky'), th && th.textContent);
+            R.ok('vuelta 1 (C.4, UI fondo; vuelta 2: ≤ 1100 px, como la primera —a 820 el total salía cortado—): en «Datos del reporte» la columna del TOTAL («Sin pago probado») va marcada y fija a la derecha (sticky) junto a la primera', !!th && th.textContent === 'Sin pago probado' && !!td && reglaBajo720('.rp-tabla .rp-col-total', 'position', 'sticky', 1100) && !reglaBajo720('.rp-tabla .rp-col-total', 'position', 'sticky'), th && th.textContent);
             await irHash('#finanzas/cobrar/cliente'); await esperar(() => document.querySelector('#finanzasCuerpo #cobranzaTabla tr.tot'), 'Por cliente');
             R.ok('vuelta 1 (C.4): en «Por cliente» el total marcado es «Sin pago probado», no la última columna («Evidencia del saldo»)', document.querySelector('#cobranzaTabla th.rp-col-total')?.textContent === 'Sin pago probado');
             if (celular) { const c = document.querySelector('#cobranzaTabla tr.tot td.rp-col-total').getBoundingClientRect();
