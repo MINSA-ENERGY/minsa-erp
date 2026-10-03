@@ -709,13 +709,14 @@ export function diaDe(iso) {
     return Number.isNaN(f.getTime()) ? null : fechaMexico(f);
 }
 const MESES_FECHA = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-/** v1.0.0 (cubeta 6, fidelidad #12): la fecha que se le MUESTRA a la persona en reportes, tablas y KPIs — una sola forma, la de la maqueta:
- *  «1 oct 2026». Un ISO con hora se lee en el día de México (diaDe); un día suelto (YYYY-MM-DD) tal cual, sin pasar por Date. Lo que no es
- *  fecha: «—». Los campos de fecha (dd/mm/aaaa, v0.106.0), el CSV y lo que se escribe en SharePoint NO la usan. */
+/** v1.0.0 (cubeta 6, fidelidad #12): la fecha que se le MUESTRA a la persona en reportes, tablas y KPIs — una sola forma. Vuelta 1 (Carlos,
+ *  3-oct: «dd/mm/aaaa»): «01/10/2026», la forma de los campos (v0.106.0); supera el «1 oct 2026» de la maqueta. Un ISO con hora se lee en el
+ *  día de México (diaDe); un día suelto (YYYY-MM-DD) tal cual, sin pasar por Date. Lo que no es fecha: «—». El CSV y lo que se escribe en
+ *  SharePoint NO la usan. */
 export function fechaDia(x) {
     const s = x instanceof Date ? '' : String(x || '');
     const d = x instanceof Date ? diaDe(x) : /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : /^\d{4}-\d{2}-\d{2}T/.test(s) ? diaDe(s) : null;
-    return d ? `${Number(d.slice(8, 10))} ${MESES_FECHA[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}` : '—';
+    return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : '—';
 }
 /** El día AAAA-MM-DD de una fecha: un día suelto es ESE día (sin pasar por Date: su medianoche UTC es el día anterior en México); un ISO con
  *  hora o un Date, el día de México (diaDe). null si no es fecha. */

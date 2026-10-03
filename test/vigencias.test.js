@@ -41,7 +41,7 @@ ok('orden: trae los dias calculados', o[0].dias === -14 && o[1].dias === 8);
 const r = resumenVigencias(o);
 ok('resumen: 1 vencida, 1 en rojo (8 d), 1 en ambar (49 d), 4 en total', r.vencidas === 1 && r.rojo === 1 && r.ambar === 1 && r.total === 4);
 // v1.0.0 (cubeta 6, fidelidad #12): la forma única de la app, «17 ene 2027» (antes «17-ene-2027»)
-ok('fecha legible sin zona horaria', fechaVigencia('2027-01-17') === '17 ene 2027' && fechaVigencia('2026-12-01') === '1 dic 2026');
+ok('fecha legible sin zona horaria', fechaVigencia('2027-01-17') === '17/01/2027' && fechaVigencia('2026-12-01') === '01/12/2026');
 // --- v1.0.0 (cubeta 3): el desplegable de unidad y «la siguiente»
 const u = [vg('2027-01-17', 'ISO'), vg('2026-10-10', 'Fianza', { unidad: 'CALYTEK' }), vg('2026-09-18', 'Sin unidad', { unidad: '' })];
 ok('unidadesDe: sin repetir, en orden, «—» la que no trae', unidadesDe(u).join() === 'CALYTEK,Grupo,—' || unidadesDe(u).join() === '—,CALYTEK,Grupo');

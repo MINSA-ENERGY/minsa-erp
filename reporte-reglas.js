@@ -44,8 +44,8 @@ export function sumarMeses(mes, n) {
 }
 /** 'Oct 2026' (eje y tabla de la maqueta). */
 export const etiquetaMes = mes => `${MESES_CORTOS[Number(String(mes).slice(5, 7)) - 1]} ${String(mes).slice(0, 4)}`;
-/** '2 oct 2026' (chip del corte, renglones de factura). */
-export function fechaCorta(x) { const d = diaIso(x); return d ? `${Number(d.slice(8, 10))} ${MESES_CORTOS[Number(d.slice(5, 7)) - 1].toLowerCase()} ${d.slice(0, 4)}` : '—'; }
+/** '02/10/2026' (chip del corte, renglones de factura). Vuelta 1 (Carlos, 3-oct: «dd/mm/aaaa»; antes '2 oct 2026', de la maqueta). */
+export function fechaCorta(x) { const d = diaIso(x); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : '—'; }
 
 // ---------------------------------------------------------------- series
 
@@ -81,7 +81,7 @@ export function recortar(serie, rango, corteDia) {
 /** «2024-10-02 a 2026-10-02» (el botón del rango); «todo» empieza en el primer punto que haya. */
 export function textoRango(rango, corteDia, primera) {
     const d = desdeDeRango(rango, corteDia) || (primera ? (String(primera).length === 7 ? primera + '-01' : String(primera).slice(0, 10)) : corteDia);
-    return `${d} a ${corteDia}`;
+    return `${fechaCorta(d)} a ${fechaCorta(corteDia)}`;   // vuelta 1 (Carlos, 3-oct: «dd/mm/aaaa»; antes el ISO de la maqueta)
 }
 /**
  * Agrupa por MES | TRIMESTRE | AÑO (maqueta agrupa). `v` es un SALDO a la fecha: del periodo se queda el ÚLTIMO; `inc` es un flujo: se

@@ -48,10 +48,10 @@ ok('nombreClave: la primera palabra que no es de relleno', nombreClave('CPL Serv
 // --- Dinero (reusa interpretarFrase)
 {
     const r = P('¿Cuánto nos debe CPL?');
-    ok('¿cuánto nos debe X?: el saldo sin pago probado de esa contraparte, cuántas facturas y cuántas sin REP, con su corte', r.entendida && r.intento === 'debe' && /^CPL Servicios de Perforación nos debe US\$300\.00 sin pago probado \(corte del 2 oct 2026\): 2 facturas, 2 sin REP\.$/.test(r.texto), r.texto);
+    ok('¿cuánto nos debe X?: el saldo sin pago probado de esa contraparte, cuántas facturas y cuántas sin REP, con su corte', r.entendida && r.intento === 'debe' && /^CPL Servicios de Perforación nos debe US\$300\.00 sin pago probado \(corte del 02\/10\/2026\): 2 facturas, 2 sin REP\.$/.test(r.texto), r.texto);
     ok('… las facturas como filas (la mayor primero) y la liga abre un SEGMENTO de esa contraparte (revisión 2)', r.filas.length === 2 && r.filas[0].b === 'US$200.00' && r.liga.segmento && r.liga.segmento.lado === 'cobrar' && r.liga.segmento.conds[0].p === 'cli' && r.liga.segmento.conds[0].v[0] === 'CPL Servicios de Perforación' && r.liga.segmento.moneda === 'USD');
     const t = P('¿Cuánto nos deben?');
-    ok('sin contraparte: el total por cobrar por moneda (las monedas no se suman)', /^Por cobrar sin pago probado: US\$350\.00 y \$900\.00 \(corte del 2 oct 2026\)\. Las monedas no se suman\.$/.test(t.texto) && t.liga.ir === '#finanzas/cobrar/saldo', t.texto);
+    ok('sin contraparte: el total por cobrar por moneda (las monedas no se suman)', /^Por cobrar sin pago probado: US\$350\.00 y \$900\.00 \(corte del 02\/10\/2026\)\. Las monedas no se suman\.$/.test(t.texto) && t.liga.ir === '#finanzas/cobrar/saldo', t.texto);
     const p = P('¿cuánto le debemos a PRODEOS?');
     ok('¿cuánto le debemos a X?: el lado de Por pagar', p.intento === 'debe' && /^A Productos PRODEOS le debemos \$500\.00/.test(p.texto) && p.liga.segmento.lado === 'pagar', p.texto);
     const s = P('¿Qué facturas de CPL no tienen REP?');
@@ -67,7 +67,7 @@ ok('nombreClave: la primera palabra que no es de relleno', nombreClave('CPL Serv
     const TKO = { rfc: 'TKO', nombre: 'TKC Oil Demo', monedas: [{ moneda: 'MXN', facturado: 90000, pagado: 0, ok: 0, duda_max: 0, sin: 90000 }], facturas: [fac('T1', 'MXN', 90000)] };
     const COB2 = { datos: { ...COB.datos, proveedores: [...COB.datos.proveedores, TKO] }, error: null }, ap = { cobranza: COB2, aparte: { TKO: 'Línea Flash Tab sin explicar' } };
     const t = P('¿Cuánto debemos?', 'gerencia', ap);
-    ok('¿cuánto debemos?: el total de Por pagar SIN lo que va aparte, y lo de aparte dicho aparte con su motivo', /^Por pagar sin pago probado: \$500\.00 \(corte del 2 oct 2026\)\./.test(t.texto) && /TKC Oil Demo va aparte: \$90,000\.00 \(Línea Flash Tab sin explicar\)/.test(t.texto), t.texto);
+    ok('¿cuánto debemos?: el total de Por pagar SIN lo que va aparte, y lo de aparte dicho aparte con su motivo', /^Por pagar sin pago probado: \$500\.00 \(corte del 02\/10\/2026\)\./.test(t.texto) && /TKC Oil Demo va aparte: \$90,000\.00 \(Línea Flash Tab sin explicar\)/.test(t.texto), t.texto);
     const s = P('¿Qué facturas que debemos no tienen REP?', 'gerencia', ap);
     ok('¿qué facturas que debemos no tienen REP?: tampoco cuenta lo que va aparte', s.intento === 'sin-rep' && /^1 factura no tiene complemento de pago \(REP\): \$500\.00\./.test(s.texto), s.texto);
     const k = P('¿cuánto le debemos a TKC?', 'gerencia', ap);
@@ -79,12 +79,12 @@ ok('nombreClave: la primera palabra que no es de relleno', nombreClave('CPL Serv
     const s = P('¿En qué paso va cada servicio?');
     ok('¿en qué paso va cada servicio?: uno por expediente (el más nuevo arriba) con su paso y su estado; liga al ciclo', s.intento === 'servicios' && /^2 expedientes abiertos: 1 en cobro y 1 detenido\.$/.test(s.texto) && s.filas.map(f => f.a).join() === 'E4,E2' && /paso 3 · Paso 3 \(detenido\)/.test(s.filas[0].b) && s.liga.ir === '#servicios/ciclo', s.texto);
     const e = P('¿cómo va el E2?');
-    ok('un expediente por su clave: paso, estado y a quién espera; liga a su página', /^E2 \(O\.C\. 45\) va en el paso 11 de 11: Paso 11 — en cobro; espera a Tesorería LATINA desde el 8 jul 2026\.$/.test(e.texto) && e.liga.ir === '#servicios/E2', e.texto);
+    ok('un expediente por su clave: paso, estado y a quién espera; liga a su página', /^E2 \(O\.C\. 45\) va en el paso 11 de 11: Paso 11 — en cobro; espera a Tesorería LATINA desde el 08\/07\/2026\.$/.test(e.texto) && e.liga.ir === '#servicios/E2', e.texto);
     const c = P('¿Cuánto le compramos a PRODEOS en 2026?');
-    ok('¿cuánto le compramos a X en <año>?: órdenes y total con IVA (por moneda) y la más reciente', c.intento === 'compras' && /^A PRODEOS en 2026 le compramos 2 órdenes por \$1,308,076\.40 con IVA\. La más reciente, PDH-009 del 12 ago 2026, por \$1,307,076\.40\.$/.test(c.texto) && c.liga.ir === '#compras', c.texto);
+    ok('¿cuánto le compramos a X en <año>?: órdenes y total con IVA (por moneda) y la más reciente', c.intento === 'compras' && /^A PRODEOS en 2026 le compramos 2 órdenes por \$1,308,076\.40 con IVA\. La más reciente, PDH-009 del 12\/08\/2026, por \$1,307,076\.40\.$/.test(c.texto) && c.liga.ir === '#compras', c.texto);
     ok('lectura: Operación lo dice en vez de contestar', /gerencia y colaboradores/.test(P('¿En qué paso va cada servicio?', 'lectura').texto) && /gerencia y colaboradores/.test(P('¿cuánto le compramos a PRODEOS?', 'lectura').texto));
     const v = P('¿Qué vence en los próximos 6 meses?');
-    ok('¿qué vence en N meses?: lo que vence en la ventana y lo ya vencido aparte; liga a Vigencias', v.intento === 'vence' && /^En los próximos 6 meses vence 1: Cuestionario Achilles \(16 ene 2027\)\. Ya venció: Achilles Silver \(18 sep 2026\)\.$/.test(v.texto) && v.liga.ir === '#vigencias', v.texto);
+    ok('¿qué vence en N meses?: lo que vence en la ventana y lo ya vencido aparte; liga a Vigencias', v.intento === 'vence' && /^En los próximos 6 meses vence 1: Cuestionario Achilles \(16\/01\/2027\)\. Ya venció: Achilles Silver \(18\/09\/2026\)\.$/.test(v.texto) && v.liga.ir === '#vigencias', v.texto);
     ok('ventanaDias: meses, semanas, días, un año; sin número, 6 meses', ventanaDias('que vence en 3 meses').dias === 92 && ventanaDias('en dos semanas').dias === 14 && ventanaDias('en 30 dias').dias === 30 && ventanaDias('en un ano').dias === 365 && ventanaDias('que vence').texto === 'los próximos 6 meses');
     ok('colaborador: las vigencias son de gerencia', /solo las ve gerencia/.test(P('¿Qué vence en 3 meses?', 'colaborador').texto));
 }

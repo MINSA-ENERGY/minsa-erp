@@ -24,7 +24,7 @@
   --ink: #1c2533; --ink-2: #4b5566; --ink-3: #8b93a1; --lk: #3d4a5e;
   --navy: #1d2c47; --blue: #2a6bd9; --red: #e0435f; --amber: #c8870d; --green: #1d9a6a;
   --hover: #f3f5f8; --chip: #e9edf3;
-  --relleno: #167a53;   /* lo que va RELLENO con texto blanco («+ Nuevo» del rail y el flotante): no cambia con el tema. v1.0.0 (cubeta 6): el VERDE del primario (B5 + verde, v0.30.0: el flotante va lleno), no el azul #2a6bd9 de la cubeta 1 — PREGUNTAR (navy) es la única excepción; este tono, el --ok-fg, da 5.3:1 con el blanco */
+  --relleno: var(--navy);   /* lo que va RELLENO con texto blanco (el «+ Nuevo» flotante, APLICAR / GUARDAR). v1.0.0 vuelta 1 (Carlos, 3-oct, opción 2 del artifact FLi4nDcUZUnS9sdMiRzMfC: «todo navy, relleno»): el primario es el navy de PREGUNTAR y sigue al tema (en oscuro, #3b5b96: 6.7:1 con el blanco). Antes el verde #167a53 (B5 + verde, v0.30.0); en la cubeta 1, el azul #2a6bd9 */
 
   /* los tokens de la app de siempre, ahora sobre la maqueta (los usan 2,500 renglones de abajo) */
   --page: var(--bg); --sunken: #f1f3f6; --banda: #f9fafb;
@@ -122,8 +122,9 @@
 .rail .rb .rot { font-family: var(--f-ui); font-size: 10.5px; line-height: 1.1; letter-spacing: .01em; white-space: nowrap; max-width: 56px; overflow: hidden; text-overflow: ellipsis; }
 .rail-marca { flex: none; padding: 2px 0 6px; }
 .rail-marca img { display: block; width: 22px; height: auto; }
-/* «+ Nuevo»: el único botón con relleno del rail (cuadro azul, cruz blanca) */
-.rail .rb-nuevo .ico { width: 26px; height: 26px; padding: 4px; border-radius: 6px; background: var(--relleno); color: #ffffff; stroke-width: 2.2; }
+/* «+ Nuevo»: el único botón con relleno del rail. Vuelta 1 (primario navy): navy sobre el rail (#212d42) no se distingue, así que el cuadro
+   va BLANCO con la cruz navy (antes verde con cruz blanca). El rail no cambia con el tema: el par es fijo. */
+.rail .rb-nuevo .ico { width: 26px; height: 26px; padding: 4px; border-radius: 6px; background: #ffffff; color: #1d2c47; stroke-width: 2.2; }
 .rail .rb-nuevo[aria-expanded="true"] { background: var(--rail-on); }
 .rail-modulos { display: grid; gap: 4px; flex: none; }
 .rsep { flex: none; width: 36px; height: 1px; background: var(--rail-sep); margin: 4px 0; }
@@ -327,13 +328,15 @@ body[data-modulo="cuenta"] #pie { display: none; }   /* la versión ya va en la 
    el boton responde al clic — se encoge un 3 % (:active) y suelta una ONDA desde el punto tocado (.onda, la pone
    comun.js: ondaAlPulsar). El primario deja de ser un rectangulo azul plano: en reposo es contorno verde de 2 px
    (el verde del avance y de «hecha»), al pasar el cursor se llena y toma sombra. Sobre la piel vendorizada
-   (minsa-ui.css no se edita: vendorizar.py --verificar lo caza), con la misma especificidad y despues. */
+   (minsa-ui.css no se edita: vendorizar.py --verificar lo caza), con la misma especificidad y despues.
+   v1.0.0 vuelta 1 (Carlos, 3-oct, «todo navy, relleno»): el primario va RELLENO navy en reposo —el de PREGUNTAR— y al pasar el cursor se
+   aclara y toma sombra; la onda y el encogerse al pulsar se quedan. Supera el contorno verde de B5. */
 .mn-btn { position: relative; overflow: hidden; transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast), box-shadow var(--dur-fast), transform .08s; }
 .mn-btn:active:not(:disabled) { transform: scale(.97); }
-.mn-btn.is-primary { background: transparent; color: var(--status-ok-fg); border: 2px solid var(--status-ok-solid); padding-inline: calc(var(--sp-4) - 1px); }
+.mn-btn.is-primary { background: var(--relleno); color: #ffffff; border: 2px solid var(--relleno); padding-inline: calc(var(--sp-4) - 1px); }
 .mn-btn.is-primary.is-sm { padding-inline: calc(var(--sp-3) - 1px); }
-.mn-btn.is-primary:hover:not(:disabled), .mn-btn.is-primary:focus-visible { background: var(--status-ok-solid); color: var(--text-on-brand); filter: none; box-shadow: 0 3px 10px rgba(44, 138, 55, .28); }
-.mn-btn.is-primary:disabled { background: transparent; }
+.mn-btn.is-primary:hover:not(:disabled), .mn-btn.is-primary:focus-visible { background: var(--relleno); color: #ffffff; filter: brightness(1.25); box-shadow: 0 3px 10px rgba(29, 44, 71, .28); }
+.mn-btn.is-primary:disabled { background: var(--relleno); }
 .mn-btn.is-danger:hover:not(:disabled) { background: var(--status-danger-bg); }
 .mn-btn .onda { position: absolute; border-radius: 50%; background: currentColor; opacity: .28; transform: scale(0); pointer-events: none; animation: onda .5s ease-out forwards; }
 @keyframes onda { to { transform: scale(4); opacity: 0; } }
@@ -526,7 +529,7 @@ body:has(#pantallaEntrar:not(.oculto)) #pie { display: none; }
 .entrada-titulo { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 2.1rem; line-height: 1.05; letter-spacing: .02em; color: #f2f6ff; text-wrap: balance; }
 .entrada-titulo em { font-style: normal; color: #61cd6a; }
 .entrada .lema { margin: 0; color: rgba(242, 246, 255, .62); max-width: 30ch; text-wrap: balance; }
-.entrada .mn-btn.is-primary, .entrada .mn-btn.is-primary:hover:not(:disabled), .entrada .mn-btn.is-primary:focus-visible { margin-top: .4rem; background: #61cd6a; color: #04123d; border-color: transparent; border-radius: .4rem; box-shadow: none; }   /* v0.30.0: la entrada conserva su boton lleno en reposo, hover y foco (el hover verde de .is-primary es (0,4,0) y le ganaba) */
+.entrada .mn-btn.is-primary, .entrada .mn-btn.is-primary:hover:not(:disabled), .entrada .mn-btn.is-primary:focus-visible { margin-top: .4rem; background: #61cd6a; color: #04123d; border-color: transparent; border-radius: .4rem; box-shadow: none; filter: none; }   /* v0.30.0: la entrada conserva su boton lleno en reposo, hover y foco (el hover verde de .is-primary es (0,4,0) y le ganaba). Vuelta 1: el primario de la app pasó a navy, pero la entrada es un plano navy y su botón SIGUE verde a propósito (navy sobre navy no se ve); filter: none le quita el aclarado del foco del primario */
 .entrada .mn-btn.is-primary:hover:not(:disabled) { filter: brightness(1.06); }
 .entrada .pista { align-self: center; margin: 0; min-height: 1.2em; color: rgba(242, 246, 255, .5); font-family: var(--font-data); font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; }
 .entrada .pista.estado { color: rgba(242, 246, 255, .86); font-size: .85rem; letter-spacing: .02em; text-transform: none; }   /* U-05 (v0.87.0): cuando la pista lleva un ESTADO (Entrando…, un error) se lee; la marca en reposo se queda chica */
@@ -784,8 +787,9 @@ body:has(#pantallaEntrar:not(.oculto)) #pie { display: none; }
   .t-largo { display: none; }
   .t-corto { display: inline; }
   /* «Nueva tarea» se queda PEGADO al borde derecho mientras las pestañas ruedan debajo (el revisor lo vio cortado a 820);
-     lleva el fondo de la pagina porque el primario es contorno transparente. En celular (<=720) el boton es flotante y no aplica. */
-  .tabs .mn-btn.is-primary { position: sticky; right: 0; background: var(--surface-page); box-shadow: -10px 0 8px -2px var(--surface-page); }
+     la sombra del color de la pagina tapa las pestañas que pasan debajo. En celular (<=720) el boton es flotante y no aplica. Vuelta 1: el
+     primario ya va relleno navy, así que no lleva el fondo de la página (con él, el texto blanco quedaba sobre blanco). */
+  .tabs .mn-btn.is-primary { position: sticky; right: 0; box-shadow: -10px 0 8px -2px var(--surface-page); }
 }
 
 /* ---- tablero: tantas columnas como cubetas tenga el proyecto (v0.47.0: `--n` la pone tablero.js; antes eran 4 fijas y con
@@ -2062,7 +2066,7 @@ body .pficha .cal { border: 0; border-radius: 0; } body .pficha .cal .mes, body 
 body .pficha .cal .mes { color: var(--brand-primary); } body .pficha.is-danger .cal .mes { background: none; color: var(--status-danger-fg); } body .pficha.is-warn .cal .mes { background: none; color: var(--status-warn-fg); } body .pficha.is-cerrado .cal .mes { background: none; color: var(--status-ok-fg); } body .pficha .cal.sin .mes { background: none; color: var(--text-faint); }
 /* controles de seleccion con la esquina de la casa, no pildora */
 body .filtro-movil select, body .doc .tarjeta-de select, body .fila-menu .menu .menu-mover select, body .dtabla .c-tarjeta select, body .dtabla .tarjeta-liga { border-radius: var(--r-sm); }
-/* v0.99.0 (Carlos, 25-sep): el primario verde (.mn-btn.is-primary = el .principal de «+ Nueva góndola» de planta) gana la sombra ligera
+/* v0.99.0 (Carlos, 25-sep): el primario (.mn-btn.is-primary; verde hasta la vuelta 1 de v1.0.0, hoy navy) gana la sombra ligera
    en reposo. v1.0.0: la REJILLA de plano detrás del rail y del contenido y el «fade» de la pestaña activa salen — la maqueta «MINSA ERP
    Reportes» es fondo liso (--bg) y el rail oscuro marca el módulo con su propio cuadro (.rb.is-on). Se recupera del commit 6395c66. */
 :root { --sombra-pri: 0 1px 2px rgba(11, 18, 32, .18), 0 2px 6px rgba(11, 18, 32, .10); }
@@ -3130,12 +3134,11 @@ body.con-preguntar .app.panel-plegado:not(.sin-sesion) { grid-template-columns: 
    final; (2) tableta 721–1100: la cabecera con ☰ + el título del módulo y PREGUNTAR con velo; (3) celular ≤ 720: todo control tocable mide
    ≥ 36 px (capturas.mjs, «chicos»), la primera columna de «Datos del reporte» fija al rodar de lado y «Requiere atención» plegada tras 6
    renglones con «Ver todo»; (4) Servicios: «Espera a» en dos renglones con el texto entero en el title.
-   El primario SIGUE verde (B5 + verde, v0.30.0, elección de Carlos que el plan no supera): PREGUNTAR (navy, de la maqueta) es la única
-   excepción. ==== */
+   El primario: verde en la cubeta 6 (B5 + verde, v0.30.0); desde la vuelta 1 (Carlos, 3-oct) NAVY relleno, el mismo de PREGUNTAR. ==== */
 /* (1) letra: los datos (claves, montos, horas) en Source Sans 3 con cifras tabulares, como la maqueta (--f-data en la PALETA) */
 body { font-variant-numeric: tabular-nums; }
-/* (1) el primario es UNO, verde (B5 + verde): APLICAR / GUARDAR de la ventana de segmentos (el .mini.azul de la maqueta) va con el relleno verde
-   de «+ Nuevo»; PREGUNTAR (navy) es la única excepción */
+/* (1) el primario es UNO (navy desde la vuelta 1): APLICAR / GUARDAR de la ventana de segmentos (el .mini.azul de la maqueta) va con el
+   relleno de «+ Nuevo», el mismo navy de PREGUNTAR */
 .rp-mini.azul { background: var(--relleno); border-color: var(--relleno); }
 /* (1) PREGUNTAR con su icono (reporte.js lo mete como <svg> sin clase: medía 0 px) */
 .ask .ico, .ask svg { width: 20px; height: 20px; flex: none; fill: none; stroke: #ffffff; stroke-width: 1.6; }

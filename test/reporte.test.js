@@ -12,7 +12,7 @@ ok('diaIso: de una cadena con hora local y de un Date', diaIso('2026-10-05T08:03
 ok('mesDe: de un día y de un mes', mesDe('2026-10-05') === '2026-10' && mesDe('2026-03') === '2026-03' && mesDe('') === null);
 ok('diasEntre y restarDias (cruzan año)', diasEntre('2025-12-30', '2026-01-02') === 3 && restarDias('2026-01-02', 3) === '2025-12-30');
 ok('sumarMeses hacia adelante y hacia atrás, cruzando año', sumarMeses('2026-11', 3) === '2027-02' && sumarMeses('2026-01', -1) === '2025-12' && sumarMeses('2026-10', -24) === '2024-10');
-ok('etiquetas: «Oct 2026» y «2 oct 2026»', etiquetaMes('2026-10') === 'Oct 2026' && fechaCorta('2026-10-02T07:00:00') === '2 oct 2026' && fechaCorta(null) === '—');
+ok('etiquetas: «Oct 2026» y «02/10/2026»', etiquetaMes('2026-10') === 'Oct 2026' && fechaCorta('2026-10-02T07:00:00') === '02/10/2026' && fechaCorta(null) === '—');
 
 // --- series y acumulados
 const montos = porMes([{ f: '2026-01-15', m: 100 }, { f: '2026-01-20', m: 50 }, { f: '2026-03-01', m: 25 }, { f: null, m: 999 }], x => x.f, x => x.m);
@@ -26,7 +26,7 @@ ok('desdeDeRango: 1 y 2 años atrás del corte; «todo» = null', desdeDeRango('
 const larga = serieAcumulada({ '2023-07': 1, '2026-10': 1 }, '2026-10');
 ok('recortar: el último año = 13 meses (del mes de hace un año al del corte), como la maqueta', recortar(larga, '1a', '2026-10-02').length === 13 && recortar(larga, '1a', '2026-10-02')[0].k === '2025-10');
 ok('recortar: todo el historial deja la serie entera; también recorta una serie por corte (días)', recortar(larga, 'todo', '2026-10-02').length === larga.length && recortar([{ k: '2024-09-30', v: 1 }, { k: '2025-10-06', v: 2 }], '1a', '2026-10-02').length === 1);
-ok('textoRango: «2024-10-02 a 2026-10-02» y «todo» desde el primer punto', textoRango('2a', '2026-10-02') === '2024-10-02 a 2026-10-02' && textoRango('todo', '2026-10-02', '2023-07') === '2023-07-01 a 2026-10-02');
+ok('textoRango (vuelta 1, dd/mm/aaaa): «02/10/2024 a 02/10/2026» y «todo» desde el primer punto', textoRango('2a', '2026-10-02') === '02/10/2024 a 02/10/2026' && textoRango('todo', '2026-10-02', '2023-07') === '01/07/2023 a 02/10/2026');
 
 // --- agrupar
 const anual = serieAcumulada({ '2025-11': 10, '2026-02': 5, '2026-05': 1 }, '2026-06');

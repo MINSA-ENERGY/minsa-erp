@@ -519,8 +519,8 @@ assert.equal(plural(1, 'mensaje nuevo', 'mensajes nuevos'), 'mensaje nuevo'); n+
 // --- v1.0.0 (cubeta 6, fidelidad #12): la fecha que se muestra, una sola forma («1 oct 2026»)
 {
     const { fechaDia } = await import('../reglas.js');
-    ok('fechaDia: un día suelto se lee tal cual («1 oct 2026»), sin pasar por Date', fechaDia('2026-10-01') === '1 oct 2026' && fechaDia('2027-01-17') === '17 ene 2027');
-    ok('fechaDia: un ISO con hora se lee en el día de MÉXICO (las 02:00 UTC del 2 son el 1 en México)', fechaDia('2026-10-02T02:00:00Z') === '1 oct 2026' && fechaDia('2026-10-02T18:00:00Z') === '2 oct 2026');
+    ok('fechaDia: un día suelto se lee tal cual («01/10/2026»), sin pasar por Date', fechaDia('2026-10-01') === '01/10/2026' && fechaDia('2027-01-17') === '17/01/2027');
+    ok('fechaDia: un ISO con hora se lee en el día de MÉXICO (las 02:00 UTC del 2 son el 1 en México)', fechaDia('2026-10-02T02:00:00Z') === '01/10/2026' && fechaDia('2026-10-02T18:00:00Z') === '02/10/2026');
     ok('fechaDia: lo que no es fecha es «—»', fechaDia('') === '—' && fechaDia(null) === '—' && fechaDia('ayer') === '—');
 }
 
