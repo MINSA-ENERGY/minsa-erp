@@ -26,15 +26,24 @@ Write-Host "servidor en el puerto $puerto"
 # con 120 una corrida cargada de colaborador se corto en 800 de 958. Con el reloj ocioso, Edge adelanta el tiempo virtual: un
 # presupuesto mayor no alarga la corrida real. Cada escenario imprime lo que uso y avisa al pasar del 80 %.
 $presupuesto = 240000
+# Tope de tiempo REAL por escenario (cubeta 6 del rediseno, 2026-10-03): dos veces en dos cubetas Edge headless vuelca el DOM completo y NO
+# sale (11 min parado con el resumen ya escrito). Un vigia mata ESE Edge (dump-dom + este puerto + esta consulta) a los $topeReal s: lo ya
+# volcado llega igual a Out-File y se lee como siempre. Una corrida normal tarda 20-90 s reales.
+$topeReal = 180
 $fallas = 0
 try {
     foreach ($rol in $Roles) {
         $out = Join-Path $env:TEMP "proy-e2e-$rol.html"
         $q = if ($consulta.ContainsKey($rol)) { $consulta[$rol] } else { "rol=$rol" }
-        & $edge --headless=new --disable-gpu --virtual-time-budget=$presupuesto --dump-dom "http://localhost:$puerto/?$q&refresco=0" 2>$null | Out-File -Encoding utf8 $out
+        $url = "http://localhost:$puerto/?$q&refresco=0"
+        $vigia = Start-Job -ArgumentList $url, $topeReal -ScriptBlock { param($u, $seg) Start-Sleep -Seconds $seg; Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains('--dump-dom') -and $_.CommandLine.Contains($u) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; 'matado' } }
+        & $edge --headless=new --disable-gpu --virtual-time-budget=$presupuesto --dump-dom $url 2>$null | Out-File -Encoding utf8 $out
+        $mato = if ($vigia.State -eq 'Completed') { Receive-Job $vigia } else { $null }
+        Stop-Job $vigia -ErrorAction SilentlyContinue; Remove-Job $vigia -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 1
         $s = Get-Content $out -Raw -Encoding UTF8
         Write-Host "=== $rol"
+        if ($mato) { Write-Host ("  AVISO: Edge no salio en $topeReal s reales y el vigia lo mato; se lee lo que alcanzo a volcar") }
         # El resumen se busca en el <title>: el texto 'PRUEBAS TERMINADAS: ' tambien esta en el codigo de pruebas.html y, sin resumen,
         # la busqueda suelta imprimia un pedazo de ese codigo en vez de decir que la corrida no termino.
         if ($s -match '<title>PRUEBAS TERMINADAS: ([^<]+)') { Write-Host ("  " + $Matches[1]); if ($Matches[1] -notmatch ' 0 falla') { $fallas++ } }

@@ -99,7 +99,7 @@ export function atencionDeOperacion(ctx) {
             const paso = pasos[e.paso] && pasos[e.paso].paso ? `paso ${e.paso}: ${pasos[e.paso].paso}` : `paso ${e.paso}`;
             if (detenido(e)) {
                 const roto = (e.rotos || [])[0];
-                r.detenidos.push({ grupo: 'detenidos', etiqueta: e.bloqueado ? 'bloqueado' : 'a medias', cls: 'danger', titulo: nombre,
+                r.detenidos.push({ grupo: 'detenidos', etiqueta: e.bloqueado ? 'bloqueado' : 'a medias', cls: e.bloqueado ? 'danger' : 'warn', titulo: nombre,   /* v1.0.0 (cubeta 6, fidelidad #6): a medias = ámbar, como su segmento */
                     sub: e.bloqueado ? [paso, e.espera_a ? `espera a ${e.espera_a}` : ''].filter(Boolean).join(' · ') : `${roto && roto.txt ? roto.txt : 'un paso pasado quedó a medias'} · ${paso}`,
                     ir: '#servicios/' + e.clave, k: kDeFecha(e.desde) });
             } else if (e.paso === N_PASOS - 1) {

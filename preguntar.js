@@ -129,6 +129,8 @@ export function engancharPreguntar() {
     });
     $('pqCerrar').addEventListener('click', () => cerrarPreguntar(document.querySelector('.pantalla:not(.oculto) [data-preguntar]')));
     $('pqNueva').addEventListener('click', () => { conv.length = 0; pintar(); const i = $('pqTexto'); if (i) i.focus(); });
+    // v1.0.0 (cubeta 6): en tableta el panel va encima del contenido con un velo (estilo.css); tocar el velo lo cierra, como la hoja del panel
+    if ($('pqFondo')) $('pqFondo').addEventListener('click', () => cerrarPreguntar(document.querySelector('.pantalla:not(.oculto) [data-preguntar]')));
     $('preguntar').addEventListener('keydown', ev => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); cerrarPreguntar(document.querySelector('.pantalla:not(.oculto) [data-preguntar]')); } });
 }
 /** Para las pruebas: la conversación a la vista. */

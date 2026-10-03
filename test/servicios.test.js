@@ -40,7 +40,8 @@ const r = resumenServicios([ex('E2', 11), ex('E3', 11, { rotos: [{ paso: 4 }] })
 ok('resumen: total', r.total === 4);
 ok('resumen: en cobro', r.cobro === 2);
 ok('resumen: detenidos (bloqueado o a medias)', r.detenidos === 2);
-ok('fecha corta', fechaCorta('2026-09-23') === '23-sep' && fechaCorta('') === '—' && fechaCorta('ayer') === '—');
+// v1.0.0 (cubeta 6, fidelidad #12): la forma única de la app, «23 sep 2026» (antes «23-sep»)
+ok('fecha corta', fechaCorta('2026-09-23') === '23 sep 2026' && fechaCorta('') === '—' && fechaCorta('ayer') === '—');
 
 // --- v1.0.0 (cubeta 3): la plantilla de reporte — filtro, espera más larga y «Ciclo»
 const L4 = [ex('E2', 11), ex('E3', 6, { rotos: [{ paso: 4, txt: 'x' }], desde: '2026-09-23' }), ex('E4', 3, { bloqueado: true, desde: '2026-09-01' }), ex('E5', 1, { desde: '2026-09-30' })];

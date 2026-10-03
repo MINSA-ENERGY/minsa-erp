@@ -111,7 +111,11 @@ export function escala(valores, partes = 4) {
     const vs = (valores || []).map(Number).filter(Number.isFinite);
     const max = Math.max(0, ...vs), min = Math.min(0, ...vs);
     const paso = nice(((max - min) || 1) / partes);
-    const tope = Math.max(paso, Math.ceil(max / paso - 1e-9) * paso), piso = Math.min(0, Math.floor(min / paso + 1e-9) * paso);
+    let tope = Math.max(paso, Math.ceil(max / paso - 1e-9) * paso), piso = Math.min(0, Math.floor(min / paso + 1e-9) * paso);
+    // v1.0.0 (cubeta 6, fidelidad #13): aire arriba (y abajo): si el valor llega a más del 90 % de la marca extrema, un paso más — como la maqueta
+    // (2.59M con tope en 3M); sin él la etiqueta del punto pisaba la del eje y la línea iba pegada al borde («$4.00k» sobre «$4k»)
+    if (max > 0 && max > 0.9 * tope) tope += paso;
+    if (min < 0 && min < 0.9 * piso) piso -= paso;
     const marcas = []; for (let v = piso; v <= tope + paso / 1e6; v += paso) marcas.push(Number(v.toFixed(6)));
     return { piso, tope, paso, marcas };
 }

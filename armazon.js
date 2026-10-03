@@ -79,8 +79,9 @@ export function arbolDe(m) {
             ] }
         ];
     }
+    // v1.0.0 (cubeta 6): el MISMO orden que los chips del celular — Por proyecto primero, que es la pantalla del módulo (plan: «Archivos→Por proyecto»)
     if (m === 'archivos') return [{ titulo: 'Archivos', clave: 'archivos', entradas: [
-        { texto: 'Recientes', ir: '#archivos/recientes' }, { texto: 'Fijados', ir: '#archivos/fijados' }, { texto: 'Por proyecto', ir: '#archivos', p: 'archivos' },
+        { texto: 'Por proyecto', ir: '#archivos', p: 'archivos' }, { texto: 'Recientes', ir: '#archivos/recientes' }, { texto: 'Fijados', ir: '#archivos/fijados' },
         { texto: 'Bibliotecas', ir: '#archivos/bibliotecas' }, { texto: 'Mis subidas', ir: '#archivos/mias' }
     ] }];
     if (m === 'dinero') {
@@ -151,8 +152,14 @@ function pintarArbol() {
     const caja = $('panelArbol'); const hash = hashDe();   // lo que dice el ESTADO: irA repinta antes de escribir el hash nuevo
     conservarFoco(caja, ['ir', 'grupo', 'accion', 'vista'], () => {
         caja.textContent = '';
+        // v1.0.0 (cubeta 6; plan «Celular — a 1 toque»): en el celular la hoja (☰) es el ÍNDICE de la app — el módulo actual primero y debajo los
+        // demás módulos del rol con su título —, así TODA ruta (también las páginas nuevas de reporte, Tesorería, Ciclo, Partidas…) queda a dos
+        // toques desde cualquier pantalla: ☰ y la entrada. En tableta y escritorio el panel sigue siendo el del módulo, como la maqueta.
+        const delRol = new Set(modulosDe(estado.rol).map(x => x.clave)), indice = enCelular.matches;
         for (const m of [...MODULOS.map(x => x.clave), 'cuenta']) {
-            const div = el('div', 'panel-modulo'); div.dataset.modulo = m; div.hidden = m !== moduloActual();
+            const actual = m === moduloActual();
+            const div = el('div', 'panel-modulo' + (actual ? ' is-actual' : '')); div.dataset.modulo = m; div.hidden = !actual && !(indice && delRol.has(m));
+            if (!actual) div.appendChild(el('h2', 'pm-tit', NOMBRE_MODULO[m]));
             const grupos = arbolDe(m);
             const todas = grupos.filter(g => !g.oculto).flatMap(g => g.entradas.filter(e => e.ir && !e.oculto));
             const activa = activaDe(todas, hash);
@@ -243,6 +250,9 @@ function pintarChips() {
             nav2.appendChild(fila);
         }
     });
+    // v1.0.0 (cubeta 6): la fila rueda de lado; el chip encendido se trae a la vista (en Archivos «Mis subidas» quedaba fuera, sin nada encendido a la vista)
+    const on = nav2.querySelector('.chips-fila:not([hidden]) .chip-m.on');
+    if (on && enCelular.matches) { const a = on.getBoundingClientRect(), c = nav2.getBoundingClientRect(); if (a.right > c.right - 28 || a.left < c.left) nav2.scrollLeft += a.left - c.left - 16; }
 }
 
 function pintarModulos() {
@@ -568,6 +578,7 @@ export function engancharArmazon() {
     // la foto deja el selector de archivos en cámara; al cerrar «Subir» vuelve a ser un selector de archivos cualquiera
     $('dlgSubir').addEventListener('close', () => prepararArchivo(false));
     for (const q of [enCelular, enTableta]) q.addEventListener('change', () => { cerrarHoja(); cerrarMenuNuevo(); });
+    enCelular.addEventListener('change', () => { if (estado.sesion) pintarArbol(); });   // v1.0.0 (cubeta 6): la hoja del celular es el índice; el panel de escritorio, el del módulo
     window.addEventListener('resize', () => { if (menuAbierto() && menuDe) colocarMenu(); });
     $('shell').classList.toggle('panel-plegado', panelPlegado());
 }

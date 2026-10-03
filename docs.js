@@ -18,7 +18,7 @@
 // acorta con `urlParaLiga` y ningun texto sale hacia Graph sin pasar por `textosLargos`.
 
 import { CONFIG } from './config.js';
-import { PUEDE, tareasDe, slug, fechaMexico, nombreDe, validarUrl, urlParaLiga, urlCortaDeGuid, resumenLargos, textosLargos, TEXTO_MAX, hrefSeguro, filtrarLigas, tipoArchivo, ordenarLigas, direccionInicial, nombreDeLiga, columnasDe, nombreColumnaEn, claseDeColumna, colorValido, HECHO, TIPOS_LIGA, plural } from './reglas.js';
+import { PUEDE, tareasDe, slug, fechaMexico, fechaDia, nombreDe, validarUrl, urlParaLiga, urlCortaDeGuid, resumenLargos, textosLargos, TEXTO_MAX, hrefSeguro, filtrarLigas, tipoArchivo, ordenarLigas, direccionInicial, nombreDeLiga, columnasDe, nombreColumnaEn, claseDeColumna, colorValido, HECHO, TIPOS_LIGA, plural } from './reglas.js';
 import { construirManifiesto, validarManifiesto, bytesDelManifiesto, nombreCarpetaLote, NOMBRE_MANIFIESTO, rutaRecibo, validarRecibo } from './lote.js';
 import { $, L, VERSION, estado, el, boton, chip, iconoArchivo, iconoSvg, avisar, abrirDialogo, cerrarDialogo, confirmar, opciones, limpiar, porId, proyectoAbierto, registrarActividad, equipoDe, fechaCorta, fechaHora, aplicarVivo, agregarSinDuplicar, pedirRelectura, irAHash, chipVence, conRetardo } from './comun.js';
 import { esConflicto } from './graph.js';
@@ -335,7 +335,7 @@ export function filaDoc(l, { p = null, puede = false, enArchivos = false, alTarj
     if (nh.rev) caja.appendChild(el('span', 'mn-chip rev', nh.rev));
     tdN.appendChild(caja); tr.appendChild(tdN);
     // Fecha del documento (la del nombre); «—» si el nombre no la trae.
-    const tdD = el('td', 'c-del'); const fd = el('span', nh.fecha ? '' : 'p', nh.fecha ? fechaCorta(nh.fecha) : '—'); if (nh.fecha) fd.title = 'Fecha del documento, según su nombre'; tdD.appendChild(fd); tr.appendChild(tdD);
+    const tdD = el('td', 'c-del'); const fd = el('span', nh.fecha ? '' : 'p', nh.fecha ? fechaDia(nh.fecha) : '—');   /* v1.0.0 (cubeta 6): «20 jun 2025», como Archivos y la maqueta */ if (nh.fecha) fd.title = 'Fecha del documento, según su nombre'; tdD.appendChild(fd); tr.appendChild(tdD);
     // Tipo de archivo: la misma clave que colorea el icono. v0.27.0 (Carlos, 14-sep): «etiqueta de expediente» —la SIGLA
     // (PDF · DOC · XLS · LOTE · URL) en una pestaña sólida con punta—; la etiqueta larga va en el title.
     const ta = tipoArchivo(l.Ruta || l.Title, l.Tipo);

@@ -6,6 +6,7 @@
 // graficos son SVG por DOM o cajas con ancho en %.
 
 import { CONFIG } from './config.js';
+import { fechaDia } from './reglas.js';   // v1.0.0 (cubeta 6): la fecha que se muestra, una sola forma («1 oct 2026»)
 import { tareasDe, avance, avanceGlobal, estadoVence, vencidasEn, claseVence, fraseVence, diasPara, nombreDe, nombreCorto, ordenarProyectos, lapsoTarea, lapsoProyecto, rangoRoadmap, barraEn, mesesDelRango, celdasDelMes, agendaPorDia, hechasPorSemana, cargaPorPersona, actividadPorPersona, ultimoComentarioPorProyecto, filtrarLigas, TIPOS_LIGA, diaDe, diaSemana, mesSumar, sumarDias, diasEntre, columnasDe, claseDeColumna, segmentosDe, segmentosGlobales, tituloSegmentos, hrefSeguro, proyectosVisibles, porVence, hitosDe, acomodarHitos, sinAcentos, lineaSalud, abiertasDePersona, HECHO, plural, PUEDE } from './reglas.js';
 import { $, estado, activos, visibles, nombreEquipoFiltrado, el, boton, chip, fechaCorta, diaMes, fechaHora, fechaBandeja, porId, proyectoAbierto, proyectoPorClave, equipoDe, iconoEquipo, iconoArchivo, irAHash, textoConMenciones, comentariosDe, nuevosDe, verboComentario, opciones, columnasDeTarea, avisar, conRetardo, abrirDialogo, cerrarDialogo, conservarFoco, filtroArchivosVacio } from './comun.js';
 import { pintarChat, irAlComentario } from './chat.js';   // v0.42.0: Mensajes pinta el hilo del frente elegido en su propia columna
@@ -929,7 +930,7 @@ function pintarAvance(a, orden) {
     for (const p of orden) {
         const ap = avance(tareasDe(p, estado.tareas), columnasDe(p)); const d = diasPara(p.Vence);
         const fila = el('button', 'rep-fila'); fila.type = 'button'; fila.dataset.repP = String(p.id); fila.title = p.Title; fila.addEventListener('click', () => irFrenteId(Number(fila.dataset.repP)));   // C-01 (18-sep): por id al clic, no el objeto capturado
-        const meta = p.Vence ? fraseVence(d, 'corta', fechaCorta(p.Vence)) : 'sin fin de frente';
+        const meta = p.Vence ? fraseVence(d, 'corta', fechaDia(p.Vence)) : 'sin fin de frente';   // v1.0.0 (cubeta 6): la fecha como la maqueta («31 oct 2026»)
         const eti = etiRep(p.Title, meta, iconoEquipo(equipoDe(p), 'sm'), p.Vence && d < 0 ? 'is-danger' : '');   // C-04 (v0.79.0): ahora tambien dice «vence hoy»
         const sl = conSalud ? saludRep(p, hoy) : null; if (sl) eti.querySelector('.tx').appendChild(sl);
         const segs = segmentosDe(ap);
@@ -940,7 +941,9 @@ function pintarAvance(a, orden) {
         for (const [col, n, cls, tono] of segs) { const k = `${cls}|${tono}|${col.nombre}`; const s = cubetas.get(k); if (s) s[1] += n; else cubetas.set(k, [col, n, cls, tono]); }
     }
     if (!orden.length) pp.appendChild(el('p', 'vacio', 'Sin proyectos activos.'));
-    const ley = $('repProyectosLeyenda'); ley.textContent = ''; if (cubetas.size) ley.appendChild(leyenda([...cubetas.values()]));
+    // v1.0.0 (cubeta 6, fidelidad #10): la leyenda solo nombra las cubetas que traen tarjetas (antes repetía «En revisión 0 … En revisión 2»)
+    const conTarjetas = [...cubetas.values()].filter(x => x[1] > 0);
+    const ley = $('repProyectosLeyenda'); ley.textContent = ''; if (conTarjetas.length) ley.appendChild(leyenda(conTarjetas));
 }
 /** Carga por persona: abiertas con las vencidas marcadas; el ancho es relativo a quien mas tiene. */
 function pintarCarga(todas, hist) {

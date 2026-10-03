@@ -88,7 +88,10 @@ function ligaExpediente(e, texto = `${e.clave} · ${e.tipo} ${e.id}`) {
     const a = el('a', 'rp-lk srv-clave', texto); a.href = '#servicios/' + e.clave; a.dataset.expediente = e.clave; a.title = 'Ver el expediente ' + e.clave;
     return a;
 }
-const estadoTxt = e => detenido(e) ? chip(e.bloqueado ? 'detenido' : 'un paso a medias', 'danger') : e.paso === N_PASOS - 1 ? chip('en cobro', 'info') : chip('en curso', 'ok');
+// v1.0.0 (cubeta 6, fidelidad #6): un estado se pinta IGUAL en la barra, la leyenda, la tabla y el KPI — esperando/detenido rojo, «a medias» ámbar
+const estadoTxt = e => detenido(e) ? chip(e.bloqueado ? 'detenido' : 'un paso a medias', e.bloqueado ? 'danger' : 'warn') : e.paso === N_PASOS - 1 ? chip('en cobro', 'info') : chip('en curso', 'ok');
+/** «Espera a» en la tabla: dos renglones como mucho (estilo.css) y el texto entero en el title. */
+function celdaEspera(txt) { const s = el('span', 'srv-espera-t', txt || '—'); if (txt) s.title = txt; return s; }
 const hoyDia = () => diaIso(new Date(Date.now() - new Date().getTimezoneOffset() * 60000));
 
 /** #servicios[/<E#>|ciclo]. Pinta en #serviciosCuerpo (cabecera incluida). */
@@ -136,10 +139,10 @@ function pintarLista(v, d, lista, noEsta) {
             filas: w => filtrarServicios(lista, w.filtro).map(e => {
                 const paso = el('span', 'srv-actual-c'); paso.appendChild(el('span', 'srv-paso', `${e.paso} · ${d.pasos[e.paso].paso}`));
                 if (e.paso_texto) paso.appendChild(el('span', 'rp-sub', e.paso_texto));
-                for (const x of e.rotos || []) paso.appendChild(chip(`paso ${x.paso}: ${x.txt}`, 'danger'));
+                for (const x of e.rotos || []) paso.appendChild(chip(`paso ${x.paso}: ${x.txt}`, 'warn'));   // a medias = ámbar, como su segmento de la barra
                 const nom = el('span', 'srv-exp'); nom.appendChild(ligaExpediente(e)); nom.appendChild(el('span', 'rp-sub', e.titulo));
                 return { clase: 'srv-fila' + (e.bloqueado ? ' is-bloqueado' : ''), datos: { clave: e.clave },
-                    celdas: [{ nodo: nom }, { nodo: trackPasos(e, d.pasos), clase: 'srv-avance' }, { nodo: paso, clase: 'srv-actual rp-izq' }, { t: e.espera_a || '—', clase: 'srv-espera rp-izq' }, { t: fechaCorta(e.desde), clase: 'srv-desde' }] };
+                    celdas: [{ nodo: nom }, { nodo: trackPasos(e, d.pasos), clase: 'srv-avance' }, { nodo: paso, clase: 'srv-actual rp-izq' }, { nodo: celdaEspera(e.espera_a), clase: 'srv-espera rp-izq' }, { t: fechaCorta(e.desde), clase: 'srv-desde' }] };
             }),
             vacio: 'Ningún expediente con ese filtro.',
             despues: () => [guiaPasos(d.pasos)],
@@ -162,7 +165,7 @@ function pintarDetalle(v, d, e) {
             card.appendChild(trackPasos(e, d.pasos, true));
             card.appendChild(filaKpis([
                 { clave: 'paso', valor: `${e.paso} de ${N_PASOS - 1}`, texto: d.pasos[e.paso].paso },
-                { clave: 'estado', valor: e.bloqueado ? 'Detenido' : detenido(e) ? 'Un paso a medias' : e.paso === N_PASOS - 1 ? 'En cobro' : 'En curso', texto: 'Estado', clase: detenido(e) ? 'neg' : '' },
+                { clave: 'estado', valor: e.bloqueado ? 'Detenido' : detenido(e) ? 'Un paso a medias' : e.paso === N_PASOS - 1 ? 'En cobro' : 'En curso', texto: 'Estado', clase: e.bloqueado ? 'neg' : detenido(e) ? 'warn' : '' },
                 { clave: 'espera', valor: e.espera_a || '—', texto: 'Espera a' },
                 { clave: 'desde', valor: e.desde ? fechaCorta(e.desde) : '—', texto: dias === null ? 'Desde' : `Desde · hace ${dias} ${plural(dias, 'día')}` },
                 { clave: 'hechos', valor: String(est.filter(x => x === 'hecho' || x === 'rebotado').length), texto: 'Pasos ya hechos' }
@@ -174,7 +177,8 @@ function pintarDetalle(v, d, e) {
             columnas: [{ texto: 'Paso' }, { texto: 'De quién depende', clase: 'rp-izq' }, { texto: 'Estado' }, { texto: 'Nota', clase: 'rp-izq' }],
             filas: () => d.pasos.map((p, i) => {
                 const roto = (e.rotos || []).find(x => x.paso === i), x = est[i];
-                const cls = x === 'hecho' ? 'ok' : x === 'actual' ? 'info' : x === 'pendiente' ? null : 'danger';
+                // v1.0.0 (cubeta 6, fidelidad #6): los colores de la barra — hecho sin color (navy en la barra, no verde), en curso azul, a medias ámbar, esperando rojo
+                const cls = x === 'actual' ? 'info' : x === 'rebotado' ? 'warn' : x === 'bloqueado' ? 'danger' : null;
                 return { clase: 'srv-paso-fila is-' + x + (i === e.paso ? ' is-actual' : ''), datos: { paso: String(i) },
                     celdas: [{ t: `${i} · ${p.paso}` }, { t: p.quien || '—', clase: 'rp-izq' }, { nodo: chip(TEXTO_PASO[x], cls) }, { t: roto ? roto.txt : i === e.paso ? (e.paso_texto || '') : '', clase: 'rp-izq' }] };
             }),

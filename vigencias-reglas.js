@@ -4,6 +4,8 @@
 // .claude/skills/_compartido/scripts/vigencias.py de los marcadores `> 📅 **VIGENCIA**` de la KB y se publica como
 // vigencias.json en CONFIG.bibliotecaDatos. Aqui solo se valida y se cuentan los dias.
 
+import { fechaDia } from './reglas.js';   // v1.0.0 (cubeta 6): la fecha que se muestra, una sola forma en la app
+
 export const VERSION_VIGENCIAS = 1;
 /** Umbrales del semaforo, en dias que faltan: hasta ROJO es rojo, hasta AMBAR es ambar. Una renovacion pide tiempo. */
 export const VIG_ROJO = 15;
@@ -64,6 +66,6 @@ export const filtrarVigencias = (lista, unidad) => unidad ? lista.filter(v => St
 /** La más próxima que NO ha vencido (para el KPI «la siguiente»); null si no hay. Recibe la lista ya ordenada (con `dias`). */
 export const siguienteVigencia = ordenadas => ordenadas.find(v => v.dias >= 0) || null;
 
-const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-/** 2027-01-17 -> «17-ene-2027» (sin pasar por Date: la fecha es de calendario, no un instante). */
-export const fechaVigencia = iso => { const [a, m, d] = iso.split('-'); return `${Number(d)}-${MESES[Number(m) - 1]}-${a}`; };
+/** 2027-01-17 -> «17 ene 2027» (sin pasar por Date: la fecha es de calendario, no un instante). v1.0.0 (cubeta 6): el formateador único de la
+ *  app (reglas.js fechaDia, «1 oct 2026» como la maqueta); antes «17-ene-2027». */
+export const fechaVigencia = iso => fechaDia(iso);

@@ -129,6 +129,8 @@
         <section class="mn-card cola" id="cardHoy">
           <div class="cola-cab"><h2>Requiere atención <span class="n" id="nHoy"></span></h2><div class="filtros grupo" id="hoyFiltro" role="group" aria-label="Qué tarjetas entran a la cola"></div></div>
           <div class="cola-dos" id="inicioHoy"><div class="cola-lista" id="inicioUrgente"></div><div class="cola-lista" id="inicioResto"></div></div>
+          <!-- v1.0.0 (cubeta 6): en celular la cola se pliega tras 6 renglones (no es un muro); el CSS solo lo enseña ahí -->
+          <button class="mn-btn is-ghost cola-ver" id="colaVerTodo" type="button" aria-controls="inicioHoy" hidden>Ver todo</button>
         </section>
         <section class="mn-card"><h2>Proyectos activos</h2><div class="lista dosc" id="inicioProyectos"></div></section>
         <div class="dosmitad">
@@ -440,6 +442,8 @@
        defecto; lo abre PREGUNTAR de la cabecera de la plantilla. «Pregunta lo que sea», preguntas sugeridas por rol calculadas en vivo, preguntas
        recientes (este equipo) y la respuesta con su liga «Abrir». preguntar.js lo pinta; la respuesta sale de responder(pregunta), aislada para
        enchufarle después un agente de Copilot Studio. -->
+  <!-- v1.0.0 (cubeta 6): en tableta (721–1100) el panel va ENCIMA del contenido: este velo lo marca y tocarlo lo cierra (el CSS lo enseña solo ahí) -->
+  <div class="pq-fondo" id="pqFondo" aria-hidden="true"></div>
   <aside class="preguntar" id="preguntar" aria-labelledby="pqTitulo" hidden>
     <div class="pq-cab"><span class="pq-tit" id="pqTitulo">Preguntar</span><span class="cab-esp"></span>
       <button type="button" class="pq-btn" id="pqNueva" title="Pregunta nueva" aria-label="Pregunta nueva"><span class="ico" data-icono="mas"></span></button>

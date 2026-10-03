@@ -17,7 +17,7 @@
 // docs.js NO importa este módulo (recibe el gancho de la subida con fijarSubidaProyecto); armazon.js y tablero.js sí.
 
 import { CONFIG } from './config.js';
-import { PUEDE, tareasDe, fechaMexico, slug, ordenarProyectos, plural, nombreDe, tipoArchivo, textosLargos, TEXTO_MAX, hrefSeguro } from './reglas.js';
+import { PUEDE, tareasDe, fechaMexico, slug, ordenarProyectos, plural, nombreDe, tipoArchivo, textosLargos, TEXTO_MAX, hrefSeguro, fechaDia } from './reglas.js';
 import { $, L, VERSION, estado, el, boton, chip, iconoSvg, TRAZOS, iconoArchivo, iconoEquipo, avisar, abrirDialogo, cerrarDialogo, confirmar, opciones, porId, proyectoPorClave, registrarActividad, equipoDe, fechaCorta, fechaHora, haceCuanto, agregarSinDuplicar, activos, irAHash, limpiar, conservarFoco } from './comun.js';
 import { baseDrive, baseSitio, subirFragmento, leerMonitorCopia, esSinRed } from './graph.js';
 import { construirManifiesto, validarManifiesto, bytesDelManifiesto, nombreCarpetaLote, NOMBRE_MANIFIESTO } from './lote.js';
@@ -114,6 +114,11 @@ export async function alCrearProyecto(p) {
 }
 /** Para quien sube: ¿puede subir a ESTE proyecto? (rol, proyecto activo y la biblioteca, o el buzón de su unidad como antes). */
 export function puedeSubirEn(p) { return PUEDE.ligar(estado.rol) && !!p && p.Estado === 'activo' && (bibliotecaLista() || puedeLigarEn(p)); }
+/** v1.0.0 (cubeta 6): cuántos archivos de la carpeta del proyecto se conocen (la pestaña «Documentos · N» suma ligas + carpeta, como el contador de la
+ *  tarjeta). NO pide la carpeta: la leen Documentos, la ficha y Archivos (y repintan al llegar, que es cuando la cifra se corrige). Pedirla aquí —en
+ *  cada pintado del proyecto— movía el reloj de las lecturas y repintados de siempre: en la matriz de capturas (tiempo real) una marca de visto de
+ *  lectura caía antes de «CERO escrituras» y, en la versión que no repintaba, «editar tras la relectura» (C-02) de colaborador fallaba. */
+export function nArchivosDe(p) { return p && bibliotecaLista() ? archivosDe(p.Clave).length : 0; }
 /** Los archivos de la carpeta del proyecto ligados a una tarjeta (la ficha de la tarjeta los lista; pide la carpeta si no se ha leído). */
 export function archivosDeTarjeta(p, tareaId) {
     if (!p || !bibliotecaLista()) return [];
@@ -617,7 +622,7 @@ function tablaArchivos(p, items) {
         else tt.appendChild(el('span', '', a.nombre));
         tt.title = `${a.nombre} · ${tamanoLegible(a.tamano)}${a.creadoPor ? ' · subido por ' + nombreDe(a.creadoPor, estado.roles) : ''}`;
         caja2.appendChild(tt); tdN.appendChild(caja2); tr.appendChild(tdN);
-        tr.appendChild(el('td', 'c-del', a.modificado ? fechaCorta(a.modificado) : '—'));
+        tr.appendChild(el('td', 'c-del', a.modificado ? fechaDia(a.modificado) : '—'));   // v1.0.0 (cubeta 6): «3 oct 2026», como la maqueta
         const ta = tipoArchivo(a.nombre); const tdT = el('td', 'c-tipo'); const bt = el('span', 'mn-chip tipo is-' + ta.clave, ta.sigla); bt.title = ta.etiqueta; tdT.appendChild(bt); tr.appendChild(tdT);
         const tdE = el('td', 'c-estado'); const est = el('span', 'estado'); est.appendChild(a.enviado ? chip('enviado a archivar', 'ok') : chip('sin archivar', 'warn')); if (a.enviado && a.lote) est.title = a.lote; tdE.appendChild(est); tr.appendChild(tdE);
         const tarea = a.tareaId ? porId(estado.tareas, a.tareaId) : null;
@@ -835,7 +840,7 @@ function pintarBibliotecas(cont, s) {
         const carpeta = s.ruta.join('/'), reciente = { llave: `b:${b.clave}:${it.id}`, origen: 'biblioteca', unidad: b.clave, carpeta, nombre: it.nombre, itemId: it.id, url: it.url };
         const t = el('span', 'tx'); const href = hrefSeguro(it.url, { tipo: 'archivado', host: host() });
         if (href) { const a = el('a', '', it.nombre); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.addEventListener('click', () => anotarReciente(reciente)); t.appendChild(a); } else t.appendChild(el('b', '', it.nombre));
-        t.appendChild(el('small', '', `${it.modificado ? fechaCorta(it.modificado) + ' · ' : ''}${tamanoLegible(it.tamano)}`)); d.appendChild(t);
+        t.appendChild(el('small', '', `${it.modificado ? fechaDia(it.modificado) + ' · ' : ''}${tamanoLegible(it.tamano)}`)); d.appendChild(t);
         const acc = [accionBoton('Vista previa', 'vista', () => abrirVistaPrevia({ base: baseSitio(b.siteId), itemId: it.id, nombre: it.nombre, url: it.url, reciente }))];
         if (href) acc.push(accionLiga('Abrir', 'abrir', href, () => anotarReciente(reciente)));
         // la liga de escritorio se arma con la ruta del drive (su webUrl no es la del archivo para Office: Doc.aspx)
@@ -881,7 +886,8 @@ async function guardarLigarA(ev) {
 
 function pintarMias(cont) {
     const card = el('section', 'rp-card arch-mias'); const cab = el('div', 'rp-dh'); cab.appendChild(el('h3', '', 'En la cola de este equipo')); card.appendChild(cab);
-    const nota = el('p', 'mn-help arch-nota', 'En iPhone la cola solo avanza con la app abierta: si la cierras, lo pendiente sube cuando la vuelvas a abrir.'); nota.dataset.nota = 'iphone'; card.appendChild(nota);
+    // v1.0.0 (cubeta 6): la nota de iPhone es para quien SUBE; lectura no sube y no la ve (su cola siempre está vacía)
+    if (PUEDE.ligar(estado.rol)) { const nota = el('p', 'mn-help arch-nota', 'En iPhone la cola solo avanza con la app abierta: si la cierras, lo pendiente sube cuando la vuelvas a abrir.'); nota.dataset.nota = 'iphone'; card.appendChild(nota); }
     if (disco === false) card.appendChild(el('p', 'arch-error', 'Este navegador no guarda la cola en el equipo: no cierres la app hasta que termine de subir.'));
     const vivas = cola.filter(r => r.estado !== 'subido');
     if (!vivas.length) card.appendChild(el('p', 'vacio', 'Nada en la cola.'));

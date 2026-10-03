@@ -1833,7 +1833,7 @@ try {
           poner('docsBusca', 'oficio'); R.ok('v0.33.0: con filtro o busqueda el nodo «sin documentos» no aparece y la raiz dice «N de M»', !document.querySelector('#docsLista tr.vacias') && document.querySelector('#docsLista tr.raiz').textContent.includes('1 de 2')); poner('docsBusca', ''); }
         // v0.19.0: nombre humano + fecha del documento; la ruta ya no va debajo del nombre.
         { const pdf = [...document.querySelectorAll('#docsLista tr.doc')].find(tr => tr.querySelector('.c-tipo [data-tipo="pdf"]')); const enl = [...document.querySelectorAll('#docsLista tr.doc')].find(tr => tr.querySelector('.c-tipo [data-tipo="enlace"]'));
-          R.ok('v0.19.0: el PDF de la convención se pinta como emisor + título humano + rev, con la fecha del documento en su columna y sin ruta debajo', !!pdf && pdf.querySelector('.c-nombre .emisor').textContent === 'MINSA' && pdf.querySelector('.c-nombre .t').textContent === 'Plan contingencia' && pdf.querySelector('.c-nombre .rev').textContent === 'rev01' && pdf.querySelector('.c-del').textContent === '20/06/2025' && !pdf.querySelector('.c-nombre .p') && !pdf.querySelector('.c-nombre div.cuerpo'), pdf && pdf.querySelector('.c-nombre').textContent);
+          R.ok('v0.19.0: el PDF de la convención se pinta como emisor + título humano + rev, con la fecha del documento en su columna y sin ruta debajo', !!pdf && pdf.querySelector('.c-nombre .emisor').textContent === 'MINSA' && pdf.querySelector('.c-nombre .t').textContent === 'Plan contingencia' && pdf.querySelector('.c-nombre .rev').textContent === 'rev01' && pdf.querySelector('.c-del').textContent === '20 jun 2025' /* v1.0.0 (cubeta 6): la fecha que se muestra, «20 jun 2025» (antes «20/06/2025») */ && !pdf.querySelector('.c-nombre .p') && !pdf.querySelector('.c-nombre div.cuerpo'), pdf && pdf.querySelector('.c-nombre').textContent);
           R.ok('v0.19.0: el nombre completo y la ruta viven en el title del nombre', !!pdf && pdf.querySelector('.c-nombre .t a').title.includes('2025-06-20_MINSA_plan-contingencia_rev01.pdf') && pdf.querySelector('.c-nombre .t a').title.includes('04_SGI/'));
           R.ok('v0.19.0: el enlace sale con su título tal cual, «—» en la fecha del documento y sin dirección debajo', !!enl && enl.querySelector('.c-nombre .t').textContent === 'Oficio ASEA en el correo' && enl.querySelector('.c-del').textContent === '—' && !enl.querySelector('.c-nombre .emisor') && !enl.querySelector('.c-nombre .p'));
           R.ok('v0.19.0: el menú «⋯» trae «Copiar ruta» en el archivado y «Copiar dirección» en el enlace', !!pdf && pdf.querySelector('.fila-menu [data-copiar]').textContent === 'Copiar ruta' && !!enl && enl.querySelector('.fila-menu [data-copiar]').textContent === 'Copiar dirección');
@@ -2037,7 +2037,11 @@ try {
             await abrirLau(); await esperar(() => visible('p-proyecto'), 'proyecto');
             let notasAntes = filas('actividad').filter(a => a.fields.Accion === 'comentar' && Number(a.fields.ProyectoId) === proyectoId).length;
             R.ok('v0.8.0: la pestaña Chat existe y cuenta los comentarios del proyecto (notas de tarjeta incluidas)', !!document.querySelector('.tab[data-tab="chat"]') && !$('nChatTab').hidden && $('nChatTab').textContent === String(notasAntes), `${$('nChatTab').textContent}/${notasAntes}`);
-            R.ok('v0.8.0: la pestaña Documentos cuenta las ligas', $('nDocsTab').textContent === String(filas('ligas').filter(l => Number(l.fields.ProyectoId) === proyectoId).length));
+            // v1.0.0 (cubeta 6): la pestaña suma ligas + archivos de la carpeta del proyecto en ERP_Proyectos (antes «cuenta las ligas»; sin la biblioteca, solo las ligas)
+            { const nCarpeta = () => (DB.proy && DB.listas.bibProyectos ? DB.proy.filter(a => !a.esCarpeta && a.carpeta === CLAVE).length : 0);
+              const esperadoDocs = () => String(filas('ligas').filter(l => Number(l.fields.ProyectoId) === proyectoId).length + nCarpeta());
+              await esperar(() => $('nDocsTab').textContent === esperadoDocs(), 'contador de Documentos').catch(() => {});
+              R.ok('v0.8.0 + cubeta 6: la pestaña Documentos cuenta las ligas y los archivos de la carpeta del proyecto', $('nDocsTab').textContent === esperadoDocs(), `${$('nDocsTab').textContent}/${esperadoDocs()}`); }
             tab('chat'); await esperar(() => visible('tab-chat'), 'chat');
             const masNuevo = filas('actividad').filter(a => a.fields.Accion === 'comentar' && Number(a.fields.ProyectoId) === proyectoId).sort((a, b) => String(a.fields.Cuando).localeCompare(String(b.fields.Cuando))).pop();
             R.ok('v0.8.0: el hash dice /chat y el hilo trae los comentarios en orden (el más nuevo abajo)', location.hash === `#p/${CLAVE}/chat` && document.querySelectorAll('#chatHilo .msg').length === notasAntes && [...document.querySelectorAll('#chatHilo .msg')].pop().dataset.comentario === String(masNuevo.id) && $('chatHilo').textContent.includes('ya viste el oficio'), location.hash);
@@ -2482,7 +2486,7 @@ try {
               clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada'); }
             // U-03 (v0.78.0): la barra corta tiene objetivo tactil de 36 px (::after) y su texto de al lado abre la misma tarjeta
             { const corta = document.querySelector('#tab-roadmap button.g-barra.is-corta'); const txt = corta && corta.parentElement.querySelector('.g-txt.g-fuera.is-clic');
-              R.ok('U-03 (v0.78.0): una barra corta lleva ::after de -7/-6 px (36 px de alto) y un texto de al lado con is-clic que recibe el clic', !!corta && getComputedStyle(corta, '::after').top === '-7px' && getComputedStyle(corta, '::after').left === '-6px' && !!txt && getComputedStyle(txt).pointerEvents === 'auto', `corta=${!!corta} txt=${!!txt}`);
+              R.ok('U-03 (v0.78.0) + cubeta 6: una barra corta lleva ::after de -7 px arriba (36 px de alto) y -6 px a los lados (-12 en celular: 36 de ancho) y un texto de al lado con is-clic que recibe el clic', !!corta && getComputedStyle(corta, '::after').top === '-7px' && getComputedStyle(corta, '::after').left === (matchMedia('(max-width: 720px)').matches ? '-12px' : '-6px') && !!txt && getComputedStyle(txt).pointerEvents === 'auto', `corta=${!!corta} txt=${!!txt}`);
               if (txt) { txt.click(); await esperar(() => $('dlgTarea').open, 'tarjeta desde el texto de la barra corta'); R.ok('U-03 (v0.78.0): el texto de al lado abre la tarjeta de su barra', $('dlgTarea').open && location.hash.endsWith(`/t/${corta.dataset.roadmap}`)); clic('tCerrar'); await esperar(() => !$('dlgTarea').open, 'cerrada'); } }
             // R-04 (v0.121.0): el renglon de «Sin fecha» abre su tarjeta (sustituye la prueba del «sin fecha» pegajoso, que salio del eje)
             { const it = document.querySelector('#roadmapSinFecha .g-sf-it'); if (it) { it.click(); await esperar(() => $('dlgTarea').open, 'tarjeta desde Sin fecha');
@@ -2688,7 +2692,7 @@ try {
             await recargarYEsperar(); await dormir(30);
             R.ok('v0.10.0: un comentario ajeno posterior a la visita enciende la insignia del rail y marca el renglón como nuevo', !$('nMensajes').hidden && $('nMensajes').textContent === '1' && document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"]`).classList.contains('is-nuevo') && $('mensajesSub').textContent.includes('1 mensaje nuevo desde'));
             R.ok('v0.83.0 (U-03): el subtítulo lleva la cifra con plural real y sin la instrucción del @ (que vive en el placeholder)', /^\d+ conversaci(ón|ones) · /.test($('mensajesSub').textContent) && !$('mensajesSub').textContent.includes('@nombre') && !$('mensajesSub').textContent.includes('(s)'), JSON.stringify($('mensajesSub').textContent));
-            R.ok('v0.83.0 (U-04): la fecha del renglón de la bandeja es relativa (hora si es de hoy) y la completa va en el title', (() => { const d = document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"] .d`); return !!d && /^\d{2}:\d{2}$/.test(d.textContent) && /\d{2}\/\d{2}, \d{2}:\d{2}/.test(d.title); })(), (document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"] .d`) || {}).textContent);
+            R.ok('v0.83.0 (U-04): la fecha del renglón de la bandeja es relativa (hora si es de hoy) y la completa va en el title', (() => { const d = document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"] .d`); return !!d && /^\d{2}:\d{2}$/.test(d.textContent) && /^\d{1,2} [a-z]{3} \d{4}, \d{2}:\d{2}$/.test(d.title); })() /* v1.0.0 (cubeta 6): el title con la fecha de la app, «3 oct 2026, 02:52» (antes «03/10, 02:52») */, (document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"] .d`) || {}).textContent);
             // v0.42.0 (Carlos, 14-sep; artifact 17j5wESZ): el renglon ya NO salta al proyecto — el hilo abre a la derecha, dentro de Mensajes.
             document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"]`).click(); await esperar(() => visible('tab-chat') && location.hash === `#mensajes/f/${CLAVE}`, 'hilo dentro de Mensajes'); await dormir(30);
             R.ok('v0.42.0: el renglón abre el hilo del frente DENTRO de Mensajes (#mensajes/f/<clave>), alojando el mismo #tab-chat, y la insignia se apaga al leerlo', visible('p-mensajes') && visible('tab-chat') && $('tab-chat').parentNode === $('mensajesHilo') && $('nMensajes').hidden && $('chatHilo').textContent.includes('mensaje nuevo para la bandeja') && document.querySelector(`#mensajesLista [data-mensajes="${proyectoId}"]`).classList.contains('is-on'), location.hash);
@@ -3817,7 +3821,8 @@ try {
                 R.ok('Gastos: la cabecera fija con su título y el botón vivo', $('p-gastos').querySelector('h1').textContent === 'Gastos' && (ROL === 'lectura' || !$('btnNuevoGasto').disabled));
                 R.ok('Mis gastos: solo los míos, el más reciente primero', idsEn('#misGastos').join(',') === [gMio, gMioRech, gMioReemb].join(','), idsEn('#misGastos').join(','));
                 R.ok('Mis gastos: estado con su chip (registrado · rechazado · reembolsado)', filaG(gMio).dataset.estado === 'registrado' && /Registrado/.test(filaG(gMio).querySelector('.gasto-estado').textContent) && filaG(gMioRech).querySelector('.mn-chip.is-danger')?.textContent === 'Rechazado' && filaG(gMioReemb).querySelector('.mn-chip.is-ok')?.textContent === 'Reembolsado');
-                R.ok('Mis gastos: el monto con su moneda, en la monoespaciada', filaG(gMioReemb).querySelector('.monto').textContent === '$120.00 USD' && /IBM Plex Mono/.test(getComputedStyle(filaG(gMioReemb).querySelector('.monto')).fontFamily), getComputedStyle(filaG(gMioReemb).querySelector('.monto')).fontFamily);
+                // v1.0.0 (cubeta 6, fidelidad #1): la letra de datos es Source Sans 3 con cifras tabulares (antes «en la monoespaciada», IBM Plex Mono)
+                R.ok('Mis gastos: el monto con su moneda, en la letra de datos (Source Sans 3, cifras tabulares)', filaG(gMioReemb).querySelector('.monto').textContent === '$120.00 USD' && /Source Sans 3/.test(getComputedStyle(filaG(gMioReemb).querySelector('.monto')).fontFamily) && /tabular-nums/.test(getComputedStyle(filaG(gMioReemb).querySelector('.monto')).fontVariantNumeric), getComputedStyle(filaG(gMioReemb).querySelector('.monto')).fontFamily + ' · ' + getComputedStyle(filaG(gMioReemb).querySelector('.monto')).fontVariantNumeric);
                 R.ok('Mis gastos: la fecha en columna (día y mes corto)', filaG(gMio).querySelector('.gasto-fecha b')?.textContent === String(Number(dia(-2).slice(8, 10))));
                 R.ok('Mis gastos: el rechazado dice quién y por qué', /Rechazado por Tesorera Demo/.test(filaG(gMioRech).textContent) && /Duplicado del 26-sep/.test(filaG(gMioRech).textContent));
                 R.ok('Mis gastos: CFDI solo si la columna trae valor', filaG(gMio).querySelector('.cfdi')?.textContent === 'Sin CFDI' && filaG(gMioReemb).querySelector('.cfdi')?.textContent === 'CFDI ✓' && !filaG(gMioRech).querySelector('.cfdi'));
@@ -4475,8 +4480,9 @@ try {
             const seg = f => [...f.querySelectorAll('.srv-p')].map(x => x.className.replace('srv-p is-', '')).join(',');
             R.ok('servicios: 12 segmentos; el paso actual marcado y los anteriores hechos', seg(renglones[3]) === Array(11).fill('hecho').concat('actual').join() && renglones.every(f => f.querySelectorAll('.srv-p').length === 12));
             R.ok('servicios: el bloqueado sale «esperando» en su paso y la fila lo marca', renglones[1].classList.contains('is-bloqueado') && renglones[1].querySelectorAll('.srv-p')[3].classList.contains('is-bloqueado'));
-            R.ok('servicios: el paso pasado a medias sale rojo y con su chip', renglones[2].querySelectorAll('.srv-p')[4].classList.contains('is-rebotado') && /paso 4: PDH-009 nunca se envió/.test(renglones[2].textContent));
-            R.ok('servicios: el paso actual nombra su paso de la tabla de 12; «Desde» en fecha corta, «—» si no hay', /6 · Paso de prueba 6/.test(renglones[2].textContent) && renglones[0].querySelector('.srv-desde').textContent === '23-sep' && renglones[1].querySelector('.srv-desde').textContent === '—');
+            // v1.0.0 (cubeta 6, fidelidad #6): «a medias» es ÁMBAR en la barra Y en su chip (antes «sale rojo»: el chip iba en rojo y la barra en ámbar)
+            R.ok('servicios: el paso pasado a medias sale ámbar en la barra y en su chip', renglones[2].querySelectorAll('.srv-p')[4].classList.contains('is-rebotado') && /paso 4: PDH-009 nunca se envió/.test(renglones[2].textContent) && [...renglones[2].querySelectorAll('.mn-chip')].some(c => /PDH-009/.test(c.textContent) && c.classList.contains('is-warn')));
+            R.ok('servicios: el paso actual nombra su paso de la tabla de 12; «Desde» en fecha corta, «—» si no hay', /6 · Paso de prueba 6/.test(renglones[2].textContent) && renglones[0].querySelector('.srv-desde').textContent === '23 sep 2026' /* v1.0.0 (cubeta 6): la fecha de la app (antes «23-sep») */ && renglones[1].querySelector('.srv-desde').textContent === '—');
             R.ok('servicios: texto con HTML se pinta como texto (sin XSS)', !window.__xssSrv && /<img src=x/.test(renglones[0].querySelector('.srv-espera').textContent));
             R.ok('servicios: la guía de los 12 pasos trae a quién depende cada uno', $('serviciosPasos').querySelectorAll('li').length === 12 && /José Sandoval/.test($('serviciosPasos').textContent));
             R.ok('servicios: resumen 4 abiertos · 1 en cobro · 2 detenidos', /4/.test($('serviciosKpis').children[0].textContent) && /1/.test($('serviciosKpis').children[1].textContent) && /2/.test($('serviciosKpis').children[2].textContent));
@@ -4899,6 +4905,9 @@ try {
                 tr.querySelector('[data-accion-archivo="vista"]').click(); await esperar(() => $('dlgVistaPrevia').open && DB.iframes.length, 'vista previa (lectura)');
                 R.ok('cubeta 5 (lectura): la vista previa abre (POST …/preview) en el marco del tenant', DB.iframes.at(-1) === `https://minsaenergy.sharepoint.com/_vista-falsa/${id}`, DB.iframes.at(-1));
                 clic('vpCerrar'); await esperar(() => !$('dlgVistaPrevia').open, 'vista previa cerrada');
+                // v1.0.0 (cubeta 6): lectura no sube: «Mis subidas» no le enseña la nota de iPhone (es de quien tiene cola)
+                await irArchivos('#archivos/mias'); await esperar(() => document.querySelector('#archivosSeccion .arch-mias'), 'Mis subidas (lectura)');
+                R.ok('cubeta 6 (lectura): Mis subidas sin la nota de iPhone y con la cola vacía', !document.querySelector('#archivosSeccion [data-nota="iphone"]') && /Nada en la cola/.test(document.querySelector('#archivosSeccion .arch-mias').textContent));
             } else {
                 // ---- (a) subir chico: PUT a la carpeta, columnas, bitácora, historial y recientes
                 const nP0 = DB.llamadas.filter(c => c.startsWith('PUT /drives/drive-proyectos/')).length;
@@ -5162,6 +5171,39 @@ try {
             R.ok(`v1.0.0 (ruta nueva): ${h} cae en ${pid} con «${mod}» resaltado${entra ? ' y el hash conserva el sufijo' : ' (sin permiso: Inicio)'}`, ok && (!entra || location.hash === h), `${pantallaVisible()} · ${moduloOn()} · ${location.hash}`);
             document.querySelector('#avisos .cerrar')?.click();
         }
+        // (b2) v1.0.0 (cubeta 6; plan «Celular — a 1 toque», premortem): TODA página de hoy —las de siempre y las nuevas de Trabajo, Archivos, Dinero,
+        // Operación y Cuenta— a ≤ 2 toques desde cualquier pantalla: el principal de cada módulo es 1 (su botón); lo demás es 2 = módulo + chip, o
+        // módulo + su entrada del panel (escritorio y tableta), o ☰ + la entrada (celular: la hoja es el ÍNDICE con todos los módulos del rol); el
+        // proyecto en Archivos cuelga de «Por proyecto» (el principal). Fuera, a propósito: estados DENTRO de una página (las pestañas del proyecto,
+        // un hilo de Mensajes, el filtro de Capital), carpetas dentro de una biblioteca y frentes cerrados (plegados). Sustituye en alcance —sin
+        // quitarla— a «a 1 toque» de la cubeta 1, que miraba solo las 15 pantallas.
+        { const { modulosDe } = await import('../reglas.js'), AR6 = await import('../archivos.js');
+          await irHash('#archivos'); await esperar(() => visible('p-archivos') && !!document.querySelector('#archivosSeccion > *'), 'Por proyecto');
+          const conCarpetas = AR6.estadoBiblioteca().estado === 'lista';
+          const filaProyecto = !!document.querySelector(`#archivosSeccion [data-ir="#archivos/proyecto/${CLAVE}"]`);
+          const delRol = modulosDe(ROL).map(x => x.clave);
+          const entrada = h => [...document.querySelectorAll(`#panelArbol .panel-modulo .ch[data-ir="${h}"]`)].find(b => !b.classList.contains('oculto') && !b.closest('.oculto') && !b.closest('.fo-hijos[hidden]') && delRol.concat('cuenta').includes(b.closest('.panel-modulo').dataset.modulo));
+          const chipDe = h => [...document.querySelectorAll(`#chipsModulo .chip-m[data-ir="${h}"]`)].find(b => !b.classList.contains('oculto'));
+          const toques = h => {
+              if (h === '#cuenta' || delRol.some(m => principalDe(m, ROL) === h)) return 1;
+              if (chipDe(h) || entrada(h)) return 2;
+              if (h === `#archivos/proyecto/${CLAVE}` && filaProyecto) return 2;   // Archivos (su principal es Por proyecto) + el renglón del proyecto
+              return 99;
+          };
+          const PAGINAS = ['#inicio', '#mis', '#mensajes', '#proyectos', `#p/${CLAVE}`, '#roadmap', '#calendario', '#reportes/avance', '#reportes/carga', '#reportes/semanas', '#reportes/actividad', '#reportes/vencidas',
+              '#archivos', '#archivos/recientes', '#archivos/fijados', '#archivos/bibliotecas', '#archivos/mias', ...(conCarpetas ? [`#archivos/proyecto/${CLAVE}`] : []),
+              '#finanzas/cobrar/saldo', '#finanzas/cobrar/cliente', '#finanzas/cobrar/antiguedad', '#finanzas/cobrar/emitido', '#finanzas/cobrar/sin-rep', '#finanzas/pagar/saldo', '#finanzas/pagar/proveedor', '#finanzas/pagar/antiguedad',
+              '#gastos', '#capital', '#capital/mes', '#servicios', ...(document.querySelector('#panelArbol .ch[data-ir="#servicios/E3"]') ? ['#servicios/E3'] : []), '#servicios/ciclo', '#compras', '#compras/partidas', '#vigencias', '#cuenta', '#cuenta/equipo']
+              .filter(h => puedeVerPantalla(leerRuta(h).pantalla, ROL));
+          // Tesorería y Contabilidad de Gastos son del rol de ERP_Roles: entran si la persona las tiene (su entrada del panel lo dice; su permiso lo prueban las de Gastos)
+          for (const h of ['#gastos/tesoreria', '#gastos/contabilidad']) if (document.querySelector(`#panelArbol .ch[data-ir="${h}"]:not(.oculto)`)) PAGINAS.push(h);
+          const lejos = PAGINAS.filter(h => toques(h) > 2);
+          R.ok(`v1.0.0 (cubeta 6, «a 1 toque»): las ${PAGINAS.length} páginas de hoy que el rol ve —también las nuevas de reporte, Tesorería, Ciclo, Partidas y Archivos— están a ≤ 2 toques (módulo + chip o entrada; ☰ + entrada en el celular)`,
+              PAGINAS.length >= (gerencia ? 34 : ROL === 'lectura' ? 16 : 22) && !lejos.length, lejos.join() || PAGINAS.length + ' páginas');
+          const hojaMods = [...document.querySelectorAll('#panelArbol .panel-modulo:not([hidden])')].map(d => d.dataset.modulo);
+          R.ok(celular ? 'v1.0.0 (cubeta 6, celular): la hoja (☰) es el índice — trae los módulos del rol, el actual primero (los demás con su título)' : 'v1.0.0 (cubeta 6, escritorio): el panel trae solo el módulo actual (la hoja-índice es del celular)',
+              celular ? delRol.every(m => hojaMods.includes(m)) && document.querySelector('#panelArbol .panel-modulo.is-actual:not([hidden])') && [...document.querySelectorAll('#panelArbol .panel-modulo:not([hidden]):not(.is-actual) > .pm-tit')].length === hojaMods.length - 1
+                      : hojaMods.length === 1, hojaMods.join()); }
         if (gerencia) {
             // v1.0.0 (cubeta 2; sustituye a «#finanzas/pagar/<r> deja Finanzas en «Por pagar»… (hasta que tengan página propia)» y a «elegir «Por pagar» dentro de
             // Finanzas mueve el sufijo»): cada sufijo ES su página, y cada página es una entrada del panel de Dinero que queda resaltada

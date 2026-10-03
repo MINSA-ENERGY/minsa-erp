@@ -24,9 +24,9 @@ import { pintarCapital, pintarCapitalProyecto, pintarCapitalTab, puedeVerCapital
 import { pintarFinanzas, alCambiarCobranza, fijarIrDesdeFinanzas } from './cobranza.js';   // v0.165.0: Finanzas > Cobranza (solo gerencia); v1.0.0: Dinero › Por cobrar / Por pagar
 import { fijarNavGuardados } from './guardados.js';   // v1.0.0 (cubeta 2): «Guardados» (ERP_Vistas o este equipo)
 import { pintarArmazon, engancharArmazon, fijarNavArmazon, pintarCuenta, cerrarHoja, registrarFuenteAvisos } from './armazon.js';   // v1.0.0: rail, panel, cabecera, Cuenta (rediseño 2026-10-02)
-import { engancharModuloArchivos, alCambiarArchivos, iniciarCola, alRefrescar, pendientesCola, fuenteAvisosArchivos, revisarAntesDeCerrar, alCrearProyecto, pintarCarpetaProyecto } from './archivos.js';   // v1.0.0 (cubeta 5): Archivos (ERP_Proyectos, la cola, mandar a archivar)
+import { engancharModuloArchivos, alCambiarArchivos, iniciarCola, alRefrescar, pendientesCola, fuenteAvisosArchivos, revisarAntesDeCerrar, alCrearProyecto, pintarCarpetaProyecto, nArchivosDe } from './archivos.js';   // v1.0.0 (cubeta 5): Archivos (ERP_Proyectos, la cola, mandar a archivar)
 import { repintarDocsDeFicha } from './tablero.js';
-import { leerRuta, puedeVerPantalla } from './reglas.js';
+import { leerRuta, puedeVerPantalla, fechaDia } from './reglas.js';   // fechaDia: v1.0.0 (cubeta 6), la fecha que se muestra («1 oct 2026»)
 import { cabecera, vistaDe, soltarIdsFuera, filaKpis } from './reporte.js';   // v1.0.0 (cubeta 3): la cabecera y la fila de KPIs de la plantilla en Proyectos y en el proyecto
 import { pintarVigencias, alCambiarVigencias } from './vigencias.js';   // v0.166.0: Vigencias (solo gerencia)
 import { pintarServicios, alCambiarServicios } from './servicios.js';   // v0.168.0: Servicios (gerencia y colaborador)
@@ -494,7 +494,7 @@ function fichaProyecto(p, ts) {
     const md = mesDia(p.Estado === 'activo' ? p.Vence : p.CerradoEl);
     // U-07 (mejorar-app, 16-sep): sin fecha la hoja dice «SIN / fecha» en gris — antes «— ?» y el significado solo vivia en el title, que en celular no existe
     const cal = el('span', 'cal' + (md ? '' : ' sin')); cal.appendChild(el('span', 'mes', md ? md.mes : 'sin')); cal.appendChild(el('span', 'dia', md ? String(md.dia) : 'fecha'));
-    cal.title = p.Estado !== 'activo' ? `Cerrado el ${fechaCorta(p.CerradoEl)}` : d === null ? 'Sin fin del frente' : `Fin del frente: ${fechaCorta(p.Vence)} · ${fraseVence(d, 'dias')}`;   // C-04 (v0.79.0): antes decia «vencio» sin acento y «en N d» sin verbo
+    cal.title = p.Estado !== 'activo' ? `Cerrado el ${fechaDia(p.CerradoEl)}` : d === null ? 'Sin fin del frente' : `Fin del frente: ${fechaDia(p.Vence)} · ${fraseVence(d, 'dias')}`;   // C-04 (v0.79.0): antes decia «vencio» sin acento y «en N d» sin verbo
     r.appendChild(cal);
     // icono del equipo, y en un solo bloque de texto el titulo con su etiqueta «Rama · Unidad» en linea: la etiqueta sigue al
     // titulo y envuelve con el (en columnas propias, a 820 px la etiqueta nowrap estrangulaba el titulo a 75 px — revisor 14-sep)
@@ -940,11 +940,28 @@ function pintarCola(abiertas, eventos) {   // `eventos` = el de eventosCola() de
     // Cada mitad vacia lo dice en su lugar; el «solo mías» sigue mandando en el texto de la izquierda.
     if (!urgente.children.length) urgente.appendChild(el('p', 'vacio', estado.hoySoloMias ? 'Nada urgente de lo tuyo: ni vencidas ni para hoy.' : 'Nada urgente: ni vencidas ni para hoy, y todo tiene dueño.'));
     if (!resto.children.length) resto.appendChild(el('p', 'vacio', 'Nada nuevo para ti.'));
+    plegarCola();   // v1.0.0 (cubeta 6)
     // C-18 (v0.145.0): los ids de tarjeta que se pintaron van a «Sin movimiento», que ya no lee el DOM. `nuevos` entero (con los
     // absorbidos) sube la marca de visto: el motivo en el renglon TAMBIEN se vio.
     const enCola = new Set([...pintadasFecha, ...huerfanas.slice(0, TOPE_COLA).map(t => Number(t.id))]);
     return { nuevos, enCola };
 }
+/** v1.0.0 (cubeta 6; plan «Celular a 1 toque»; premortem «celular»): en celular «Requiere atención» no es un muro — pasados TOPE_CEL renglones,
+ *  lo que sigue (renglones, encabezados y «+N más», en el orden en que se leen: la mitad urgente y luego el resto) lleva .pliega y el CSS lo
+ *  esconde bajo «Ver todo · N más». En escritorio el CSS no pliega nada. Abrirla dura la sesión (`colaDesplegada`). */
+const TOPE_CEL = 6; let colaDesplegada = false;
+function plegarCola() {
+    const caja = $('inicioHoy'), btn = $('colaVerTodo'); if (!caja || !btn) return;
+    let n = 0, ocultos = 0;
+    for (const lista of [$('inicioUrgente'), $('inicioResto')]) for (const x of lista.children) {
+        const pliega = n >= TOPE_CEL; x.classList.toggle('pliega', pliega);
+        if (x.classList.contains('hoy-r')) { n++; if (pliega) ocultos++; }
+    }
+    caja.classList.toggle('is-plegada', !colaDesplegada && ocultos > 0);
+    btn.hidden = colaDesplegada || !ocultos;
+    btn.textContent = `Ver todo · ${ocultos} más`;
+}
+document.addEventListener('click', ev => { if (ev.target.closest && ev.target.closest('#colaVerTodo')) { colaDesplegada = true; plegarCola(); const r = document.querySelector('#inicioHoy .pliega.hoy-r, #inicioHoy .pliega[data-ir]'); if (r) r.focus(); } });   // el foco va a lo primero que apareció (el botón se esconde)
 /** El salto de «sin dueño» (C7): al proyecto que mas tiene, con el filtro «sin dueño» puesto ENTERO — si ese proyecto ya
  *  estaba abierto, fijarProyectoAbierto no lo limpia y un «quien» previo se combinaria dejando el tablero vacio (revisor, 12-sep).
  *  C-11 (v0.95.0): las huerfanas se calculan AL CLIC (antes el encabezado capturaba las del pintado). C-13: el filtro se fija
@@ -1072,6 +1089,12 @@ function abrirProyecto(id, filtro = null) {
     irA('proyecto');
 }
 /** C-12 (v0.115.0): el proyecto se pinta en tres partes; el clic de pestaña solo repinta pintarPestanas y «Filtrar» solo pintarFiltrosProyecto. */
+/** v1.0.0 (cubeta 6): «Documentos · N» = ligas + archivos conocidos de la carpeta del proyecto (ERP_Proyectos), como el contador de la tarjeta; la
+ *  carpeta la leen Documentos, la ficha y Archivos, y el repintado de su llegada pasa por aquí. */
+function contarDocs(p) {
+    const n = estado.ligas.filter(l => Number(l.ProyectoId) === p.id).length + nArchivosDe(p);
+    $('nDocsTab').textContent = String(n); $('nDocsTab').hidden = !n;
+}
 function pintarProyecto() {
     const p = proyectoAbierto(); if (!p) { irA('proyectos'); return; }
     // B2 (v0.5.0) caia de «resumen» a «tablero» en escritorio porque la pestaña solo existia en celular;
@@ -1108,7 +1131,7 @@ function pintarCabeceraProyecto(p, ts, a) {
           { clave: 'vencidas', valor: String(nV), texto: plural(nV, 'Vencida', 'Vencidas'), clase: nV ? 'neg' : '' },
           { clave: 'alta', valor: String(nA), texto: 'Prioridad alta' },
           { clave: 'hechas', valor: `${a.pct}%`, texto: `${a.hechas} de ${a.total} ${plural(a.total, 'hecha', 'hechas')}` },
-          { clave: 'fin', valor: p.Vence ? fechaCorta(p.Vence) : '—', texto: p.Estado !== 'activo' ? 'Frente cerrado' : dF === null ? 'Sin fin del frente' : `Fin del frente · ${fraseVence(dF, 'dias')}`, clase: p.Estado === 'activo' && dF !== null && dF < 0 ? 'neg' : '' }
+          { clave: 'fin', valor: p.Vence ? fechaDia(p.Vence) : '—', texto: p.Estado !== 'activo' ? 'Frente cerrado' : dF === null ? 'Sin fin del frente' : `Fin del frente · ${fraseVence(dF, 'dias')}`, clase: p.Estado === 'activo' && dF !== null && dF < 0 ? 'neg' : '' }
       ], 'proyectoKpis')); }
     // B2: la linea que resume el frente arriba, donde se lee sin bajar a la lateral.
     const dias = diasPara(p.Vence);
@@ -1141,8 +1164,8 @@ function pintarPestanas(p) {
     if (estado.tab !== 'chat') salirDelChat();   // v0.9.0: cambiar de pestana dentro del proyecto tambien es salir
     document.body.classList.toggle('is-chat', estado.tab === 'chat');   // v0.15.0: pintarProyecto no pasa por repintar() al cambiar de pestana
     // v0.8.0: las pestanas dicen cuanto hay adentro (Trello): documentos ligados y comentarios del chat.
-    const nDocs = estado.ligas.filter(l => Number(l.ProyectoId) === p.id).length, nChat = comentariosDe(p.id).length;
-    $('nDocsTab').textContent = String(nDocs); $('nDocsTab').hidden = !nDocs;
+    contarDocs(p);
+    const nChat = comentariosDe(p.id).length;
     $('nChatTab').textContent = String(nChat); $('nChatTab').hidden = !nChat;
     // v0.9.0: el contador se pinta en ambar si hay comentarios ajenos que esta persona no ha tenido en pantalla.
     const nNuevos = estado.tab === 'chat' ? 0 : nuevosDe(p.id);   // C-04
@@ -1174,9 +1197,9 @@ function pintarLateralProyecto(p, ts, a) {
     const par = (k, v, seg) => { const b = el('b', seg ? 'muestra is-' + seg[2] : '', k); if (seg) { if (seg[3]) b.dataset.tono = seg[3]; b.prepend(el('i')); } kv.appendChild(b); kv.appendChild(el('span', '', v)); };
     const segDe = clave => segs.find(s => s[0].clave === clave);
     par('Hechas', `${a.hechas} de ${a.total}`, segDe(a.columnas[a.columnas.length - 1].clave)); for (const c of a.columnas.slice(1, -1)) par(c.nombre, String(a.porColumna[c.clave]), segDe(c.clave));
-    par('Fin del frente', fechaCorta(p.Vence)); par('Responsable', p.Responsable ? nombreDe(p.Responsable, estado.roles) : '—'); par('Clave', p.Clave);
+    par('Fin del frente', p.Vence ? fechaDia(p.Vence) : '—'); par('Responsable', p.Responsable ? nombreDe(p.Responsable, estado.roles) : '—'); par('Clave', p.Clave);
     if (p.Carpeta) par('Carpeta', p.Carpeta);
-    if (p.Estado === 'cerrado') par('Cerrado', `${nombreDe(p.CerradoPor, estado.roles)} · ${fechaCorta(p.CerradoEl)}`);
+    if (p.Estado === 'cerrado') par('Cerrado', `${nombreDe(p.CerradoPor, estado.roles)} · ${fechaDia(p.CerradoEl)}`);
     const q = $('pQuienes'); q.textContent = '';
     // C-16 (v0.114.0): abiertas por persona en UNA pasada (antes un filter por persona dentro del for).
     const abiertasDe = new Map();

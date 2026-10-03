@@ -41,6 +41,13 @@ ok('agrupar una serie POR CORTE (historial semanal) por mes: el último corte de
 ok('nice: 1, 2, 2.5, 5, 10 × 10^n', nice(0.7) === 1 && nice(1.5) === 2 && nice(2.2) === 2.5 && nice(4) === 5 && nice(7) === 10 && nice(650000) === 1000000 && nice(0) === 1);
 const e = escala([0, 2590000]);
 ok('escala: tope redondo que cubre el máximo y marcas parejas desde 0', e.paso === 1000000 && e.tope === 3000000 && e.piso === 0 && e.marcas.join() === '0,1000000,2000000,3000000');
+// v1.0.0 (cubeta 6, fidelidad #13): un máximo pegado a la marca deja un paso de aire arriba; uno que llega al 90 % no
+const ea = escala([0, 4000]);
+ok('escala: un máximo justo en la marca (4,000 con paso 1,000) sube el tope un paso (5,000): la etiqueta no pisa el eje', ea.paso === 1000 && ea.tope === 5000 && ea.marcas.join() === '0,1000,2000,3000,4000,5000');
+const eb = escala([0, 3500]);
+ok('escala: con aire de sobra (3,500 de 4,000) el tope no cambia', eb.tope === 4000);
+const ec = escala([-1000, 200]);
+ok('escala: un mínimo negativo pegado a su marca baja el piso un paso', ec.piso < -1000 && ec.piso % ec.paso === 0);
 const en = escala([-80, 300]);
 ok('escala: con negativos baja el piso a una marca redonda', en.piso < 0 && en.piso % en.paso === 0 && en.tope >= 300 && en.marcas.includes(0));
 

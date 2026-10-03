@@ -124,8 +124,10 @@ export function cabecera(def, v, repintar) {
     // v1.0.0 (cubeta 4): PREGUNTAR (maqueta .ask) abre y cierra el panel «Preguntar» (preguntar.js, un listener delegado sobre [data-preguntar])
     const ask = el('button', 'ask rp-ask'); ask.type = 'button'; ask.dataset.preguntar = def.id || '';
     ask.setAttribute('aria-controls', 'preguntar'); ask.setAttribute('aria-expanded', String(document.body.classList.contains('con-preguntar'))); ask.title = 'Pregunta lo que sea sobre los datos de la app';
-    ask.appendChild(icono('ai')); ask.appendChild(document.createTextNode('PREGUNTAR')); lado.appendChild(ask);
+    ask.appendChild(icono('ai')); ask.appendChild(document.createTextNode('PREGUNTAR'));
+    // v1.0.0 (cubeta 6, fidelidad #11): PREGUNTAR va AL FINAL de la cabecera, como la maqueta y ChartMogul — en el DOM (orden del tabulador), no solo a la vista
     for (const a of def.acciones || []) lado.appendChild(a);
+    lado.appendChild(ask);
     top.appendChild(lado);
     if (def.sub) { const p = el('p', 'rp-sub', def.sub); p.id = def.subId || 'rpSub'; top.appendChild(p); }
     return top;

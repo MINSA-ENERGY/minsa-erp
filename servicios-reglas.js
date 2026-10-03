@@ -4,6 +4,8 @@
 // minsa-energy/quimicos/pitepec/servicios-en-curso.md (que escribe solo /servicio-pitepec) y se publica como
 // servicios.json en CONFIG.bibliotecaOperacion. Aqui solo se valida y se arma la barra de pasos.
 
+import { fechaDia } from './reglas.js';   // v1.0.0 (cubeta 6): la fecha que se muestra, una sola forma en la app
+
 export const VERSION_SERVICIOS = 1;
 export const N_PASOS = 12;
 /** A partir de cuantos dias el corte se marca como viejo (se publica semanal, con la cobranza). */
@@ -80,6 +82,6 @@ export function expedientesPorPaso(lista, pasos) {
 /** El texto del estado de UN paso de un expediente (la tabla del detalle). */
 export const TEXTO_PASO = { hecho: 'hecho', actual: 'en curso', bloqueado: 'esperando', rebotado: 'quedó a medias', pendiente: 'pendiente' };
 
-const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-/** 2026-09-23 -> «23-sep» (sin pasar por Date: es fecha de calendario). Vacío -> «—». */
-export const fechaCorta = iso => { if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || '')) return '—'; const [, m, d] = iso.split('-'); return `${Number(d)}-${MESES[Number(m) - 1]}`; };
+/** 2026-09-23 -> «23 sep 2026» (sin pasar por Date: es fecha de calendario). Vacío o no fecha -> «—». v1.0.0 (cubeta 6): el formateador único
+ *  de la app (reglas.js fechaDia, como la maqueta); antes «23-sep». */
+export const fechaCorta = iso => /^\d{4}-\d{2}-\d{2}$/.test(iso || '') ? fechaDia(iso) : '—';

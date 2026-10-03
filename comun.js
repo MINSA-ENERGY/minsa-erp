@@ -3,7 +3,7 @@
 // la bitacora PROY_Actividad.
 
 import { CONFIG } from './config.js';
-import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
+import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico, fechaDia } from './reglas.js';
 
 export const VERSION = '0.173.0';
 export const $ = id => document.getElementById(id);
@@ -336,10 +336,12 @@ export function fechaCorta(iso) {
 }
 /** C-14 (v0.120.0): «dd/mm» de una fecha (fechaCorta sin el año). */
 export const diaMes = iso => fechaCorta(iso).slice(0, 5);
+/** Fecha y hora (de México) de un instante: «3 oct 2026, 02:52». v1.0.0 (cubeta 6, fidelidad #12): el día con la forma única de la app
+ *  (fechaDia); antes «03/10, 02:52» (sin año). Un instante que no es fecha: «—». */
 export function fechaHora(iso) {
     if (!iso) return '—';
-    const d = new Date(iso);
-    return d.toLocaleString('es-MX', { timeZone: 'America/Mexico_City', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+    const d = new Date(iso); if (Number.isNaN(d.getTime())) return '—';
+    return `${fechaDia(d)}, ${d.toLocaleTimeString('es-MX', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', hour12: false })}`;
 }
 /** U-04 (mensajes, 17-sep): la fecha de la bandeja — solo la hora si es de hoy, «ayer», y dd/mm (con año si no es este) para lo
  *  demas: la fecha completa se comia el titulo del frente en 390 px. Fecha invalida: «—». */

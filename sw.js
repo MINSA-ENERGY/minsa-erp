@@ -7,7 +7,7 @@
 // Cada peticion del armazon lleva `cache: 'reload'`: GitHub Pages sirve con max-age=600 y sin
 // eso el service worker nuevo se llena con los archivos VIEJOS (medido en captura, 2026-08-17).
 
-const CACHE = 'minsa-erp-v198';
+const CACHE = 'minsa-erp-v199';
 
 function traerDeLaRed(recurso) {
     return fetch(new Request(recurso, { cache: 'reload', credentials: 'same-origin' }));
@@ -57,9 +57,7 @@ const ARMAZON = [
     './esquema.json',
     './manifest.json',
     './vendor/msal-browser.min.js',
-    './vendor/fuentes/SourceSans3-latin-var.woff2',   // v1.0.0: la letra de la maqueta (sustituye a Saira, Barlow y Bai Jamjuree)
-    './vendor/fuentes/IBMPlexMono-400.woff2',
-    './vendor/fuentes/IBMPlexMono-500.woff2',
+    './vendor/fuentes/SourceSans3-latin-var.woff2',   // v1.0.0: la letra de la maqueta (sustituye a Saira, Barlow y Bai Jamjuree; desde la cubeta 6 también a IBM Plex Mono)
     './iconos/icono-192.png',
     './iconos/icono-512.png',
     './iconos/icono-512-recortable.png',

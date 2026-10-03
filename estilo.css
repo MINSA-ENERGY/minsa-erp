@@ -8,10 +8,9 @@
 
 /* ---- fuentes locales (OFL). La piel solo trae las variables --font-*; los @font-face los pone la app.
    v1.0.0: Source Sans 3 variable 400–700 (subconjunto latin, vendor/fuentes/SourceSans3-OFL.txt) sustituye a Saira, Barlow y Bai Jamjuree;
-   IBM Plex Mono se queda para los datos (claves, montos, horas). */
+   v1.0.0 (cubeta 6, informe de fidelidad #1): también los datos (claves, montos, horas) — la maqueta y el plan (decisión 4) traen UNA letra
+   con cifras tabulares; IBM Plex Mono salió de vendor/ y de ARMAZON. Revertir: --f-data en la PALETA y los dos @font-face de Plex. */
 @font-face { font-family: "Source Sans 3"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("./vendor/fuentes/SourceSans3-latin-var.woff2") format("woff2"); }
-@font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-display: swap; src: url("./vendor/fuentes/IBMPlexMono-400.woff2") format("woff2"); }
-@font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-display: swap; src: url("./vendor/fuentes/IBMPlexMono-500.woff2") format("woff2"); }
 
 /* ==== PALETA ==== */
 :root {
@@ -25,7 +24,7 @@
   --ink: #1c2533; --ink-2: #4b5566; --ink-3: #8b93a1; --lk: #3d4a5e;
   --navy: #1d2c47; --blue: #2a6bd9; --red: #e0435f; --amber: #c8870d; --green: #1d9a6a;
   --hover: #f3f5f8; --chip: #e9edf3;
-  --relleno: #2a6bd9;   /* el azul de lo que va RELLENO con texto blanco («+ Nuevo»): no cambia con el tema */
+  --relleno: #167a53;   /* lo que va RELLENO con texto blanco («+ Nuevo» del rail y el flotante): no cambia con el tema. v1.0.0 (cubeta 6): el VERDE del primario (B5 + verde, v0.30.0: el flotante va lleno), no el azul #2a6bd9 de la cubeta 1 — PREGUNTAR (navy) es la única excepción; este tono, el --ok-fg, da 5.3:1 con el blanco */
 
   /* los tokens de la app de siempre, ahora sobre la maqueta (los usan 2,500 renglones de abajo) */
   --page: var(--bg); --sunken: #f1f3f6; --banda: #f9fafb;
@@ -41,7 +40,7 @@
   --sobre-solido: #ffffff;   /* v0.27.0: tinta sobre un relleno solido (icono de archivo, etiqueta de expediente) */
   --f-display: "Source Sans 3", "Source Sans Pro", "Segoe UI", system-ui, sans-serif;
   --f-ui: "Source Sans 3", "Source Sans Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --f-data: "IBM Plex Mono", ui-monospace, monospace;
+  --f-data: var(--f-ui);   /* v1.0.0 (cubeta 6): los datos en Source Sans 3 con tabular-nums (body); era "IBM Plex Mono" */
   /* la maqueta es de esquinas cortas: campos y botones 3–4 px, tarjetas 5–6 px */
   --r-sm: 4px; --r-md: 6px; --r-lg: 10px;
 
@@ -2601,10 +2600,11 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 .rp-top-der { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; }
 .rp-sub { flex-basis: 100%; margin: -4px 0 0; color: var(--ink-2); font-size: 13.5px; }
 .rp-sub:empty { display: none; }
-.rp-corte { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12.5px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.rp-corte.is-ok { background: var(--ok-bg); color: var(--ok-fg); }
-.rp-corte.is-warn { background: var(--warn-bg); color: var(--warn-fg); }
-.rp-corte.is-danger { background: var(--bad-bg); color: var(--bad-fg); }
+/* v1.0.0 (cubeta 6, fidelidad #7): el corte es un DATO, texto de su color (v0.98.0 «sin burbujas»); antes píldora rellena de 26 px */
+.rp-corte { display: inline-flex; align-items: center; min-height: 26px; font-size: 12.5px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rp-corte.is-ok { color: var(--ok-fg); }
+.rp-corte.is-warn { color: var(--warn-fg); }
+.rp-corte.is-danger { color: var(--bad-fg); }
 .rp-bx { display: flex; height: 36px; border: 1px solid var(--campo); border-radius: 3px; background: var(--card); }
 .rp-ic { width: 38px; height: 100%; padding: 0; border: 0; background: none; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
 .rp-ic + .rp-ic { border-left: 1px solid var(--campo); }
@@ -2971,9 +2971,9 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 #inicioKpis .ini-kpi:hover b, #inicioKpis .ini-kpi:focus-visible b { color: var(--blue); }
 #inicioKpis .ini-kpi:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 #inicioKpis .ini-kpi.is-sin b { color: var(--ink-3); }
-.ini-corte { display: inline-flex; align-items: center; height: 20px; margin-top: 6px; padding: 0 8px; border-radius: 10px; font-size: 11.5px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.ini-corte.is-ok { background: var(--ok-bg); color: var(--ok-fg); } .ini-corte.is-warn { background: var(--warn-bg); color: var(--warn-fg); }
-.ini-corte.is-danger { background: var(--bad-bg); color: var(--bad-fg); } .ini-corte.is-sin { background: var(--idle-bg); color: var(--idle-fg); }
+.ini-corte { display: inline-flex; align-items: center; margin-top: 6px; font-size: 11.5px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; }   /* cubeta 6: texto de color, sin píldora */
+.ini-corte.is-ok { color: var(--ok-fg); } .ini-corte.is-warn { color: var(--warn-fg); }
+.ini-corte.is-danger { color: var(--bad-fg); } .ini-corte.is-sin { color: var(--idle-fg); }
 /* ---- las tarjetas de Inicio con la piel de la plantilla (.rp-card: borde, radio 5, título de «Datos del reporte») */
 #p-inicio .bandas > .mn-card, #p-inicio .dosmitad > .mn-card { border: 1px solid var(--line); border-radius: 5px; background: var(--card); padding: 20px 26px 22px 28px; box-shadow: none; }
 #p-inicio .bandas > .mn-card > h2, #p-inicio .dosmitad > .mn-card > h2, #p-inicio .cola-cab h2 { margin: 0 0 12px; font-family: var(--f-ui); font-size: 18px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink); }
@@ -3202,4 +3202,128 @@ body.con-preguntar .app.panel-plegado:not(.sin-sesion) { grid-template-columns: 
   .zona-subir .zs-t small { display: none; }
   #vpMarco { height: 70vh; }
   .arch-migas { padding: 12px 12px 8px; }
+}
+/* ==== FIDELIDAD Y CELULAR v1.0.0 (rediseño 2026-10-02, cubeta 6; informe docs/rediseno/fidelidad-cubeta6.md). Capa final, a propósito AL
+   FINAL: gana a lo de arriba con la misma especificidad y se revierte borrando el bloque. (1) piezas de la maqueta que se pintaban distinto:
+   el icono de PREGUNTAR, UN segmentado, títulos de tarjeta y de pantalla, encabezados de tabla, el corte como texto de color, PREGUNTAR al
+   final; (2) tableta 721–1100: la cabecera con ☰ + el título del módulo y PREGUNTAR con velo; (3) celular ≤ 720: todo control tocable mide
+   ≥ 36 px (capturas.mjs, «chicos»), la primera columna de «Datos del reporte» fija al rodar de lado y «Requiere atención» plegada tras 6
+   renglones con «Ver todo»; (4) Servicios: «Espera a» en dos renglones con el texto entero en el title.
+   El primario SIGUE verde (B5 + verde, v0.30.0, elección de Carlos que el plan no supera): PREGUNTAR (navy, de la maqueta) es la única
+   excepción. ==== */
+/* (1) letra: los datos (claves, montos, horas) en Source Sans 3 con cifras tabulares, como la maqueta (--f-data en la PALETA) */
+body { font-variant-numeric: tabular-nums; }
+/* (1) el primario es UNO, verde (B5 + verde): APLICAR / GUARDAR de la ventana de segmentos (el .mini.azul de la maqueta) va con el relleno verde
+   de «+ Nuevo»; PREGUNTAR (navy) es la única excepción */
+.rp-mini.azul { background: var(--relleno); border-color: var(--relleno); }
+/* (1) PREGUNTAR con su icono (reporte.js lo mete como <svg> sin clase: medía 0 px) */
+.ask .ico, .ask svg { width: 20px; height: 20px; flex: none; fill: none; stroke: #ffffff; stroke-width: 1.6; }
+/* (1) UN segmentado (maqueta .seg): borde #2d3b55, radio 2 px, el encendido relleno navy con texto blanco — todo el frente | solo mías, las
+   cubetas del celular, Cómodo | Compacto y Claro | Oscuro, como LÍNEA | BARRAS, MES y los chips del módulo */
+.grupo, .col-tabs, .densidad, .tema.seg { border-color: var(--seg-borde); border-radius: 2px; background: var(--card); }
+.densidad, .tema.seg { padding: 0; gap: 0; overflow: hidden; }
+.densidad button, .tema.seg .mn-btn { border-radius: 0; }
+.densidad button + button, .tema.seg .mn-btn + .mn-btn { border-left: 1px solid var(--campo); }
+.grupo > button.is-on, .col-tabs > button.is-on, .densidad button[aria-pressed="true"], .tema.seg button[aria-pressed="true"], .tema.seg button[aria-pressed="true"]:hover { background: var(--navy); color: #ffffff; border-color: var(--navy); box-shadow: none; }
+/* la pestaña elegida subraya en navy, como Mis tareas y la maqueta (en oscuro, tinta clara con el filete de la línea) */
+.tab.is-on { color: var(--navy); border-bottom-color: var(--navy); }
+:root[data-theme="dark"] .tab.is-on { color: var(--ink); border-bottom-color: var(--linea); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tab.is-on { color: var(--ink); border-bottom-color: var(--linea); } }
+/* (1) títulos: tarjeta = .rd-h h3 de la maqueta (18/500); pantalla con cabecera vieja (proyecto) = .top h2 (22/500) */
+.mn-card > h2, .gastos-cab h2 { font: 500 18px/1.25 var(--f-ui); letter-spacing: 0; text-transform: none; color: var(--ink); }
+.cabecera h1 { font: 500 22px/1.25 var(--f-ui); letter-spacing: 0; }
+/* (1) el corte es un DATO: texto de su color (verde · ámbar > 8 d · rojo > 15 d), sin la píldora rellena — va en sus reglas de arriba (.rp-corte, .ini-corte) */
+.rp-kpi b.warn { color: var(--warn-fg); }   /* un KPI en ámbar (Servicios: «un paso a medias»), como su segmento de la barra */
+/* (1) encabezados de tabla como los de «Datos del reporte» (maqueta th: 500 · 14 · ink-2 · fondo th); la etiqueta de Tipo y el sello de Estado
+   no cambian (v0.102.0). Capital por mes: su tabla con la piel de la maqueta, sin caja interna. */
+@media (min-width: 721px) {
+  .dtabla th, .tabla th { font: 500 14px/1.3 var(--f-ui); letter-spacing: 0; text-transform: none; color: var(--ink-2); background: var(--th); padding: 12px 16px; }
+  #capitalPorMes > #capitalMeses { margin: 0; }
+  #capitalMeses .dtabla { border: 0; border-radius: 0; background: none; }
+  #capitalMeses .dtabla th { border-radius: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  #capitalMeses .choja td { padding: 12px 16px; font-size: 14.5px; border-bottom-color: var(--line-2); }
+  #capitalMeses .choja th:first-child, #capitalMeses .choja td:first-child { padding-left: 28px; border-right: 1px solid var(--line); }
+}
+/* (1) Buscar y Avisos: diálogo blanco, como el .pop de la maqueta (sin la banda de la cabecera de los diálogos que editan) */
+#dlgBuscar .mn-dialog-head, #dlgAvisos .mn-dialog-head { background: var(--card); }
+/* (2) tableta: ☰ + el título del módulo en la cabecera; PREGUNTAR encima del contenido con velo (tocarlo cierra) */
+.pq-fondo { display: none; }
+@media (min-width: 721px) and (max-width: 1100px) {
+  .cabecera-app .cab-titulo { display: block; }
+  .cab-fila { min-height: 40px; }
+  body.con-preguntar .pq-fondo { display: block; position: fixed; inset: 0; z-index: 44; background: rgba(15, 22, 35, .38); }
+}
+/* (4) Servicios: un «espera a» largo no ensancha la tabla (el texto entero va en el title de la celda) */
+.rp-tabla td.srv-espera .srv-espera-t { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+@media (min-width: 901px) { .rp-tabla td.srv-espera .srv-espera-t { max-width: 220px; } }
+@media (max-width: 900px) { #serviciosTabla .srv-espera .srv-espera-t { display: inline; } }   /* en ficha va tras «Espera a: » (el ::before), en el mismo renglón */
+/* «Ver todo» de Requiere atención y el título de cada módulo en la hoja-índice: solo en celular */
+.cola-ver, .pm-tit { display: none; }
+/* (3) tableta y celular: «Datos del reporte» rueda de lado (la maqueta .tw) con su primera columna FIJA; Servicios y Vigencias no (caben, o ya
+   son fichas) */
+@media (max-width: 1100px) {
+  .rp-tabla th:first-child, .rp-tabla td:first-child { position: sticky; left: 0; z-index: 1; background: var(--card); box-shadow: inset -1px 0 0 var(--line); }
+  .rp-tabla th:first-child { background: var(--th); }
+  .rp-tabla tr.hijo td:first-child, .rp-tabla tr.srv-paso-fila.is-actual td:first-child { background: var(--hijo); }
+  #serviciosTabla td:first-child, #vigenciasTabla td:first-child { position: static; box-shadow: none; background: none; }
+}
+/* (3) celular: objetivos táctiles de 36 px */
+@media (max-width: 720px) {
+  /* el «?» junto al título aunque el título ocupe dos renglones */
+  .rp-titulo { display: block; }
+  .rp-titulo > .rp-h { display: inline; }
+  .rp-titulo > .rp-qm { display: inline-grid; vertical-align: middle; }
+  .rp-qm { width: 36px; height: 36px; }
+  .rp-bx, .rp-rng, .rp-seg { height: 38px; }   /* el borde de 1 px va por fuera: los botones de adentro miden 36 */
+  .rp-tl-b { width: 36px; height: 36px; }
+  .rp-exp { left: 0; width: 36px; height: 36px; }
+  .rp-tabla td:first-child { padding-left: 38px; }
+  .rp-tabla tr.hijo td:first-child { padding-left: 46px; }
+  .rp-lk, .rp-tabla td a, a.srv-clave { display: inline-flex; align-items: center; min-height: 36px; }
+  .rp-jn { min-width: 36px; min-height: 36px; }
+  .rp-chip button { min-width: 36px; min-height: 36px; }
+  .rp-pop.is-ed select, .rp-pop.is-ed input:not([type="checkbox"]):not([type="radio"]) { min-height: 38px; }
+  .rp-opts label, .rp-prop, .rp-std, .rp-pop-tab, .rp-pop-l button { min-height: 40px; }
+  .rp-dd-b { min-height: 36px; }
+  #preguntar .pq-enviar { width: 36px; height: 36px; right: 6px; }
+  .chip-ambito .quitar { width: 36px; height: 36px; }
+  /* las bolitas de color se quedan de 28 px (nueve caben en un renglón a 390) y su área táctil crece por ::before hasta 38 */
+  .tonos button { position: relative; }
+  .tonos button::before { content: ""; position: absolute; inset: -5px; border-radius: 50%; }
+  #tab-lista th > .th-orden { min-height: 36px; min-width: 36px; }
+  #tTitulo .prop-btn.is-titulo { display: inline-block; padding-top: 6px; padding-bottom: 6px; }
+  .arch-migas .miga { min-height: 36px; }
+  .mensaje .cerrar { min-width: 36px; min-height: 36px; padding: 0; }
+  .mensaje .accion { min-height: 36px; }
+  summary { min-height: 36px; }
+  .t-props .prop-btn { min-height: 36px; }
+  #tDocs a, .tdoc a { display: inline-flex; align-items: center; min-height: 36px; }
+  /* la liga estirada de U-10 (v0.149.0) también en la pestaña Documentos del proyecto (el mismo componente que Archivos, plan) y en los
+     renglones de Recientes / Fijados / Mis subidas: tocar el renglón abre el archivo; las acciones quedan encima */
+  .dtabla tr.doc { position: relative; }
+  .is-arbol tr.doc td.c-nombre { position: static; }
+  .dtabla tr.doc .c-nombre .t a[href]::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-md); }
+  .dtabla tr.doc .c-acc, .dtabla tr.doc .c-tarjeta { position: relative; z-index: 1; }
+  .arch-fila { position: relative; }
+  .arch-fila .tx a[href]::after { content: ""; position: absolute; inset: 0; border-radius: 3px; }
+  .arch-fila .acc { position: relative; z-index: 1; }
+  /* …y la liga misma mide 36 de alto (el renglón entero ya la abre; así también la regla de la caja sola la cuenta como objetivo) */
+  .dtabla tr.doc .c-nombre .t a[href] { display: inline-flex; align-items: center; min-height: 36px; }
+  .arch-fila .tx a[href] { display: block; min-height: 36px; line-height: 36px; }
+  /* el roadmap: la barra es el dato; su área táctil crece por ::after (como el rombo, U-03 v0.78.0) y la corta, a 36 de ancho */
+  button.g-barra { overflow: visible; }
+  button.g-barra::after { content: ""; position: absolute; top: -7px; bottom: -7px; left: 0; right: 0; }
+  button.g-barra.is-corta::after { left: -12px; right: -12px; }
+  /* los chips del módulo ruedan de lado: el borde derecho se desvanece para que se note que hay más (Archivos: «Mis subidas») */
+  .chips-modulo { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); padding-right: 28px; }
+  /* la hoja (☰) es el ÍNDICE de la app: el módulo actual arriba y los demás debajo con su título (armazon.js); sin «Predeterminados» ni
+     «Guardados» repetidos por módulo — toda ruta a dos toques (☰ + la entrada) */
+  #panelArbol { display: flex; flex-direction: column; }
+  #panelArbol .panel-modulo.is-actual { order: -1; }
+  #panelArbol .panel-modulo:not(.is-actual) > .pm-tit { display: block; margin: 16px 18px 6px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--ink-2); font: 600 12.5px/1.2 var(--f-ui); letter-spacing: .06em; text-transform: uppercase; }
+  #panelArbol .panel-modulo:not(.is-actual) > .gh, #panelArbol .panel-modulo:not(.is-actual) > .gsep, #panelArbol .panel-modulo:not(.is-actual) > .panel-guardados { display: none; }
+  /* «Requiere atención»: lo que pasa de 6 renglones se pliega tras «Ver todo» (app.js marca .pliega) */
+  #inicioHoy.is-plegada .pliega { display: none; }
+  #inicioHoy.is-plegada .cola-lista:not(:has(> :not(.pliega))) { display: none; }
+  .cola-ver { display: flex; width: 100%; justify-content: center; margin-top: 10px; }
 }

@@ -708,6 +708,15 @@ export function diaDe(iso) {
     const f = iso instanceof Date ? iso : new Date(iso);
     return Number.isNaN(f.getTime()) ? null : fechaMexico(f);
 }
+const MESES_FECHA = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+/** v1.0.0 (cubeta 6, fidelidad #12): la fecha que se le MUESTRA a la persona en reportes, tablas y KPIs — una sola forma, la de la maqueta:
+ *  «1 oct 2026». Un ISO con hora se lee en el día de México (diaDe); un día suelto (YYYY-MM-DD) tal cual, sin pasar por Date. Lo que no es
+ *  fecha: «—». Los campos de fecha (dd/mm/aaaa, v0.106.0), el CSV y lo que se escribe en SharePoint NO la usan. */
+export function fechaDia(x) {
+    const s = x instanceof Date ? '' : String(x || '');
+    const d = x instanceof Date ? diaDe(x) : /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : /^\d{4}-\d{2}-\d{2}T/.test(s) ? diaDe(s) : null;
+    return d ? `${Number(d.slice(8, 10))} ${MESES_FECHA[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}` : '—';
+}
 /** Suma `n` dias a un YYYY-MM-DD. */
 export function sumarDias(dia, n) { const f = new Date(dia + 'T00:00:00Z'); f.setUTCDate(f.getUTCDate() + n); return f.toISOString().slice(0, 10); }
 /** Dias enteros de `a` a `b` (YYYY-MM-DD); negativo si b es antes. */
