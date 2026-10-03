@@ -708,6 +708,28 @@ export function diaDe(iso) {
     const f = iso instanceof Date ? iso : new Date(iso);
     return Number.isNaN(f.getTime()) ? null : fechaMexico(f);
 }
+const MESES_FECHA = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+/** v1.0.0 (cubeta 6, fidelidad #12): la fecha que se le MUESTRA a la persona en reportes, tablas y KPIs — una sola forma. Vuelta 1 (Carlos,
+ *  3-oct: «dd/mm/aaaa»): «01/10/2026», la forma de los campos (v0.106.0); supera el «1 oct 2026» de la maqueta. Un ISO con hora se lee en el
+ *  día de México (diaDe); un día suelto (YYYY-MM-DD) tal cual, sin pasar por Date. Lo que no es fecha: «—». El CSV y lo que se escribe en
+ *  SharePoint NO la usan. */
+export function fechaDia(x) {
+    const s = x instanceof Date ? '' : String(x || '');
+    const d = x instanceof Date ? diaDe(x) : /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : /^\d{4}-\d{2}-\d{2}T/.test(s) ? diaDe(s) : null;
+    return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : '—';
+}
+/** El día AAAA-MM-DD de una fecha: un día suelto es ESE día (sin pasar por Date: su medianoche UTC es el día anterior en México); un ISO con
+ *  hora o un Date, el día de México (diaDe). null si no es fecha. */
+const diaSuelto = x => (typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : diaDe(x));
+/** v1.0.0 (vuelta 1, revisión UI/UX «fondo»): la fecha como hoja de calendario —{ mes: 'oct', dia: 31 }—; null sin fecha. Antes (comun.js mesDia)
+ *  un AAAA-MM-DD se volvía a leer con diaDe y el tablero y la ficha decían el vencimiento UN DÍA ANTES que la Lista. */
+export function mesDiaDe(x) { const d = diaSuelto(x); return d ? { mes: MESES_FECHA[Number(d.slice(5, 7)) - 1], dia: Number(d.slice(8, 10)) } : null; }
+/** U-40 (v0.141.0): «26 sep» con espacio duro (la celda Vence de la ficha partía «26 / sep»), y el año solo si no es el de `hoy`; null sin fecha. */
+export function fechaVenceDe(x, hoy = new Date()) {
+    const d = diaSuelto(x); if (!d) return null;
+    const md = mesDiaDe(d);
+    return `${md.dia} ${md.mes}` + (Number(d.slice(0, 4)) !== hoy.getFullYear() ? ` ${d.slice(0, 4)}` : '');
+}
 /** Suma `n` dias a un YYYY-MM-DD. */
 export function sumarDias(dia, n) { const f = new Date(dia + 'T00:00:00Z'); f.setUTCDate(f.getUTCDate() + n); return f.toISOString().slice(0, 10); }
 /** Dias enteros de `a` a `b` (YYYY-MM-DD); negativo si b es antes. */
@@ -992,13 +1014,17 @@ export function vistosDe(actividad, comentarioId) {
 export function leerVisto(celda) {
     let v = {}; try { v = JSON.parse(String(celda || '') || '{}'); } catch (_) { v = {}; }
     if (!v || typeof v !== 'object') v = {};
-    return { inicio: typeof v.inicio === 'string' ? v.inicio : '', chat: v.chat && typeof v.chat === 'object' ? { ...v.chat } : {} };
+    // v1.0.0 (rediseño, cubeta 4): + `avisos` — hasta dónde vio la persona la campana (el contador cuenta lo posterior). Misma columna, misma regla.
+    return { inicio: typeof v.inicio === 'string' ? v.inicio : '', chat: v.chat && typeof v.chat === 'object' ? { ...v.chat } : {}, avisos: typeof v.avisos === 'string' ? v.avisos : '' };
 }
 export function fundirVisto(a, b) {
     const x = leerVisto(a && typeof a === 'object' ? JSON.stringify(a) : a), y = leerVisto(b && typeof b === 'object' ? JSON.stringify(b) : b);
     const chat = { ...x.chat };
     for (const [k, iso] of Object.entries(y.chat)) if (String(iso) > String(chat[k] || '')) chat[k] = iso;
-    return { inicio: x.inicio > y.inicio ? x.inicio : y.inicio, chat };
+    const r = { inicio: x.inicio > y.inicio ? x.inicio : y.inicio, chat };
+    const avisos = x.avisos > y.avisos ? x.avisos : y.avisos;
+    if (avisos) r.avisos = avisos;   // sin marca de avisos la celda sale como antes (no se reescribe un renglón por una llave vacía)
+    return r;
 }
 
 // ---------------------------------------------------------------- v0.21.0: Inicio «Hoy» (iteracion 3 del artifact del 13-sep)
@@ -1169,3 +1195,138 @@ export function ordenarPartidas(partidas, col = 'fecha', dir = 1) {
         return c * dir || Number(a.id) - Number(b.id);
     });
 }
+
+// ---------------------------------------------------------------- armazón (v1.0.0, rediseño 2026-10-02)
+// Plan cerebro/docs/plan-erp-rediseno-2026-10-02.md, cubeta 1: 5 módulos en el rail, panel por módulo y la tabla ruta → módulo.
+// Las rutas de hoy siguen siendo canónicas; se agregan sufijos que, mientras su página no exista, caen a la pantalla de hoy.
+
+/** Los 5 módulos del rail, en su orden (decisión 1 del plan). */
+export const MODULOS = [
+    { clave: 'inicio', nombre: 'Inicio' },
+    { clave: 'trabajo', nombre: 'Trabajo' },
+    { clave: 'archivos', nombre: 'Archivos' },
+    { clave: 'dinero', nombre: 'Dinero' },
+    { clave: 'operacion', nombre: 'Operación' }
+];
+/** La tabla ruta → módulo: cada pantalla dice qué módulo se resalta. `cuenta` no es módulo: la resalta el botón de persona del rail. */
+export const MODULO_DE = { inicio: 'inicio', mis: 'inicio', mensajes: 'inicio', proyectos: 'trabajo', proyecto: 'trabajo', roadmap: 'trabajo', calendario: 'trabajo', reportes: 'trabajo', archivos: 'archivos', finanzas: 'dinero', gastos: 'dinero', capital: 'dinero', servicios: 'operacion', compras: 'operacion', vigencias: 'operacion', cuenta: 'cuenta' };
+/** Quién entra a cada pantalla (la regla que irA aplicaba a mano desde v0.100.0/v0.168.0): Capital, Finanzas y Vigencias solo gerencia; Servicios y Compras gerencia y colaborador. */
+export function puedeVerPantalla(pantalla, rol) {
+    if (pantalla === 'capital' || pantalla === 'finanzas' || pantalla === 'vigencias') return PUEDE.capital(rol);
+    if (pantalla === 'servicios' || pantalla === 'compras') return PUEDE.tarea(rol);
+    return Object.prototype.hasOwnProperty.call(MODULO_DE, pantalla);
+}
+/** Los módulos que pinta el rail: 5 a gerencia y a colaborador, 4 a lectura (Operación no le trae nada). */
+export function modulosDe(rol) { return MODULOS.filter(m => m.clave !== 'operacion' || PUEDE.tarea(rol)); }
+/** La pantalla principal de un módulo (lo que abre tocarlo en el celular): Dinero es Por cobrar para gerencia y Mis gastos para los demás. */
+export function principalDe(modulo, rol) {
+    const r = { inicio: '#inicio', trabajo: '#proyectos', archivos: '#archivos', dinero: PUEDE.capital(rol) ? '#finanzas/cobrar/saldo' : '#gastos', operacion: '#servicios', cuenta: '#cuenta' }[modulo];
+    return r || '#inicio';
+}
+const PANTALLAS_HASH = ['inicio', 'proyectos', 'mis', 'roadmap', 'calendario', 'mensajes', 'archivos', 'reportes', 'capital', 'gastos', 'finanzas', 'vigencias', 'servicios', 'compras', 'cuenta'];
+const TABS_PROYECTO = ['lista', 'docs', 'chat', 'tablero', 'resumen', 'roadmap', 'capital'];
+/** Los sufijos NUEVOS por pantalla (plan, «Rutas»). Lo que no casa aquí no es ruta de la app y cae a Inicio, como antes. */
+const SUFIJOS = {
+    finanzas: s => /^(cobrar|pagar)(\/[a-z0-9-]+)?$/.test(s),
+    capital: s => s === 'mes',
+    reportes: s => /^[a-z0-9-]+$/.test(s),
+    servicios: s => s === 'ciclo' || /^e\d+$/i.test(s),
+    compras: s => s === 'partidas',
+    archivos: s => /^(recientes|fijados|proyecto|bibliotecas|mias)(\/[A-Za-z0-9._~%!'()*-]+)*$/.test(s),   // v1.0.0 (cubeta 5): las carpetas de una biblioteca van con encodeURIComponent (espacios, paréntesis, acentos)
+    cuenta: s => s === 'equipo'
+};
+/**
+ * Lee un hash de la app. Devuelve null si no es ruta de la app; si lo es: { pantalla, modulo, clave, tab, sub, msj, subGastos, tareaId }.
+ * Conserva la gramatica de RE_HASH (v0.162.0) —#p/<clave>[/<pestaña>], /f|d/<x> y /tesoreria|contabilidad en cualquier pantalla, /t/<id>
+ * al final de todo— y suma los sufijos de SUFIJOS en `sub` (el de servicios va en mayusculas: «E3»).
+ */
+export function leerRuta(hash) {
+    const h = String(hash || '');
+    if (!/^#[^#]/.test(h)) return null;
+    const segs = h.slice(1).split('/');
+    let tareaId = null;
+    if (segs.length >= 3 && segs[segs.length - 2] === 't' && /^\d+$/.test(segs[segs.length - 1])) { tareaId = Number(segs.pop()); segs.pop(); }
+    const base = { clave: null, tab: null, sub: null, msj: null, subGastos: null, tareaId };
+    if (segs[0] === 'p') {
+        if (segs.length < 2 || segs.length > 3 || !/^[a-z0-9-]+$/.test(segs[1])) return null;
+        if (segs.length === 3 && !TABS_PROYECTO.includes(segs[2])) return null;
+        return { ...base, pantalla: 'proyecto', modulo: 'trabajo', clave: segs[1], tab: segs[2] || null };
+    }
+    const [pantalla, ...resto] = segs;
+    if (!PANTALLAS_HASH.includes(pantalla)) return null;
+    const r = { ...base, pantalla, modulo: MODULO_DE[pantalla] };
+    if (!resto.length) return r;
+    if (resto.length === 2 && (resto[0] === 'f' || resto[0] === 'd') && /^[a-z0-9._-]+$/.test(resto[1])) { r.msj = { tipo: resto[0], clave: resto[1] }; return r; }
+    if (resto.length === 1 && (resto[0] === 'tesoreria' || resto[0] === 'contabilidad')) { r.subGastos = resto[0]; return r; }
+    const s = resto.join('/');
+    if (!SUFIJOS[pantalla] || !SUFIJOS[pantalla](s)) return null;
+    r.sub = pantalla === 'servicios' && s !== 'ciclo' ? s.toUpperCase() : s;
+    return r;
+}
+/** La entrada del panel que corresponde al hash: la ruta mas larga que es prefijo (por segmentos) del hash sin /t/<id>; null si ninguna. */
+export function rutaActiva(rutas, hash) {
+    const h = String(hash || '').replace(/\/t\/\d+$/, '');
+    let mejor = null;
+    for (const r of rutas || []) if (r && (h === r || h.startsWith(r + '/')) && (!mejor || r.length > mejor.length)) mejor = r;
+    return mejor;
+}
+/** Anillo «Mi día» del rail: de lo que me toca HOY (mis abiertas que vencen hoy o ya vencieron, más las que hice hoy), cuántas hice. */
+export function miDia(tareas, correo, hoy = new Date()) {
+    const hechas = misHechasHoy(tareas, correo, hoy).length;
+    const deHoy = misAbiertas(tareas, correo).filter(t => { const d = diasPara(t.Vence, hoy); return d !== null && d <= 0; }).length;
+    return { hechas, total: hechas + deHoy };
+}
+
+// ---------------------------------------------------------------- v1.0.0 (rediseño, cubeta 4): buscador global, frentes quietos, avisos
+// Plan, «Buscador global»: índice LOCAL normalizado sin acentos (sin dependencia nueva) + la búsqueda por nombre en cada biblioteca con permiso.
+
+/** Los grupos del buscador global, en su orden (plan). */
+export const GRUPOS_BUSQUEDA = ['Pantallas y reportes', 'Proyectos', 'Tareas', 'Archivos', 'Personas', 'Órdenes', 'Expedientes', 'Vigencias'];
+/** Para comparar: minúsculas, sin acentos, los signos sueltos como espacio y un solo espacio. Conserva lo que arma un folio, una clave o un
+ *  correo (`PDH-008`, `lau-demo`, `ana@x.com`): «Órdenes  de compra» → «ordenes de compra». */
+export const normalizarBusqueda = s => sinAcentos(s).replace(/[^a-z0-9@._#/-]+/g, ' ').replace(/\s+/g, ' ').trim();
+/** El índice: cada entrada { grupo, texto, sub, ir | url, extra, orden } con `pajar` (texto + sub + extra) y `cabeza` (el texto) ya normalizados.
+ *  Una entrada sin texto o de un grupo que no existe no entra. */
+export function indiceBusqueda(entradas) {
+    return (entradas || []).filter(e => e && e.texto && GRUPOS_BUSQUEDA.includes(e.grupo))
+        .map(e => ({ ...e, pajar: normalizarBusqueda([e.texto, e.sub, ...[].concat(e.extra || [])].join(' ')), cabeza: normalizarBusqueda(e.texto) }));
+}
+/**
+ * Busca `q` en el índice: TODAS sus palabras deben aparecer en el pajar, en cualquier orden. Dentro de cada grupo: primero el título que
+ * EMPIEZA con q, luego el que tiene una palabra que empieza con la primera de q, luego el resto; a igualdad, `orden` (menor primero: lo
+ * abierto antes que lo hecho), el título más corto y el alfabético. Devuelve [{ grupo, items, mas }] en el orden de GRUPOS_BUSQUEDA.
+ */
+export function buscarEnIndice(indice, q, tope = 6) {
+    const s = normalizarBusqueda(q); if (!s) return [];
+    const pal = s.split(' ');
+    const puntos = e => e.cabeza.startsWith(s) ? 0 : e.cabeza.split(' ').some(w => w.startsWith(pal[0])) ? 1 : 2;
+    const hay = (indice || []).filter(e => pal.every(w => e.pajar.includes(w)));
+    return GRUPOS_BUSQUEDA.map(grupo => {
+        const xs = hay.filter(e => e.grupo === grupo).map(e => ({ e, p: puntos(e) }))
+            .sort((a, b) => a.p - b.p || (a.e.orden || 0) - (b.e.orden || 0) || a.e.cabeza.length - b.e.cabeza.length || a.e.cabeza.localeCompare(b.e.cabeza)).map(x => x.e);
+        return { grupo, items: xs.slice(0, tope), mas: Math.max(0, xs.length - tope) };
+    }).filter(g => g.items.length);
+}
+/**
+ * Frentes sin movimiento (Inicio «Requiere atención» y Preguntar): los ACTIVOS cuyo último movimiento —lo más reciente de su bitácora
+ * PROY_Actividad sin los ✓ «visto», o su alta si no hay nada— tiene `dias` días o más. [{ proyecto, dias }] del más quieto al menos;
+ * `dias` null = ni bitácora en la ventana leída ni fecha de alta (también es «no se mueve»).
+ */
+export function frentesQuietos(proyectos, actividad, dias = 10, ahora = new Date()) {
+    const ult = new Map();
+    for (const a of actividad || []) {
+        if (a.Accion === 'visto') continue;
+        const k = Number(a.ProyectoId), c = String(a.Cuando || '');
+        if (k && c > (ult.get(k) || '')) ult.set(k, c);
+    }
+    const out = [];
+    for (const p of proyectos || []) {
+        if (p.Estado !== 'activo') continue;
+        const ref = ult.get(Number(p.id)) || String(p._creado || ''), t = ref ? Date.parse(ref) : NaN;
+        const d = Number.isNaN(t) ? null : Math.max(0, Math.floor((ahora.getTime() - t) / 86400000));
+        if (d === null || d >= dias) out.push({ proyecto: p, dias: d });
+    }
+    return out.sort((a, b) => (b.dias ?? 1e9) - (a.dias ?? 1e9) || String(a.proyecto.Title || '').localeCompare(String(b.proyecto.Title || ''), 'es'));
+}
+/** Avisos (la campana): cuántos son POSTERIORES a la marca de visto (PROY_Roles.Visto.avisos). Uno sin `cuando` no cuenta como nuevo. */
+export const avisosNoVistos = (items, marca) => (items || []).filter(x => x && x.cuando && String(x.cuando) > String(marca || '')).length;

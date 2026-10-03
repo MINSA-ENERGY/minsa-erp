@@ -1,66 +1,60 @@
-/* MINSA Proyectos — lo que la piel (minsa-ui.css, generada de marca/minsa-design/ui/base.css con
-   --sin-paleta) NO trae: la PALETA, las fuentes locales, el acomodo de cada pantalla, el tablero de
-   4 columnas y la entrada.
-   v0.7.0 (2026-09-12): la paleta es la del Tablero de escritorio (minsa-tablero-app/app/src/estilos.css,
-   la de Seekwise que Carlos pidio el 2026-09-03), copiada LITERAL en claro y oscuro, a peticion de
-   Carlos («vamos a utilizar los colores de minsa-tablero»). Los .mn-* la consumen por el shim de
-   abajo, igual que en el tablero; los componentes no cambian. */
+/* MINSA ERP — lo que la piel (minsa-ui.css, generada de marca/minsa-design/ui/base.css con --sin-paleta) NO trae: la PALETA, las
+   fuentes locales, el ARMAZÓN (rail, panel, cabecera) y el acomodo de cada pantalla.
+   v1.0.0 (rediseño 2026-10-02; plan cerebro/docs/plan-erp-rediseno-2026-10-02.md, decisión 4): la paleta y la letra son las de la maqueta
+   «MINSA ERP Reportes» (minsa-erp-app/docs/rediseno/maqueta-reportes.html, hecha desde una captura real de ChartMogul), con un OSCURO
+   DERIVADO (rail igual, superficies navy). Supera a la del Tablero (v0.7.0, «vamos a utilizar los colores de minsa-tablero»). Los .mn-*
+   la siguen consumiendo por el shim de 34 tokens de abajo; los componentes no cambian. Las primitivas --blue-700, --sky-*, --amber-*…
+   se quedan con su valor oficial: las usan los tonos de tarjeta y los iconos de archivo (datos, no cromo). */
 
-/* ---- fuentes locales (OFL). La piel solo trae las variables --font-*; los @font-face los pone la app. */
-@font-face { font-family: "Saira"; font-weight: 500; font-display: swap; src: url("./vendor/fuentes/Saira-500.woff2") format("woff2"); }
-@font-face { font-family: "Saira"; font-weight: 600; font-display: swap; src: url("./vendor/fuentes/Saira-600.woff2") format("woff2"); }
-@font-face { font-family: "Barlow"; font-weight: 400; font-display: swap; src: url("./vendor/fuentes/Barlow-400.woff2") format("woff2"); }
-@font-face { font-family: "Barlow"; font-weight: 500; font-display: swap; src: url("./vendor/fuentes/Barlow-500.woff2") format("woff2"); }
-@font-face { font-family: "Barlow"; font-weight: 600; font-display: swap; src: url("./vendor/fuentes/Barlow-600.woff2") format("woff2"); }
-@font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-display: swap; src: url("./vendor/fuentes/IBMPlexMono-400.woff2") format("woff2"); }
-@font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-display: swap; src: url("./vendor/fuentes/IBMPlexMono-500.woff2") format("woff2"); }
-/* v0.12.1: rotulo «PROYECTOS» del rail (Carlos, 12-sep, opcion E30 del artifact). Solo el 700 latin; no entra a --font-*. */
-@font-face { font-family: "Bai Jamjuree"; font-weight: 700; font-display: swap; src: url("./vendor/fuentes/BaiJamjuree-700.woff2") format("woff2"); }
+/* ---- fuentes locales (OFL). La piel solo trae las variables --font-*; los @font-face los pone la app.
+   v1.0.0: Source Sans 3 variable 400–700 (subconjunto latin, vendor/fuentes/SourceSans3-OFL.txt) sustituye a Saira, Barlow y Bai Jamjuree;
+   v1.0.0 (cubeta 6, informe de fidelidad #1): también los datos (claves, montos, horas) — la maqueta y el plan (decisión 4) traen UNA letra
+   con cifras tabulares; IBM Plex Mono salió de vendor/ y de ARMAZON. Revertir: --f-data en la PALETA y los dos @font-face de Plex. */
+@font-face { font-family: "Source Sans 3"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("./vendor/fuentes/SourceSans3-latin-var.woff2") format("woff2"); }
 
-/* ==== PALETA (copiada de minsa-tablero-app/app/src/estilos.css; si cambia alla, cambia aqui) ==== */
+/* ==== PALETA ==== */
 :root {
-  --ink-900: #1c1c1c; --ink-700: #383d41;
-  --blue-800: #072884; --blue-700: #0833a3; --blue-600: #0f45c4; --blue-100: #e4ecfe;
-  --orange-700: #d4620f; --orange-500: #f0913f; --orange-100: #fdeee2;
-  --teal-700: #0d9488; --teal-500: #22b8a6; --teal-100: #e0f5f2;
-  --green-800: #1f6b28; --green-700: #2c8a37; --green-500: #61cd6a; --green-100: #e6f8e8;
-  --sky-700: #0a76b4; --sky-600: #0f8fd6; --sky-400: #69c6ff; --sky-100: #e8f6ff;
-  --slate-950: #171717; --slate-900: #262626; --slate-800: #333333; --slate-600: #5c5c5c;
-  --slate-500: #767676; --slate-400: #9c9c9c; --slate-300: #c4c4c4; --slate-200: #e4e4e4;
-  --slate-150: #ebebeb; --slate-100: #f2f2f2; --slate-50: #f7f7f7;
-  --red-700: #9c211c; --red-600: #c8322b; --red-100: #fdeceb;
-  --amber-700: #a86400; --amber-600: #e08c00; --amber-100: #fff5e2;
+  /* primitivas oficiales que siguen en uso (tonos de tarjeta --tono-*, iconos de archivo); NO se cambian: tokens-divergentes.py las coteja */
+  --blue-700: #0833a3; --green-700: #2c8a37; --sky-700: #0a76b4; --sky-600: #0f8fd6;
+  --red-600: #c8322b; --amber-700: #a86400; --amber-600: #e08c00; --slate-400: #9c9c9c;
 
-  --page: var(--slate-50); --card: #ffffff; --sunken: var(--slate-100); --banda: #f4f4f4;   /* v0.29.0: cebra de .dtabla, mas tenue que --sunken */
-  --rail: var(--page); --rail-on: #ffffff;   /* v0.44.0 (Carlos, 15-sep; artifact AHsKBeHt, R7 «Transparente»): la barra toma el gris de la pagina, sin filete; el activo es pastilla blanca con sombra corta */
-  --rail-tx: var(--slate-800); --rail-tx-strong: var(--slate-950); --rail-tx-mute: var(--slate-500); --rail-tx-faint: var(--slate-400);
-  --rail-line: transparent; --rail-hover: var(--slate-150); --rail-chip: var(--slate-200);
-  --tx: var(--slate-950); --tx-body: var(--slate-800); --tx-mute: var(--slate-500); --tx-faint: var(--slate-400);
-  --line: var(--slate-200); --line-soft: var(--slate-150);
-  --brand: var(--blue-700); --on-brand: #ffffff;
-  --serie: var(--orange-700); --serie2: var(--teal-700);
-  --ok-fg: var(--green-800); --ok-bg: var(--green-100); --ok-solid: var(--green-700);
-  --warn-fg: var(--amber-700); --warn-bg: var(--amber-100); --warn-solid: var(--amber-600);
-  --bad-fg: var(--red-700); --bad-bg: var(--red-100); --bad-solid: var(--red-600);
-  --info-fg: var(--sky-700); --info-bg: var(--sky-100); --info-solid: var(--sky-600);
-  --idle-fg: var(--slate-600); --idle-bg: var(--slate-100); --idle-solid: var(--slate-400);
+  /* la maqueta «MINSA ERP Reportes», literal (nombres sin escala: ninguno choca con tokens/colors.css) */
+  --rail: #212d42; --rail-on: #36435b; --rail-ink: #c3cad6; --rail-sep: #3a465c; --rail-hover: #2c3950;
+  --bg: #f7f8fa; --card: #ffffff; --side: #ffffff; --side-on: #eceff3; --line: #dfe3e9; --line-2: #e9ecf0; --th: #f7f8fa; --campo: #cbd2dc;
+  --ink: #1c2533; --ink-2: #4b5566; --ink-3: #8b93a1; --lk: #3d4a5e;
+  --navy: #1d2c47; --blue: #2a6bd9; --red: #e0435f; --amber: #c8870d; --green: #1d9a6a;
+  --hover: #f3f5f8; --chip: #e9edf3;
+  --relleno: var(--navy);   /* lo que va RELLENO con texto blanco (el «+ Nuevo» flotante, APLICAR / GUARDAR). v1.0.0 vuelta 1 (Carlos, 3-oct, opción 2 del artifact FLi4nDcUZUnS9sdMiRzMfC: «todo navy, relleno»): el primario es el navy de PREGUNTAR y sigue al tema (en oscuro, #3b5b96: 6.7:1 con el blanco). Antes el verde #167a53 (B5 + verde, v0.30.0); en la cubeta 1, el azul #2a6bd9 */
+
+  /* los tokens de la app de siempre, ahora sobre la maqueta (los usan 2,500 renglones de abajo) */
+  --page: var(--bg); --sunken: #f1f3f6; --banda: #f9fafb;
+  --tx: var(--ink); --tx-body: var(--ink); --tx-mute: var(--ink-2); --tx-faint: var(--ink-3);
+  --line-soft: var(--line-2);
+  --brand: var(--blue); --on-brand: #ffffff;
+  --serie: #d4691c; --serie2: #138c80;
+  --ok-fg: #167a53; --ok-bg: #ddf3ea; --ok-solid: var(--green);       /* las etiquetas .tag de la maqueta: g · a · r · b */
+  --warn-fg: #97650a; --warn-bg: #fbf0d9; --warn-solid: var(--amber);
+  --bad-fg: #c2304c; --bad-bg: #fde8ec; --bad-solid: var(--red);
+  --info-fg: #2257b4; --info-bg: #e3ecfb; --info-solid: var(--blue);
+  --idle-fg: var(--ink-2); --idle-bg: #eef1f5; --idle-solid: #a2aab6;
   --sobre-solido: #ffffff;   /* v0.27.0: tinta sobre un relleno solido (icono de archivo, etiqueta de expediente) */
-  --f-display: "Saira", "Barlow", system-ui, sans-serif;
-  --f-ui: "Barlow", system-ui, -apple-system, sans-serif;
-  --f-data: "IBM Plex Mono", ui-monospace, monospace;
+  --f-display: "Source Sans 3", "Source Sans Pro", "Segoe UI", system-ui, sans-serif;
+  --f-ui: "Source Sans 3", "Source Sans Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-data: var(--f-ui);   /* v1.0.0 (cubeta 6): los datos en Source Sans 3 con tabular-nums (body); era "IBM Plex Mono" */
+  /* la maqueta es de esquinas cortas: campos y botones 3–4 px, tarjetas 5–6 px */
+  --r-sm: 4px; --r-md: 6px; --r-lg: 10px;
 
-  /* Colores de EQUIPO (config.js los referencia por nombre). Los 4 primeros son los del rail del
-     tablero; los 2 de Ventas son propuesta aceptada en el artifact c52cb229 (2026-09-12). */
-  --eq-calytek: var(--ok-solid); --eq-pitepec: var(--serie); --eq-rabasa: var(--serie2);
-  --eq-administracion: var(--info-solid); --eq-ventas-quimicos: var(--brand); --eq-ventas-ambiental: var(--warn-solid);
+  /* Colores de EQUIPO (config.js los referencia por nombre): el cuadro del rail y el icono tenue de las listas. */
+  --eq-calytek: var(--green); --eq-pitepec: var(--serie); --eq-rabasa: var(--serie2);
+  --eq-administracion: #2f86c9; --eq-ventas-quimicos: var(--blue); --eq-ventas-ambiental: var(--amber);
 }
 /* ---- shim: los 34 tokens semanticos que minsa-ui.css consume (vendorizar.py --sin-paleta los lista) ---- */
 :root {
   --surface-page: var(--page); --surface-card: var(--card); --surface-sunken: var(--sunken);
-  --surface-hover: var(--rail-hover); --surface-active: var(--rail-chip); --surface-selected: var(--sunken);
+  --surface-hover: var(--hover); --surface-active: var(--chip); --surface-selected: var(--side-on);
   --text-strong: var(--tx); --text-body: var(--tx-body); --text-muted: var(--tx-mute); --text-faint: var(--tx-faint);
   --text-link: var(--brand); --brand-primary: var(--brand); --brand-accent: var(--ok-solid); --text-on-brand: var(--on-brand);
-  --focus-ring: var(--sky-400);
+  --focus-ring: var(--blue);
   --border-hairline: var(--line-soft); --border-default: var(--line);
   --status-ok-fg: var(--ok-fg); --status-ok-bg: var(--ok-bg); --status-ok-solid: var(--ok-solid);
   --status-warn-fg: var(--warn-fg); --status-warn-bg: var(--warn-bg); --status-warn-solid: var(--warn-solid);
@@ -69,51 +63,38 @@
   --status-idle-fg: var(--idle-fg); --status-idle-bg: var(--idle-bg); --status-idle-solid: var(--idle-solid);
   --font-display: var(--f-display); --font-ui: var(--f-ui); --font-data: var(--f-data);
 }
-/* Las DOS listas oscuras son la MISMA (media query y atributo); se cambian juntas, como en el tablero. */
+/* El OSCURO derivado (decisión 4): el rail no cambia; las superficies son navy y la tinta clara. Las DOS listas son la MISMA (media
+   query y atributo) y se cambian juntas. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --page: #131313; --card: #1f1f1f; --sunken: #181818; --banda: #1a1a1a;
-    --rail: var(--page); --rail-on: #242424;
-    --rail-tx: var(--slate-300); --rail-tx-strong: #ffffff; --rail-tx-mute: var(--slate-500); --rail-tx-faint: var(--slate-600);
-    --rail-line: transparent; --rail-hover: rgba(255,255,255,.05); --rail-chip: rgba(255,255,255,.09);
-    --tx: #ffffff; --tx-body: var(--slate-150); --tx-mute: var(--slate-300); --tx-faint: #8a8a8a;
-    --line: #333333; --line-soft: #2a2a2a;
-    --brand: #7f9bff; --on-brand: #0f0f0f;
-    --serie: var(--orange-500); --serie2: var(--teal-500);
-    --ok-fg: #86efac; --ok-bg: rgba(97,205,106,.14); --ok-solid: var(--green-500);
-    --warn-fg: #fbbf5c; --warn-bg: rgba(224,140,0,.18); --warn-solid: #fbbf5c;
-    --bad-fg: #f4948b; --bad-bg: rgba(200,50,43,.20); --bad-solid: #f4948b;
-    --info-fg: #8fd6ff; --info-bg: rgba(15,143,214,.16); --info-solid: #8fd6ff;
-    --sobre-solido: #141414;
-    --idle-fg: var(--slate-300); --idle-bg: #2b2b2b; --idle-solid: #454545;
+    --bg: #131a26; --card: #1b2433; --side: #182131; --side-on: #26324a; --line: #2c3a50; --line-2: #243145; --th: #1f2939; --campo: #3a4a63;
+    --ink: #e7ecf4; --ink-2: #aeb8c8; --ink-3: #7f8a9c; --lk: #c3cdde;
+    --navy: #3b5b96; --blue: #6f9df2; --red: #f07890; --amber: #e2a73c; --green: #43c08f;
+    --hover: #222d40; --chip: #2a3650;
+    --page: var(--bg); --sunken: #111723; --banda: #1e2737;
+    --ok-fg: #7fdcb5; --ok-bg: rgba(29,154,106,.20); --warn-fg: #f0c46a; --warn-bg: rgba(200,135,13,.22);
+    --bad-fg: #f59aac; --bad-bg: rgba(224,67,95,.22); --info-fg: #a4c2f7; --info-bg: rgba(42,107,217,.24);
+    --idle-fg: var(--ink-2); --idle-bg: #232e41; --idle-solid: #56627a;
+    --serie: #f0913f; --serie2: #22b8a6; --eq-administracion: #69b6ec;
+    --on-brand: #0d1420; --sobre-solido: #111723;
     --shadow-pop: 0 10px 34px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.40); --shadow-raise: 0 1px 3px rgba(0,0,0,.35);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #131313; --card: #1f1f1f; --sunken: #181818; --banda: #1a1a1a;
-  --rail: var(--page); --rail-on: #242424;
-  --rail-tx: var(--slate-300); --rail-tx-strong: #ffffff; --rail-tx-mute: var(--slate-500); --rail-tx-faint: var(--slate-600);
-  --rail-line: transparent; --rail-hover: rgba(255,255,255,.05); --rail-chip: rgba(255,255,255,.09);
-  --tx: #ffffff; --tx-body: var(--slate-150); --tx-mute: var(--slate-300); --tx-faint: #8a8a8a;
-  --line: #333333; --line-soft: #2a2a2a;
-  --brand: #7f9bff; --on-brand: #0f0f0f;
-  --serie: var(--orange-500); --serie2: var(--teal-500);
-  --ok-fg: #86efac; --ok-bg: rgba(97,205,106,.14); --ok-solid: var(--green-500);
-  --warn-fg: #fbbf5c; --warn-bg: rgba(224,140,0,.18); --warn-solid: #fbbf5c;
-  --bad-fg: #f4948b; --bad-bg: rgba(200,50,43,.20); --bad-solid: #f4948b;
-  --info-fg: #8fd6ff; --info-bg: rgba(15,143,214,.16); --info-solid: #8fd6ff;
-  --sobre-solido: #141414;
-  --idle-fg: var(--slate-300); --idle-bg: #2b2b2b; --idle-solid: #454545;
+  --bg: #131a26; --card: #1b2433; --side: #182131; --side-on: #26324a; --line: #2c3a50; --line-2: #243145; --th: #1f2939; --campo: #3a4a63;
+  --ink: #e7ecf4; --ink-2: #aeb8c8; --ink-3: #7f8a9c; --lk: #c3cdde;
+  --navy: #3b5b96; --blue: #6f9df2; --red: #f07890; --amber: #e2a73c; --green: #43c08f;
+  --hover: #222d40; --chip: #2a3650;
+  --page: var(--bg); --sunken: #111723; --banda: #1e2737;
+  --ok-fg: #7fdcb5; --ok-bg: rgba(29,154,106,.20); --warn-fg: #f0c46a; --warn-bg: rgba(200,135,13,.22);
+  --bad-fg: #f59aac; --bad-bg: rgba(224,67,95,.22); --info-fg: #a4c2f7; --info-bg: rgba(42,107,217,.24);
+  --idle-fg: var(--ink-2); --idle-bg: #232e41; --idle-solid: #56627a;
+  --serie: #f0913f; --serie2: #22b8a6; --eq-administracion: #69b6ec;
+  --on-brand: #0d1420; --sobre-solido: #111723;
   --shadow-pop: 0 10px 34px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.40); --shadow-raise: 0 1px 3px rgba(0,0,0,.35);
 }
-/* El rail toma los tokens --rail-* del tablero (blanco en claro, negro en oscuro). */
-.rail { background: var(--rail); color: var(--rail-tx); border-color: var(--rail-line); }
-/* v0.44.0: la pestaña activa del rail es una PASTILLA blanca con hairline y sombra corta (la barra ya no tiene fondo propio). Los equipos, al pasar y al filtrar, tambien en blanco. */
-.rail nav button.is-on { background: var(--rail-on); color: var(--brand-primary); box-shadow: 0 0 0 1px var(--line), 0 1px 3px rgba(20,24,32,.10), 0 4px 10px rgba(20,24,32,.07); }
-.rail .equipos button.is-on, .rail .equipos button:hover { background: var(--rail-on); }
-@media (max-width: 720px) { .rail { border-top-color: var(--border-hairline); background: var(--surface-card); } }   /* en celular la barra va ABAJO, fija: conserva fondo y hairline para separarse del contenido que pasa debajo */
 
 /* ---- utilidades propias */
 .oculto { display: none !important; }
@@ -121,39 +102,210 @@
    con .hidden = true (revisor, 2026-09-12), y las insignias del rail (Mensajes, Mis tareas, Proyectos)
    pintaban «0» aunque el JS las ocultara (`.mn-rail-hot { display: inline-grid }`; Carlos, 2026-09-14). */
 [hidden] { display: none !important; }
-.solo-oscuro { display: none; }
-:root[data-theme="dark"] .solo-claro { display: none; }
-:root[data-theme="dark"] .solo-oscuro { display: inline; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .solo-claro { display: none; }
-  :root:not([data-theme="light"]) .solo-oscuro { display: inline; }
-}
 
-/* ---- armazon */
+/* ==== ARMAZÓN v1.0.0 (maqueta «MINSA ERP Reportes»): rail 64 px oscuro · panel del módulo 284 px · contenido.
+   La pagina sigue rodando con el BODY (no con un <main> de alto fijo, como la maqueta): las pantallas de hoy, el arnés y las capturas
+   miden window.scrollY; rail y panel van pegados (sticky) a la altura de la ventana. ==== */
+.app { display: grid; grid-template-columns: 64px 284px minmax(0, 1fr); min-height: 100dvh; }
+.app.panel-plegado:not(.sin-sesion) { grid-template-columns: 64px minmax(0, 1fr); }
+.app.panel-plegado .panel { display: none; }
 .app.sin-sesion { grid-template-columns: 1fr; }
 .contenido { min-width: 0; padding: var(--sp-4) var(--sp-5) calc(var(--sp-7) + env(safe-area-inset-bottom)); }
-.rail .marca { display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-3) var(--sp-3); font-family: var(--font-display); font-weight: 600; color: var(--text-strong); }
-.rail .marca .logo { width: 92px; height: auto; }
-/* v0.12.1: «PROYECTOS» en Bai Jamjuree 700 versalitas, separado del lockup por un hairline verde en degradado (30 px) — elegido por Carlos entre 106 variantes (artifact «Rotulo Proyectos», 12-sep). El ::before es la linea; el color sale de --brand-accent, asi que en claro es el verde 700 y en oscuro el 500 legible. */
-/* v0.13.0 (Carlos, 12-sep): mas chico —12 px, tracking .12em— para que quepa dentro del rail (232 px) sin recortarse; el hairline baja a 24 px. */
-.rail .marca span { font-family: "Bai Jamjuree", var(--font-display); font-weight: 700; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; line-height: 1; margin-top: -2px; display: inline-flex; align-items: center; white-space: nowrap; min-width: 0; }
-.rail .marca span::before { content: ""; flex: none; width: 1px; height: 24px; margin: 0 10px 0 2px; background: linear-gradient(180deg, transparent, var(--brand-accent) 30%, var(--brand-accent) 70%, transparent); }
-.rail nav { display: contents; }
-/* v0.167.0 (Carlos, 2-oct; maqueta HV1C5pzx): la barra en tres bloques. El bloque es display:contents (los botones siguen siendo hijos
-   del rail para el layout) y su rotulo copia al de rama. Un bloque sin pestanas visibles (Operacion para quien no es gerencia) no pinta rotulo. */
-.rail .rail-bloque { display: contents; }
-.rail .rail-grupo { margin: 0; padding: var(--sp-3) var(--sp-3) var(--sp-1); letter-spacing: .15em; color: var(--rail-tx-faint); }
-.rail .rail-bloque:first-child .rail-grupo { padding-top: 0; }
-.rail .rail-bloque:not(:has(> button:not(.oculto))) .rail-grupo { display: none; }
-@media (max-width: 720px) { .rail .rail-grupo { display: none; } }
-.rail nav button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.rail .equipos { margin-top: var(--sp-3); display: grid; gap: 1px; }
-/* v0.7.0: rotulo de RAMA como el .railgroup del tablero (mayusculas, tracking .15em) y cada equipo con su icono. */
-.rail .equipos .rama { padding: var(--sp-3) var(--sp-3) var(--sp-1); letter-spacing: .15em; color: var(--rail-tx-faint); }
-.rail .equipos button { min-height: var(--control-h-sm); font-weight: 500; font-size: .8rem; gap: var(--sp-2); }
-.rail .equipos button .n { margin-left: auto; font-family: var(--font-data); font-size: .72rem; font-weight: 500; padding: 1px 6px; border-radius: var(--r-pill); background: var(--rail-chip); color: var(--rail-tx); }
-.rail .equipos button.is-on { background: var(--rail-on); color: var(--rail-tx-strong); font-weight: 600; }
-/* El elegido NO rellena el icono (revisor 12-sep: trazo blanco sobre los pasteles del oscuro daba 1.6–2.6:1); el fondo del boton ya lo marca, como en el tablero. */
+
+/* ---- rail */
+.rail { position: sticky; top: 0; height: 100dvh; z-index: var(--z-rail); background: var(--rail); color: var(--rail-ink); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0 12px; overflow: hidden; }
+.rail .rb { position: relative; width: 56px; min-height: 48px; padding: 5px 0 4px; border: 0; border-radius: 7px; background: none; color: var(--rail-ink); font: inherit; display: grid; justify-items: center; align-content: center; gap: 2px; cursor: pointer; }
+.rail .rb:hover { background: var(--rail-hover); }
+.rail .rb.is-on { background: var(--rail-on); color: #ffffff; }
+.rail .rb:focus-visible, .rail .uni-rb:focus-visible { outline: 2px solid #8fb0e8; outline-offset: -2px; }
+.rail .rb .ico { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.rail .rb .rot { font-family: var(--f-ui); font-size: 10.5px; line-height: 1.1; letter-spacing: .01em; white-space: nowrap; max-width: 56px; overflow: hidden; text-overflow: ellipsis; }
+.rail-marca { flex: none; padding: 2px 0 6px; }
+.rail-marca img { display: block; width: 22px; height: auto; }
+/* «+ Nuevo»: el único botón con relleno del rail. Vuelta 1 (primario navy): navy sobre el rail (#212d42) no se distingue, así que el cuadro
+   va BLANCO con la cruz navy (antes verde con cruz blanca). El rail no cambia con el tema: el par es fijo. */
+.rail .rb-nuevo .ico { width: 26px; height: 26px; padding: 4px; border-radius: 6px; background: #ffffff; color: #1d2c47; stroke-width: 2.2; }
+.rail .rb-nuevo[aria-expanded="true"] { background: var(--rail-on); }
+.rail-modulos { display: grid; gap: 4px; flex: none; }
+.rsep { flex: none; width: 36px; height: 1px; background: var(--rail-sep); margin: 4px 0; }
+/* las unidades: el cuadro de su color con su icono blanco (maqueta .app-t); el elegido lleva el anillo blanco. Ruedan si la ventana es baja. */
+.rail-unidades { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; align-content: start; justify-items: center; gap: 2px; scrollbar-width: none; }
+.rail-unidades::-webkit-scrollbar { display: none; }
+.uni-rb { position: relative; width: 44px; height: 36px; padding: 0; border: 0; border-radius: 7px; background: none; display: grid; place-items: center; cursor: pointer; }
+.rail .uni-rb:hover { background: var(--rail-hover); }
+.rail .uni-rb.is-on { background: var(--rail-on); }
+.eqi.is-solido { width: 24px; height: 24px; border-radius: 5px; background: var(--c); color: #ffffff; }
+.eqi.is-solido svg { width: 15px; height: 15px; stroke-width: 2.2; }
+.uni-rb.is-on .eqi.is-solido { box-shadow: 0 0 0 2px var(--rail), 0 0 0 4px #ffffff; }
+.rail .uni-rb .n { position: absolute; right: 1px; bottom: 0; font: 600 9.5px/1 var(--f-data); color: var(--rail-ink); }
+.rail-pie { flex: none; display: grid; gap: 2px; }
+/* insignia roja (mis vencidas en Inicio, avisos en la campana) — la .bdg de la maqueta */
+.bdg { position: absolute; top: 3px; right: 9px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--red); color: #ffffff; font: 700 9.5px/15px var(--f-ui); text-align: center; }
+/* anillo «Mi día» */
+.dia-anillo { position: relative; width: 30px; height: 30px; display: grid; place-items: center; }
+.dia-anillo svg { position: absolute; inset: 0; width: 30px; height: 30px; }
+.dia-anillo .fondo { fill: none; stroke: #4a5873; stroke-width: 2; }
+.dia-anillo .lleno { fill: none; stroke: #8fb0e8; stroke-width: 2; stroke-linecap: round; }
+.dia-anillo-n { position: relative; font: 600 9.5px/1 var(--f-ui); color: #e6ebf3; font-variant-numeric: tabular-nums; }
+
+/* ---- panel del módulo (maqueta .side) */
+.panel { position: sticky; top: 0; height: 100dvh; z-index: 4; min-width: 0; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+.panel-cab { display: flex; align-items: center; gap: var(--sp-2); padding: 22px 14px 14px 18px; }
+.panel-cab h1 { flex: 1; min-width: 0; margin: 0; font-family: var(--f-ui); font-size: 21px; font-weight: 500; color: var(--ink); }
+.panel-cerrar { display: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--ink-2); place-items: center; cursor: pointer; }
+.panel-cerrar .ico { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.srch { position: relative; margin: 0 16px 16px; }
+.srch input { width: 100%; box-sizing: border-box; border: 1px solid var(--campo); border-radius: 3px; padding: 8px 34px 8px 11px; font: inherit; font-size: 14.5px; background: var(--card); color: var(--ink); }
+.srch input::placeholder { color: var(--ink-3); }
+.srch .ico { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.panel-sc { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 18px; }
+.panel .gh { display: flex; align-items: center; gap: 2px; padding: 4px 12px 10px 16px; color: var(--ink-2); font-size: 14px; }
+.panel .gh span { flex: 1; }
+.panel .gh-btn { width: 36px; height: 36px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.panel .gh-btn:hover { background: var(--hover); }
+.panel .gh-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.panel .gsep { border-top: 1px solid var(--line); margin: 14px 0 18px; }
+.panel .fo { display: flex; align-items: center; gap: 9px; min-height: 38px; width: calc(100% - 22px); margin-left: 11px; padding: 7px 8px 7px 6px; border: 0; border-radius: 3px; background: none; text-align: left; font: inherit; font-size: 14.5px; font-weight: 500; color: var(--ink); cursor: pointer; }
+.panel .fo svg { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--ink-2); stroke-width: 1.4; stroke-linejoin: round; }
+.panel .fo:hover, .panel .ch:hover { background: var(--hover); }
+.panel .ch { display: flex; align-items: center; gap: 8px; width: calc(100% - 44px); min-height: 38px; margin-left: 22px; padding: 7px 10px 7px 12px; border: 0; border-radius: 3px; background: none; text-align: left; font: inherit; font-size: 14.5px; color: var(--ink); cursor: pointer; }
+.panel .ch .tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel .ch.on { background: var(--side-on); font-weight: 600; }
+.panel .ch.is-sub { width: calc(100% - 52px); margin-left: 30px; font-size: 13.5px; padding-left: 8px; }
+.panel .ch.is-sep { margin-top: 6px; }
+.panel .ch .eqi.is-sm { width: 20px; height: 20px; } .panel .ch .eqi.is-sm svg { width: 12px; height: 12px; }
+.panel .ch .n { flex: none; font: 500 .72rem var(--f-data); color: var(--ink-3); }
+.panel .ch .n.is-info { color: var(--info-fg); }
+.panel .ch-accion { color: var(--blue); }
+.panel .panel-vacio { margin: 0; padding: 0 18px; color: var(--ink-2); font-size: 13px; }
+#panelArbol .no-casa { display: none !important; }
+.panel .fo-hijos[hidden][data-busca] { display: block !important; }   /* buscando, se ven las entradas que casan aunque su carpeta esté plegada */
+.hoja-ambito { display: none; }
+.hoja-fondo { position: fixed; inset: 0; z-index: 35; background: rgba(15, 22, 35, .38); }
+
+/* ---- cabecera del armazón (#barraMovil): en escritorio solo asoma con el chip de ámbito */
+.cabecera-app { display: none; }
+.cabecera-app.con-ambito { display: block; margin-bottom: var(--sp-3); }
+.cab-fila { display: flex; align-items: center; gap: var(--sp-2); min-height: 36px; }
+.cabecera-app #btnHoja, .cabecera-app .cab-titulo, .cabecera-app .solo-cel { display: none; }
+.cab-esp { flex: 1; }
+.cab-titulo { min-width: 0; font-size: 19px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cab-btn { position: relative; width: 40px; height: 40px; flex: none; padding: 0; border: 1px solid var(--campo); border-radius: 3px; background: var(--card); color: var(--ink); place-items: center; cursor: pointer; }
+.cab-btn .ico { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.cab-btn .bdg { top: -5px; right: -5px; }
+.cab-btn.is-on { background: var(--side-on); }
+.chip-ambito { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 3px 3px 3px 6px; border: 1px solid var(--campo); border-radius: 3px; background: var(--card); color: var(--ink); font-size: 13.5px; }
+.chip-ambito .tx { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip-ambito.no-aplica { border-style: dashed; color: var(--ink-3); }
+.chip-ambito .quitar { width: 30px; height: 30px; flex: none; padding: 0; border: 0; border-radius: 3px; background: none; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.chip-ambito .quitar:hover { background: var(--hover); }
+.chip-ambito .quitar svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.ask { height: 36px; padding: 0 13px 0 10px; border: 0; border-radius: 3px; background: var(--navy); color: #ffffff; display: flex; align-items: center; gap: 8px; font: inherit; font-weight: 600; font-size: 13px; letter-spacing: .04em; cursor: pointer; }
+.ask .ico { width: 20px; height: 20px; fill: none; stroke: #ffffff; stroke-width: 1.6; }
+/* los chips del módulo = el control segmentado de la maqueta (.seg) */
+.chips-modulo { display: none; overflow-x: auto; scrollbar-width: none; margin-top: var(--sp-2); }   /* solo en celular */
+.chips-modulo::-webkit-scrollbar { display: none; }
+.chips-fila { display: inline-flex; min-width: max-content; height: 40px; border: 1px solid #2d3b55; border-radius: 2px; overflow: hidden; background: var(--card); }
+.chip-m { padding: 0 12px; border: 0; background: none; font: inherit; font-size: 12.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--navy); white-space: nowrap; cursor: pointer; }
+.chip-m + .chip-m { border-left: 1px solid var(--campo); }
+.chip-m.on { background: var(--navy); color: #ffffff; }
+:root[data-theme="dark"] .chips-fila { border-color: var(--campo); } :root[data-theme="dark"] .chip-m { color: var(--ink); } :root[data-theme="dark"] .chip-m.on { color: #ffffff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chips-fila { border-color: var(--campo); } :root:not([data-theme="light"]) .chip-m { color: var(--ink); } :root:not([data-theme="light"]) .chip-m.on { color: #ffffff; } }
+
+/* ---- «+ Nuevo» (un menú para el rail y para el botón flotante del celular; armazon.js lo coloca) */
+.fab-nuevo { display: none; }
+.menu-nuevo { position: fixed; z-index: var(--z-pop); min-width: 220px; max-width: min(320px, calc(100vw - 16px)); max-height: min(440px, calc(100dvh - 24px)); overflow-y: auto; padding: 4px 0; background: var(--card); border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 6px 20px rgba(20, 30, 50, .16); }
+.menu-nuevo .mn-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 8px 14px; border: 0; background: none; text-align: left; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; }
+.menu-nuevo .mn-item:hover:not(:disabled), .menu-nuevo .mn-item:focus-visible { background: var(--hover); }
+.menu-nuevo .mn-item:disabled { color: var(--ink-3); cursor: default; }
+.menu-nuevo .mn-item > svg { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--ink-2); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.menu-nuevo .mn-item.is-volver > svg { transform: rotate(180deg); }
+.menu-nuevo .mn-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-nuevo .mn-label, .menu-nuevo .vacio { margin: 0; padding: 6px 14px; }
+
+/* ---- Buscar y Avisos (diálogos mínimos de la cubeta 1) */
+.dlg-buscar .srch { margin: 0 0 var(--sp-3); }
+.bs-res, .av-lista { display: grid; gap: 2px; }
+.bs-g { margin: var(--sp-2) 0 2px; }
+.bs-r, .av-r { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 6px 8px; border: 0; border-radius: 3px; background: none; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.bs-r:hover, .av-r:hover, .bs-r:focus-visible, .av-r:focus-visible { background: var(--hover); }
+.bs-r .t, .av-r .t { flex: 1; min-width: 0; display: grid; }
+.bs-r b, .av-r b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bs-r small, .av-r small { color: var(--ink-2); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av-r.is-danger b { color: var(--bad-fg); }
+.av-r .flecha { width: 14px; height: 14px; flex: none; fill: none; stroke: var(--ink-3); stroke-width: 2; }
+
+/* ---- Cuenta (#cuenta) */
+.cuenta-rejilla { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+.cuenta-tu { display: grid; gap: var(--sp-3); }
+.cuenta-tu .quien { margin: 0; display: grid; gap: 2px; overflow-wrap: anywhere; color: var(--text-strong); }
+.cuenta-tu .quien b { font-size: 1.05rem; font-weight: 600; }
+/* v0.48.0: el rol es un ROTULO DE DATOS (mono, versalitas, gris), no un chip */
+.quien .rol { font-family: var(--font-data); font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; color: var(--text-muted); }
+.cuenta-acc { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.cuenta-acc a.mn-btn { text-decoration: none; }
+.cuenta-acc #btnActualizar .sync { padding-left: var(--sp-1); white-space: nowrap; }
+.cuenta-acc #btnActualizar .sync:empty { display: none; }
+.cuenta-version { margin: 0; }
+body[data-modulo="cuenta"] #pie { display: none; }   /* la versión ya va en la tarjeta «Tu cuenta» */
+@media (max-width: 900px) { .cuenta-rejilla { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- tableta (721–1100 px): rail de 56 y el panel se abre ENCIMA (☰ o clic en el módulo activo), como la maqueta */
+@media (max-width: 1100px) {
+  .app:not(.sin-sesion) { grid-template-columns: 56px minmax(0, 1fr); }
+  .rail .rb { width: 50px; } .rail .rb .rot { font-size: 9.5px; max-width: 50px; }
+  .app.panel-plegado .panel { display: flex; }
+  .panel { position: fixed; top: 0; bottom: 0; left: 56px; height: auto; width: min(284px, calc(100vw - 56px)); z-index: 40; box-shadow: 6px 0 22px rgba(20, 30, 50, .18); transform: translateX(-115%); transition: transform .2s; visibility: hidden; }
+  body.hoja-abierta .panel { transform: none; visibility: visible; }
+  .panel-cerrar { display: grid; }
+  .cabecera-app { display: block; margin-bottom: var(--sp-3); }
+  .cabecera-app #btnHoja { display: grid; }
+}
+
+/* ---- celular (≤ 720 px): la barra de abajo son los módulos; arriba ☰ · título · Buscar · Avisos · Cuenta y los chips; el panel es una hoja */
+@media (max-width: 720px) {
+  .app:not(.sin-sesion) { grid-template-columns: minmax(0, 1fr); }
+  .contenido { padding: var(--sp-3) var(--sp-3) calc(var(--sp-7) + 24px + env(safe-area-inset-bottom)); }
+  .rail { position: fixed; top: auto; left: 0; right: 0; bottom: 0; height: auto; flex-direction: row; padding: 4px 4px calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -1px 0 rgba(0, 0, 0, .12); }
+  .rail > :not(.rail-modulos) { display: none; }
+  .rail-modulos { display: flex; width: 100%; gap: 2px; }
+  .rail-modulos .rb { flex: 1; width: auto; min-width: 0; min-height: 52px; }
+  .rail .rb .rot { font-size: 10.5px; max-width: 100%; }
+  .rail-modulos .bdg { right: calc(50% - 20px); }
+  .panel { left: 0; right: 0; top: auto; bottom: 0; width: 100%; max-height: 86dvh; border-right: 0; border-radius: 12px 12px 0 0; box-shadow: 0 -8px 30px rgba(20, 30, 50, .22); transform: translateY(105%); }
+  .panel-cab { padding-top: 14px; }
+  .hoja-ambito { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+  .hoja-ambito .mn-label { flex-basis: 100%; margin: 0; }
+  .hoja-ambito .uni-rb { width: 44px; height: 44px; }
+  .hoja-ambito .uni-rb.is-on { background: var(--side-on); }
+  .cabecera-app { position: sticky; top: 0; z-index: 25; margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)) var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--bg); border-bottom: 1px solid var(--line); }
+  .cabecera-app .cab-titulo { display: block; }
+  .cabecera-app .solo-cel { display: grid; }
+  .cab-fila { flex-wrap: wrap; row-gap: 6px; }
+  .chip-ambito { order: 5; flex-basis: 100%; justify-content: space-between; }
+  .chips-modulo { display: block; }
+  .fab-nuevo { display: inline-flex; align-items: center; gap: 6px; position: fixed; right: 14px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: var(--z-sticky); height: 48px; padding: 0 18px 0 14px; border: 0; border-radius: 24px; background: var(--relleno); color: #ffffff; font: inherit; font-weight: 600; font-size: 15px; box-shadow: 0 4px 14px rgba(20, 30, 50, .28); cursor: pointer; }
+  .fab-nuevo .ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+  body.is-chat .fab-nuevo, body:has(dialog[open]) .fab-nuevo, body.hoja-abierta .fab-nuevo, .app.sin-sesion .fab-nuevo { display: none; }
+  /* v1.0.0: «+ Nuevo › Tarea» sustituye al FAB de «Nueva tarea» (U8); el botón sigue en la fila de pestañas de escritorio */
+  #btnNuevaTarea { display: none; }
+  /* B5: lo que flota abajo a la derecha tapaba el pie de la última tarjeta: las pantallas guardan su hueco (en el chat no hay botón) */
+  .tablero-caja, .docs, .tabla, .chat { padding-bottom: calc(var(--control-h) + var(--sp-3)); }
+  .pantalla:not(#p-proyecto):not(#p-mensajes) { padding-bottom: calc(var(--control-h) + var(--sp-3)); }
+}
+.sync { font-size: .72rem; color: var(--text-faint); }
+.sync.viejo { color: var(--status-warn-fg); }
+.tema { display: inline-flex; gap: var(--sp-1); }
+.tema .mn-btn { color: var(--text-muted); }
+.tema button[aria-pressed="true"] { color: var(--brand-primary); border-color: var(--brand-primary); }
+.tema svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+/* v0.48.0: SEGMENTO Claro | Oscuro — caja hundida, el activo es pastilla de tarjeta. v1.0.0: vive en Cuenta. */
+.tema.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; margin: 0; padding: 2px; background: var(--surface-sunken); border: 1px solid var(--border-hairline); border-radius: var(--r-sm); max-width: 260px; }
+.tema.seg .mn-btn { min-height: 38px; height: 38px; padding: 0 var(--sp-2); border: 0; border-radius: 3px; background: transparent; color: var(--text-muted); font-size: .85rem; gap: var(--sp-1); }
+.tema.seg button[aria-pressed="true"] { background: var(--surface-card); color: var(--text-strong); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.tema.seg .mn-btn:hover { background: var(--surface-hover); }
+.tema.seg button[aria-pressed="true"]:hover { background: var(--surface-card); }
+#btnActualizar .ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
 /* ---- icono de equipo (comun.js iconoEquipo): cuadro tenue del color del equipo, trazo del color. Reusa el
    mismo `--c` en rail, lista, cabecera del proyecto y tarjeta. color-mix: Chrome 111+ / Safari 16.2+. */
@@ -163,112 +315,7 @@
 .eqi.is-lg { width: 40px; height: 40px; border-radius: var(--r-md); } .eqi.is-lg svg { width: 22px; height: 22px; }
 .kv .proy { display: inline-flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; }
 .kv .proy .eqi { vertical-align: middle; }
-.rail .sesion { margin-top: auto; padding: var(--sp-3) var(--sp-2) 0; border-top: 1px solid var(--border-hairline); display: grid; gap: var(--sp-2); font-size: .8rem; color: var(--text-muted); }
-/* A5: el nombre en negrita; el correo va en el title. `break-all` partia
-   «gerencia» en «gerenci» + «a»; `anywhere` solo parte cuando de verdad no cabe. */
-.rail .sesion .quien { overflow-wrap: anywhere; color: var(--text-strong); display: grid; gap: 2px; min-width: 0; }
-.rail .sesion .quien b { font-weight: 600; }
-/* v0.48.0 (Carlos, 15-sep; artifact M3B6fy3g «A4»): el rol es un ROTULO DE DATOS — la misma metrica que el rotulo
-   «EQUIPOS» del rail (mono, versalitas, gris). Antes era `mn-chip is-info`: el unico celeste de toda la columna. */
-.rail .sesion .quien .rol { font-family: var(--font-data); font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; color: var(--text-muted); }
-/* v0.48.0: renglon 1 = nombre/rol + «···» a la derecha; renglon 2 = el tema como segmento a todo el ancho. */
-.rail .sesion-fila { display: flex; align-items: center; gap: var(--sp-2); }
-.rail .sesion-fila .quien { flex: 1; }
-.rail .sesion-fila .menu-rail { flex: none; }
-/* Auditoria 2026-09-12 (#1, #13): el pie del rail tenia tres botones distintos lado a lado —«Actualizar»
-   sin borde y gris, «···» en 700, sol/luna con filete tenue— porque `.mn-rail button` (0,1,1) pisa a
-   `.mn-btn` (0,1,0) en borde, fondo, color y gap. Todo control del rail que sea `.mn-btn` vuelve al
-   boton de la piel con esta regla (0,2,0); los menus ya no re-implementan el boton: llevan `.mn-btn.is-sm`
-   en el HTML. El gap sigue en --sp-1 solo aqui: el rail mide 232 px y con --sp-2 el pie se parte en dos. */
-.rail .sesion-botones { display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; }
-.rail .mn-btn { border: 1px solid var(--border-default); background: var(--surface-card); color: var(--text-body); justify-content: center; gap: var(--sp-2); }
-.rail .mn-btn:hover { background: var(--surface-hover); }
-/* D6 (v0.6.0): el pie del rail apilaba seis controles en dos renglones; Equipo, Ver en SharePoint y
-   Salir van en un menu «···» que abre HACIA ARRIBA (el rail termina en el borde de la ventana).
-   v0.48.0: Actualizar entra tambien al menu, con la hora de la ultima lectura (`.sync`) a su derecha; el menu
-   abre pegado al borde derecho del rail porque el «···» ya vive ahi. */
-.menu-rail { position: relative; }
-.menu-rail > summary { list-style: none; cursor: pointer; letter-spacing: .1em; }
-.menu-rail > summary::-webkit-details-marker { display: none; }
-.menu-rail .menu-caja { position: absolute; right: 0; bottom: calc(100% + 4px); z-index: var(--z-pop); background: var(--surface-card); border: 1px solid var(--border-hairline); border-radius: var(--r-md); box-shadow: var(--shadow-pop); padding: var(--sp-2); display: grid; gap: var(--sp-2); min-width: 210px; }
-.menu-caja .salir { margin-top: var(--sp-1); }
-.menu-caja #btnActualizar { justify-content: flex-start; }
-.menu-caja #btnActualizar .sync { margin-left: auto; padding-left: var(--sp-2); white-space: nowrap; }
-.menu-caja #btnActualizar .sync:empty { display: none; }
-.sync { font-size: .72rem; color: var(--text-faint); }
-.sync.viejo { color: var(--status-warn-fg); }
-.tema { display: inline-flex; gap: var(--sp-1); margin-left: auto; }
-.tema .mn-btn { color: var(--text-muted); }
-.tema button[aria-pressed="true"] { color: var(--brand-primary); border-color: var(--brand-primary); }
-.tema svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
-/* v0.48.0: SEGMENTO Claro | Oscuro en el rail — caja hundida, el activo es pastilla de tarjeta con sombra corta
-   (la misma pastilla que la pestana activa). Solo el rail lo lleva (`.tema.seg`); el menu movil conserva sus dos iconos. */
-.rail .tema.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; margin: 0; padding: 2px; background: var(--surface-sunken); border: 1px solid var(--border-hairline); border-radius: var(--r-sm); }
-.rail .tema.seg .mn-btn { min-height: 26px; height: 26px; padding: 0 var(--sp-2); border: 0; border-radius: 4px; background: transparent; color: var(--text-muted); font-size: .72rem; gap: var(--sp-1); }
-.rail .tema.seg .mn-btn svg { width: 14px; height: 14px; }
-.rail .tema.seg button[aria-pressed="true"] { background: var(--surface-card); color: var(--text-strong); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
-.rail .tema.seg .mn-btn:hover { background: var(--surface-hover); }
-.rail .tema.seg button[aria-pressed="true"]:hover { background: var(--surface-card); }
-
-/* ---- v0.28.0: rail PLEGABLE en escritorio (Carlos, 14-sep). `.app.rail-plegado` deja 64 px con solo
-   iconos: los rotulos, la marca, el nombre y el sync se ocultan; los contadores saltan a la esquina
-   del icono; el pie se apila. El title de cada pestana lo pone app.js (el rotulo ya no se ve). En
-   celular no aplica: ahi el rail ya es la barra de pestanas y el boton no se muestra. */
-/* v0.28.1: la marca entera es el boton de plegar (se queda como estaba, solo gana cursor y hover); el chevron vive solo plegado. */
-.rail .marca-btn { display: flex; align-items: center; gap: var(--sp-2); min-height: 0; padding: 0; border: 0; border-radius: var(--r-sm); background: none; font: inherit; color: inherit; cursor: pointer; min-width: 0; }
-.rail .marca-btn:hover { background: none; opacity: .8; }
-.app:not(.rail-plegado) .rail .plegar { display: none; }
-.rail .plegar { margin-left: auto; width: 28px; height: 28px; min-height: 0; padding: 0; justify-content: center; border-radius: var(--r-sm); color: var(--text-muted); flex: none; }
-.rail .plegar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
-@media (min-width: 721px) {
-  .app.rail-plegado { grid-template-columns: 64px 1fr; }
-  .rail-plegado .rail { padding-inline: var(--sp-2); }
-  .rail-plegado .rail .marca { padding: 0 0 var(--sp-3); justify-content: center; }
-  .rail-plegado .rail .marca-btn { display: none; }
-  .rail-plegado .rail .plegar { margin-left: 0; }
-  .rail-plegado .rail .plegar svg { transform: rotate(180deg); }
-  .rail-plegado .rail nav button > span, .rail-plegado .rail .equipos .rama, .rail-plegado .rail .equipos button > span:not(.eqi):not(.n),
-  .rail-plegado .rail .sesion .quien, .rail-plegado .rail .tema.seg .mn-btn > span { display: none; }
-  .rail-plegado .rail nav button, .rail-plegado .rail .equipos button { position: relative; justify-content: center; padding: 0; gap: 0; }
-  .rail-plegado .rail .equipos { gap: 2px; }
-  /* v0.167.0: plegado, el rotulo de bloque se vuelve un filete (el primero, nada) */
-  .rail-plegado .rail .rail-grupo { font-size: 0; padding: 0; margin: var(--sp-2) var(--sp-2); border-top: 1px solid var(--rail-line); }
-  .rail-plegado .rail .rail-bloque:first-child .rail-grupo { display: none; }
-  .rail-plegado .rail .mn-rail-hot { position: absolute; top: 2px; right: 2px; margin: 0; }
-  .rail-plegado .rail .equipos .n { position: absolute; top: 0; right: 0; margin: 0; }
-  .rail-plegado .rail .sesion { padding-inline: 0; }
-  .rail-plegado .rail .sesion-fila { justify-content: center; }
-  .rail-plegado .rail .tema.seg { grid-auto-flow: row; grid-auto-columns: auto; }   /* v0.48.0: el segmento se apila (sol / luna) a 64 px */
-  .rail-plegado .rail .tema.seg .mn-btn { padding: 0; }
-  .rail-plegado .rail .menu-rail > summary { width: 100%; }
-}
-#btnActualizar .ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-
-/* barra movil: solo por debajo de 720 px (el rail se vuelve pestanas abajo y no cabe la sesion) */
-.barra-movil { display: none; }
-@media (max-width: 720px) {
-  .contenido { padding: var(--sp-3) var(--sp-3) calc(var(--sp-7) + 24px + env(safe-area-inset-bottom)); }
-  .rail .marca, .rail .equipos, .rail .sesion, .rail .plegar { display: none; }
-  .rail nav button svg { width: 20px; height: 20px; }
-  .barra-movil { display: flex; align-items: center; gap: var(--sp-2); padding-bottom: var(--sp-2); }
-  .barra-movil .logo.chica img { width: 84px; height: auto; }
-  .barra-movil .rol-movil { font-size: .72rem; color: var(--text-muted); }
-  .menu-movil { margin-left: auto; position: relative; }
-  .menu-movil summary { list-style: none; cursor: pointer; }
-  .menu-movil summary::-webkit-details-marker { display: none; }
-  .menu-caja { position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-pop); background: var(--surface-card); border: 1px solid var(--border-hairline); border-radius: var(--r-md); box-shadow: var(--shadow-pop); padding: var(--sp-2); display: grid; gap: var(--sp-2); min-width: 200px; }
-  .menu-caja .tema { margin-left: 0; }
-  .menu-caja .tema button { flex: 1; }
-  /* U8: en celular «Nueva tarea» flota abajo a la derecha, encima de las pestanas; si no aplica, no estorba. */
-  #btnNuevaTarea { position: fixed; right: var(--sp-3); bottom: calc(var(--sp-7) + 20px + env(safe-area-inset-bottom)); z-index: var(--z-pop); border-radius: var(--r-pill); box-shadow: var(--shadow-pop); padding: 0 var(--sp-4); min-height: var(--control-h); background: var(--status-ok-solid); color: var(--text-on-brand); border-color: var(--status-ok-solid); }   /* v0.30.0 (B5): flotante LLENO de verde — un contorno transparente sobre el tablero deja leer las tarjetas a traves */
-  #btnNuevaTarea:disabled { display: none; }
-  /* B5: el FAB flota sobre la columna y tapaba el pie de la ultima tarjeta (205 x 60 px). */
-  .tablero-caja, .docs, .tabla, .chat { padding-bottom: calc(var(--control-h) + var(--sp-3)); }
-  /* A7: con un dialogo abierto el FAB asomaba sobre el backdrop y parecia pulsable. Va DENTRO del
-     @media: arriba de 720 px «Nueva tarea» es un boton mas de la barra y no hay nada que esconder. */
-  body:has(dialog[open]) #btnNuevaTarea { visibility: hidden; }
-}
-/* A6: «Al dia · leido hace N s» se pintaba dos veces en escritorio (rail + #syncMovil). */
+/* A6: «Al dia · leido hace N s» se pintaba dos veces en escritorio (Cuenta + #syncMovil). */
 #syncMovil { display: none; }
 @media (max-width: 720px) { #syncMovil:not(.oculto) { display: block; } }
 /* A8: parrafo de ayuda. .mn-label es un rotulo de UNA linea (mayusculas, mono, tracking);
@@ -281,13 +328,15 @@
    el boton responde al clic — se encoge un 3 % (:active) y suelta una ONDA desde el punto tocado (.onda, la pone
    comun.js: ondaAlPulsar). El primario deja de ser un rectangulo azul plano: en reposo es contorno verde de 2 px
    (el verde del avance y de «hecha»), al pasar el cursor se llena y toma sombra. Sobre la piel vendorizada
-   (minsa-ui.css no se edita: vendorizar.py --verificar lo caza), con la misma especificidad y despues. */
+   (minsa-ui.css no se edita: vendorizar.py --verificar lo caza), con la misma especificidad y despues.
+   v1.0.0 vuelta 1 (Carlos, 3-oct, «todo navy, relleno»): el primario va RELLENO navy en reposo —el de PREGUNTAR— y al pasar el cursor se
+   aclara y toma sombra; la onda y el encogerse al pulsar se quedan. Supera el contorno verde de B5. */
 .mn-btn { position: relative; overflow: hidden; transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast), box-shadow var(--dur-fast), transform .08s; }
 .mn-btn:active:not(:disabled) { transform: scale(.97); }
-.mn-btn.is-primary { background: transparent; color: var(--status-ok-fg); border: 2px solid var(--status-ok-solid); padding-inline: calc(var(--sp-4) - 1px); }
+.mn-btn.is-primary { background: var(--relleno); color: #ffffff; border: 2px solid var(--relleno); padding-inline: calc(var(--sp-4) - 1px); }
 .mn-btn.is-primary.is-sm { padding-inline: calc(var(--sp-3) - 1px); }
-.mn-btn.is-primary:hover:not(:disabled), .mn-btn.is-primary:focus-visible { background: var(--status-ok-solid); color: var(--text-on-brand); filter: none; box-shadow: 0 3px 10px rgba(44, 138, 55, .28); }
-.mn-btn.is-primary:disabled { background: transparent; }
+.mn-btn.is-primary:hover:not(:disabled), .mn-btn.is-primary:focus-visible { background: var(--relleno); color: #ffffff; filter: brightness(1.25); box-shadow: 0 3px 10px rgba(29, 44, 71, .28); }
+.mn-btn.is-primary:disabled { background: var(--relleno); }
 .mn-btn.is-danger:hover:not(:disabled) { background: var(--status-danger-bg); }
 .mn-btn .onda { position: absolute; border-radius: 50%; background: currentColor; opacity: .28; transform: scale(0); pointer-events: none; animation: onda .5s ease-out forwards; }
 @keyframes onda { to { transform: scale(4); opacity: 0; } }
@@ -295,7 +344,6 @@
 .mn-btn.is-icono { padding: 0; min-width: var(--control-h-sm); justify-content: center; }
 .mn-btn.is-icono svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .mn-dialog-head h2 { min-width: 0; overflow-wrap: anywhere; }
-.rail .sesion a.mn-btn { text-decoration: none; }
 /* F12: «ver toda» pegado al titulo de la tarjeta de actividad. v0.15.1 (captura de Carlos 13-sep): era float: right, y
    como el h2 no contenia el flotante, la lista .mini (un grid = contexto de formato propio) se ACORTABA a su lado en toda
    su altura (171 de 246 px en la lateral a 1366; el hover del renglon se partia). El h2 es ahora flex y contiene al boton. */
@@ -405,7 +453,7 @@ button.cab.grupo-proy { cursor: pointer; } button.cab.grupo-proy:hover { filter:
   .dtabla tr.doc { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-2); align-items: center; padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); border: 1px solid var(--border-hairline); border-radius: var(--r-md); background: var(--surface-card); }
   .dtabla tr.doc td { display: block; padding: 0; border: 0 !important; background: none !important; }
   .dtabla tr.doc .c-nombre { grid-column: 1; grid-row: 1; width: auto; }
-  .dtabla tr.doc .c-acc { grid-column: 2; grid-row: 1; }
+  .dtabla tr.doc .c-acc { grid-column: 2; grid-row: 1; justify-self: end; width: auto; }   /* v1.0.0 (cubeta 5): con width 1% el «⋯» quedaba al INICIO de la columna y bailaba con el ancho del sello («ENVIADO A ARCHIVAR») */
   .dtabla tr.doc .c-tipo, .dtabla tr.doc .c-estado, .dtabla tr.doc .c-del { display: inline-block; grid-column: 1 / -1; grid-row: auto; width: auto; margin-right: var(--sp-2); }
   .dtabla tr.doc td { white-space: normal; }   /* v0.29.0: en ficha apilada si envuelve */
   /* v0.19.0: la fecha del documento va con el TIPO (renglon 2: «PDF … 01/07/2025» se lee como la fecha del archivo) y no junto a quien
@@ -415,7 +463,7 @@ button.cab.grupo-proy { cursor: pointer; } button.cab.grupo-proy:hover { filter:
   .dtabla tr.doc .c-tarjeta { grid-column: 1 / -1; grid-row: 4; }
   .dtabla tr.doc .c-tarjeta select { max-width: 100%; width: 100%; }
   .dtabla tr.pest { display: block; } .dtabla tr.pest td { display: block; padding: var(--sp-2) 0 var(--sp-1); }
-  .dtabla .t { white-space: normal; overflow-wrap: anywhere; }
+  .dtabla .t, .dtabla td .t { white-space: normal; overflow-wrap: anywhere; }   /* v1.0.0 (cubeta 5): `.dtabla td .t` (nowrap, arriba) le ganaba por especificidad y la ficha cortaba el nombre a «2026-10-01_CALYTEK_Of…» a 390 */
 }
 @media (max-width: 720px) {
   .docs-barra .buscador { flex-basis: 100%; }
@@ -423,10 +471,10 @@ button.cab.grupo-proy { cursor: pointer; } button.cab.grupo-proy:hover { filter:
 .doc .t .mn-chip { margin-right: var(--sp-1); vertical-align: middle; }
 /* U11: imprimir = lo que hay en pantalla, sin cromo. Ctrl+P o el boton «Imprimir». */
 @media print {
-  .mn-rail, .barra-movil, .sync, #avisos, #sinRed, #sesionCaduca, .tabs, .tabs-fila, .filtros, .col-tabs, .proyecto-cab .acciones, .cab-plegar, .sel-lista, .sel-proyecto > summary svg, .lateral, .col .mas, .ver-toda, .pie, .tema, .docs-acciones { display: none !important; }
+  .rail, .panel, .cabecera-app, .fab-nuevo, .menu-nuevo, .hoja-fondo, .sync, #avisos, #sinRed, #sesionCaduca, .tabs, .tabs-fila, .filtros, .col-tabs, .proyecto-cab .acciones, .cab-plegar, .sel-lista, .sel-proyecto > summary svg, .lateral, .col .mas, .ver-toda, .pie, .tema, .docs-acciones { display: none !important; }
   body { background: #fff; color: #000; }
   .contenido { padding: 0; }
-  .mn-shell { display: block; }
+  .app { display: block; }
   .dos-columnas, .dos-columnas.ancha { grid-template-columns: 1fr; }
   #p-proyecto.ver-resumen .lateral { display: grid !important; }   /* v0.30.0 (L6): imprimir desde Resumen imprime el resumen, no una hoja con solo la cabecera */
   .tablero { grid-template-columns: repeat(var(--n, 4), 1fr); overflow: visible; }
@@ -481,7 +529,7 @@ body:has(#pantallaEntrar:not(.oculto)) #pie { display: none; }
 .entrada-titulo { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 2.1rem; line-height: 1.05; letter-spacing: .02em; color: #f2f6ff; text-wrap: balance; }
 .entrada-titulo em { font-style: normal; color: #61cd6a; }
 .entrada .lema { margin: 0; color: rgba(242, 246, 255, .62); max-width: 30ch; text-wrap: balance; }
-.entrada .mn-btn.is-primary, .entrada .mn-btn.is-primary:hover:not(:disabled), .entrada .mn-btn.is-primary:focus-visible { margin-top: .4rem; background: #61cd6a; color: #04123d; border-color: transparent; border-radius: .4rem; box-shadow: none; }   /* v0.30.0: la entrada conserva su boton lleno en reposo, hover y foco (el hover verde de .is-primary es (0,4,0) y le ganaba) */
+.entrada .mn-btn.is-primary, .entrada .mn-btn.is-primary:hover:not(:disabled), .entrada .mn-btn.is-primary:focus-visible { margin-top: .4rem; background: #61cd6a; color: #04123d; border-color: transparent; border-radius: .4rem; box-shadow: none; filter: none; }   /* v0.30.0: la entrada conserva su boton lleno en reposo, hover y foco (el hover verde de .is-primary es (0,4,0) y le ganaba). Vuelta 1: el primario de la app pasó a navy, pero la entrada es un plano navy y su botón SIGUE verde a propósito (navy sobre navy no se ve); filter: none le quita el aclarado del foco del primario */
 .entrada .mn-btn.is-primary:hover:not(:disabled) { filter: brightness(1.06); }
 .entrada .pista { align-self: center; margin: 0; min-height: 1.2em; color: rgba(242, 246, 255, .5); font-family: var(--font-data); font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; }
 .entrada .pista.estado { color: rgba(242, 246, 255, .86); font-size: .85rem; letter-spacing: .02em; text-transform: none; }   /* U-05 (v0.87.0): cuando la pista lleva un ESTADO (Entrando…, un error) se lee; la marca en reposo se queda chica */
@@ -543,11 +591,6 @@ body:has(#pantallaEntrar:not(.oculto)) #pie { display: none; }
 .acc-menu > summary::-webkit-details-marker { display: none; }
 .acc-menu .acciones { position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-pop); display: grid; gap: 2px; min-width: 200px; margin: 0; padding: var(--sp-2); background: var(--surface-card); border: 1px solid var(--border-hairline); border-radius: var(--r-md); box-shadow: var(--shadow-pop); }
 .acc-menu .acciones .mn-btn { justify-content: flex-start; width: 100%; }
-.acc-sub > summary { list-style: none; display: flex; align-items: center; justify-content: space-between !important; cursor: pointer; }
-.acc-sub > summary::-webkit-details-marker { display: none; }
-.acc-sub > summary svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }
-.acc-sub[open] > summary svg { transform: rotate(90deg); }
-.acc-sub .acc-sub-caja { display: grid; gap: 2px; margin-top: 2px; padding-left: var(--sp-3); border-left: 2px solid var(--border-hairline); }
 .acc-menu .acciones .mn-btn.is-danger { color: var(--status-danger-loud); border-color: transparent; }
 .acc-menu .acciones .mn-btn.is-danger:hover { background: var(--status-danger-bg); }
 /* La linea-resumen era solo de CELULAR (en escritorio la lateral decia lo mismo); desde v0.30.0 (L6) la lateral
@@ -671,9 +714,6 @@ body:has(#pantallaEntrar:not(.oculto)) #pie { display: none; }
 .buscador:focus { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
 /* C8: el reloj del frente junto al % de la cabecera */
 .proyecto-cab .reloj:empty { display: none; }
-/* U3: los KPI de Inicio son botones */
-button.mn-kpi { font: inherit; text-align: left; color: inherit; cursor: pointer; display: block; width: 100%; }
-button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
 
 /* ---- mini listas (vencimientos, actividad, quienes)
    2026-09-12: dos columnas (avatar · cuerpo), no tres. Con la hora como tercera columna nowrap, la frase se
@@ -747,13 +787,14 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
   .t-largo { display: none; }
   .t-corto { display: inline; }
   /* «Nueva tarea» se queda PEGADO al borde derecho mientras las pestañas ruedan debajo (el revisor lo vio cortado a 820);
-     lleva el fondo de la pagina porque el primario es contorno transparente. En celular (<=720) el boton es flotante y no aplica. */
-  .tabs .mn-btn.is-primary { position: sticky; right: 0; background: var(--surface-page); box-shadow: -10px 0 8px -2px var(--surface-page); }
+     la sombra del color de la pagina tapa las pestañas que pasan debajo. En celular (<=720) el boton es flotante y no aplica. Vuelta 1: el
+     primario ya va relleno navy, así que no lleva el fondo de la página (con él, el texto blanco quedaba sobre blanco). */
+  .tabs .mn-btn.is-primary { position: sticky; right: 0; box-shadow: -10px 0 8px -2px var(--surface-page); }
 }
 
 /* ---- tablero: tantas columnas como cubetas tenga el proyecto (v0.47.0: `--n` la pone tablero.js; antes eran 4 fijas y con
    3 cubetas quedaba un hueco a la derecha). Todas caben a lo ancho; con 8 a 150 px minimo scrollea. */
-.tablero { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(150px, 1fr)); gap: var(--sp-3); overflow-x: auto; padding-bottom: var(--sp-1); }
+.tablero { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(150px, 1fr)); gap: 14px; overflow-x: auto; padding-bottom: var(--sp-1); }   /* v1.0.0 (cubeta 3): el gap de la maqueta (.kb) */
 /* A3: entre 721 y 900 px (tableta, ventana chica de laptop) las pestanas de columna todavia no
    existen; con `repeat(4, 240px)` el tablero volvia al scroll horizontal y cortaba «En revisión».
    2 x 2 conserva la vista de tablero completa sin desbordar. */
@@ -906,8 +947,7 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
   .densa .tr .eqc, .densa .tr .cu { display: none; }
   /* U-06 (v0.90.0): a 390 la cabecera gastaba media pantalla (tile del icono solo en su linea + h1 + subtitulo de dos lineas) y el
      primer renglon caia en y≈450 de 844. Fuera el tile; el subtitulo se queda solo para el lector de pantalla (misma receta que .mn-sr). */
-  #p-mis .titulo-ico { display: none; }
-  #p-mis .cabecera .sub { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #p-mis #misSub { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }   /* v1.0.0 (cubeta 4): el subtítulo de la cabecera de la plantilla */
   .kpi { min-width: 0; flex: 1 1 30%; padding: 6px 10px; }
   .kpi b { font-size: 1.25rem; }
 }
@@ -1077,12 +1117,6 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
   .doc .tarjeta-de select { flex: 1; min-width: 0; }
   /* B7: «Origen en la KB» lo trae 1 de 17 tarjetas y se comia una columna de la Lista */
   /* ---- v0.6.0 ---- */
-  /* B3: Inicio media 2,400 px a 390 px; los 4 KPI en 2 x 2 ocupaban 370. Una fila de «mini»
-     (numero + etiqueta a 2 lineas); el 5.o («sin dueño», solo si hay) cae a la fila de abajo. */
-  .mn-kpis { grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: var(--sp-1); }
-  .mn-kpi { padding: var(--sp-2) var(--sp-2) var(--sp-2) calc(var(--sp-2) + 3px); }
-  .mn-kpi .mn-kpi-label { font-size: .66rem; letter-spacing: .04em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.25; }
-  .mn-kpi .mn-kpi-val { font-size: 1.5rem; margin-top: 2px; }
   /* C4: el boton «Anotar» debajo del textarea, a todo el ancho; el contador arriba del boton a la derecha */
   .nota-forma { grid-template-columns: 1fr; }
   .nota-forma .cont { justify-self: end; padding-bottom: 0; }
@@ -1261,10 +1295,7 @@ button.mn-kpi:focus-visible { outline: 2px solid var(--brand-primary); outline-o
 /* ---- titulo de pantalla con su icono a la izquierda, en un cuadro tenue de marca (como el icono de equipo en la cabecera del proyecto). */
 .titulo-ico { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--r-md); flex: none; color: var(--brand-primary); background: color-mix(in srgb, var(--brand-primary) 12%, transparent); }
 .titulo-ico svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-/* ---- rail: la insignia de Mensajes es informativa (azul), no alarma (rojo, la de vencidas). */
-.mn-rail .mn-rail-hot.is-info { background: var(--status-info-bg); color: var(--status-info-fg); }
-/* v0.13.0 (Carlos, 12-sep): el contador del rail deja la pildora por un cuadrado redondeado de 20 px con borde fino del mismo tono; solo cambia la forma, los colores siguen de minsa-ui. */
-.mn-rail .mn-rail-hot { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 5px; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent); font-size: .72rem; line-height: 1; }
+/* v1.0.0: las insignias .mn-rail-hot del rail viejo se fueron (ver «conteos» abajo y la .bdg del armazón). */
 /* ---- gantt: etiqueta fija a la izquierda + pista en %; la cabecera trae meses y el dia del lunes de cada semana. */
 .gantt-caja { overflow-x: auto; min-width: 0; --eti: 230px; --gantt-min: 640px; --escala: trimestre; }   /* C-09 (v0.120.0): la columna del nombre y el ancho minimo viven en la CAJA; vistas.js los lee con getComputedStyle */
 /* La tarjeta que contiene el gantt no puede tomar el ancho minimo de su contenido (a 390 desbordaba 176 px, medido). */
@@ -1449,7 +1480,7 @@ body.sin-scroll { overflow: hidden; }
 /* U-08 (v0.138.0): con el hilo abierto en ≤ 900 px la cabecera de la pantalla (Mensajes + subtítulo de la bandeja) sale y «←» va
    en el renglón del título del frente: el hilo gana esa altura (ajustarHilo mide lo que queda arriba). */
 @media (max-width: 900px) {
-  #p-mensajes:has(> .msj.is-hilo) > .cabecera { display: none; }
+  #p-mensajes:has(> .msj.is-hilo) > #mensajesCab { display: none; }   /* v1.0.0 (cubeta 4): la cabecera es la de la plantilla */
   .msj.is-hilo .msj-der { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
   .msj.is-hilo .msj-der > .msj-vacio, .msj.is-hilo .msj-der > .msj-hilo { grid-column: 1 / -1; }
 }
@@ -1546,13 +1577,7 @@ body.sin-scroll { overflow: hidden; }
 @media print { .cal-nav, #btnImprimirReportes, .archivos-filtros { display: none !important; } .gantt-caja { overflow: visible; max-height: none !important; } .rep-rejilla { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }   /* U-03 (18-sep): sin `exact` el navegador quita los fondos y las barras (segbar, hbar, columnas) se van con sus cifras blancas */   /* max-height: none !important (v0.79.0, va ANTES del @media de 720 y perderia sin el): que el tope de U-06 (celular) no recorte la impresion desde un viewport angosto */
 /* ---- celular */
 @media (max-width: 720px) {
-  .rail .rail-extra { display: none; }   /* Roadmap · Archivos · Reportes (y Capital) viven en el menu «···» de la barra movil; Gastos NO es rail-extra (v0.162.0): va en la barra, seis botones */
-  /* La insignia de la barra movil es absolute con right:25% (piel): sin position:relative en el boton se anclaba al rail entero y el «1» de Mis tareas caia sobre Mensajes (medido a 390 con 5 pestanas). */
-  .rail nav button { position: relative; padding: 0 2px; }
-  /* U-02 (mejorar-app, 16-sep): a 390 con 5 pestanas «MIS TAREAS» partia en dos renglones y la insignia (right: 25% de la piel) caia
-     sobre el texto: el rotulo ya no envuelve y la insignia se ancla a la esquina del icono (20 px centrado). */
-  .rail nav button > span { white-space: nowrap; letter-spacing: .02em; }
-  .rail nav .mn-rail-hot { top: 0; right: calc(50% - 30px); }
+  /* v1.0.0: la barra de abajo son los 5 módulos (armazón, arriba); las reglas del rail viejo (.rail-extra, U-02 de la insignia) se fueron con él. */
   /* U-08: el rol ya lo dice la barra de arriba junto al logo; el del subtitulo del saludo se esconde. */
   #inicioSub .rol-sub { display: none; }
   .titulo-ico { width: 32px; height: 32px; } .titulo-ico svg { width: 18px; height: 18px; }
@@ -1672,8 +1697,6 @@ button.hoy-r:focus-visible { outline: 2px solid var(--brand-primary); outline-of
   /* En celular el titulo de la cola parte en 2 lineas. */
   .hoy-r .t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 }
-/* Equipo: la tabla de 5 columnas se cortaba en «Abiertas» a 1366 (auditoria 13-sep): el dialogo crece y el correo parte. */
-#dlgEquipo { width: min(96vw, 760px); }
 .eq-tabla td, .eq-tabla th { overflow-wrap: anywhere; }
 @media (max-width: 720px) {
   /* El FAB «Nueva tarea» tapaba el ultimo mensaje y el redactor quedaba bajo la barra: en el chat no hay FAB y el hilo mide menos. */
@@ -2018,8 +2041,8 @@ body .mn-chip.is-danger { background: none; color: var(--status-danger-fg); } bo
 /* v0.102.0 (Carlos, 25-sep): EXCEPCION — en la tabla de documentos vuelven la etiqueta de expediente (Tipo, v0.27.0) y el sello (Estado, v0.27.0); aqui ya no se aplanan */
 body .dtabla .nombre .rev { background: none; padding: 0; color: var(--text-muted); }
 /* conteos: numero mono en el color de su semantica, sin caja */
-body .rail .equipos button .n, body .tab .n, body .mn-rail .mn-rail-hot, body .msj-rail .msj-frente .msj-hot, body .menu-quien > summary .n { background: none; box-shadow: none; border-radius: 0; padding: 0; min-width: 0; font-family: var(--font-data); font-size: .72rem; font-weight: 600; }
-body .mn-rail .mn-rail-hot { color: var(--status-danger-fg); } body .mn-rail .mn-rail-hot.is-info { background: none; color: var(--status-info-fg); }
+body .tab .n, body .msj-rail .msj-frente .msj-hot, body .menu-quien > summary .n { background: none; box-shadow: none; border-radius: 0; padding: 0; min-width: 0; font-family: var(--font-data); font-size: .72rem; font-weight: 600; }
+/* v1.0.0: los contadores del rail viejo (.equipos .n, .mn-rail-hot) se fueron con él: el rojo de vencidas es la .bdg de la maqueta y #nProyectos/#nMensajes son texto en el panel (.panel .ch .n). */
 body .menu-quien > summary .n { color: var(--brand-primary); }
 body .msj-rail .msj-frente .msj-hot { color: var(--status-info-fg); }
 body .mini .tuya { background: none; padding: 0; font-weight: 600; }
@@ -2043,34 +2066,14 @@ body .pficha .cal { border: 0; border-radius: 0; } body .pficha .cal .mes, body 
 body .pficha .cal .mes { color: var(--brand-primary); } body .pficha.is-danger .cal .mes { background: none; color: var(--status-danger-fg); } body .pficha.is-warn .cal .mes { background: none; color: var(--status-warn-fg); } body .pficha.is-cerrado .cal .mes { background: none; color: var(--status-ok-fg); } body .pficha .cal.sin .mes { background: none; color: var(--text-faint); }
 /* controles de seleccion con la esquina de la casa, no pildora */
 body .filtro-movil select, body .doc .tarjeta-de select, body .fila-menu .menu .menu-mover select, body .dtabla .c-tarjeta select, body .dtabla .tarjeta-liga { border-radius: var(--r-sm); }
-/* v0.99.0 (Carlos, 25-sep: «el fondo de la app de calytek-planta ... solo borra el recuadro de abajo a la derecha, lo de los
-   botones con el fade, y los botones de color verde como (nueva góndola)»). Copiado de planta R6 (v0.65.0, estilo.css 1193):
-   en escritorio, rejilla de plano de 24 px (mayor cada 120) detrás del rail y del contenido, que se apaga desde la esquina del
-   logo; la pestaña activa del rail es un degradado del acento que se desvanece a la derecha (el «fade»). SIN el cuadro de rótulo
-   (.rotulo, el cajetín de plano fijo abajo a la derecha: PROYECTO/ESCALA/FECHA/HOJA): no se copió ni su HTML ni su CSS.
-   El primario verde (.mn-btn.is-primary = el .principal de «+ Nueva góndola») gana la sombra ligera en reposo de planta. */
-:root { --rejilla-1: rgba(8, 51, 163, .08); --rejilla-2: rgba(8, 51, 163, .2); --sombra-pri: 0 1px 2px rgba(11, 18, 32, .18), 0 2px 6px rgba(11, 18, 32, .10); }
-:root[data-theme="dark"] { --rejilla-1: rgba(127, 155, 255, .10); --rejilla-2: rgba(127, 155, 255, .24); --sombra-pri: 0 1px 2px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --rejilla-1: rgba(127, 155, 255, .10); --rejilla-2: rgba(127, 155, 255, .24); --sombra-pri: 0 1px 2px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3); } }
+/* v0.99.0 (Carlos, 25-sep): el primario (.mn-btn.is-primary; verde hasta la vuelta 1 de v1.0.0, hoy navy) gana la sombra ligera
+   en reposo. v1.0.0: la REJILLA de plano detrás del rail y del contenido y el «fade» de la pestaña activa salen — la maqueta «MINSA ERP
+   Reportes» es fondo liso (--bg) y el rail oscuro marca el módulo con su propio cuadro (.rb.is-on). Se recupera del commit 6395c66. */
+:root { --sombra-pri: 0 1px 2px rgba(11, 18, 32, .18), 0 2px 6px rgba(11, 18, 32, .10); }
+:root[data-theme="dark"] { --sombra-pri: 0 1px 2px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sombra-pri: 0 1px 2px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3); } }
 .mn-btn.is-primary { box-shadow: var(--sombra-pri); }
 .mn-btn.is-primary:disabled { box-shadow: none; }
-@media (min-width: 721px) {
-  .app { isolation: isolate; }
-  .app::before {
-    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-    background-image: radial-gradient(circle farthest-corner at 0 0, transparent 21%, var(--surface-page) 85%),
-      linear-gradient(var(--rejilla-2) 1px, transparent 1px), linear-gradient(90deg, var(--rejilla-2) 1px, transparent 1px),
-      linear-gradient(var(--rejilla-1) 1px, transparent 1px), linear-gradient(90deg, var(--rejilla-1) 1px, transparent 1px);
-    background-size: 100% 100%, 120px 120px, 120px 120px, 24px 24px, 24px 24px;
-    -webkit-mask-image: radial-gradient(circle farthest-corner at 0 0, #000 21%, transparent 85%); mask-image: radial-gradient(circle farthest-corner at 0 0, #000 21%, transparent 85%);
-  }
-  body:has(#pantallaEntrar:not(.oculto)) .app::before { display: none; }   /* la entrada trae su propio plano navy */
-  .rail { background: transparent; }
-  .rail nav button.is-on, .rail .equipos button.is-on {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, color-mix(in srgb, var(--brand-primary) 18%, transparent) 45%, color-mix(in srgb, var(--brand-primary) 7%, transparent) 80%, transparent 100%);
-    box-shadow: none;
-  }
-}
 /* v0.100.0 (Carlos, 25-sep): seccion Capital de trabajo. La tabla reusa la piel de .dtabla (cabecera, orden, filetes) con
    la clase .ctabla; no hay container-type en la seccion, asi que las fichas de Docs (@container) no le aplican: en celular
    se esconden Tipo/Categoria/Fecha/Estado y el renglon .p bajo el concepto las dice. Sin pastillas: el color dice. */
@@ -2166,16 +2169,24 @@ button.cgrupo-nombre:hover .t { text-decoration: underline; }
 .choja-tit { margin: 0; font-family: var(--font-data); font-size: .66rem; letter-spacing: .07em; font-weight: 600; text-transform: uppercase; color: var(--text-muted); }
 .cmeses.choja tbody tr:nth-child(even) td { background: var(--banda); }
 .cmeses.choja tbody tr:nth-child(odd) td { background: var(--surface-card); }
-.cmeses td.c-mes { text-transform: none; }
-.cmeses td.c-mes::first-letter { text-transform: uppercase; }
+.cmeses td.c-mes { text-transform: none; }
+
+.cmeses td.c-mes::first-letter { text-transform: uppercase; }
+
 /* v0.111.0 (Carlos, 25-sep): la hoja entera con el fondo del renglon «Todos los proyectos» (--surface-card; sin bandas que
-   se confundian con el fondo de la app), el frente con su numero «1.» y la partida sangrada bajo su frente. */
-.choja tbody tr.partida:nth-child(n) td:not(.rn), .cmeses.choja tbody tr:nth-child(n) td { background: var(--surface-card); }
-.choja tbody tr.partida:hover td:not(.rn) { background: var(--surface-hover); }
-/* v0.112.0: sin renglon de letras */
-.choja .rn { background: var(--surface-sunken); }
+   se confundian con el fondo de la app), el frente con su numero «1.» y la partida sangrada bajo su frente. */
+
+.choja tbody tr.partida:nth-child(n) td:not(.rn), .cmeses.choja tbody tr:nth-child(n) td { background: var(--surface-card); }
+
+.choja tbody tr.partida:hover td:not(.rn) { background: var(--surface-hover); }
+
+/* v0.112.0: sin renglon de letras */
+
+.choja .rn { background: var(--surface-sunken); }
+
 .choja tr.cgrupo .rn { color: var(--text-strong); font-weight: 600; }
-.choja .cnum { display: none; }
+.choja .cnum { display: none; }
+
 #capitalTabla .choja tr.partida td.c-concepto { padding-left: calc(var(--sp-2) + 1.25rem); }
 @media (max-width: 720px) {
   .cresumen .c-n { display: none; }
@@ -2369,75 +2380,31 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 .gastos-card { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 .gastos-cab { display: flex; align-items: center; gap: var(--sp-2); }
 .gastos-cab h2 { margin: 0; }
-/* v0.165.0: Finanzas > Cobranza (cobranza.js). KPI por moneda + corte; tabla por cliente con detalle plegable; monedas nunca se suman. */
-.cob-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-3); }
-.cob-kpi { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
-.cob-k { font-size: .85rem; color: var(--text-muted); }
-.cob-v { font-size: 1.35rem; font-weight: 500; color: var(--text-strong); font-variant-numeric: tabular-nums; }
-.cob-pie, .cob-ev { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
-.cob-caja { padding: 0; overflow-x: auto; }
-.cob-tabla { width: 100%; min-width: 640px; border-collapse: collapse; }
-.cob-tabla th, .cob-tabla td { text-align: left; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--border-hairline); vertical-align: top; }
-.cob-tabla th { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 600; }
-.cob-tabla .n { text-align: right; white-space: nowrap; }
+/* v0.165.0: Finanzas > Cobranza (cobranza.js). v1.0.0 (vuelta 1): su tabla y sus KPI propios se fueron con la plantilla de reporte; quedan las piezas que cobranza.js todavia pinta. */
+.cob-ev { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 .cob-ins { font-weight: 600; color: var(--text-strong); }
-.cob-abrir { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--text-link); cursor: pointer; text-align: left; }
-.cob-abrir::before { content: '▸'; display: inline-block; width: 1.1em; color: var(--text-muted); }
-.cob-cliente.is-abierto .cob-abrir::before { content: '▾'; }
-.cob-sub { display: block; font-size: .8rem; color: var(--text-muted); }
-/* v0.171.0: Por pagar — lo marcado aparte (TKC) va en su tarjeta y al final de la tabla, sin color de alarma: no suma */
-.cob-kpi.cob-aparte { background: var(--surface-sunken); }
-.cob-aparte-tit td { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 600; padding-top: var(--sp-4); }
-.cob-tabla tr.is-aparte { opacity: .85; }
-.cob-detalle td { background: var(--surface-sunken); }
-.cob-facturas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
-.cob-facturas li { display: grid; grid-template-columns: 7em 6.5em minmax(0, 1fr) auto auto; gap: var(--sp-2); align-items: center; font-size: .9rem; }
-.cob-fecha { color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.cob-concepto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cob-monto { text-align: right; white-space: nowrap; }
-.cob-facturas li.is-cancelada .cob-monto { text-decoration: line-through; color: var(--text-muted); }
-.cob-nota { margin: 0; font-size: .85rem; max-width: 80ch; }
-.cob-acciones { display: flex; justify-content: flex-end; }
-/* En celular la tabla cabe en el ancho: Facturado y Pagado se ocultan (el saldo y su evidencia son lo que se lee) y cada factura
-   va en dos renglones: folio · fecha arriba, concepto, y saldo con su semaforo abajo a la derecha. */
-@media (max-width: 640px) {
-  .cob-tabla, .cob-tabla tbody, .cob-tabla tr, .cob-tabla td { display: block; min-width: 0; }
-  .cob-tabla thead, .cob-cliente td:nth-child(2), .cob-cliente td:nth-child(3) { display: none; }
-  .cob-tabla tr.cob-cliente { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); }
-  .cob-tabla td { border-bottom: 0; padding: var(--sp-2); }
-  .cob-cliente td.cob-ev { grid-column: 1 / -1; padding-top: 0; display: flex; }
-  .cob-detalle { border-bottom: 1px solid var(--border-hairline); }
-  .cob-abrir { overflow-wrap: anywhere; }
-  .cob-facturas li { grid-template-columns: minmax(0, 1fr) auto; row-gap: 2px; padding-block: var(--sp-1); border-bottom: 1px solid var(--border-hairline); }
-  .cob-facturas li:last-child { border-bottom: 0; }
-  .cob-concepto { grid-column: 1 / -1; white-space: normal; }
-  .cob-fecha { text-align: right; }
-  .cob-monto { grid-column: 1 / 2; text-align: left; }
-  .cob-facturas li > .mn-chip { justify-self: end; }
-}
-/* v0.166.0: Vigencias (vigencias.js). Reusa la tabla y los KPI de Cobranza (.cob-*); aqui solo lo propio. */
+/* v0.166.0: Vigencias (vigencias.js): lo propio de sus celdas (la tabla es la de la plantilla de reporte). */
 .vig-vence { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .vig-titulo { color: var(--text-strong); font-weight: 600; overflow-wrap: anywhere; }
 .vig-fila.is-vencida .vig-vence { color: var(--status-danger-fg); font-weight: 600; }
 .vig-faltan { white-space: nowrap; }
 /* En celular: el documento arriba a todo el ancho, abajo la fecha y lo que falta; la unidad se omite (la dice el titulo). */
 @media (max-width: 640px) {
-  .vig-tabla tr.vig-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); }
   .vig-fila .vig-que { grid-column: 1 / -1; order: -1; padding-bottom: 0; }
-  #vigenciasKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
-  #vigenciasKpis .cob-kpi { padding: var(--sp-2) var(--sp-3); }
   .vig-fila .vig-unidad { display: none; }
   .vig-fila .vig-resp { grid-column: 1 / -1; order: 1; padding-top: 0; font-size: .8rem; color: var(--text-muted); }
   .vig-fila .vig-resp::before { content: 'Responsable: '; }
   .vig-fila .vig-resp.is-vacio { display: none; }
 }
-/* ---- v0.168.0: Servicios — la barra de 12 pasos (maqueta HV1C5pzx): hecho verde, actual marca, esperando ambar, a medias rojo. */
+/* ---- v0.168.0: Servicios — la barra de 12 pasos (maqueta HV1C5pzx). v1.0.0 (cubeta 3; maqueta .stp): hecho azul marino, el paso actual azul,
+   detenido rojo y el paso pasado a medias ámbar (antes: hecho verde, actual marca, esperando ámbar, a medias rojo). */
 .srv-pasos { display: flex; gap: 3px; min-width: 200px; padding-top: 6px; }
-.srv-p { display: inline-block; flex: 1; height: 8px; border-radius: 2px; background: var(--border-default); }
-.srv-p.is-hecho { background: var(--ok-solid); }
-.srv-p.is-actual { background: var(--brand-primary); }
-.srv-p.is-bloqueado { background: var(--warn-solid); }
-.srv-p.is-rebotado { background: var(--bad-solid); }
+.srv-p { display: inline-block; flex: 1; height: 7px; border-radius: 2px; background: var(--line); }
+.srv-p.is-hecho { background: var(--navy); }
+.srv-p.is-actual { background: var(--blue); }
+.srv-p.is-bloqueado { background: var(--red); }
+.srv-p.is-rebotado { background: var(--amber); }
 .srv-leyenda { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); font-size: .8rem; color: var(--text-muted); }
 .srv-ley { display: inline-flex; align-items: center; gap: 6px; }
 .srv-ley .srv-p { flex: none; width: 14px; height: 10px; }
@@ -2451,35 +2418,18 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
 .srv-guia-lista li::marker { font-family: var(--font-data); color: var(--text-muted); }
 /* En celular: el expediente y su barra a todo el ancho; abajo el paso, a quién espera y desde cuándo. */
 @media (max-width: 640px) {
-  .srv-tabla tr.srv-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); }
   .srv-fila .srv-exp, .srv-fila .srv-avance, .srv-fila .srv-actual { grid-column: 1 / -1; padding-bottom: 0; }
   .srv-fila .srv-pasos { min-width: 0; }
   .srv-fila .srv-espera { font-size: .8rem; color: var(--text-muted); }
   .srv-fila .srv-espera::before { content: 'Espera a: '; }
-  #serviciosKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
-  #serviciosKpis .cob-kpi { padding: var(--sp-2) var(--sp-3); }
 }
 /* ---- v0.169.0: Compras — el folio es el boton que abre las partidas; el total, a la derecha en mono. */
-.cmp-folio .cmp-abrir { font-family: var(--font-data); font-weight: 600; padding-inline: var(--sp-2); }
 .cmp-fecha, .cmp-total { white-space: nowrap; }
 .cmp-concepto { overflow-wrap: anywhere; }
-.cmp-detalle td { background: var(--surface-sunken, var(--banda)); }
-.cmp-partidas { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); }
-.cmp-partidas li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: baseline; }
-.cmp-cant { color: var(--text-muted); font-size: .85rem; white-space: nowrap; }
-.cmp-imp { white-space: nowrap; }
-.cmp-totales { margin: var(--sp-2) 0 0; }
-.cmp-partidas li .mn-chip { grid-column: 1 / -1; justify-self: start; }
 .cmp-concepto .mn-chip { margin-left: var(--sp-2); }
 /* En celular: folio y total arriba; el concepto a todo el ancho; el proveedor se omite (hoy es uno solo y lo dice el concepto). */
 @media (max-width: 640px) {
-  .cmp-tabla tr.cmp-fila { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; border-bottom: 1px solid var(--border-hairline); align-items: baseline; }
-  .cmp-fila .cmp-prov { display: none; }
   .cmp-fila .cmp-concepto { grid-column: 1 / -1; order: 1; padding-top: 0; font-size: .85rem; color: var(--text-muted); }
-  .cmp-partidas li { grid-template-columns: minmax(0, 1fr) auto; }
-  .cmp-partidas .cmp-cant { grid-column: 1 / -1; order: 1; }
-  #comprasKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
-  #comprasKpis .cob-kpi { padding: var(--sp-2) var(--sp-3); }
 }
 .gastos-resumen { margin: 0; font-size: .9rem; }
 .gastos-lista { display: flex; flex-direction: column; }
@@ -2540,4 +2490,822 @@ body .pficha.is-danger .cal .dia { color: var(--status-danger-fg); } body .pfich
   .fila-tot .lbl-movil { display: inline; color: var(--text-muted); font-size: .8rem; }
   .fila-tot [data-col="0"], .fila-tot [data-col="1"] { font-weight: 600; color: var(--text-strong); }
   .fila-tot [data-col="0"] .lbl-movil, .fila-tot [data-col="1"] .lbl-movil { display: none; }
+}
+
+/* ==== PLANTILLA DE REPORTE v1.0.0 (rediseño 2026-10-02, cubeta 2; maqueta «MINSA ERP Reportes»: .top · .card · .ctl · .seg · .tl · .chart ·
+   .tipbox · .kpis · .rd-h · .dd · .exb · table · .nota y el bloque de segmentos .pop / .seg-r / .fc). reporte.js y segmentos.js arman el DOM;
+   todo con el prefijo rp- para no chocar con la piel de siempre. Los colores de los segmentos y de la gráfica son tokens: siguen al tema. ==== */
+:root {
+  --seg-1: #1d2c47; --seg-2: #2ec4a6; --seg-3: #6c4fd6; --seg-4: #f0902e; --seg-5: #4a63d6; --seg-6: #a0663a; --seg-7: #a7cf3c;
+  --niv-cont: #2f7fe8; --niv-fact: #7a5cd6; --niv-prod: #2fbf71;
+  --linea: #1d2c47; --barra: #3f6fc4; --eje: #5f6878; --reja: #e4e7ec; --cero: #cfd5dd; --guia: #9aa3b0;
+  --area-1: rgba(70, 130, 230, .22); --area-0: rgba(70, 130, 230, 0);
+  --hijo: #fbfbfc; --fc: #f6f8fb; --qm: #9aa3b0; --seg-borde: #2d3b55; --apagado: #b3bac5; --tl: #a2aab6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --seg-1: #8fb0e8; --linea: #8fb0e8; --barra: #5b8be0; --eje: #9aa5b6; --reja: #263247; --cero: #34435c; --guia: #6d7a90;
+    --area-1: rgba(111, 157, 242, .26); --area-0: rgba(111, 157, 242, 0);
+    --hijo: #172030; --fc: #202b3d; --qm: #56627a; --seg-borde: var(--campo); --apagado: #4d5a70; --tl: #6d7a90;
+  }
+}
+:root[data-theme="dark"] {
+  --seg-1: #8fb0e8; --linea: #8fb0e8; --barra: #5b8be0; --eje: #9aa5b6; --reja: #263247; --cero: #34435c; --guia: #6d7a90;
+  --area-1: rgba(111, 157, 242, .26); --area-0: rgba(111, 157, 242, 0);
+  --hijo: #172030; --fc: #202b3d; --qm: #56627a; --seg-borde: var(--campo); --apagado: #4d5a70; --tl: #6d7a90;
+}
+.rp-cuerpo { min-width: 0; }
+.rp-pag { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; min-width: 0; }   /* minmax(0): un chip largo de segmento no ensancha la página (medido a 390: +94 px) */
+/* ---- cabecera (maqueta .top) */
+.rp-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 40px; }
+.rp-titulo { display: flex; align-items: center; gap: 2px; margin-right: auto; min-width: 0; }
+.rp-h { margin: 0; font-family: var(--f-ui); font-size: 22px; font-weight: 500; color: var(--ink); line-height: 1.25; }
+.rp-qm { position: relative; width: 32px; height: 32px; flex: none; padding: 0; border: 0; border-radius: 50%; background: radial-gradient(circle at center, var(--qm) 0 7.5px, transparent 8px); color: #ffffff; font: 700 10.5px/1 var(--f-ui); display: grid; place-items: center; cursor: pointer; }
+.rp-qm:hover { background: radial-gradient(circle at center, var(--ink-2) 0 7.5px, transparent 8px); }
+.rp-top-der { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; }
+.rp-sub { flex-basis: 100%; margin: -4px 0 0; color: var(--ink-2); font-size: 13.5px; }
+.rp-sub:empty { display: none; }
+/* v1.0.0 (cubeta 6, fidelidad #7): el corte es un DATO, texto de su color (v0.98.0 «sin burbujas»); antes píldora rellena de 26 px */
+.rp-corte { display: inline-flex; align-items: center; min-height: 26px; font-size: 12.5px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rp-corte.is-ok { color: var(--ok-fg); }
+.rp-corte.is-warn { color: var(--warn-fg); }
+.rp-corte.is-danger { color: var(--bad-fg); }
+.rp-bx { display: flex; height: 36px; border: 1px solid var(--campo); border-radius: 3px; background: var(--card); }
+.rp-ic { width: 38px; height: 100%; padding: 0; border: 0; background: none; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.rp-ic + .rp-ic { border-left: 1px solid var(--campo); }
+.rp-ic:hover { background: var(--hover); }
+.rp-ic.on { background: var(--chip); color: var(--navy); }
+.rp-ic svg, .rp-exb svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.rp-rng { position: relative; height: 36px; border: 1px solid var(--campo); border-radius: 3px; background: var(--card); display: flex; align-items: center; font-size: 14px; font-variant-numeric: tabular-nums; }
+.rp-rng-b { height: 100%; padding: 0 12px; border: 0; background: none; color: var(--ink); font: inherit; display: flex; align-items: center; gap: 14px; white-space: nowrap; cursor: pointer; }
+.rp-rng-b svg, .rp-dd-b svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.rp-ask[hidden] { display: none !important; }
+/* menús flotantes (rango, moneda, «?») */
+.rp-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; min-width: 100%; padding: 4px 0; background: var(--card); border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 6px 20px rgba(20, 30, 50, .12); }
+.rp-op { display: block; width: 100%; min-height: 36px; padding: 8px 14px; border: 0; background: none; color: var(--ink); font: inherit; font-size: 14px; text-align: left; white-space: nowrap; cursor: pointer; }
+.rp-op:hover, .rp-op:focus-visible { background: var(--hover); }
+.rp-op.on { font-weight: 600; }
+.rp-titulo .rp-menu.rp-ayuda { left: 0; right: auto; width: min(380px, calc(100vw - 32px)); padding: 10px 14px; }
+.rp-titulo { position: relative; }
+.rp-ayuda p { margin: 0; color: var(--ink-2); font-size: 13.5px; line-height: 1.45; white-space: normal; }
+/* ---- tarjetas */
+.rp-card { min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 5px; }
+.rp-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 20px 20px 4px; }
+.rp-esp { flex: 1; }
+.rp-seg { display: inline-flex; height: 31px; border: 1px solid var(--seg-borde); border-radius: 2px; overflow: hidden; background: var(--card); }
+.rp-seg button { padding: 0 11px; border: 0; background: none; color: var(--navy); font: inherit; font-size: 12.5px; font-weight: 600; letter-spacing: .04em; cursor: pointer; white-space: nowrap; }
+.rp-seg button + button { border-left: 1px solid var(--campo); }
+.rp-seg button.on { background: var(--navy); color: #ffffff; }
+.rp-seg button:disabled { color: var(--apagado); cursor: default; }
+:root[data-theme="dark"] .rp-seg button:not(.on):not(:disabled) { color: var(--ink); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rp-seg button:not(.on):not(:disabled) { color: var(--ink); } }
+.rp-tl { display: flex; align-items: center; gap: 4px; margin-left: 16px; }
+.rp-tl-b { width: 32px; height: 31px; padding: 0; border: 0; border-radius: 3px; background: none; color: var(--tl); display: grid; place-items: center; cursor: pointer; }
+.rp-tl-b.on { background: var(--navy); color: #ffffff; }
+.rp-n123 { display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 8.5px; font-weight: 700; line-height: 1; }
+.rp-n123 svg { width: 16px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+/* la gráfica (maqueta .chart / grafica) */
+.rp-grafica { position: relative; min-height: 120px; padding: 6px 18px 0 6px; }
+.rp-svg { display: block; overflow: visible; }
+.rp-svg text { font-family: var(--f-ui); }
+.rp-eje { font-size: 12px; fill: var(--eje); }
+.rp-reja { stroke: var(--reja); stroke-dasharray: 3 3; }
+.rp-cero { stroke: var(--cero); }
+.rp-linea { fill: none; stroke: var(--linea); stroke-width: 1.8; stroke-linejoin: round; }
+.rp-punto { fill: var(--linea); }
+.rp-stop1 { stop-color: var(--area-1); }
+.rp-stop0 { stop-color: var(--area-0); }
+.rp-barra { fill: var(--barra); opacity: .9; }
+.rp-barra.is-neg { fill: var(--red); }
+.rp-val { font-size: 12.5px; fill: var(--ink); }
+.rp-val.is-multi { font-size: 11.5px; stroke: var(--card); stroke-width: 3px; paint-order: stroke; }
+.rp-guia { stroke: var(--guia); stroke-dasharray: 3 3; opacity: 0; }
+.rp-guia.is-on { opacity: 1; }
+.rp-hit { cursor: crosshair; }
+.rp-globo { position: absolute; left: 0; top: 0; z-index: 3; padding: 8px 11px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); color: var(--ink); box-shadow: 0 4px 14px rgba(20, 30, 50, .14); font-size: 13px; line-height: 1.45; white-space: nowrap; font-variant-numeric: tabular-nums; pointer-events: none; opacity: 0; transform: translate(-50%, calc(-100% - 12px)); transition: opacity .08s; }
+.rp-globo.is-on { opacity: 1; }
+.rp-globo small { display: block; color: var(--ink-3); }
+.rp-g-r { display: flex; align-items: center; gap: 6px; }
+.rp-ley { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.rp-vacio { margin: 0; padding: 26px 20px; color: var(--ink-2); font-size: 13.5px; }
+/* la fila de KPIs (maqueta .kpis): tantos como haya, en una fila */
+.rp-kpis { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); margin-top: 18px; padding: 22px 0 26px; border-top: 1px solid var(--line-2); }
+.rp-pag > .rp-graf:not(:has(.rp-grafica)) .rp-kpis { margin-top: 0; border-top: 0; }
+.rp-kpi { min-width: 0; padding-left: clamp(18px, 3.4vw, 64px); padding-right: 6px; }
+.rp-kpi b { font-size: 20px; font-weight: 500; letter-spacing: -.005em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.rp-kpi b.neg { color: var(--red); }
+.rp-kpi i { margin-left: 6px; font-style: normal; font-size: 15px; font-variant-numeric: tabular-nums; }
+.rp-kpi i.pos { color: var(--blue); } .rp-kpi i.neg { color: var(--red); }
+.rp-kpi small { display: -webkit-box; margin-top: 3px; color: var(--ink-2); font-size: 13.5px; overflow: hidden; overflow-wrap: anywhere; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }   /* v1.0.0 (cubeta 3): un rótulo largo («La siguiente: …») corta a 2 renglones en vez de montarse en el KPI de al lado; el completo va en el title */
+/* tarjeta 2: «Datos del reporte» (maqueta .rd-h, .dd, .exb, table, .nota) */
+.rp-dh { display: flex; align-items: center; gap: 20px; padding: 20px 26px 20px 28px; }
+.rp-dh h3 { margin: 0 auto 0 0; font-family: var(--f-ui); font-size: 18px; font-weight: 500; color: var(--ink); }
+.rp-dd { position: relative; }
+.rp-dd-b { height: 28px; padding: 0 9px; border: 1px solid var(--campo); border-radius: 3px; background: none; color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 600; letter-spacing: .04em; display: flex; align-items: center; gap: 7px; white-space: nowrap; cursor: pointer; }
+.rp-exb { width: 34px; height: 34px; flex: none; padding: 0; border: 1px solid var(--campo); border-radius: 3px; background: none; color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+.rp-exb svg { width: 19px; height: 19px; stroke-width: 1.9; }
+.rp-exb:hover, .rp-dd-b:hover { background: var(--hover); }
+.rp-tw { overflow-x: auto; }
+.rp-tabla { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.rp-tabla th { padding: 12px 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--th); color: var(--ink-2); font-size: 14px; font-weight: 500; text-align: center; white-space: nowrap; }
+.rp-tabla th.rp-th0 { width: 28%; border-right: 1px solid var(--line); text-align: left; }
+.rp-tabla td { padding: 12px 16px; border-bottom: 1px solid var(--line-2); color: var(--ink); font-size: 14.5px; text-align: center; white-space: nowrap; }
+.rp-tabla td:first-child { position: relative; padding-left: 30px; border-right: 1px solid var(--line); text-align: left; white-space: normal; min-width: 200px; }
+.rp-tabla td.rp-izq { text-align: left; }
+.rp-tabla td.dim { color: var(--ink-3); }
+.rp-lk { color: var(--lk); text-decoration: underline dotted 1px; text-underline-offset: 5px; text-decoration-color: var(--qm); cursor: pointer; }
+.rp-lk:hover { color: var(--blue); }
+.rp-c { display: inline-block; min-width: 18px; margin-left: 10px; color: var(--blue); font-size: 14px; text-align: left; }
+.rp-c.r { color: var(--red); }
+.rp-exp { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; padding: 0; border: 0; border-radius: 3px; background: none; display: grid; place-items: center; cursor: pointer; }
+.rp-exp svg { width: 11px; height: 11px; fill: none; stroke: var(--ink-2); stroke-width: 2.2; stroke-linecap: round; transition: transform .15s; }
+.rp-tabla tr.abierto .rp-exp svg { transform: rotate(90deg); }
+.rp-tabla tr.hijo td { padding-block: 9px; background: var(--hijo); color: var(--ink-2); font-size: 13.5px; }
+.rp-tabla tr.hijo td:first-child { padding-left: 46px; }
+.rp-tabla tr.tot td { font-weight: 600; }
+.rp-tabla tr.is-cancelada td { color: var(--ink-3); text-decoration: line-through; }
+.rp-tabla .rp-sub { display: block; margin-top: 2px; color: var(--ink-3); font-size: 12.5px; }
+.rp-tabla .cob-ev { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.rp-vacio-td { color: var(--ink-2); }
+.rp-nota { max-width: 92ch; margin: 0; padding: 14px 28px 18px; color: var(--ink-2); font-size: 13px; line-height: 1.45; }
+.rp-pie-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 28px 18px; }
+.rp-pie-nota { margin-right: auto; color: var(--ink-3); font-size: 12.5px; }
+.rp-aviso { display: grid; justify-items: start; gap: 10px; padding: 20px 26px; }
+.rp-aviso h2 { margin: 0; font-size: 18px; font-weight: 500; }
+.rp-aviso p { margin: 0; color: var(--ink-2); }
+/* lo que va APARTE (TKC) */
+.rp-aparte { margin: 14px 28px 4px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.rp-aparte h4 { margin: 0 0 6px; color: var(--ink-2); font-size: 12.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.rp-aparte-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+.rp-aparte-r .tx { min-width: 0; }
+.rp-aparte-r b { display: block; font-weight: 600; }
+.rp-aparte-r small { display: block; color: var(--ink-3); font-size: 12.5px; }
+.rp-aparte-v { white-space: nowrap; }
+.rp-chk { display: flex; align-items: center; gap: 8px; padding: 12px 28px; color: var(--ink-2); font-size: 13.5px; }
+.rp-chk input { accent-color: var(--navy); }
+/* ---- segmentos (maqueta .segs / .seg-r / .fc) */
+.rp-segs { display: flex; flex-direction: column; gap: 8px; }
+.rp-seg-r { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 6px 8px 6px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); }
+.rp-sq { width: 12px; height: 12px; flex: none; border-radius: 3px; }
+.rp-cs { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rp-fc { max-width: 100%; padding: 3px 8px; border: 1px solid var(--campo); border-radius: 3px; background: var(--fc); color: var(--ink); font: inherit; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.rp-fc:hover { border-color: var(--ink-3); }
+.rp-fc b { font-weight: 600; }
+.rp-jn { padding: 2px 4px; border: 0; border-radius: 2px; background: none; color: var(--ink); font: inherit; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; cursor: pointer; }
+.rp-jn:hover, .rp-addc:hover, .rp-ac-b:hover { background: var(--hover); }
+.rp-addc { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 3px; background: none; color: var(--ink-2); font-size: 16px; display: grid; place-items: center; cursor: pointer; }
+.rp-todo { color: var(--ink-3); font-size: 12.5px; }
+.rp-ac { display: flex; gap: 2px; }
+.rp-ac-b { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 3px; background: none; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.rp-ac-b svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.rp-leyenda { display: inline-flex; align-items: center; gap: 7px; }
+.rp-leyenda i { width: 8px; height: 8px; flex: none; border-radius: 50%; display: inline-block; }
+/* la ventana de filtros (maqueta .pop) */
+.rp-pop { position: fixed; z-index: 60; display: flex; flex-direction: column; width: min(600px, calc(100vw - 24px)); max-height: min(560px, calc(100vh - 24px)); background: var(--card); color: var(--ink); border: 1px solid var(--campo); border-radius: 4px; box-shadow: 0 10px 32px rgba(20, 30, 50, .18); }
+.rp-pop.is-ed { width: min(320px, calc(100vw - 24px)); padding: 10px 12px 12px; overflow: auto; }
+.rp-pop-h { display: flex; align-items: center; gap: 6px; padding: 10px 12px 0; }
+.rp-pop-tab { padding: 7px 10px; border: 1px solid transparent; border-radius: 3px; background: none; color: var(--ink-2); font: inherit; font-size: 13.5px; cursor: pointer; }
+.rp-pop-tab.on { border-color: var(--campo); color: var(--ink); font-weight: 500; }
+.rp-mini { height: 26px; padding: 0 8px; border: 1px solid var(--campo); border-radius: 3px; background: none; color: var(--ink-2); font: inherit; font-size: 11px; font-weight: 600; letter-spacing: .05em; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer; }
+.rp-mini:hover { color: var(--ink); border-color: var(--ink-3); }
+.rp-mini.azul { background: var(--blue); border-color: var(--blue); color: #ffffff; }
+.rp-mini.rojo { border-color: var(--bad-bg); color: var(--red); }
+.rp-mini:disabled { opacity: .5; cursor: default; }
+.rp-pop-s { position: relative; margin: 10px 12px; }
+.rp-pop-s input { width: 100%; box-sizing: border-box; padding: 8px 150px 8px 10px; border: 1px solid var(--campo); border-radius: 3px; background: var(--card); color: var(--ink); font: inherit; font-size: 14px; }
+.rp-pop-s .rp-arma { position: absolute; right: 30px; top: 50%; transform: translateY(-50%); }
+.rp-pop-s > svg { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; fill: none; stroke: var(--ink-2); stroke-width: 2; pointer-events: none; }
+.rp-pop-b { flex: 1; min-height: 0; display: grid; grid-template-columns: 190px minmax(0, 1fr); border-top: 1px solid var(--line); }
+.rp-pop-l { padding: 8px 0; border-right: 1px solid var(--line); overflow: auto; }
+.rp-pop-l button { display: flex; align-items: center; gap: 8px; width: calc(100% - 12px); margin-left: 6px; padding: 6px 8px; border: 0; border-radius: 3px; background: none; color: var(--ink); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+.rp-pop-l button.on { background: var(--side-on); font-weight: 600; }
+.rp-pop-l .n, .rp-std .n { margin-left: auto; color: var(--ink-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.rp-pop-l small { display: block; padding: 8px 14px 4px; color: var(--ink-3); font-size: 12px; }
+.rp-lv { width: 14px; height: 14px; flex: none; border-radius: 3px; display: inline-grid; place-items: center; color: #ffffff; font-size: 9px; font-weight: 700; }
+.rp-pop-r { padding: 6px 0 10px; overflow: auto; }
+.rp-pop-r h6 { display: flex; align-items: center; gap: 7px; margin: 6px 12px 2px; font-size: 13.5px; font-weight: 600; }
+.rp-std { display: flex; align-items: center; gap: 6px; width: calc(100% - 24px); margin: 2px 12px 4px; padding: 5px 6px; border: 0; border-radius: 2px; background: var(--sunken); color: var(--ink-2); font: inherit; font-size: 12px; cursor: pointer; }
+.rp-std svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2.4; transition: transform .15s; }
+.rp-std[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.rp-prop { display: block; width: calc(100% - 24px); margin-left: 12px; padding: 6px 8px; border: 0; border-radius: 2px; background: none; color: var(--ink); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+.rp-prop:hover { background: var(--hover); }
+.rp-pop-vacio { padding: 14px 16px; color: var(--ink-2); font-size: 13.5px; }
+.rp-pop-msg { padding: 18px; }
+.rp-pop-msg p { margin: 6px 0 0; color: var(--ink-2); font-size: 13.5px; }
+.rp-pop-nota { margin: 6px 0; color: var(--ink-3); font-size: 12px; }
+.rp-sg-l { padding: 6px 0; overflow: auto; }
+.rp-sg-l .rp-pop-nota { padding: 0 14px; }
+.rp-sg-i { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--line-2); font-size: 13.5px; }
+.rp-sg-i .tx { flex: 1; min-width: 0; }
+.rp-sg-i small { display: block; color: var(--ink-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-ed-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.rp-lvl { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-2); font-size: 10.5px; font-weight: 600; letter-spacing: .05em; }
+.rp-ed-f { margin-bottom: 8px; padding: 7px 9px; border: 1px solid var(--campo); border-radius: 3px; background: var(--sunken); font-size: 14px; }
+.rp-pop.is-ed select, .rp-pop.is-ed input[type="number"], .rp-pop.is-ed input[type="date"], .rp-pop.is-ed input[type="text"] { width: 100%; box-sizing: border-box; margin-bottom: 8px; padding: 7px 9px; border: 1px solid var(--campo); border-radius: 3px; background: var(--card); color: var(--ink); font: inherit; font-size: 14px; }
+.rp-chips { display: flex; flex-wrap: wrap; gap: 5px; min-height: 24px; margin-bottom: 6px; padding: 5px; border: 1px solid var(--campo); border-radius: 3px; }
+.rp-pop.is-ed .rp-chips input[type="text"] { flex: 1; min-width: 60px; width: auto; margin: 0; padding: 2px 4px; border: 0; outline: 0; font-size: 13.5px; }
+.rp-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1px solid var(--campo); border-radius: 3px; background: var(--card); font-size: 12.5px; }
+.rp-chip button { padding: 0 2px; border: 0; background: none; color: var(--ink-3); font-size: 13px; line-height: 1; cursor: pointer; }
+.rp-opts { max-height: 190px; overflow: auto; padding: 4px 0; border: 1px solid var(--line-2); border-radius: 3px; }
+.rp-opts label { display: flex; align-items: center; gap: 8px; padding: 5px 8px; font-size: 13.5px; cursor: pointer; }
+.rp-opts label:hover { background: var(--hover); }
+.rp-opts label.sel { font-weight: 600; }
+.rp-opts label .tx { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rp-opts small { margin-left: auto; color: var(--ink-3); }
+.rp-opts input { margin: 0; accent-color: var(--navy); }
+.rp-ed-a { display: flex; gap: 6px; margin-top: 8px; }
+.rp-ed-z { display: flex; align-items: center; gap: 6px; margin-top: 14px; }
+.rp-quien { margin: 2px 0 6px; }
+/* ---- «Guardados» al pie del panel */
+.panel .panel-guardados { display: grid; gap: 1px; }
+.panel .sv { display: flex; align-items: center; gap: 8px; width: calc(100% - 22px); min-height: 38px; margin-left: 11px; padding: 7px 8px; border: 0; border-radius: 3px; background: none; color: var(--ink); font: inherit; font-size: 14.5px; text-align: left; cursor: pointer; }
+.panel .sv:hover { background: var(--hover); }
+.panel .sv .em { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--ink-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.panel .sv .tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel .sv .n { flex: none; color: var(--ink-3); font-size: 11.5px; }
+.panel .panel-nota { margin-top: 4px; font-size: 12px; }
+/* ---- Capital y Gastos con la plantilla */
+.rp-hoja { padding-bottom: 16px; }
+.rp-hoja > .cres-caja, .rp-hoja > #capitalTabla { margin: 0 16px 12px; }
+#capitalPorMes > #capitalMeses { margin: 0 16px; }
+.rp-top-der .capital-filtro { max-width: 340px; }
+#p-capital .capital-cuerpo > .capital-filtro, #p-capital .capital-cuerpo > #btnNuevaPartida, #p-gastos > #btnNuevoGasto { display: none; }   /* antes del primer pintado: los mueve la cabecera */
+/* ---- tableta y celular (maqueta ≤ 1100 y ≤ 640) */
+@media (max-width: 1100px) {
+  .rp-kpi i { font-size: 14px; } .rp-kpi b { font-size: 18px; }
+}
+@media (max-width: 720px) {
+  .rp-pag { gap: 14px; }
+  .rp-h { font-size: 19px; }
+  .rp-titulo { flex-basis: 100%; }
+  .rp-top-der { width: 100%; }
+  .rp-ctl { padding: 14px 12px 4px; }
+  .rp-tl { margin-left: 0; }
+  .rp-seg { height: 36px; }
+  .rp-tl-b { width: 36px; height: 36px; }
+  .rp-grafica { padding: 4px 6px 0 2px; }
+  .rp-kpis { grid-auto-columns: minmax(44%, 1fr); overflow-x: auto; scroll-snap-type: x mandatory; padding: 16px 0 18px; scrollbar-width: none; }
+  .rp-kpis::-webkit-scrollbar { display: none; }
+  .rp-kpi { padding-left: 16px; scroll-snap-align: start; }
+  .rp-dh { flex-wrap: wrap; gap: 10px; padding: 16px; }
+  .rp-dh h3 { flex-basis: 100%; }   /* el título arriba; moneda y exportar juntos en el renglón de abajo */
+  .rp-dd-b { height: 36px; }
+  .rp-exb { width: 36px; height: 36px; }
+  .rp-tabla td:first-child { min-width: 170px; padding-left: 34px; }
+  .rp-exp { left: 2px; width: 32px; height: 32px; }
+  .rp-nota { padding: 12px 16px 16px; }
+  .rp-pie-card { padding: 0 16px 14px; }
+  .rp-chk { padding: 12px 16px; }
+  .rp-aparte { margin: 12px 16px 4px; }
+  .rp-addc, .rp-ac-b { width: 36px; height: 36px; }
+  .rp-fc { padding: 8px 10px; white-space: normal; text-align: left; }
+  .rp-seg-r { flex-wrap: wrap; align-items: flex-start; }
+  .rp-seg-r .rp-sq { margin-top: 12px; }
+  .rp-cs { flex-basis: calc(100% - 30px); }
+  .rp-ac { margin-left: auto; }   /* en celular las acciones del segmento bajan a su renglón: los filtros usan todo el ancho */
+  .rp-mini { height: 36px; }
+  .rp-pop-b { grid-template-columns: minmax(0, 1fr); }
+  .rp-pop-l { display: none; }
+  .rp-pop-s input { padding-right: 40px; }
+  .rp-pop-s .rp-arma { position: static; transform: none; margin-top: 6px; }
+  .rp-pop-s > svg { top: 20px; }
+  .rp-top-der .capital-filtro { max-width: none; flex: 1 1 100%; }
+}
+
+/* ==== OPERACIÓN + TRABAJO v1.0.0 (rediseño 2026-10-02, cubeta 3; maqueta «MINSA ERP Reportes»: .exp-r · .track · .stp · .trl · .kb · .col · .tk ·
+   .vg). Servicios, Compras, Vigencias y los 5 reportes de Trabajo pintan la plantilla de reporte (reporte.js); Proyectos, el proyecto, Roadmap y
+   Calendario llevan su cabecera y sus tarjetas. Solo piel: la lógica del tablero, el chat, los documentos y el Resumen no cambia. ==== */
+:root { --serie-nuevas: #a2aab6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --serie-nuevas: #6d7a90; } }
+:root[data-theme="dark"] { --serie-nuevas: #6d7a90; }
+/* ---- piezas que sumó la cubeta 3 a la plantilla */
+.rp-tabla th.rp-izq { text-align: left; }
+.rp-tabla td.rp-rojo, .rp-tabla tr.hijo td.rp-rojo { color: var(--red); font-weight: 600; }
+.rp-tabla td.rp-verde { color: var(--green); font-weight: 600; }
+.rp-ley-graf { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-left: 16px; color: var(--ink-2); font-size: 13px; }
+.rp-g-n { margin-left: 4px; color: var(--ink-3); font-size: 12px; }
+.rp-lk-b { padding: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.rp-top-der > a.mn-btn, .rp-pie-card a.mn-btn { text-decoration: none; }
+.rp-dd + .rp-dd { margin-left: -10px; }
+/* ---- Servicios (maqueta .track · .stp · .trl): hecho azul marino, el paso actual azul, detenido rojo; un paso pasado a medias, ámbar */
+.srv-track { display: grid; gap: 6px; min-width: 240px; }
+.srv-track .srv-pasos { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; min-width: 0; padding-top: 0; }
+.srv-trl { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; color: var(--ink-3); font-size: 11px; line-height: 1.2; }
+.srv-trl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srv-trl .is-actual { color: var(--ink); font-weight: 600; }
+.srv-track.is-grande { min-width: 0; padding: 24px 24px 4px; gap: 8px; }
+.srv-track.is-grande .srv-p { height: 12px; }
+.srv-track.is-grande .srv-trl span { white-space: normal; overflow-wrap: anywhere; font-size: 11.5px; }
+.rp-datos > .srv-leyenda { padding: 0 28px 12px; }
+.rp-datos > .srv-guia { margin: 6px 28px 0; }
+.srv-guia summary { display: flex; align-items: center; min-height: 36px; color: var(--ink-2); font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.srv-exp, .srv-actual-c, .vig-que { display: grid; gap: 2px; justify-items: start; }
+.srv-exp .srv-clave { font-weight: 600; }
+.rp-tabla td.srv-avance { min-width: 260px; }
+.rp-tabla td.srv-actual .mn-chip { margin-top: 2px; }
+.rp-tabla td.srv-actual, .rp-tabla td.srv-espera { min-width: 150px; white-space: normal; overflow-wrap: anywhere; }   /* un «espera a» largo no empuja «Desde» fuera de la tarjeta */
+.srv-guia summary::before { content: "▸"; width: 14px; color: var(--ink-3); font-size: 12px; }
+.srv-guia[open] summary::before { content: "▾"; }
+.rp-tabla tr.srv-paso-fila.is-actual td { background: var(--hijo); font-weight: 600; }
+.rp-tabla tr.srv-paso-fila.is-pendiente td { color: var(--ink-3); }
+/* ---- Compras y Vigencias */
+.rp-tabla .cmp-folio .mn-chip { margin-left: 8px; }
+.rp-tabla .cmp-concepto { overflow-wrap: anywhere; }
+.rp-tabla tr.hijo.is-no-cuadra td { color: var(--ink); }
+.rp-tabla .vig-titulo { color: var(--ink); }
+/* ---- Trabajo: las tarjetas de siempre con la piel de la plantilla (.rp-card + el título de «Datos del reporte») */
+#p-proyectos > #btnNuevoProyecto, #p-reportes > #btnImprimirReportes, #p-calendario > #calNav, #p-calendario > #calFiltro { display: none; }   /* antes del primer pintado: los mueve la cabecera */
+.rp-graf.proyectos-kpis .rp-kpis, .rp-graf.proyecto-kpis .rp-kpis { margin-top: 0; padding: 18px 0 20px; border-top: 0; }
+.proyectos-hoja { padding-bottom: 18px; }
+.proyectos-hoja > .rp-dh { flex-wrap: wrap; gap: 12px 20px; }
+.proyectos-hoja > .rp-dh .buscador { width: min(18rem, 100%); min-height: 36px; border-color: var(--campo); border-radius: 3px; }
+.proyectos-hoja > .lista, .proyectos-hoja > .cerrados { margin: 0 20px; }
+.proyectos-hoja > .cerrados { margin-top: 14px; }
+.proyectos-hoja .pficha { border-color: var(--line-2); border-radius: 4px; }
+#repDetalle > .mn-card, #p-roadmap .mn-card, #p-calendario .cal-detalle, #p-proyecto .lateral > .mn-card { border: 1px solid var(--line); border-radius: 5px; background: var(--card); padding: 20px 26px 22px 28px; }
+#repDetalle > .mn-card > h2, #p-roadmap .mn-card > h2, #p-calendario .cal-detalle > h2, #p-proyecto .lateral > .mn-card > h2 { margin: 0 0 14px; font-family: var(--f-ui); font-size: 18px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink); }
+#repDetalle { gap: 22px; align-items: start; }   /* el anillo no se estira al alto de «Avance por proyecto» */
+#p-reportes, #p-roadmap, #p-calendario, #p-proyectos { gap: 22px; }
+.rp-top-der .cal-nav { flex-wrap: wrap; }
+.rp-top-der .cal-filtro { flex: none; }
+/* ---- el proyecto: título de la plantilla, la fila de KPIs y el tablero de la maqueta (.kb · .col · .tk) dentro de UNA tarjeta */
+#proyectoCab h1 { font-family: var(--f-ui); font-size: 22px; font-weight: 500; letter-spacing: 0; }
+#p-proyecto .dos-columnas.ancha > .apilado:not(.lateral) { padding: 4px 20px 20px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); gap: 14px; }
+#p-proyecto .tab { font-size: 14.5px; font-weight: 500; }
+.tablero .col { padding: 12px; border: 1px solid var(--line-2); border-radius: 5px; background: var(--bg); gap: 8px; }
+.tablero .col h3 { padding: 0 0 8px; font-family: var(--f-ui); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.tablero .tarjeta { padding: 10px 12px; border-radius: 4px; background: var(--card); }
+.tablero .tarjeta .t { font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.35; }
+.tablero .tarjeta .f { gap: 4px 8px; font-size: 12.5px; color: var(--ink-3); }
+@media (min-width: 721px) {
+  #tab-lista th { padding: 12px 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--th); font-family: var(--f-ui); font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-2); }
+  #tab-lista td { padding: 11px 16px; border-bottom-color: var(--line-2); font-size: 14.5px; }
+}
+/* ---- tableta y celular: Servicios en fichas (la barra de 12 pasos a todo el ancho) desde 900 px — a 820 sus cinco columnas ya no caben y «Espera a»
+   quedaba cortado; Vigencias en fichas desde 640; Compras rueda de lado dentro de su tarjeta, como la maqueta */
+@media (max-width: 900px) {
+  #serviciosTabla thead { display: none; }
+  #serviciosTabla tr.srv-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--line-2); }
+  #serviciosTabla tr.srv-fila td { padding: 8px 16px 0; border: 0; text-align: left; white-space: normal; }
+  #serviciosTabla tr.srv-fila td:first-child { grid-column: 1 / -1; min-width: 0; padding-top: 12px; }
+  #serviciosTabla .srv-avance, #serviciosTabla .srv-actual { grid-column: 1 / -1; min-width: 0; }
+  #serviciosTabla .srv-track { min-width: 0; }
+  #serviciosTabla .srv-espera { padding-bottom: 12px; color: var(--ink-2); font-size: 13px; }
+  #serviciosTabla .srv-espera::before { content: 'Espera a: '; }
+  #serviciosTabla .srv-desde { padding-bottom: 12px; color: var(--ink-3); font-size: 13px; }
+}
+@media (max-width: 640px) {
+  #vigenciasTabla thead { display: none; }
+  #vigenciasTabla tr.vig-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--line-2); }
+  #vigenciasTabla tr.vig-fila td { padding: 8px 16px 0; border: 0; text-align: left; white-space: normal; }
+  #vigenciasTabla tr.vig-fila td:first-child { grid-column: 1 / -1; min-width: 0; padding-top: 12px; }
+  #vigenciasTabla .vig-unidad { display: none; }
+  #vigenciasTabla .vig-faltan { justify-self: end; }
+  #vigenciasTabla .vig-resp { grid-column: 1 / -1; padding-bottom: 12px; color: var(--ink-2); font-size: 13px; }
+  #vigenciasTabla .vig-resp::before { content: 'Responsable: '; }
+  #vigenciasTabla .vig-resp.is-vacio { display: none; }
+  #vigenciasTabla tr.vig-fila:has(.vig-resp.is-vacio) .vig-vence, #vigenciasTabla tr.vig-fila:has(.vig-resp.is-vacio) .vig-faltan { padding-bottom: 12px; }
+  .srv-track.is-grande { padding: 16px 16px 2px; }
+  .srv-track.is-grande .srv-trl { display: none; }   /* los 12 nombres no caben bajo la barra: la tabla de abajo los trae */
+  .rp-datos > .srv-leyenda { padding: 0 16px 12px; }
+  .rp-datos > .srv-guia { margin: 6px 16px 0; }
+  .rp-ley-graf { margin-left: 0; }
+  #repDetalle > .mn-card, #p-roadmap .mn-card, #p-calendario .cal-detalle, #p-proyecto .lateral > .mn-card { padding: 16px; }
+  #p-proyecto .dos-columnas.ancha > .apilado:not(.lateral) { padding: 4px 12px 14px; }
+  .proyectos-hoja > .lista, .proyectos-hoja > .cerrados { margin: 0 12px; }
+  .proyectos-hoja > .rp-dh .buscador { width: 100%; }
+}
+
+/* ==== INICIO + AVISOS + BUSCADOR + PREGUNTAR v1.0.0 (rediseño 2026-10-02, cubeta 4; maqueta «MINSA ERP Reportes»: V.ini —fila de KPIs y
+   «Requiere atención» con etiqueta + ABRIR—, #chat —el panel «Pregunta lo que sea», .sug, .rec, .msg, .typing, .chf— y la .srch del buscador).
+   Inicio, Mis tareas y Mensajes llevan la cabecera de la plantilla y sus tarjetas; la lógica de la cola, del chat y de Mis tareas no cambia. ==== */
+:root { --sug: #eef1f5; --sug-line: #dce1e8; --send: #8db4ef; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sug: #1f2939; --sug-line: #2c3a50; --send: #3b5b96; } }
+:root[data-theme="dark"] { --sug: #1f2939; --sug-line: #2c3a50; --send: #3b5b96; }
+#p-inicio, #p-mis, #p-mensajes { gap: 22px; }
+#p-inicio > .bandas { gap: 22px; container-type: inline-size; }
+/* con «Preguntar» abierto (o en una ventana angosta) el centro de Inicio mide ~640 px: las dos mitades de la cola y las fichas pasan a una
+   columna por el ANCHO DE LA BANDA, no de la ventana (antes solo bajo 900 px de ventana), y los KPIs se acomodan en renglones */
+@container (max-width: 760px) { #inicioHoy.cola-dos, #p-inicio .dosmitad, #inicioProyectos.dosc .fichas { grid-template-columns: minmax(0, 1fr); } }
+#inicioKpisCard { container-type: inline-size; }
+@media (min-width: 721px) { #inicioKpis { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 16px; } }   /* angosto: 3 + 2, como la maqueta bajo 1100 */
+@container (min-width: 900px) { #inicioKpis { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: minmax(0, 1fr); } }   /* ancho: todos en UNA fila */
+/* ---- Inicio: la fila de KPIs por rol (botones que llevan a su reporte; el corte o «sin datos» debajo) */
+.inicio-kpis .rp-kpis, .mis-kpis .resumen { margin-top: 0; padding: 18px 0 20px; border-top: 0; }
+#inicioKpis .ini-kpi { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; min-width: 0; padding-top: 4px; padding-bottom: 4px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 4px; }   /* flex en columna: un <button> centra su contenido en vertical y los KPIs de rótulo corto bajaban */
+#inicioKpis .ini-kpi:hover b, #inicioKpis .ini-kpi:focus-visible b { color: var(--blue); }
+#inicioKpis .ini-kpi:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+#inicioKpis .ini-kpi.is-sin b { color: var(--ink-3); }
+.ini-corte { display: inline-flex; align-items: center; margin-top: 6px; font-size: 11.5px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; }   /* cubeta 6: texto de color, sin píldora */
+.ini-corte.is-ok { color: var(--ok-fg); } .ini-corte.is-warn { color: var(--warn-fg); }
+.ini-corte.is-danger { color: var(--bad-fg); } .ini-corte.is-sin { color: var(--idle-fg); }
+/* ---- las tarjetas de Inicio con la piel de la plantilla (.rp-card: borde, radio 5, título de «Datos del reporte») */
+#p-inicio .bandas > .mn-card, #p-inicio .dosmitad > .mn-card { border: 1px solid var(--line); border-radius: 5px; background: var(--card); padding: 20px 26px 22px 28px; box-shadow: none; }
+#p-inicio .bandas > .mn-card > h2, #p-inicio .dosmitad > .mn-card > h2, #p-inicio .cola-cab h2 { margin: 0 0 12px; font-family: var(--f-ui); font-size: 18px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink); }
+#p-inicio .cola-cab { margin-bottom: 14px; } #p-inicio .cola-cab h2 { margin: 0; }
+#p-inicio .cola-cab h2 .n:not(:empty) { color: var(--ink-3); font-weight: 400; }
+/* «Requiere atención» (maqueta .vg: etiqueta · texto · ABRIR): la columna de fecha de siempre, la etiqueta como renglón chico de color sobre el
+   título (texto de color, v0.98.0 «sin burbujas») y «ABRIR» al final con el borde de .dd */
+#inicioHoy .hoy-r { grid-template-columns: 46px minmax(0, 1fr) auto; min-height: 52px; padding: 9px 4px 9px 0; }
+#inicioHoy .hoy-r .etq { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); line-height: 1.2; }
+#inicioHoy .hoy-r.is-danger .etq { color: var(--bad-fg); } #inicioHoy .hoy-r.is-warn .etq { color: var(--warn-fg); } #inicioHoy .hoy-r.is-info .etq { color: var(--info-fg); } #inicioHoy .hoy-r.is-ok .etq { color: var(--ok-fg); }
+#inicioHoy .hoy-r .t { font-size: 14.5px; font-weight: 500; color: var(--ink); }
+#inicioHoy .hoy-r .p { font-size: 13px; color: var(--ink-3); }
+#inicioHoy .hoy-r .abrir { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border: 1px solid var(--campo); border-radius: 3px; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: var(--ink); white-space: nowrap; }
+#inicioHoy button.hoy-r:hover .abrir, #inicioHoy button.hoy-r:focus-visible .abrir { background: var(--hover); border-color: var(--ink-3); }
+#inicioHoy .hoy-g { margin-top: 14px; padding-bottom: 6px; font-size: 11.5px; letter-spacing: .06em; }
+#inicioHoy .hoy-semana { margin-top: 8px; }
+/* ---- Mis tareas: los cinco contadores como la fila de KPIs de la maqueta (siguen siendo botones que filtran) y la lista en una tarjeta */
+.mis-kpis .resumen { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; }
+.mis-kpis .kpi { min-width: 0; padding: 6px 6px 6px clamp(18px, 3.4vw, 48px); border: 0; border-radius: 0; background: none; gap: 3px; }
+.mis-kpis .kpi b { font-family: var(--f-ui); font-size: 20px; font-weight: 500; }
+.mis-kpis .kpi small { font-size: 13.5px; font-weight: 400; color: var(--ink-2); }
+.mis-kpis .kpi:hover b { color: var(--blue); }
+.mis-kpis .kpi.is-on { background: none; box-shadow: inset 0 -2px 0 var(--navy); }
+.mis-kpis .kpi.is-on small { color: var(--ink); font-weight: 600; }
+.mis-hoja { padding-bottom: 20px; }
+.mis-hoja > .rp-dh { flex-wrap: wrap; gap: 12px 20px; }
+.mis-hoja > .rp-dh .buscador { width: min(18rem, 100%); min-height: 36px; border-color: var(--campo); border-radius: 3px; }
+.mis-hoja > .bloques { margin: 0 20px; }
+/* ---- Mensajes: bandeja + hilo en UNA tarjeta */
+#p-mensajes > .msj { padding: 18px 20px 20px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); }
+/* ---- Avisos (la campana): lo nuevo desde la última vez, en fuerte y con su marca */
+.av-sub { margin: 0 0 var(--sp-2); }
+.av-r .av-ico { width: 24px; height: 24px; flex: none; }
+.av-r.es-nuevo b { font-weight: 700; color: var(--ink); }
+.av-r.is-ok b { color: var(--ok-fg); } .av-r.is-warn b { color: var(--warn-fg); }
+.av-nuevo { flex: none; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--info-fg); }
+/* ---- el buscador global (combobox → listbox): grupos, la opción resaltada con las flechas y lo que abre en SharePoint */
+#dlgBuscar { width: min(680px, 96vw); }
+#dlgBuscar .bs-res { max-height: min(62vh, 560px); overflow-y: auto; }
+#dlgBuscar .bs-grupo { display: grid; gap: 1px; }
+#dlgBuscar .bs-g { margin: 12px 0 4px; }
+#dlgBuscar .bs-grupo:first-child .bs-g { margin-top: 2px; }
+#dlgBuscar .bs-r { text-decoration: none; }
+#dlgBuscar .bs-r.is-activa { background: var(--side-on); box-shadow: inset 2px 0 0 var(--blue); }
+#dlgBuscar .bs-ext { flex: none; font-size: 11.5px; color: var(--ink-3); }
+#dlgBuscar .bs-ayuda { margin: -4px 0 8px; font-size: 12.5px; }
+#dlgBuscar kbd { padding: 0 5px; border: 1px solid var(--campo); border-bottom-width: 2px; border-radius: 3px; font: 600 11px/1.5 var(--f-ui); color: var(--ink-2); background: var(--card); }
+#dlgBuscar .bs-buscando, #dlgBuscar .bs-mas, #dlgBuscar .bs-pista { margin: 4px 8px; font-size: 12.5px; }
+/* ---- PREGUNTAR (maqueta #chat): el botón de la cabecera y el panel derecho de 440 px, cerrado por defecto */
+.rp-ask[aria-expanded="true"] { box-shadow: inset 0 0 0 2px #8fb0e8; }
+body.con-preguntar .app:not(.sin-sesion) { grid-template-columns: 64px 284px minmax(0, 1fr) 440px; }
+body.con-preguntar .app.panel-plegado:not(.sin-sesion) { grid-template-columns: 64px minmax(0, 1fr) 440px; }
+#preguntar { position: sticky; top: 0; height: 100dvh; min-width: 0; z-index: 4; display: flex; flex-direction: column; background: var(--card); border-left: 1px solid var(--line); }
+#preguntar .pq-cab { display: flex; align-items: center; gap: 6px; height: 52px; flex: none; padding: 0 12px 0 20px; border-bottom: 1px solid var(--line); font-size: 14.5px; font-weight: 500; color: var(--ink); }
+#preguntar .pq-btn { width: 36px; height: 36px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+#preguntar .pq-btn:hover { background: var(--hover); }
+#preguntar .pq-btn .ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+#preguntar .pq-cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 0 24px 16px; display: flex; flex-direction: column; }
+#preguntar .pq-h { margin: 56px 0 6px; text-align: center; font-family: var(--f-ui); font-size: 21px; font-weight: 400; color: var(--ink); }
+#preguntar .pq-sub { margin: 0 0 24px; text-align: center; font-size: 13.5px; color: var(--ink-3); }
+#preguntar .pq-inp { position: relative; flex: none; }
+#preguntar .pq-inp input { width: 100%; box-sizing: border-box; padding: 15px 50px 15px 14px; border: 1px solid var(--campo); border-radius: 4px; background: var(--card); color: var(--ink); font: inherit; font-size: 17px; }
+#preguntar .pq-inp input::placeholder { color: var(--ink-3); }
+#preguntar .pq-enviar { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: var(--send); color: #ffffff; display: grid; place-items: center; cursor: pointer; }
+#preguntar .pq-inp input:not(:placeholder-shown) + .pq-enviar { background: var(--blue); }
+#preguntar .pq-enviar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+#preguntar .pq-sug { margin-top: 32px; padding: 14px 24px 16px; border: 1px solid var(--sug-line); border-radius: 5px; background: var(--sug); }
+#preguntar .pq-sug.is-dentro { margin-top: 10px; padding: 8px 12px 10px; background: var(--card); }
+#preguntar .pq-sug small, #preguntar .pq-rec small { display: block; margin-bottom: 4px; color: var(--ink-2); font-size: 14px; }
+#preguntar .pq-q { display: block; width: 100%; min-height: 36px; padding: 6px 0; border: 0; background: none; color: var(--ink); font: inherit; font-size: 15.5px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+#preguntar .pq-q:hover, #preguntar .pq-q:focus-visible { color: var(--blue); }
+#preguntar .pq-rec { margin-top: 32px; }
+#preguntar .pq-msgs { display: flex; flex-direction: column; gap: 14px; padding: 22px 0 16px; }
+#preguntar .pq-msg { padding: 11px 14px; border-radius: 6px; font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; }
+#preguntar .pq-msg.is-yo { align-self: flex-end; max-width: 85%; background: var(--navy); color: #ffffff; }
+#preguntar .pq-msg.is-resp { border: 1px solid var(--sug-line); background: var(--sug); color: var(--ink); }
+#preguntar .pq-texto { margin: 0; }
+#preguntar .pq-tabla { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+#preguntar .pq-tabla td { padding: 5px 0; border-bottom: 1px solid var(--sug-line); vertical-align: top; }
+#preguntar .pq-tabla td.pq-v { padding-left: 10px; text-align: right; color: var(--ink-2); }
+#preguntar .pq-liga { margin-top: 10px; }
+#preguntar .pq-typing { display: flex; gap: 4px; padding: 4px 0; }
+#preguntar .pq-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: pq-parpadeo 1s infinite; }
+#preguntar .pq-typing i:nth-child(2) { animation-delay: .15s; } #preguntar .pq-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes pq-parpadeo { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+#preguntar .pq-pie { flex: none; margin: 0; padding: 12px 26px 14px; border-top: 1px solid var(--line-2); text-align: center; color: var(--ink-2); font-size: 13px; line-height: 1.45; }
+@media (prefers-reduced-motion: reduce) { #preguntar .pq-typing i { animation: none; } }
+@media (max-width: 1380px) {
+  body.con-preguntar .app:not(.sin-sesion) { grid-template-columns: 64px 284px minmax(0, 1fr) 380px; }
+  body.con-preguntar .app.panel-plegado:not(.sin-sesion) { grid-template-columns: 64px minmax(0, 1fr) 380px; }
+}
+/* tableta: el panel derecho se abre ENCIMA (maqueta ≤ 1100), como el panel del módulo */
+@media (max-width: 1100px) {
+  body.con-preguntar .app:not(.sin-sesion), body.con-preguntar .app.panel-plegado:not(.sin-sesion) { grid-template-columns: 56px minmax(0, 1fr); }
+  #preguntar { position: fixed; top: 0; right: 0; bottom: 0; height: auto; width: min(420px, 100vw); z-index: 45; box-shadow: -6px 0 22px rgba(20, 30, 50, .18); }
+}
+/* celular: Inicio, Mis tareas, Requiere atención y Preguntar a una columna; el panel es la hoja ENTERA (encima de la barra de módulos) */
+@media (max-width: 720px) {
+  body.con-preguntar .app:not(.sin-sesion), body.con-preguntar .app.panel-plegado:not(.sin-sesion) { grid-template-columns: minmax(0, 1fr); }
+  #preguntar { left: 0; width: 100%; border-left: 0; box-shadow: none; z-index: 70; }
+  #preguntar .pq-cuerpo { padding: 0 16px 12px; }
+  #preguntar .pq-h { margin-top: 28px; }
+  #preguntar .pq-sug { padding: 12px 16px 14px; margin-top: 22px; }
+  #preguntar .pq-pie { padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); }
+  body.con-preguntar .fab-nuevo { display: none; }
+  #p-inicio, #p-mis, #p-mensajes, #p-inicio > .bandas { gap: 14px; }
+  #p-inicio .bandas > .mn-card, #p-inicio .dosmitad > .mn-card { padding: 16px; }
+  #inicioHoy .hoy-r { grid-template-columns: 40px minmax(0, 1fr); }
+  #inicioHoy .hoy-r .abrir { display: none; }
+  .mis-kpis .resumen { grid-auto-columns: minmax(40%, 1fr); overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 12px 0 14px; }
+  .mis-kpis .resumen::-webkit-scrollbar { display: none; }
+  .mis-kpis .kpi { flex: none; padding-left: 16px; scroll-snap-align: start; }
+  .mis-hoja > .rp-dh .buscador { width: 100%; }
+  .mis-hoja > .bloques { margin: 0 12px; }
+  #p-mensajes > .msj { padding: 12px; }
+  #dlgBuscar .bs-ayuda, #dlgBuscar .bs-ext { display: none; }
+  /* con PREGUNTAR a la vista, en celular el subtítulo va pegado al título y las acciones (corte, filtros, rango, PREGUNTAR) debajo */
+  .rp-top > .rp-sub { order: 1; margin-top: -6px; }
+  .rp-top > .rp-top-der { order: 2; }
+}
+/* ==== ARCHIVOS v1.0.0 (rediseño, cubeta 5 «Archivos opción A»; archivos.js): la carpeta del proyecto en ERP_Proyectos (Documentos y
+   #archivos/proyecto/<clave>), la zona de arrastrar y soltar, la cola de subidas, Por proyecto, Recientes, Fijados, Bibliotecas, Mis subidas y
+   los diálogos de vista previa, versiones, cerrar con archivos sin archivar y ligar desde una biblioteca. Piezas de la maqueta (.rp-card, .rp-dh,
+   la tabla .dtabla de Documentos); los estados como texto de color (v0.98.0, igual que las cubetas 2-4), los sellos de la tabla como siempre. ==== */
+.arch-seccion { display: grid; gap: var(--sp-4); min-width: 0; }
+.arch-seccion:empty { display: none; }
+.archivos-ligas { padding-bottom: 18px; }
+.archivos-ligas > .rp-dh { flex-wrap: wrap; gap: 6px 20px; }
+.archivos-ligas > .rp-dh .sub { margin: 0; color: var(--ink-2); font-size: 13.5px; }
+.archivos-ligas > .archivos-filtros, .archivos-ligas > .docs { margin: 0 20px; }
+.archivos-ligas > .archivos-filtros { margin-bottom: var(--sp-3); }
+#tab-docs > .docs-carpeta:empty { display: none; }
+.arch-carpeta, .arch-proyectos, .arch-ligas, .arch-recientes, .arch-fijados, .arch-bibliotecas, .arch-mias, .arch-subidas, .arch-enviados { padding-bottom: 18px; min-width: 0; }
+.arch-carpeta > .rp-dh, .arch-proyectos > .rp-dh, .arch-ligas > .rp-dh, .arch-recientes > .rp-dh, .arch-fijados > .rp-dh, .arch-mias > .rp-dh, .arch-subidas > .rp-dh, .arch-enviados > .rp-dh, .arch-bibliotecas > .rp-dh { flex-wrap: wrap; gap: 6px 16px; padding-bottom: 12px; }
+.arch-n { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; }
+.arch-n.is-pend { color: var(--warn-fg); font-weight: 600; }
+.arch-ruta { color: var(--ink-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.arch-carpeta > .zona-subir, .arch-carpeta > .arch-cola, .arch-carpeta > .docs, .arch-carpeta > .vacio, .arch-carpeta > .arch-error { margin-left: 20px; margin-right: 20px; }
+.arch-carpeta > .docs, .arch-ligas > .docs { margin-top: var(--sp-3); }
+.arch-ligas > .docs { margin-left: 20px; margin-right: 20px; }
+.arch-carpeta .vacio, .arch-proyectos .vacio, .arch-ligas .vacio { padding: 6px 0; }
+/* la zona de arrastrar y soltar: contorno punteado; al pasar archivos encima se marca con el azul de la maqueta */
+.zona-subir { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 16px; border: 1.5px dashed var(--campo); border-radius: 5px; background: var(--banda); }
+.zona-subir.is-sobre, #formSubir.is-sobre { border-color: var(--blue); background: var(--info-bg); }
+#formSubir.is-sobre { outline: 2px dashed var(--blue); outline-offset: -6px; }
+.zona-subir .zs-ico { width: 24px; height: 24px; flex: none; fill: none; stroke: var(--ink-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.zona-subir .zs-t { flex: 1 1 220px; min-width: 0; display: grid; }
+.zona-subir .zs-t b { font-weight: 600; color: var(--ink); }
+.zona-subir .zs-t small { color: var(--ink-3); font-size: 12.5px; }
+.zona-subir .zs-acc { display: flex; flex-wrap: wrap; gap: 8px; }
+.zona-subir .mn-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+/* la cola: un renglón por archivo con su estado y su barra de avance */
+.arch-cola { display: grid; gap: 6px; margin-top: var(--sp-3); }
+.arch-cola-r { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(80px, 160px) auto; align-items: center; gap: 4px 12px; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 4px; background: var(--card); }
+.arch-cola-r .tx { display: grid; min-width: 0; }
+.arch-cola-r .tx b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arch-cola-r .tx small { color: var(--ink-3); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arch-cola-r.is-retenido .estado-txt { color: var(--warn-fg); font-weight: 600; }
+.arch-cola-r.is-error .estado-txt { color: var(--bad-fg); font-weight: 600; }
+.arch-cola-r progress { width: 100%; height: 6px; accent-color: var(--blue); }
+.arch-cola-r .acc { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; grid-column: 4; }
+.arch-cola-r:not(:has(progress)) .acc { grid-column: 3 / 5; }
+/* Por proyecto, Recientes, Fijados, Bibliotecas y Mis subidas: renglones como los de Avisos */
+.arch-filas { display: grid; gap: 1px; margin: 0 12px; }
+.arch-fila { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 6px 8px; border: 0; border-radius: 3px; background: none; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.arch-fila.is-estatica { cursor: default; }
+.arch-fila:not(.is-estatica):hover, .arch-fila:not(.is-estatica):focus-visible { background: var(--hover); }
+.arch-fila.is-estatica:hover { background: var(--hover); }
+.arch-fila .tx { flex: 1; min-width: 0; display: grid; }
+.arch-fila .tx b, .arch-fila .tx a { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); text-decoration: none; }
+.arch-fila .tx a:hover { text-decoration: underline; color: var(--blue); }
+.arch-fila .tx small { color: var(--ink-3); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arch-fila .carp { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--ink-2); stroke-width: 1.5; }
+.arch-fila .flecha { width: 14px; height: 14px; flex: none; fill: none; stroke: var(--ink-3); stroke-width: 2; }
+.arch-fila .arch-sin { flex: none; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-3); }
+.arch-fila .arch-sin.is-pend { color: var(--warn-fg); font-weight: 600; }
+.arch-fila .acc { flex: none; display: flex; gap: 6px; align-items: center; }
+.arch-fila .fila-menu .menu { min-width: 220px; }
+.arch-migas { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; padding: 16px 20px 10px; }
+.arch-migas .miga { border: 0; background: none; padding: 4px 6px; border-radius: 3px; font: inherit; font-size: 14px; color: var(--lk); cursor: pointer; }
+.arch-migas .miga:hover, .arch-migas .miga:focus-visible { background: var(--hover); color: var(--blue); }
+.arch-migas .miga:last-child { font-weight: 600; color: var(--ink); }
+.arch-migas .sep { color: var(--ink-3); }
+.arch-bibliotecas > .vacio, .arch-bibliotecas > .arch-error { margin: 0 20px; }
+.arch-mias > .arch-nota, .arch-mias > .arch-error, .arch-mias > .vacio, .arch-mias > .arch-cola { margin-left: 20px; margin-right: 20px; }
+.arch-subidas > .vacio, .arch-enviados > .vacio, .arch-recientes > .vacio, .arch-fijados > .vacio, .arch-fijados > .arch-nota { margin: 0 20px; }
+.arch-nota { margin-top: 0; font-size: 13px; }
+.arch-error { color: var(--bad-fg); font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* «Falta preparar ERP_Proyectos» */
+.arch-falta { display: grid; gap: 8px; justify-items: start; padding: 18px 22px; }
+.arch-falta h3 { margin: 0; font-size: 18px; font-weight: 500; }
+.arch-falta p { margin: 0; color: var(--ink-2); max-width: 80ch; }
+.arch-falta code { font-family: var(--f-data); font-size: 12.5px; overflow-wrap: anywhere; }
+.arch-falta .arch-acc { display: flex; flex-wrap: wrap; gap: 8px; }
+/* la ficha de la tarjeta: un archivo de la carpeta del proyecto, con su botón de mandar a archivar */
+#tDocs .tdoc-archivo .mn-chip.is-warn { color: var(--warn-fg); }
+#tDocs .tdoc-archivo .mn-btn.is-icono svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+/* vista previa: el marco ocupa el diálogo */
+#dlgVistaPrevia { width: min(1100px, 96vw); }
+#dlgVistaPrevia .mn-dialog-head { gap: 8px; }
+#dlgVistaPrevia .mn-dialog-head h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#dlgVistaPrevia .mn-dialog-head a.mn-btn { text-decoration: none; }
+/* a 390 px el nombre se comía a «acta-r…»: en angosto el título va en su renglón y las dos acciones debajo */
+@media (max-width: 560px) { #dlgVistaPrevia .mn-dialog-head { flex-wrap: wrap; } #dlgVistaPrevia .mn-dialog-head h2 { flex-basis: 100%; white-space: normal; overflow-wrap: anywhere; } }
+#vpMarco { display: block; width: 100%; height: min(72vh, 760px); border: 1px solid var(--line); border-radius: 4px; background: var(--card); }
+#vpMarco[hidden] { display: none; }
+/* versiones */
+#dlgVersiones { width: min(620px, 96vw); }
+.vr-lista { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; }   /* sin minmax(0) la pista crecía al ancho del texto y «Restaurar» se salía del diálogo a 390 */
+.vr-r { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px; border-bottom: 1px solid var(--line-2); }
+.vr-r b { font-variant-numeric: tabular-nums; min-width: 3.2em; }
+.vr-r .tx { flex: 1; min-width: 0; color: var(--ink-2); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* cerrar con archivos sin archivar */
+.sa-lista { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; max-height: 40vh; overflow-y: auto; }
+.sa-lista li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sa-lista li > span:not(.fico) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* el icono también es <span>: sin el :not se estiraba a la mitad del renglón */
+.sa-lista li small { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) {
+  .arch-carpeta > .zona-subir, .arch-carpeta > .arch-cola, .arch-carpeta > .docs, .arch-carpeta > .vacio, .arch-carpeta > .arch-error, .arch-ligas > .docs, .archivos-ligas > .archivos-filtros, .archivos-ligas > .docs,
+  .arch-mias > .arch-nota, .arch-mias > .arch-error, .arch-mias > .vacio, .arch-mias > .arch-cola { margin-left: 12px; margin-right: 12px; }
+  .arch-filas { margin: 0 4px; }
+  .arch-cola-r { grid-template-columns: auto minmax(0, 1fr); }
+  .arch-cola-r progress { grid-column: 1 / -1; }
+  .arch-cola-r .acc, .arch-cola-r:not(:has(progress)) .acc { grid-column: 1 / -1; justify-content: flex-start; }
+  .zona-subir { padding: 12px; }
+  .zona-subir .zs-t small { display: none; }
+  #vpMarco { height: 70vh; }
+  .arch-migas { padding: 12px 12px 8px; }
+}
+/* ==== FIDELIDAD Y CELULAR v1.0.0 (rediseño 2026-10-02, cubeta 6; informe docs/rediseno/fidelidad-cubeta6.md). Capa final, a propósito AL
+   FINAL: gana a lo de arriba con la misma especificidad y se revierte borrando el bloque. (1) piezas de la maqueta que se pintaban distinto:
+   el icono de PREGUNTAR, UN segmentado, títulos de tarjeta y de pantalla, encabezados de tabla, el corte como texto de color, PREGUNTAR al
+   final; (2) tableta 721–1100: la cabecera con ☰ + el título del módulo y PREGUNTAR con velo; (3) celular ≤ 720: todo control tocable mide
+   ≥ 36 px (capturas.mjs, «chicos»), la primera columna de «Datos del reporte» fija al rodar de lado y «Requiere atención» plegada tras 6
+   renglones con «Ver todo»; (4) Servicios: «Espera a» en dos renglones con el texto entero en el title.
+   El primario: verde en la cubeta 6 (B5 + verde, v0.30.0); desde la vuelta 1 (Carlos, 3-oct) NAVY relleno, el mismo de PREGUNTAR. ==== */
+/* (1) letra: los datos (claves, montos, horas) en Source Sans 3 con cifras tabulares, como la maqueta (--f-data en la PALETA) */
+body { font-variant-numeric: tabular-nums; }
+/* (1) el primario es UNO (navy desde la vuelta 1): APLICAR / GUARDAR de la ventana de segmentos (el .mini.azul de la maqueta) va con el
+   relleno de «+ Nuevo», el mismo navy de PREGUNTAR */
+.rp-mini.azul { background: var(--relleno); border-color: var(--relleno); }
+/* (1) PREGUNTAR con su icono (reporte.js lo mete como <svg> sin clase: medía 0 px) */
+.ask .ico, .ask svg { width: 20px; height: 20px; flex: none; fill: none; stroke: #ffffff; stroke-width: 1.6; }
+/* (1) UN segmentado (maqueta .seg): borde #2d3b55, radio 2 px, el encendido relleno navy con texto blanco — todo el frente | solo mías, las
+   cubetas del celular, Cómodo | Compacto y Claro | Oscuro, como LÍNEA | BARRAS, MES y los chips del módulo */
+.grupo, .col-tabs, .densidad, .tema.seg { border-color: var(--seg-borde); border-radius: 2px; background: var(--card); }
+.densidad, .tema.seg { padding: 0; gap: 0; overflow: hidden; }
+.densidad button, .tema.seg .mn-btn { border-radius: 0; }
+.densidad button + button, .tema.seg .mn-btn + .mn-btn { border-left: 1px solid var(--campo); }
+.grupo > button.is-on, .col-tabs > button.is-on, .densidad button[aria-pressed="true"], .tema.seg button[aria-pressed="true"], .tema.seg button[aria-pressed="true"]:hover { background: var(--navy); color: #ffffff; border-color: var(--navy); box-shadow: none; }
+/* la pestaña elegida subraya en navy, como Mis tareas y la maqueta (en oscuro, tinta clara con el filete de la línea) */
+.tab.is-on { color: var(--navy); border-bottom-color: var(--navy); }
+:root[data-theme="dark"] .tab.is-on { color: var(--ink); border-bottom-color: var(--linea); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tab.is-on { color: var(--ink); border-bottom-color: var(--linea); } }
+/* (1) títulos: tarjeta = .rd-h h3 de la maqueta (18/500); pantalla con cabecera vieja (proyecto) = .top h2 (22/500) */
+.mn-card > h2, .gastos-cab h2 { font: 500 18px/1.25 var(--f-ui); letter-spacing: 0; text-transform: none; color: var(--ink); }
+.cabecera h1 { font: 500 22px/1.25 var(--f-ui); letter-spacing: 0; }
+/* (1) el corte es un DATO: texto de su color (verde · ámbar > 8 d · rojo > 15 d), sin la píldora rellena — va en sus reglas de arriba (.rp-corte, .ini-corte) */
+.rp-kpi b.warn { color: var(--warn-fg); }   /* un KPI en ámbar (Servicios: «un paso a medias»), como su segmento de la barra */
+/* (1) encabezados de tabla como los de «Datos del reporte» (maqueta th: 500 · 14 · ink-2 · fondo th); la etiqueta de Tipo y el sello de Estado
+   no cambian (v0.102.0). Capital por mes: su tabla con la piel de la maqueta, sin caja interna. */
+@media (min-width: 721px) {
+  .dtabla th, .tabla th { font: 500 14px/1.3 var(--f-ui); letter-spacing: 0; text-transform: none; color: var(--ink-2); background: var(--th); padding: 12px 16px; }
+  #capitalPorMes > #capitalMeses { margin: 0; }
+  #capitalMeses .dtabla { border: 0; border-radius: 0; background: none; }
+  #capitalMeses .dtabla th { border-radius: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  #capitalMeses .choja td { padding: 12px 16px; font-size: 14.5px; border-bottom-color: var(--line-2); }
+  #capitalMeses .choja th:first-child, #capitalMeses .choja td:first-child { padding-left: 28px; border-right: 1px solid var(--line); }
+}
+/* (1) Buscar y Avisos: diálogo blanco, como el .pop de la maqueta (sin la banda de la cabecera de los diálogos que editan) */
+#dlgBuscar .mn-dialog-head, #dlgAvisos .mn-dialog-head { background: var(--card); }
+/* (2) tableta: ☰ + el título del módulo en la cabecera; PREGUNTAR encima del contenido con velo (tocarlo cierra) */
+.pq-fondo { display: none; }
+@media (min-width: 721px) and (max-width: 1100px) {
+  .cabecera-app .cab-titulo { display: block; }
+  .cab-fila { min-height: 40px; }
+  body.con-preguntar .pq-fondo { display: block; position: fixed; inset: 0; z-index: 44; background: rgba(15, 22, 35, .38); }
+}
+/* (4) Servicios: un «espera a» largo no ensancha la tabla (el texto entero va en el title de la celda) */
+.rp-tabla td.srv-espera .srv-espera-t { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+@media (min-width: 901px) { .rp-tabla td.srv-espera .srv-espera-t { max-width: 220px; } }
+@media (max-width: 900px) { #serviciosTabla .srv-espera .srv-espera-t { display: inline; } }   /* en ficha va tras «Espera a: » (el ::before), en el mismo renglón */
+/* «Ver todo» de Requiere atención y el título de cada módulo en la hoja-índice: solo en celular */
+.cola-ver, .pm-tit { display: none; }
+/* (3) tableta y celular: «Datos del reporte» rueda de lado (la maqueta .tw) con su primera columna FIJA; Servicios y Vigencias no (caben, o ya
+   son fichas) */
+@media (max-width: 1100px) {
+  .rp-tabla th:first-child, .rp-tabla td:first-child { position: sticky; left: 0; z-index: 1; background: var(--card); box-shadow: inset -1px 0 0 var(--line); }
+  .rp-tabla th:first-child { background: var(--th); }
+  .rp-tabla tr.hijo td:first-child, .rp-tabla tr.srv-paso-fila.is-actual td:first-child { background: var(--hijo); }
+  #serviciosTabla td:first-child, #vigenciasTabla td:first-child { position: static; box-shadow: none; background: none; }
+}
+/* (3) celular: objetivos táctiles de 36 px */
+@media (max-width: 720px) {
+  /* el «?» junto al título aunque el título ocupe dos renglones */
+  .rp-titulo { display: block; }
+  .rp-titulo > .rp-h { display: inline; }
+  .rp-titulo > .rp-qm { display: inline-grid; vertical-align: middle; }
+  .rp-qm { width: 36px; height: 36px; }
+  .rp-bx, .rp-rng, .rp-seg { height: 38px; }   /* el borde de 1 px va por fuera: los botones de adentro miden 36 */
+  .rp-tl-b { width: 36px; height: 36px; }
+  .rp-exp { left: 0; width: 36px; height: 36px; }
+  .rp-tabla td:first-child { padding-left: 38px; }
+  .rp-tabla tr.hijo td:first-child { padding-left: 46px; }
+  .rp-lk, .rp-tabla td a, a.srv-clave { display: inline-flex; align-items: center; min-height: 36px; }
+  .rp-jn { min-width: 36px; min-height: 36px; }
+  .rp-chip button { min-width: 36px; min-height: 36px; }
+  .rp-pop.is-ed select, .rp-pop.is-ed input:not([type="checkbox"]):not([type="radio"]) { min-height: 38px; }
+  .rp-opts label, .rp-prop, .rp-std, .rp-pop-tab, .rp-pop-l button { min-height: 40px; }
+  .rp-dd-b { min-height: 36px; }
+  #preguntar .pq-enviar { width: 36px; height: 36px; right: 6px; }
+  .chip-ambito .quitar { width: 36px; height: 36px; }
+  /* las bolitas de color se quedan de 28 px (nueve caben en un renglón a 390) y su área táctil crece por ::before hasta 38 */
+  .tonos button { position: relative; }
+  .tonos button::before { content: ""; position: absolute; inset: -5px; border-radius: 50%; }
+  #tab-lista th > .th-orden { min-height: 36px; min-width: 36px; }
+  #tTitulo .prop-btn.is-titulo { display: inline-block; padding-top: 6px; padding-bottom: 6px; }
+  .arch-migas .miga { min-height: 36px; }
+  .mensaje .cerrar { min-width: 36px; min-height: 36px; padding: 0; }
+  .mensaje .accion { min-height: 36px; }
+  summary { min-height: 36px; }
+  .t-props .prop-btn { min-height: 36px; }
+  #tDocs a, .tdoc a { display: inline-flex; align-items: center; min-height: 36px; }
+  /* la liga estirada de U-10 (v0.149.0) también en la pestaña Documentos del proyecto (el mismo componente que Archivos, plan) y en los
+     renglones de Recientes / Fijados / Mis subidas: tocar el renglón abre el archivo; las acciones quedan encima */
+  .dtabla tr.doc { position: relative; }
+  .is-arbol tr.doc td.c-nombre { position: static; }
+  .dtabla tr.doc .c-nombre .t a[href]::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-md); }
+  .dtabla tr.doc .c-acc, .dtabla tr.doc .c-tarjeta { position: relative; z-index: 1; }
+  .arch-fila { position: relative; }
+  .arch-fila .tx a[href]::after { content: ""; position: absolute; inset: 0; border-radius: 3px; }
+  .arch-fila .acc { position: relative; z-index: 1; }
+  /* …y la liga misma mide 36 de alto (el renglón entero ya la abre; así también la regla de la caja sola la cuenta como objetivo) */
+  .dtabla tr.doc .c-nombre .t a[href] { display: inline-flex; align-items: center; min-height: 36px; }
+  .arch-fila .tx a[href] { display: block; min-height: 36px; line-height: 36px; }
+  /* el roadmap: la barra es el dato; su área táctil crece por ::after (como el rombo, U-03 v0.78.0) y la corta, a 36 de ancho */
+  button.g-barra { overflow: visible; }
+  button.g-barra::after { content: ""; position: absolute; top: -7px; bottom: -7px; left: 0; right: 0; }
+  button.g-barra.is-corta::after { left: -12px; right: -12px; }
+  /* los chips del módulo ruedan de lado: el borde derecho se desvanece para que se note que hay más (Archivos: «Mis subidas») */
+  .chips-modulo { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); padding-right: 28px; }
+  /* la hoja (☰) es el ÍNDICE de la app: el módulo actual arriba y los demás debajo con su título (armazon.js); sin «Predeterminados» ni
+     «Guardados» repetidos por módulo — toda ruta a dos toques (☰ + la entrada) */
+  #panelArbol { display: flex; flex-direction: column; }
+  #panelArbol .panel-modulo.is-actual { order: -1; }
+  #panelArbol .panel-modulo:not(.is-actual) > .pm-tit { display: block; margin: 16px 18px 6px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--ink-2); font: 600 12.5px/1.2 var(--f-ui); letter-spacing: .06em; text-transform: uppercase; }
+  #panelArbol .panel-modulo:not(.is-actual) > .gh, #panelArbol .panel-modulo:not(.is-actual) > .gsep, #panelArbol .panel-modulo:not(.is-actual) > .panel-guardados { display: none; }
+  /* «Requiere atención»: lo que pasa de 6 renglones se pliega tras «Ver todo» (app.js marca .pliega) */
+  #inicioHoy.is-plegada .pliega { display: none; }
+  #inicioHoy.is-plegada .cola-lista:not(:has(> :not(.pliega))) { display: none; }
+  .cola-ver { display: flex; width: 100%; justify-content: center; margin-top: 10px; }
+}
+/* ==================================================================================================================
+   v1.0.0 — VUELTA 1 de correcciones (2026-10-03; informes de los revisores de UI/UX y de código tras la cubeta 6)
+   ================================================================================================================== */
+/* «Datos del reporte»: la columna del TOTAL (marcada por la definición del reporte: `total: true`) va FIJA a la derecha bajo 720 px, junto a la
+   primera, que ya es fija — a 390 junto a «Total clientes USD» se leía la cubeta 0–90 y el total quedaba tres columnas a la derecha. Vuelta 2
+   (revisor-entregable): ≤ 1100, como la primera — a 820 el total salía cortado («Sin pag…»). */
+@media (max-width: 1100px) {
+  .rp-tabla .rp-col-total { position: sticky; right: 0; z-index: 1; background: var(--card); box-shadow: inset 1px 0 0 var(--line); }
+  .rp-tabla th.rp-col-total { background: var(--th); }
+  .rp-tabla tr.hijo td.rp-col-total { background: var(--hijo); }
+}
+/* Mis tareas a 390: el título usa hasta dos renglones (las insignias bajan) y «Posponer» va en su propio renglón bajo el de la vencida */
+@media (max-width: 720px) {
+  .densa .tr .t { flex-wrap: wrap; row-gap: 2px; }
+  .densa .tr .t .tit { flex: 1 1 100%; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .densa .fila { grid-template-columns: 36px minmax(0, 1fr); }
+  .densa .fila > .pos { grid-column: 2; justify-self: start; margin: -4px 0 8px; }
+}
+/* El detalle del expediente a 390: los 12 pasos en FICHAS, como la lista — paso y estado arriba; de quién depende y la nota debajo */
+@media (max-width: 720px) {
+  #servicioPasosTabla thead { display: none; }
+  #servicioPasosTabla tr.srv-paso-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 1px solid var(--line-2); }
+  #servicioPasosTabla tr.srv-paso-fila td { padding: 8px 16px 0; border: 0; text-align: left; white-space: normal; position: static; box-shadow: none; background: none; }
+  #servicioPasosTabla tr.srv-paso-fila td:first-child { padding-left: 16px; padding-top: 12px; }
+  #servicioPasosTabla tr.srv-paso-fila td:nth-child(3) { padding-top: 12px; justify-self: end; }
+  #servicioPasosTabla tr.srv-paso-fila td:nth-child(2) { grid-column: 1 / -1; order: 3; color: var(--ink-2); font-size: 13px; }
+  #servicioPasosTabla tr.srv-paso-fila td:nth-child(2)::before { content: 'Depende de: '; }
+  #servicioPasosTabla tr.srv-paso-fila td:nth-child(4) { grid-column: 1 / -1; order: 4; padding-bottom: 12px; color: var(--ink-2); font-size: 13px; }
+  #servicioPasosTabla tr.srv-paso-fila td:nth-child(2):last-child, #servicioPasosTabla tr.srv-paso-fila td:nth-child(4):empty { padding: 0 0 6px; }
+}
+/* La barra de 12 pasos en OSCURO con 3:1 (WCAG 1.4.11): pendiente HUECO con filete visible, hecho relleno claro; en curso, detenido y a medias
+   siguen en su color (antes: pendiente 1.36:1 contra la tarjeta y hecho 1.71:1 contra pendiente) */
+:root[data-theme="dark"] .srv-p { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+:root[data-theme="dark"] .srv-p.is-hecho { background: var(--lk); box-shadow: none; }
+:root[data-theme="dark"] .srv-p.is-actual { background: var(--blue); box-shadow: none; }
+:root[data-theme="dark"] .srv-p.is-bloqueado { background: var(--red); box-shadow: none; }
+:root[data-theme="dark"] .srv-p.is-rebotado { background: var(--amber); box-shadow: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .srv-p { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+  :root:not([data-theme="light"]) .srv-p.is-hecho { background: var(--lk); box-shadow: none; }
+  :root:not([data-theme="light"]) .srv-p.is-actual { background: var(--blue); box-shadow: none; }
+  :root:not([data-theme="light"]) .srv-p.is-bloqueado { background: var(--red); box-shadow: none; }
+  :root:not([data-theme="light"]) .srv-p.is-rebotado { background: var(--amber); box-shadow: none; }
+}
+/* Avisos a 390: sin la columna «NUEVO» (lo nuevo ya va en negrita) y el título en dos renglones */
+@media (max-width: 720px) {
+  .av-nuevo { display: none; }
+  .av-r b { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }   /* anywhere: un nombre de archivo sin espacios también parte */
+}
+/* El proyecto a 390: sin la fila de chips del módulo (su «Roadmap» de todos los frentes chocaba con la pestaña Roadmap del frente; ☰ y la barra
+   de abajo ya llevan a Proyectos) y «Filtrar» baja a su renglón para que las cinco pestañas —Chat incluida— quepan */
+@media (max-width: 720px) {
+  body[data-pantalla="proyecto"] .chips-modulo { display: none; }
+  #p-proyecto .tabs-fila { flex-wrap: wrap; border-bottom: 0; }
+  #p-proyecto .tabs-fila > .tabs { flex: 1 1 100%; border-bottom: 1px solid var(--border-hairline); }
+  #p-proyecto .tabs .tab { padding: 8px 9px; font-size: 14px; }
+  #p-proyecto .tabs-fila > #btnFiltros { margin: 8px 0 0 auto; }
 }

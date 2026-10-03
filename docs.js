@@ -1,7 +1,10 @@
 // Documentos de un proyecto (decision 4): LIGAS a archivos ya archivados en la biblioteca de la
 // unidad (buscador Graph, solo lectura, excluye el buzon) + «Subir al buzon» 99_Pendiente-Archivar
 // con `_lote.json` al final (lote.js). «En el buzon» se DERIVA en vivo: si la carpeta del lote ya
-// no existe (404) es que la skill de archivar lo acomodo. Nada se escribe fuera del buzon.
+// no existe (404) es que la skill de archivar lo acomodo. En la biblioteca de la UNIDAD nada se escribe fuera del buzon.
+// v1.0.0 (rediseño, cubeta 5; supera «nada fuera del buzon» del 11-sep para ERP_Proyectos): con ERP_Proyectos aprovisionada, «Subir» va a
+// la carpeta del proyecto (archivos.js, el mismo dialogo #dlgSubir en modo 'proyecto') y lo formal sale al buzon con «Mandar a archivar»;
+// sin ella, «Subir al buzon» de siempre. Ligar y Enlace no cambian.
 // v0.108.0: si la skill dejo su recibo en `_resueltos/` (recibo-lote.py), la liga se reemplaza sola (aplicarRecibo).
 //
 // v0.2.0 (tanda 1 de la auditoria): una liga se QUITA y se cambia de tarjeta desde la app (F1);
@@ -15,7 +18,7 @@
 // acorta con `urlParaLiga` y ningun texto sale hacia Graph sin pasar por `textosLargos`.
 
 import { CONFIG } from './config.js';
-import { PUEDE, tareasDe, slug, fechaMexico, nombreDe, validarUrl, urlParaLiga, urlCortaDeGuid, resumenLargos, textosLargos, TEXTO_MAX, hrefSeguro, filtrarLigas, tipoArchivo, ordenarLigas, direccionInicial, nombreDeLiga, columnasDe, nombreColumnaEn, claseDeColumna, colorValido, HECHO, TIPOS_LIGA, plural } from './reglas.js';
+import { PUEDE, tareasDe, slug, fechaMexico, fechaDia, nombreDe, validarUrl, urlParaLiga, urlCortaDeGuid, resumenLargos, textosLargos, TEXTO_MAX, hrefSeguro, filtrarLigas, tipoArchivo, ordenarLigas, direccionInicial, nombreDeLiga, columnasDe, nombreColumnaEn, claseDeColumna, colorValido, HECHO, TIPOS_LIGA, plural } from './reglas.js';
 import { construirManifiesto, validarManifiesto, bytesDelManifiesto, nombreCarpetaLote, NOMBRE_MANIFIESTO, rutaRecibo, validarRecibo } from './lote.js';
 import { $, L, VERSION, estado, el, boton, chip, iconoArchivo, iconoSvg, avisar, abrirDialogo, cerrarDialogo, confirmar, opciones, limpiar, porId, proyectoAbierto, registrarActividad, equipoDe, fechaCorta, fechaHora, aplicarVivo, agregarSinDuplicar, pedirRelectura, irAHash, chipVence, conRetardo } from './comun.js';
 import { esConflicto } from './graph.js';
@@ -33,7 +36,7 @@ export function bibliotecaDe(p) {
 /** Resuelve (y cachea) el siteId de una biblioteca. `{ id, motivo }`; id null si 403/404.
  *  C-08 (mejorar-app archivos, 17-sep): se cachea la PROMESA, no el resultado — dos llamadas concurrentes (pintarDocs esperando
  *  el sitio y «Ligar» buscando) esperan la misma peticion; si falla, se suelta para que la siguiente vuelva a pedir. */
-function sitioDe(bib) {
+export function sitioDe(bib) {   // v1.0.0 (cubeta 5): exportada — «Mandar a archivar» y «Bibliotecas» (archivos.js) piden el mismo sitio cacheado
     if (!estado.sitiosUnidad[bib.clave]) estado.sitiosUnidad[bib.clave] = estado.cliente.sitioOpcional(CONFIG.sharepointHost, bib.sitio).catch(e => { delete estado.sitiosUnidad[bib.clave]; throw e; });
     return estado.sitiosUnidad[bib.clave];
 }
@@ -332,7 +335,7 @@ export function filaDoc(l, { p = null, puede = false, enArchivos = false, alTarj
     if (nh.rev) caja.appendChild(el('span', 'mn-chip rev', nh.rev));
     tdN.appendChild(caja); tr.appendChild(tdN);
     // Fecha del documento (la del nombre); «—» si el nombre no la trae.
-    const tdD = el('td', 'c-del'); const fd = el('span', nh.fecha ? '' : 'p', nh.fecha ? fechaCorta(nh.fecha) : '—'); if (nh.fecha) fd.title = 'Fecha del documento, según su nombre'; tdD.appendChild(fd); tr.appendChild(tdD);
+    const tdD = el('td', 'c-del'); const fd = el('span', nh.fecha ? '' : 'p', nh.fecha ? fechaDia(nh.fecha) : '—');   /* v1.0.0 (cubeta 6): «20 jun 2025», como Archivos y la maqueta */ if (nh.fecha) fd.title = 'Fecha del documento, según su nombre'; tdD.appendChild(fd); tr.appendChild(tdD);
     // Tipo de archivo: la misma clave que colorea el icono. v0.27.0 (Carlos, 14-sep): «etiqueta de expediente» —la SIGLA
     // (PDF · DOC · XLS · LOTE · URL) en una pestaña sólida con punta—; la etiqueta larga va en el title.
     const ta = tipoArchivo(l.Ruta || l.Title, l.Tipo);
@@ -451,7 +454,7 @@ export function abrirLigar(opts = {}) {
     if (!p || !bib) return;
     if (!PUEDE.ligar(estado.rol)) { avisar('Tu rol es de lectura: no puedes ligar documentos.', 'error'); return; }
     const vieja = opts.reemplazaId != null ? porId(estado.ligas, opts.reemplazaId) : null;
-    ctx = { proyectoId: p.id, tareaId: opts.tareaId ? Number(opts.tareaId) : null, reemplazaId: vieja ? vieja.id : null, alTerminar: opts.alTerminar || null };
+    ctx = { proyectoId: p.id, tareaId: opts.tareaId ? Number(opts.tareaId) : null, reemplazaId: vieja ? vieja.id : null, alTerminar: opts.alTerminar || null, de: 'dlgLigar' };
     $('lgBiblioteca').textContent = `Busca en ${bib.nombre} (solo lectura; el buzón no aparece).`;
     $('lgNota').textContent = vieja ? `Al ligar el resultado se quita la liga vieja «${vieja.Title}».` : '';
     $('lgNota').classList.toggle('oculto', !vieja);
@@ -491,6 +494,22 @@ async function buscarDocumento() {
     finally { $('lgBuscar').disabled = false; }
 }
 
+/**
+ * v1.0.0 (rediseño, cubeta 4; plan «Buscador global»): la MISMA búsqueda por nombre de «Ligar» (buscarEnDrive, fuera del buzón) en CADA
+ * biblioteca de unidad con permiso (`piloto`), para el buscador global. La que contesta 403/404 (sin Sites.Selected) o falla se salta sin
+ * aviso: «las de 403 no se pintan». Devuelve [{ clave, nombre, items: [{ id, nombre, ruta, url, modificado }] }] en el orden de CONFIG.
+ */
+export async function buscarEnBibliotecas(texto) {
+    const bibs = Object.entries(CONFIG.bibliotecas).filter(([, b]) => b.piloto !== false);
+    const r = await Promise.all(bibs.map(async ([clave, b]) => {
+        try {
+            const s = await sitioDe({ clave, ...b }); if (!s.id) return null;
+            return { clave, nombre: b.nombre, items: await estado.cliente.buscarEnDrive(s.id, texto, CONFIG.buzon) };
+        } catch (_) { return null; }
+    }));
+    return r.filter(Boolean);
+}
+
 async function ligarDocumento(x) {
     const p = proyectoCtx(); if (!p) { avisar('Ese proyecto ya no existe.', 'ojo'); return; } const bib = bibliotecaDe(p);
     if (!PUEDE.ligar(estado.rol)) { avisar('Tu rol es de lectura: no puedes ligar documentos.', 'error'); return; }
@@ -518,6 +537,25 @@ async function ligarDocumento(x) {
         alCambiar();
         if (alTerminar) alTerminar();
     } catch (e) { avisar('No se pudo ligar: ' + (e && e.message ? e.message : e), 'error'); }
+}
+
+/**
+ * v1.0.0 (rediseño, cubeta 5): «Ligar a un proyecto» desde Archivos › Bibliotecas — el mismo camino que «Ligar» (relectura por id para la
+ * carpeta real y el GUID, nada del buzón, la Url corta si la larga no cabe, la bitácora). Revienta con el motivo; quien llama avisa.
+ */
+export async function ligarArchivadoA(p, x, tareaId) {
+    const bib = bibliotecaDe(p);
+    if (!bib || !puedeLigarEn(p)) throw new Error('este proyecto no puede ligar documentos de una biblioteca (rol, proyecto cerrado o unidad sin permiso)');
+    if (estado.ligas.some(l => Number(l.ProyectoId) === p.id && l.DriveItemId === x.id)) throw new Error('ese archivo ya está ligado a este proyecto');
+    let item = x;
+    const s = await sitioDe(bib);
+    if (s.id) item = { ...x, ...(await estado.cliente.itemDeDrive(s.id, x.id, m => avisar(m, 'ojo'))) };
+    if (item.ruta === CONFIG.buzon || String(item.ruta || '').startsWith(CONFIG.buzon + '/')) throw new Error(`«${item.nombre}» está en el buzón: todavía no está archivado`);
+    await crearLigaArchivado(p, bib, item, tareaId || undefined);
+    alCambiar();
+    await registrarActividad('ligar', `ligó «${String(item.nombre).slice(0, 80)}»`, p.id, tareaId || undefined);
+    alCambiar();
+    return item;
 }
 
 /**
@@ -604,7 +642,7 @@ async function aplicarReciboUnaVez(p, bib, s, l) {
 export function abrirEnlace(opts = {}) {
     const p = opts.proyectoId != null ? porId(estado.proyectos, opts.proyectoId) : proyectoAbierto(); if (!p) return;   // C-20 (v0.124.0): por id
     if (!puedeEnlazarEn(p)) { avisar(PUEDE.ligar(estado.rol) ? 'El proyecto está cerrado.' : 'Tu rol es de lectura: no puedes pegar enlaces.', 'error'); return; }
-    ctx = { proyectoId: p.id, tareaId: opts.tareaId ? Number(opts.tareaId) : null, reemplazaId: null, alTerminar: opts.alTerminar || null };
+    ctx = { proyectoId: p.id, tareaId: opts.tareaId ? Number(opts.tareaId) : null, reemplazaId: null, alTerminar: opts.alTerminar || null, de: 'dlgEnlace' };
     $('enTitulo').value = ''; $('enUrl').value = '';
     opcionesTarjetas($('enTarea'), p);
     $('enTarea').value = ctx.tareaId ? String(ctx.tareaId) : '';
@@ -642,18 +680,47 @@ async function guardarEnlace(ev) {
 
 // ---------------------------------------------------------------- subir al buzon
 
-/** Abre «Subir al buzon». Sin argumentos es el boton de Docs; desde la tarjeta (F3) llega { proyecto, tareaId, alTerminar }. */
+/** Abre «Subir al buzon». Sin argumentos es el boton de Docs; desde la tarjeta (F3) llega { proyecto, tareaId, alTerminar }.
+ *  v1.0.0 (cubeta 5): con `modo: 'proyecto'` el MISMO dialogo sube a la carpeta del proyecto en ERP_Proyectos (sin concepto ni lote; lo
+ *  encola archivos.js por el gancho fijarSubidaProyecto). Quien elige el modo es archivos.js abrirSubida (la biblioteca aprovisionada o no). */
 export function abrirSubir(opts = {}) {
     const p = opts.proyectoId != null ? porId(estado.proyectos, opts.proyectoId) : proyectoAbierto(); const bib = p && bibliotecaDe(p);   // C-20 (v0.124.0): por id
-    if (!p || !bib) return;
+    const aProyecto = opts.modo === 'proyecto' && !!subidaProyecto;
+    if (!p || (!bib && !aProyecto)) return;
     if (!PUEDE.ligar(estado.rol)) { avisar('Tu rol es de lectura: no puedes subir documentos.', 'error'); return; }
-    ctx = { proyectoId: p.id, tareaId: opts.tareaId ? Number(opts.tareaId) : null, reemplazaId: null, alTerminar: opts.alTerminar || null };
-    $('sbBiblioteca').textContent = `Va a ${bib.nombre}/${CONFIG.buzon}/.`;
+    if (aProyecto && p.Estado !== 'activo') { avisar('El proyecto está cerrado: ya no recibe archivos.', 'error'); return; }
+    ctx = { proyectoId: p.id, tareaId: opts.tareaId ? Number(opts.tareaId) : null, reemplazaId: null, alTerminar: opts.alTerminar || null, modo: aProyecto ? 'proyecto' : 'buzon', de: 'dlgSubir' };
+    $('sbTitulo').textContent = aProyecto ? 'Subir a la carpeta del proyecto' : 'Subir al buzón';
+    $('sbConceptoCampo').hidden = aProyecto; $('sbAyudaBuzon').hidden = aProyecto; $('sbAyudaProyecto').hidden = !aProyecto;
+    $('sbBiblioteca').textContent = aProyecto ? `Va a ${CONFIG.bibliotecaProyectos}/${p.Clave}/ y lo ve todo el equipo.` : `Va a ${bib.nombre}/${CONFIG.buzon}/.`;
     $('sbConcepto').value = ''; $('sbArchivos').value = ''; $('sbProgreso').textContent = '';
     opcionesTarjetas($('sbTarea'), p);
     $('sbTarea').value = ctx.tareaId ? String(ctx.tareaId) : '';
     abrirDialogo('dlgSubir');
-    $('sbConcepto').focus();
+    (aProyecto ? $('sbArchivos') : $('sbConcepto')).focus();
+}
+
+// v1.0.0 (cubeta 5): el gancho de la subida a la carpeta del proyecto (archivos.js encolar). docs.js no importa archivos.js: lo recibe.
+let subidaProyecto = null;
+export function fijarSubidaProyecto(fn) { subidaProyecto = fn; }
+/** «Subir» en modo 'proyecto': los archivos van a la COLA de subidas (archivos.js) con la tarjeta elegida; el dialogo cierra y vuelve a la
+ *  tarjeta si se abrio desde ella. El progreso, el «¿duplicado?» y el reintento viven en la carpeta del proyecto y en Mis subidas. */
+async function subirAlProyecto() {
+    const p = proyectoCtx(); if (!p) { avisar('Ese proyecto ya no existe.', 'ojo'); return; }
+    if (!PUEDE.ligar(estado.rol)) { avisar('Tu rol es de lectura: no puedes subir documentos.', 'error'); return; }
+    const archivos = [...$('sbArchivos').files];
+    if (!archivos.length) { avisar('Elige al menos un archivo.', 'error'); return; }
+    const tareaId = $('sbTarea').value ? Number($('sbTarea').value) : null;
+    const foto = $('sbArchivos').getAttribute('capture') === 'environment';
+    $('sbGuardar').disabled = true;
+    let n = 0;
+    try { n = await subidaProyecto({ proyectoId: p.id, tareaId, archivos, foto }); }
+    catch (e) { avisar('No se pudo poner en la cola: ' + (e && e.message ? e.message : e), 'error'); return; }
+    finally { $('sbGuardar').disabled = false; }
+    if (!n) return;
+    const alTerminar = ctx.alTerminar; ctx.alTerminar = null;
+    cerrarDialogo('dlgSubir');
+    if (alTerminar) alTerminar();
 }
 
 /**
@@ -662,6 +729,7 @@ export function abrirSubir(opts = {}) {
  */
 async function subirAlBuzon(ev) {
     ev.preventDefault();
+    if (ctx.modo === 'proyecto') { await subirAlProyecto(); return; }   // v1.0.0 (cubeta 5): el mismo formulario en modo carpeta del proyecto
     const p = proyectoCtx(); if (!p) { avisar('Ese proyecto ya no existe.', 'ojo'); return; } const bib = bibliotecaDe(p);
     if (!PUEDE.ligar(estado.rol)) { avisar('Tu rol es de lectura: no puedes subir documentos.', 'error'); return; }
     const concepto = $('sbConcepto').value.trim();
@@ -724,6 +792,11 @@ export function engancharDocs() {
     $('lgTexto').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); buscarDocumento(); } });
     $('sbCancelar').addEventListener('click', () => { cerrarDialogo('dlgSubir'); volverSiCancela(); });
     $('formSubir').addEventListener('submit', subirAlBuzon);
+    // v1.0.0 (cubeta 5): arrastrar ARCHIVOS sobre el dialogo los pone en el selector (nunca tarjetas: solo se acepta el tipo Files)
+    const conArchivos = e => !!e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+    $('formSubir').addEventListener('dragover', e => { if (!conArchivos(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; $('formSubir').classList.add('is-sobre'); });
+    $('formSubir').addEventListener('dragleave', e => { if (!$('formSubir').contains(e.relatedTarget)) $('formSubir').classList.remove('is-sobre'); });
+    $('formSubir').addEventListener('drop', e => { if (!conArchivos(e)) return; e.preventDefault(); $('formSubir').classList.remove('is-sobre'); if (e.dataTransfer.files && e.dataTransfer.files.length) { $('sbArchivos').files = e.dataTransfer.files; $('sbArchivos').dispatchEvent(new Event('change', { bubbles: true })); } });
     // v0.17.0: buscador de la pestaña; el proyecto abierto se repinta al teclear.
     // C-07 (17-sep): con retardo — el arbol se reconstruye entero por tecla; `change` (Enter, salir del campo) pinta al instante.
     const buscar = conRetardo(() => { estado.buscaDocs = $('docsBusca').value; if (proyectoAbierto()) pintarDocs(proyectoAbierto()); });
@@ -735,5 +808,7 @@ export function engancharDocs() {
     $('enCancelar').addEventListener('click', () => { cerrarDialogo('dlgEnlace'); volverSiCancela(); });
     $('formEnlace').addEventListener('submit', guardarEnlace);
     // v0.70.0: Esc y Atras (B8) no pasan por los botones; el `close` del <dialog> vuelve a la tarjeta igual (no llega bajo tiempo virtual: la E2E prueba el boton)
-    for (const id of ['dlgLigar', 'dlgSubir', 'dlgEnlace']) $(id).addEventListener('close', volverSiCancela);
+    // v1.0.0 (cubeta 5): solo el `close` del dialogo que puso el contexto vuelve a la tarjeta (`ctx.de`). El `close` llega en OTRA tarea: el de Ligar
+    // cerrado por su boton llegaba despues de que la tarjeta abria Subir y se comia SU vuelta (la ficha se reabria encima de Subir; lo cazo la E2E).
+    for (const id of ['dlgLigar', 'dlgSubir', 'dlgEnlace']) $(id).addEventListener('close', () => { if (ctx.de === id) volverSiCancela(); });
 }

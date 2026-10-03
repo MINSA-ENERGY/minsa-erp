@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" id="metaTema" content="#f7f7f7">
+<meta name="theme-color" id="metaTema" content="#f7f8fa">
 <!-- CSP estricta, misma que calytek-planta-app: sin scripts ni estilos en linea. Las fuentes van
-     vendorizadas en ./vendor/fuentes (OFL), por eso font-src sigue en 'self'. -->
+     vendorizadas en ./vendor/fuentes (OFL), por eso font-src sigue en 'self'. v1.0.0 (cubeta 5): frame-src suma SOLO el host del tenant,
+     para la vista previa de un archivo (POST …/preview → getUrl en un <iframe> con sandbox; archivos.js la valida antes de pintarla). -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
   script-src 'self';
@@ -13,7 +14,7 @@
   img-src 'self' blob: data:;
   font-src 'self';
   connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://minsaenergy.sharepoint.com;
-  frame-src https://login.microsoftonline.com;
+  frame-src https://login.microsoftonline.com https://minsaenergy.sharepoint.com;
   form-action 'none';
   base-uri 'none';
   object-src 'none';
@@ -28,55 +29,65 @@
 </head>
 <body>
 
-<!-- Un solo DOM para celular y computadora: el rail .mn-rail es columna en escritorio y barra de
-     pestanas abajo en celular (patrones.md §5). Nada de innerHTML en app.js: todo textContent. -->
-<div class="mn-shell app" id="shell">
+<!-- v1.0.0 (rediseño 2026-10-02; plan cerebro/docs/plan-erp-rediseno-2026-10-02.md, cubeta 1 «Armazón»): rail de 64 px oscuro con la
+     etiqueta bajo cada icono · panel del módulo de 284 px (armazon.js lo pinta) · contenido. Un solo DOM para celular y computadora: en
+     ≤ 720 px el rail es la barra de abajo (solo los módulos), el panel es una hoja (☰) y arriba va la barra con título, Buscar, Avisos y Cuenta.
+     Los iconos los pone armazon.js desde TRAZOS de comun.js ([data-icono]). Nada de innerHTML: todo DOM. -->
+<div class="app" id="shell">
 
-  <aside class="mn-rail rail oculto" id="rail">
-    <div class="marca"><!-- v0.28.1 (Carlos, 14-sep): la MARCA es el boton que pliega; el chevron solo se ve plegado y despliega. Estado en localStorage `rail`. --><button type="button" id="btnMarca" class="marca-btn" title="Plegar la barra" aria-expanded="true" aria-controls="rail"><img class="logo solo-claro" src="./marca/lockup.svg" alt="MINSA ENERGY" width="724" height="256"><img class="logo solo-oscuro" src="./marca/lockup-oscuro.svg" alt="MINSA ENERGY" width="724" height="256"><span>ERP</span></button><button type="button" id="btnPlegar" class="plegar" aria-expanded="false" aria-controls="rail" title="Desplegar la barra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button></div>
-    <nav id="pestanas" role="tablist" aria-label="Secciones">
-      <!-- v0.102.0 (Carlos, 25-sep): orden por uso — lo mío (Inicio · Mis tareas · Mensajes), el trabajo (Proyectos · Roadmap · Calendario · Archivos), gerencia (Reportes · Capital) -->
-      <!-- v0.167.0 (Carlos, 2-oct; maqueta HV1C5pzx): tres bloques — Trabajo · Dinero · Operación. El bloque es display:contents, asi que la barra movil (los seis sin .rail-extra) no cambia de orden; el rotulo es aria-hidden y solo se ve en escritorio desplegado. -->
-      <div class="rail-bloque" role="presentation"><p class="mn-label rail-grupo" aria-hidden="true">Trabajo</p>
-      <button type="button" data-p="inicio" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v10H3z"/><path d="M9 21v-6h6v6"/></svg><span>Inicio</span></button>
-      <button type="button" data-p="mis" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6"/></svg><span>Mis tareas</span><b class="mn-rail-hot" id="nMis" hidden></b></button>
-      <button type="button" data-p="mensajes" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.6-4.5A8 8 0 1 1 21 12z"/><path d="M8.5 11h7M8.5 14h4"/></svg><span>Mensajes</span><b class="mn-rail-hot is-info" id="nMensajes" hidden></b></button>
-      <button type="button" data-p="proyectos" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M4 10h16M9 10v9"/></svg><span>Proyectos</span><b class="mn-rail-hot is-info" id="nProyectos" hidden></b></button>
-      <button type="button" data-p="roadmap" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h8M3 12h12M3 18h6"/><path d="M14 4l6 2-6 2z"/><circle cx="18" cy="12" r="1.5"/><path d="M12 18h9"/></svg><span>Roadmap</span></button>
-      <button type="button" data-p="calendario" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v15H4z"/><path d="M4 10h16M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17h2"/></svg><span>Calendario</span></button>
-      <button type="button" data-p="archivos" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Archivos</span></button>
-      <button type="button" data-p="reportes" role="tab" class="rail-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Reportes</span></button>
-      </div>
-      <div class="rail-bloque" role="presentation"><p class="mn-label rail-grupo" aria-hidden="true">Dinero</p>
-      <!-- v0.162.0: Gastos (traido de la ERP v1). Lo usa todo el equipo desde el celular: va en la barra de abajo, no en el menu «···» -->
-      <button type="button" data-p="gastos" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span>Gastos</span></button>
-      <!-- v0.100.0: capital de trabajo — solo gerencia (app.js quita .oculto); en celular vive en el menu «···» -->
-      <button type="button" data-p="capital" role="tab" class="rail-extra oculto" id="railCapital"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3z"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5v5M17.5 9.5v5"/></svg><span>Capital</span></button>
-      <!-- v0.165.0: Finanzas > Cobranza (solo gerencia; cobranza.js). Lee cobranza.json de la biblioteca ERP_Datos. -->
-      <button type="button" data-p="finanzas" role="tab" class="rail-extra oculto" id="railFinanzas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16"/><path d="M6 15l4-4 3 3 5-6"/><path d="M15 8h3v3"/></svg><span>Finanzas</span></button>
-      <!-- v0.169.0: Compras (gerencia y colaborador; compras.js). Lee compras.json de la biblioteca ERP_Operacion. -->
-      <button type="button" data-p="compras" role="tab" class="rail-extra oculto" id="railCompras"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><span>Compras</span></button>
-      </div>
-      <div class="rail-bloque" role="presentation"><p class="mn-label rail-grupo" aria-hidden="true">Operación</p>
-      <!-- v0.168.0: Servicios (gerencia y colaborador; servicios.js). Lee servicios.json de la biblioteca ERP_Operacion. -->
-      <button type="button" data-p="servicios" role="tab" class="rail-extra oculto" id="railServicios"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v3H9z"/><path d="M8 4.5H5V21h14V4.5h-3"/><path d="M8 12l2 2 4-4M8 17h8"/></svg><span>Servicios</span></button>
-      <!-- v0.166.0: Vigencias (solo gerencia; vigencias.js). Lee vigencias.json de la biblioteca ERP_Datos. -->
-      <button type="button" data-p="vigencias" role="tab" class="rail-extra oculto" id="railVigencias"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg><span>Vigencias</span></button>
-      </div>
-    </nav>
-    <div class="equipos" id="railEquipos"></div>
-    <!-- v0.48.0 (Carlos, 15-sep; artifact M3B6fy3g «A4»): dos renglones. 1) nombre + rol como ROTULO DE DATOS (mono, versalitas; la burbuja
-         celeste se fue) y el menu «···» a la derecha, que ahora guarda tambien Actualizar con la hora de la ultima lectura; 2) el tema como
-         SEGMENTO Claro | Oscuro a todo el ancho — se lee cual esta activo sin descifrar un icono resaltado. -->
-    <div class="sesion"><div class="sesion-fila"><span id="quien" class="quien"></span><details class="menu-rail" id="menuRail"><summary class="mn-btn is-sm is-icono" aria-label="Más opciones" title="Actualizar · Equipo · Ver en SharePoint · Salir">···</summary><div class="menu-caja"><button id="btnActualizar" class="mn-btn is-sm" type="button" title="Volver a leer las listas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg><span>Actualizar</span><span class="sync" id="syncRail" data-corto></span></button><button id="btnEquipo" class="mn-btn is-sm" type="button" title="Quién tiene qué rol">Equipo</button><a id="lnkSharePoint" class="mn-btn is-sm oculto" href="#" target="_blank" rel="noopener" title="Las mismas listas en Microsoft Lists (vista Tablero)">Ver en SharePoint</a><button id="btnSalir" class="mn-btn is-sm salir" type="button">Salir</button></div></details></div>
-    <div class="tema seg" role="group" aria-label="Tema"><button class="mn-btn is-sm" type="button" data-tema="claro" title="Claro" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span>Claro</span></button><button class="mn-btn is-sm" type="button" data-tema="oscuro" title="Oscuro" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>Oscuro</span></button></div></div>
+  <nav class="rail oculto" id="rail" aria-label="Módulos">
+    <div class="rail-marca"><img src="./marca/simbolo-oscuro.svg" alt="MINSA ENERGY" width="298" height="350"></div>
+    <button type="button" class="rb rb-nuevo" id="btnNuevo" aria-haspopup="menu" aria-expanded="false" aria-controls="menuNuevo" title="Nuevo: tarea, gasto, archivo o foto"><span class="ico" data-icono="mas"></span><span class="rot">Nuevo</span></button>
+    <!-- Los 5 módulos (decisión 1). Inicio lleva el contador ROJO de mis vencidas (#nMis, el de siempre). Clic en el módulo activo pliega o
+         despliega el panel (escritorio; localStorage `panel`). -->
+    <div class="rail-modulos" id="modulos">
+      <button type="button" class="rb" data-m="inicio" aria-label="Inicio"><span class="ico" data-icono="grid"></span><span class="rot">Inicio</span><b class="bdg" id="nMis" hidden></b></button>
+      <button type="button" class="rb" data-m="trabajo" aria-label="Trabajo"><span class="ico" data-icono="ciclo"></span><span class="rot">Trabajo</span></button>
+      <button type="button" class="rb" data-m="archivos" aria-label="Archivos"><span class="ico" data-icono="folder"></span><span class="rot">Archivos</span></button>
+      <button type="button" class="rb" data-m="dinero" aria-label="Dinero"><span class="ico" data-icono="dinero"></span><span class="rot">Dinero</span></button>
+      <button type="button" class="rb" data-m="operacion" aria-label="Operación"><span class="ico" data-icono="matraz"></span><span class="rot">Operación</span></button>
+    </div>
+    <span class="rsep" aria-hidden="true"></span>
+    <!-- Las unidades (CONFIG.equipos, cuadro de su color con su icono de siempre) = el ÁMBITO global; el nombre va en title/aria-label. -->
+    <div class="rail-unidades" id="railEquipos" role="group" aria-label="Ámbito por unidad"></div>
+    <div class="rail-pie">
+      <button type="button" class="rb rb-anillo" id="anilloDia" aria-label="Mi día"></button>
+      <button type="button" class="rb" id="btnBuscar" aria-label="Buscar" title="Buscar"><span class="ico" data-icono="lupa"></span><span class="rot">Buscar</span></button>
+      <button type="button" class="rb" id="btnAvisos" aria-label="Avisos" title="Avisos"><span class="ico" data-icono="campana"></span><span class="rot">Avisos</span><b class="bdg" id="nAvisos" hidden></b></button>
+      <button type="button" class="rb" id="btnCuenta" aria-label="Cuenta" title="Cuenta"><span class="ico" data-icono="persona"></span><span class="rot">Cuenta</span></button>
+    </div>
+  </nav>
+
+  <!-- El panel del módulo: buscador del árbol arriba, las entradas del plan y «Guardados» al pie. En ≤ 1100 px se abre encima (☰ o clic en el
+       módulo activo); en ≤ 720 px es una hoja y además trae el ámbito (las unidades no caben en la barra de abajo). -->
+  <aside class="panel oculto" id="panel" aria-label="Panel del módulo">
+    <div class="panel-cab"><h1 id="panelTitulo">Inicio</h1><button type="button" class="panel-cerrar" id="btnCerrarHoja" aria-label="Cerrar el panel" title="Cerrar"><span class="ico" data-icono="x"></span></button></div>
+    <div class="srch"><input id="panelBusca" type="search" placeholder="Buscar en el panel" aria-label="Buscar en el panel" autocomplete="off"><span class="ico" data-icono="lupa"></span></div>
+    <div class="panel-sc" id="panelArbol"></div>
+    <div class="hoja-ambito" id="hojaAmbito" role="group" aria-label="Ámbito por unidad"></div>
   </aside>
+  <div class="hoja-fondo" id="hojaFondo" hidden></div>
 
   <main class="contenido">
-    <div id="barraMovil" class="barra-movil oculto"><span class="logo chica"><img class="logo solo-claro" src="./marca/lockup.svg" alt="MINSA ENERGY" width="724" height="256"><img class="logo solo-oscuro" src="./marca/lockup-oscuro.svg" alt="MINSA ENERGY" width="724" height="256"></span><span class="rol-movil" id="rolMovil"></span><details class="menu-movil" id="menuMovil"><summary class="mn-btn is-sm is-icono" aria-label="Menú">···</summary><div class="menu-caja"><button id="btnActualizarMovil" class="mn-btn is-sm" type="button">Actualizar ahora</button><button class="mn-btn is-sm ir-movil" type="button" data-ir="roadmap">Roadmap</button><button class="mn-btn is-sm ir-movil" type="button" data-ir="archivos">Archivos</button><button class="mn-btn is-sm ir-movil" type="button" data-ir="reportes">Reportes</button><button class="mn-btn is-sm ir-movil oculto" type="button" data-ir="capital" id="irCapitalMovil">Capital</button><button class="mn-btn is-sm ir-movil oculto" type="button" data-ir="finanzas" id="irFinanzasMovil">Finanzas</button><button class="mn-btn is-sm ir-movil oculto" type="button" data-ir="compras" id="irComprasMovil">Compras</button><button class="mn-btn is-sm ir-movil oculto" type="button" data-ir="servicios" id="irServiciosMovil">Servicios</button><button class="mn-btn is-sm ir-movil oculto" type="button" data-ir="vigencias" id="irVigenciasMovil">Vigencias</button><button id="btnEquipoMovil" class="mn-btn is-sm" type="button">Equipo</button><a id="lnkSharePointMovil" class="mn-btn is-sm oculto" href="#" target="_blank" rel="noopener">Ver en SharePoint</a><div class="tema" role="group" aria-label="Tema"><button class="mn-btn is-sm is-icono" type="button" data-tema="claro" title="Claro" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button class="mn-btn is-sm is-icono" type="button" data-tema="oscuro" title="Oscuro" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button></div><button id="btnSalirMovil" class="mn-btn is-sm salir" type="button">Salir</button></div></details></div>
+    <!-- La cabecera del armazón. Celular: ☰ · título del módulo · Buscar · Avisos · Cuenta, y abajo los CHIPS del módulo (sus entradas de
+         primer nivel: todo destino a ≤ 2 toques). Tableta: ☰ y el ámbito. Escritorio: solo el chip «Ámbito: X ✕» cuando hay uno puesto.
+         #btnPreguntar es el hueco de «Preguntar» (cubeta 4): oculto. -->
+    <div id="barraMovil" class="cabecera-app oculto">
+      <div class="cab-fila">
+        <button type="button" class="cab-btn" id="btnHoja" aria-label="Abrir el panel del módulo" aria-controls="panel" aria-expanded="false" title="Panel del módulo"><span class="ico" data-icono="menu"></span></button>
+        <span class="cab-titulo" id="tituloMovil"></span>
+        <span class="chip-ambito" id="chipAmbito" hidden></span>
+        <span class="cab-esp"></span>
+        <button type="button" class="ask" id="btnPreguntar" hidden><span class="ico" data-icono="ai"></span>PREGUNTAR</button>
+        <button type="button" class="cab-btn solo-cel" id="btnBuscarMovil" aria-label="Buscar" title="Buscar"><span class="ico" data-icono="lupa"></span></button>
+        <button type="button" class="cab-btn solo-cel" id="btnAvisosMovil" aria-label="Avisos" title="Avisos"><span class="ico" data-icono="campana"></span><b class="bdg" id="nAvisosMovil" hidden></b></button>
+        <button type="button" class="cab-btn solo-cel" id="btnCuentaMovil" aria-label="Cuenta" title="Cuenta"><span class="ico" data-icono="persona"></span></button>
+      </div>
+      <nav class="chips-modulo" id="chipsModulo" aria-label="Secciones del módulo"></nav>
+    </div>
     <p class="sync oculto" id="syncMovil"></p>
     <div id="avisos" role="status" aria-live="polite"></div>
-    <div id="sinRed" class="sin-red-banda oculto" role="status">Sin conexión: puedes ver, no guardar. Se vuelve a leer solo cuando regrese la red.</div>
+    <div id="sinRed" class="sin-red-banda oculto" role="status">Sin conexión: lo que subas espera en este equipo y se sube solo al volver la red; lo demás no se guarda.</div>
     <div id="sesionCaduca" class="sin-red-banda sesion-caduca oculto" role="alert"><span>La sesión caducó. Lo que escribiste sigue aquí: cópialo si lo quieres conservar y vuelve a entrar.</span> <button id="btnSesionCaduca" class="mn-btn is-sm" type="button">Volver a entrar</button></div>   <!-- C-08 (v0.159.0) -->
 
     <!-- Entrar -->
@@ -98,20 +109,28 @@
 
     <!-- Inicio -->
     <section id="p-inicio" class="pantalla oculto">
-      <!-- v0.21.0 (iteracion 3, «Inicio Hoy»): el titulo es el saludo con nombre; la fecha, los frentes activos y el rol van debajo -->
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v10H3z"/><path d="M9 21v-6h6v6"/></svg></span><h1 id="inicioSaludo">Inicio</h1><p class="sub" id="inicioSub"></p></header>
+      <!-- v1.0.0 (rediseño, cubeta 4; plan «Contenido por módulo › Inicio»; maqueta V.ini): la cabecera de la plantilla (#inicioCab: el SALUDO
+           —#inicioSaludo— con «?» y PREGUNTAR, y debajo la fecha, los frentes activos y el rol —#inicioSub—) · la fila de KPIs POR ROL (#inicioKpis;
+           supera «sin KPI en Inicio», v0.41.0: cada KPI abre su reporte y lo que sale de un JSON lleva su corte) · «Requiere atención» (la cola de
+           siempre, con etiqueta + ABRIR por renglón y los renglones de Operación y Dinero por rol) · proyectos activos · actividad | sin movimiento.
+           Antes (v0.21.0): header.cabecera con el icono de casa. -->
+      <div class="rp-cuerpo" id="inicioCab"></div>
       <!-- v0.39.0 («Una sola columna», corte 5 del artifact S7pfEtW6, Carlos 2026-09-14): se fue la lateral de 340 px. Inicio son
            BANDAS a todo lo ancho: la cola partida en dos mitades (urgente | resto) · proyectos a 2 columnas · actividad | sin
            movimiento. «Fines de frente» salio (la hoja de calendario de cada ficha ya trae la fecha y el color). -->
       <div class="bandas">
-        <!-- v0.41.0 (Carlos, 14-sep): la fila de KPI (#inicioKpis: 3 de lo mio + 2 globales) salio entera. -->
-        <!-- v0.21.0: UNA cola por urgencia — vencidas · hoy y manana · nuevo para ti · te mencionaron · esta semana · sin dueño —
+        <section class="rp-card rp-graf inicio-kpis" id="inicioKpisCard"><div class="rp-kpis" id="inicioKpis" role="group" aria-label="Indicadores"></div></section>
+        <!-- v0.21.0: UNA cola por urgencia — vencidas · hoy y manana · nuevo para ti · te mencionaron · sin dueño —
              que sustituye a «Nuevo para ti», «Te mencionaron» y «Proximos vencimientos» (tres tarjetas con tres formatos).
-             v0.39.0: la misma cola en DOS mitades lado a lado — izquierda lo urgente (vencidas · hoy y manana · sin dueño), derecha
-             el resto (nuevo para ti · te mencionaron · esta semana); #inicioHoy sigue envolviendo a las dos. -->
+             v0.39.0: la misma cola en DOS mitades lado a lado — izquierda lo urgente, derecha el resto; #inicioHoy sigue envolviendo a las dos.
+             v1.0.0 (cubeta 4): se titula «Requiere atención» (maqueta); «Esta semana» ya no lista renglones aquí (la cola «esta semana / después»
+             vive en Mis tareas): queda una liga con su cifra. Por rol se suman servicios detenidos, vigencias ≤ 30 días, cobro, O.C. que no cuadra
+             y frentes sin movimiento (inicio-reglas.js). -->
         <section class="mn-card cola" id="cardHoy">
-          <div class="cola-cab"><h2>Hoy <span class="n" id="nHoy"></span></h2><div class="filtros grupo" id="hoyFiltro" role="group" aria-label="Qué tarjetas entran a la cola"></div></div>
+          <div class="cola-cab"><h2>Requiere atención <span class="n" id="nHoy"></span></h2><div class="filtros grupo" id="hoyFiltro" role="group" aria-label="Qué tarjetas entran a la cola"></div></div>
           <div class="cola-dos" id="inicioHoy"><div class="cola-lista" id="inicioUrgente"></div><div class="cola-lista" id="inicioResto"></div></div>
+          <!-- v1.0.0 (cubeta 6): en celular la cola se pliega tras 6 renglones (no es un muro); el CSS solo lo enseña ahí -->
+          <button class="mn-btn is-ghost cola-ver" id="colaVerTodo" type="button" aria-controls="inicioHoy" hidden>Ver todo</button>
         </section>
         <section class="mn-card"><h2>Proyectos activos</h2><div class="lista dosc" id="inicioProyectos"></div></section>
         <div class="dosmitad">
@@ -122,14 +141,23 @@
     </section>
 
     <!-- Proyectos -->
+    <!-- v1.0.0 (rediseño, cubeta 3): la cabecera de la plantilla (#proyectosCab: título + «?» + «Nuevo proyecto», que app.js le mueve), la fila
+         de KPIs de la maqueta (tablero(): abiertas, prioridad alta, vencidas, personas, frentes) y los frentes en una tarjeta «Datos». La lista
+         sigue siendo la de v0.25.0 (un renglón por frente, por lo que vence antes); los cerrados, plegados al pie. -->
     <section id="p-proyectos" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M4 10h16M9 10v9"/></svg></span><h1>Proyectos</h1><button id="btnNuevoProyecto" class="mn-btn is-primary is-sm" type="button">Nuevo proyecto</button><p class="sub" id="proyectosSub">Frentes activos, del que vence antes al que vence después.</p></header>
-      <!-- v0.7.0: el filtro por equipo vive en el rail (por rama, con icono); en celular el rail es barra de pestanas y el filtro es este select. -->
-      <label class="filtro-movil solo-movil" for="filtroEquipoMovil"><span class="mn-label">Equipo</span><select id="filtroEquipoMovil"></select></label>
-      <!-- C3: buscador fuera del proyecto (nombre, clave, descripcion) -->
-      <input id="textoProyectos" class="buscador" type="search" placeholder="Buscar un proyecto" aria-label="Buscar un proyecto" aria-keyshortcuts="/" autocomplete="off">
-      <div class="lista" id="listaProyectos"></div>
-      <details class="cerrados"><summary id="sumCerrados">Proyectos cerrados</summary><div class="lista" id="listaCerrados"></div></details>
+      <button id="btnNuevoProyecto" class="mn-btn is-primary is-sm" type="button">Nuevo proyecto</button>
+      <div class="rp-cuerpo" id="proyectosCab"></div>
+      <section class="rp-card rp-graf proyectos-kpis" id="proyectosKpisCard"><div id="proyectosKpis"></div></section>
+      <section class="rp-card proyectos-hoja">
+        <div class="rp-dh"><h3>Frentes activos</h3>
+          <!-- v0.7.0: el filtro por equipo vive en el rail (por rama, con icono); en celular el rail es barra de pestanas y el filtro es este select. -->
+          <label class="filtro-movil solo-movil" for="filtroEquipoMovil"><span class="mn-label">Equipo</span><select id="filtroEquipoMovil"></select></label>
+          <!-- C3: buscador fuera del proyecto (nombre, clave, descripcion) -->
+          <input id="textoProyectos" class="buscador" type="search" placeholder="Buscar un proyecto" aria-label="Buscar un proyecto" aria-keyshortcuts="/" autocomplete="off">
+        </div>
+        <div class="lista" id="listaProyectos"></div>
+        <details class="cerrados"><summary id="sumCerrados">Proyectos cerrados</summary><div class="lista" id="listaCerrados"></div></details>
+      </section>
     </section>
 
     <!-- Proyecto -->
@@ -151,6 +179,9 @@
         <p class="resumen-linea" id="pResumen"></p>
         <p class="sub" id="pDesc" title=""></p>
       </header>
+      <!-- v1.0.0 (rediseño, cubeta 3): la fila de KPIs de la maqueta (tablero(): abiertas · vencidas · prioridad alta · % hechas · fin del frente);
+           la pinta pintarCabeceraProyecto y se pliega con la cabecera contraída. -->
+      <section class="rp-card rp-graf proyecto-kpis" id="proyectoKpisCard"><div id="proyectoKpis"></div></section>
       <div class="dos-columnas ancha">
         <div class="apilado">
           <div class="tabs-fila"><!-- U-17 (v0.114.0): «Filtrar» fuera de la fila que rueda -->
@@ -181,6 +212,10 @@
           <div id="tab-lista" class="tabla oculto"></div>
           <div id="tab-roadmap" class="roadmap oculto"></div>
           <div id="tab-docs" class="docs oculto">
+            <!-- v1.0.0 (rediseño, cubeta 5): arriba, la CARPETA DEL PROYECTO en ERP_Proyectos (archivos.js pintarCarpetaProyecto: zona de arrastrar y
+                 soltar, Elegir archivos, Foto, la cola y la tabla con su menú «⋯»); es el mismo componente que #archivos/proyecto/<clave>. Abajo, las
+                 ligas de siempre (archivado · en el buzón · enlace). -->
+            <div class="docs-carpeta" id="docsCarpeta"></div>
             <!-- v0.102.0 (Carlos, 25-sep): sin Ligar / Subir al buzón / Pegar un enlace aquí — redundantes con los de cada tarjeta del tablero -->
             <!-- v0.17.0: chips de estado + conteo «N de M» + buscador, sobre la tabla de documentos -->
             <div class="docs-barra"><div class="filtros grupo" id="docsFiltro"></div><!-- v0.34.0: abrir / plegar todas las carpetas del árbol --><span class="arbol-todo" id="docsTodo" hidden><button id="docsAbrirTodo" class="mn-btn is-ghost is-sm" type="button" title="Desplegar todas las carpetas">Abrir todo</button><button id="docsPlegarTodo" class="mn-btn is-ghost is-sm" type="button" title="Plegar todas las carpetas">Plegar todo</button></span><span class="p" id="docsResumen"></span><input id="docsBusca" class="buscador" type="search" placeholder="Buscar en los documentos" aria-label="Buscar en los documentos" autocomplete="off" hidden></div>
@@ -218,7 +253,8 @@
 
     <!-- v0.10.0: Roadmap global (un frente por fila) -->
     <section id="p-roadmap" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h8M3 12h12M3 18h6"/><path d="M14 4l6 2-6 2z"/><circle cx="18" cy="12" r="1.5"/><path d="M12 18h9"/></svg></span><h1>Roadmap</h1><p class="sub" id="roadmapSub"></p></header>
+      <!-- v1.0.0 (rediseño, cubeta 3): la cabecera de la plantilla (título + «?» + subtítulo #roadmapSub); la pinta pintarRoadmap. -->
+      <div class="rp-cuerpo" id="roadmapCab"></div>
       <!-- v0.40.0 (Carlos, 14-sep): la línea de tiempo toma toda la hilera y «Fines de frente próximos» baja debajo de ella (antes lateral de 340 px). -->
       <div class="bandas">
         <!-- v0.22.0 (iteracion 4): cada tarjeta con fecha es un rombo sobre la barra de su frente; la leyenda dice que es cada cosa -->
@@ -229,10 +265,11 @@
 
     <!-- v0.10.0: Calendario mensual -->
     <section id="p-calendario" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v15H4z"/><path d="M4 10h16M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17h2"/></svg></span><h1>Calendario</h1>
-        <div class="cal-nav"><button id="calAnterior" class="mn-btn is-sm is-icono" type="button" aria-label="Mes anterior" title="Mes anterior">‹</button><button id="calHoy" class="mn-btn is-sm" type="button">Hoy</button><button id="calSiguiente" class="mn-btn is-sm is-icono" type="button" aria-label="Mes siguiente" title="Mes siguiente">›</button><span class="cal-titulo" id="calTitulo"></span></div>
-        <div class="filtros grupo cal-filtro" id="calFiltro" role="group" aria-label="Qué tarjetas pinta el calendario"></div>
-        <p class="sub" id="calSub"></p></header>
+      <!-- v1.0.0 (rediseño, cubeta 3): la cabecera de la plantilla (#calCab); pintarCalendario le MUEVE a sus acciones el mes (‹ Hoy ›) y el filtro
+           «todo | solo mías», como «Nueva partida» en Capital. -->
+      <div class="rp-cuerpo" id="calCab"></div>
+      <div class="cal-nav" id="calNav"><button id="calAnterior" class="mn-btn is-sm is-icono" type="button" aria-label="Mes anterior" title="Mes anterior">‹</button><button id="calHoy" class="mn-btn is-sm" type="button">Hoy</button><button id="calSiguiente" class="mn-btn is-sm is-icono" type="button" aria-label="Mes siguiente" title="Mes siguiente">›</button><span class="cal-titulo" id="calTitulo"></span></div>
+      <div class="filtros grupo cal-filtro" id="calFiltro" role="group" aria-label="Qué tarjetas pinta el calendario"></div>
       <div class="cal-rejilla" id="calRejilla"></div>
       <section class="mn-card cal-detalle oculto" id="calDetalle"></section>
       <div class="cal-agenda" id="calAgenda"></div>
@@ -245,7 +282,9 @@
          v0.43.0 (Carlos, 15-sep): SOLO chat por frente; la sección Personas y la ficha con liga a Teams salieron
          (la bitácora la lee todo el equipo: aquí nada es privado). «Te mencionaron» vive en Inicio. -->
     <section id="p-mensajes" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.6-4.5A8 8 0 1 1 21 12z"/><path d="M8.5 11h7M8.5 14h4"/></svg></span><h1>Mensajes</h1><p class="sub" id="mensajesSub"></p></header>
+      <!-- v1.0.0 (rediseño, cubeta 4): la cabecera de la plantilla (#mensajesCab: «Mensajes» + «?» + PREGUNTAR y el subtítulo #mensajesSub) y la
+           bandeja + hilo en UNA tarjeta. La bandeja de frentes con no leídos va además en el panel de Inicio (armazon.js); el hilo, al centro. -->
+      <div class="rp-cuerpo" id="mensajesCab"></div>
       <!-- v0.56.0 (Carlos, 15-sep; artifact MHCmeJw5, opción C «bandeja plegable»): la bandeja se pliega a una columna de
            iconos de unidad con insignia (#mensajesRail) y el hilo crece; «‹» pliega, «›» despliega; se recuerda por
            dispositivo (localStorage `bandeja`). En ≤ 900 px el pliegue no aplica: sigue bandeja O hilo con «←» (v0.138.0). -->
@@ -273,78 +312,149 @@
       </div>
     </section>
 
-    <!-- v0.10.0: Archivos = todas las ligas de todos los frentes -->
+    <!-- v0.10.0: Archivos = todas las ligas de todos los frentes.
+         v1.0.0 (rediseño, cubeta 5 «Archivos opción A»): el módulo Archivos con la cabecera de la plantilla (#archivosCab) y una sección por ruta
+         (#archivosSeccion, archivos.js): Por proyecto (#archivos: las carpetas de ERP_Proyectos y, abajo, las ligas de todos los frentes de
+         siempre), la carpeta de UN proyecto (#archivos/proyecto/<clave>: el mismo componente que la pestaña Documentos), Recientes (este
+         equipo), Fijados (ERP_Vistas), Bibliotecas (las de unidad con permiso, solo leer + ligar) y Mis subidas (la cola y lo enviado). -->
     <section id="p-archivos" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><h1>Archivos</h1><p class="sub" id="archivosSub"></p></header>
-      <div class="archivos-filtros"><div class="filtros grupo" id="archivosTipo"></div><select id="archivosProyecto" aria-label="Proyecto"></select><!-- v0.36.0: abrir / plegar todas las carpetas del árbol, como en Documentos --><span class="arbol-todo" id="archivosTodo" hidden><button id="archivosAbrirTodo" class="mn-btn is-ghost is-sm" type="button" title="Desplegar todas las carpetas">Abrir todo</button><button id="archivosPlegarTodo" class="mn-btn is-ghost is-sm" type="button" title="Plegar todas las carpetas">Plegar todo</button></span><input id="textoArchivos" class="buscador" type="search" placeholder="Buscar por nombre, ruta o dirección" aria-label="Buscar un archivo" autocomplete="off"></div>
-      <div class="docs"><div class="lista" id="archivosLista"></div></div>
+      <div class="rp-cuerpo" id="archivosCab"></div>
+      <div class="arch-seccion" id="archivosSeccion"></div>
+      <section class="rp-card archivos-ligas" id="archivosLigasCard">
+        <div class="rp-dh"><h3>Ligas a documentos</h3><p class="sub" id="archivosSub"></p></div>
+        <div class="archivos-filtros"><div class="filtros grupo" id="archivosTipo"></div><select id="archivosProyecto" aria-label="Proyecto"></select><!-- v0.36.0: abrir / plegar todas las carpetas del árbol, como en Documentos --><span class="arbol-todo" id="archivosTodo" hidden><button id="archivosAbrirTodo" class="mn-btn is-ghost is-sm" type="button" title="Desplegar todas las carpetas">Abrir todo</button><button id="archivosPlegarTodo" class="mn-btn is-ghost is-sm" type="button" title="Plegar todas las carpetas">Plegar todo</button></span><input id="textoArchivos" class="buscador" type="search" placeholder="Buscar por nombre, ruta o dirección" aria-label="Buscar un archivo" autocomplete="off"></div>
+        <div class="docs"><div class="lista" id="archivosLista"></div></div>
+      </section>
     </section>
 
     <!-- v0.10.0: Reportes -->
+    <!-- v1.0.0 (rediseño, cubeta 3): CINCO páginas (#reportes/avance · carga · semanas · actividad · vencidas; a secas = Avance) con la
+         plantilla de reporte: #reportesCuerpo = cabecera + tarjeta 1 (tendencia + KPIs), luego la tarjeta de detalle de siempre de esa página
+         (#repDetalle: se pintan las seis y se ve la de la página, data-rep) y #reportesDatos = «Datos del reporte». «Imprimir» lo mueve la
+         cabecera a sus acciones. -->
     <section id="p-reportes" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><h1>Reportes</h1><button id="btnImprimirReportes" class="mn-btn is-sm" type="button" title="Imprimir o guardar como PDF">Imprimir</button><p class="sub" id="reportesSub"></p></header>
-      <div class="rep-rejilla">
-        <section class="mn-card rep-global"><h2>Avance global</h2><div class="rep-anillo" id="repGlobal"></div></section>
-        <section class="mn-card"><h2>Avance por proyecto</h2><div class="rep-lista" id="repProyectos"></div><div class="rep-leyenda" id="repProyectosLeyenda"></div></section>
-        <section class="mn-card"><h2>Carga por persona · abiertas (vencidas en rojo)</h2><div class="rep-lista" id="repPersonas"></div></section>
-        <section class="mn-card"><h2>Hechas y nuevas por semana · últimas 8</h2><div id="repSemanas"></div><p class="mn-help" id="repSemanasSub"></p></section>
-        <section class="mn-card"><h2>Actividad por persona · 30 días</h2><div class="rep-lista" id="repActividad"></div></section>
-        <section class="mn-card rep-vencidas"><h2>Vencidas por proyecto</h2><div class="mini" id="repVencidas"></div></section>
+      <button id="btnImprimirReportes" class="mn-btn is-sm" type="button" title="Imprimir o guardar como PDF">Imprimir</button>
+      <div class="rp-cuerpo" id="reportesCuerpo"></div>
+      <div class="rep-rejilla" id="repDetalle">
+        <section class="mn-card rep-global" data-rep="avance"><h2>Avance global</h2><div class="rep-anillo" id="repGlobal"></div></section>
+        <section class="mn-card" data-rep="avance"><h2>Avance por proyecto</h2><div class="rep-lista" id="repProyectos"></div><div class="rep-leyenda" id="repProyectosLeyenda"></div></section>
+        <section class="mn-card" data-rep="carga"><h2>Carga por persona · abiertas (vencidas en rojo)</h2><div class="rep-lista" id="repPersonas"></div></section>
+        <section class="mn-card" data-rep="semanas"><h2>Hechas y nuevas por semana · últimas 8</h2><div id="repSemanas"></div><p class="mn-help" id="repSemanasSub"></p></section>
+        <section class="mn-card" data-rep="actividad"><h2>Actividad por persona · 30 días</h2><div class="rep-lista" id="repActividad"></div></section>
+        <section class="mn-card rep-vencidas" data-rep="vencidas"><h2>Vencidas por proyecto</h2><div class="mini" id="repVencidas"></div></section>
       </div>
+      <div class="rp-cuerpo" id="reportesDatos"></div>
     </section>
 
     <!-- v0.100.0 (Carlos, 25-sep): Capital de trabajo = partidas ESTIMADAS (necesidad | fondeo) ligadas a un proyecto, en MXN.
          Solo gerencia. KPI arriba (Necesario · Cubierto · Falta · Partidas), tabla agrupada por proyecto con subtotal y corte por mes. -->
+    <!-- v1.0.0 (rediseño, cubeta 2): Capital vive en Dinero con la plantilla de reporte. #capitalCab = la cabecera (capital.js la pinta y le
+         mueve «Nueva partida» y el filtro de proyecto); en #capital/mes trae además la tarjeta 1 (gráfica de la falta acumulada + KPIs).
+         «Por proyecto» (#capital) y «Por mes» (#capital/mes) son dos páginas; las dos tablas se pintan siempre y se ve la de la página. -->
     <section id="p-capital" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3z"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5v5M17.5 9.5v5"/></svg></span><h1>Capital</h1><button id="btnNuevaPartida" class="mn-btn is-primary is-sm" type="button">Nueva partida</button><p class="sub" id="capitalSub">Capital de trabajo estimado por proyecto: lo necesario, lo cubierto y lo que falta. En pesos (MXN).</p></header>
+      <div id="capitalCab"></div>
       <p class="capital-falta oculto" id="capitalFalta" role="status"></p>
       <div class="capital-cuerpo" id="capitalCuerpo">
         <label class="capital-filtro" for="capitalProyecto"><span class="mn-label">Proyecto</span><select id="capitalProyecto"></select></label>
-        <div class="cres-caja" id="capitalKpis"></div>
-        <div id="capitalTabla"></div>
-        <section class="choja-sec"><h2 class="choja-tit">Por mes · según la fecha estimada</h2><div id="capitalMeses"></div></section>
+        <button id="btnNuevaPartida" class="mn-btn is-primary is-sm" type="button">Nueva partida</button>
+        <section class="rp-card rp-hoja" id="capitalPorProyecto">
+          <div class="rp-dh"><h3>Partidas por proyecto</h3></div>
+          <div class="cres-caja" id="capitalKpis"></div>
+          <div id="capitalTabla"></div>
+        </section>
+        <section class="rp-card rp-datos choja-sec" id="capitalPorMes">
+          <div class="rp-dh"><h3>Datos del reporte</h3><button type="button" class="rp-exb" id="capitalCsv" title="Exportar a CSV (se abre en Excel)" aria-label="Exportar a CSV (se abre en Excel)"><span class="ico" data-icono="exportar"></span></button></div>
+          <div id="capitalMeses"></div>
+          <p class="rp-nota">Por el mes de la fecha estimada de cada partida; las que no tienen fecha van al final. El fondeo resta. En pesos (MXN).</p>
+        </section>
       </div>
     </section>
 
-    <!-- v0.165.0: Finanzas (cobranza.js). Cabecera fija; cobranza.js pinta #finanzasCuerpo (pestañas Cobranza · Gastos · Capital). -->
+    <!-- v1.0.0 (rediseño, cubeta 2): Dinero › Por cobrar y Por pagar (cobranza.js) — ocho páginas con la plantilla de reporte; todo se pinta en
+         #finanzasCuerpo (cabecera incluida). Antes: cabecera fija y pestañas Cobranza · Por pagar · Gastos · Capital (v0.165.0–v0.173.0). -->
     <section id="p-finanzas" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16"/><path d="M6 15l4-4 3 3 5-6"/><path d="M15 8h3v3"/></svg></span><h1>Finanzas</h1><p class="sub" id="finanzasSub">Lo que nos deben y qué tan probado está cada saldo.</p></header>
-      <div class="gastos-cuerpo" id="finanzasCuerpo"></div>
+      <div class="rp-cuerpo" id="finanzasCuerpo"></div>
     </section>
-    <!-- v0.166.0: Vigencias (vigencias.js). Cabecera fija; vigencias.js pinta #vigenciasCuerpo. -->
+    <!-- v0.166.0: Vigencias (vigencias.js). v1.0.0 (rediseño, cubeta 3): «Lo que vence» con la plantilla de reporte; todo se pinta en
+         #vigenciasCuerpo (cabecera incluida). -->
     <section id="p-vigencias" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg></span><h1>Vigencias</h1><p class="sub" id="vigenciasSub">Documentos que caducan, el más próximo primero.</p></header>
-      <div class="gastos-cuerpo" id="vigenciasCuerpo"></div>
+      <div class="rp-cuerpo" id="vigenciasCuerpo"></div>
     </section>
 
-    <!-- v0.169.0: Compras (compras.js). Cabecera fija; compras.js pinta #comprasCuerpo. -->
+    <!-- v0.169.0: Compras (compras.js). v1.0.0 (cubeta 3): #compras (Órdenes) y #compras/partidas con la plantilla; todo en #comprasCuerpo. -->
     <section id="p-compras" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg></span><h1>Compras</h1><p class="sub" id="comprasSub">Las órdenes de compra que emite MINSA, la más nueva primero.</p></header>
-      <div class="gastos-cuerpo" id="comprasCuerpo"></div>
+      <div class="rp-cuerpo" id="comprasCuerpo"></div>
     </section>
-    <!-- v0.168.0: Servicios (servicios.js). Cabecera fija; servicios.js pinta #serviciosCuerpo. -->
+    <!-- v0.168.0: Servicios (servicios.js). v1.0.0 (cubeta 3): #servicios (Expedientes), #servicios/<E#> (uno) y #servicios/ciclo con la
+         plantilla; todo en #serviciosCuerpo. -->
     <section id="p-servicios" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v3H9z"/><path d="M8 4.5H5V21h14V4.5h-3"/><path d="M8 12l2 2 4-4M8 17h8"/></svg></span><h1>Servicios</h1><p class="sub" id="serviciosSub">Expedientes de LATINA y en cuál de los 12 pasos va cada uno.</p></header>
-      <div class="gastos-cuerpo" id="serviciosCuerpo"></div>
+      <div class="rp-cuerpo" id="serviciosCuerpo"></div>
     </section>
 
     <!-- v0.162.0: Gastos (gastos.js, traido de la ERP v1). Cabecera fija; gastos.js pinta #gastosCuerpo (Mis gastos · Tesoreria · Contabilidad). -->
+    <!-- v1.0.0 (rediseño, cubeta 2): Gastos vive en Dinero con la cabecera de la plantilla (gastos.js la pinta en #gastosCab y le mueve
+         «Registrar gasto»); la lógica de v0.162.0 no cambia. -->
     <section id="p-gastos" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span><h1>Gastos</h1><button id="btnNuevoGasto" class="mn-btn is-primary is-sm" type="button">Registrar gasto</button><p class="sub" id="gastosSub"></p></header>
+      <div id="gastosCab"></div>
+      <button id="btnNuevoGasto" class="mn-btn is-primary is-sm" type="button">Registrar gasto</button>
       <div class="gastos-cuerpo" id="gastosCuerpo"></div>
     </section>
 
     <!-- Mis tareas -->
     <section id="p-mis" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6"/></svg></span><h1 id="misTitulo">Mis tareas</h1><p class="sub" id="misSub">Tus tarjetas abiertas, en todos los proyectos, en orden de fecha. Las vencidas arriba.</p></header>
+      <!-- v1.0.0 (rediseño, cubeta 4): la cabecera de la plantilla (#misCab: «Mis tareas · Nombre» —#misTitulo— + «?» + PREGUNTAR y el subtítulo
+           #misSub), los cinco contadores en la tarjeta de KPIs de la maqueta y la lista en una tarjeta. La lógica (círculo, Deshacer, Posponer,
+           Hechas hoy) no cambia. -->
+      <div class="rp-cuerpo" id="misCab"></div>
       <!-- v0.58.0 (Carlos, 15-sep; artifact CrSMdQaxRzctu9VFqrU1dP, corte C): lista densa con contadores — #filtroMis trae los cinco .kpi que filtran; #misLista es la tabla .densa (cabecera + separadores por bloque + un .tr por tarjeta). v0.66.0: fecha en columna a la izquierda, sin filete ni pastillas. v0.67.0: #misLista es .bloques, una tarjeta .densa por bloque con su rótulo fuera. -->
-      <div class="resumen" id="filtroMis"></div>
-      <input id="textoMis" class="buscador" type="search" placeholder="Buscar en mis tareas" aria-label="Buscar en mis tareas" autocomplete="off">
-      <div class="bloques" id="misLista"></div>
+      <section class="rp-card rp-graf mis-kpis"><div class="resumen" id="filtroMis"></div></section>
+      <section class="rp-card mis-hoja">
+        <div class="rp-dh"><h3>Tus tarjetas</h3><input id="textoMis" class="buscador" type="search" placeholder="Buscar en mis tareas" aria-label="Buscar en mis tareas" autocomplete="off"></div>
+        <div class="bloques" id="misLista"></div>
+      </section>
+    </section>
+
+    <!-- v1.0.0 (armazón; decisiones 9 y 10 del plan): Cuenta = página (#cuenta). Nombre y rol · tema Claro|Oscuro (sustituye al segmento del pie
+         del rail; misma llave `tema` de localStorage) · Actualizar con la hora de la última lectura · Ver en SharePoint · Salir · versión. «Equipo y
+         roles» pasó de diálogo (F13) a tarjeta de esta página (#cuenta/equipo), con la misma tabla y las mismas fichas. -->
+    <section id="p-cuenta" class="pantalla oculto">
+      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><span class="ico" data-icono="persona"></span></span><h1>Cuenta</h1><p class="sub">Tu sesión en este dispositivo, el tema y quién tiene qué rol.</p></header>
+      <div class="cuenta-rejilla">
+        <section class="mn-card cuenta-tu" id="cuentaTu">
+          <h2>Tu cuenta</h2>
+          <p id="quien" class="quien"></p>
+          <div class="tema seg" role="group" aria-label="Tema"><button class="mn-btn is-sm" type="button" data-tema="claro" title="Claro" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span>Claro</span></button><button class="mn-btn is-sm" type="button" data-tema="oscuro" title="Oscuro" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>Oscuro</span></button></div>
+          <div class="cuenta-acc"><button id="btnActualizar" class="mn-btn is-sm" type="button" title="Volver a leer las listas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg><span>Actualizar</span><span class="sync" id="syncRail" data-corto></span></button><a id="lnkSharePoint" class="mn-btn is-sm oculto" href="#" target="_blank" rel="noopener" title="Las mismas listas en Microsoft Lists (vista Tablero)">Ver en SharePoint</a><button id="btnSalir" class="mn-btn is-sm salir" type="button">Salir</button></div>
+          <p class="mn-help cuenta-version mn-mono" id="cuentaVersion"></p>
+        </section>
+        <section class="mn-card cuenta-equipo" id="cuentaEquipo">
+          <h2>Equipo y roles</h2>
+          <div class="tabla eq-tabla"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Activo</th><th>Abiertas</th></tr></thead><tbody id="eqLista"></tbody></table></div>
+          <div class="eq-fichas" id="eqFichas"></div>
+          <p class="mn-help">Los roles se cambian en la lista <code>PROY_Roles</code> de SharePoint, no aquí.</p>
+        </section>
+      </div>
     </section>
 
     <p class="pie mn-mono" id="pie"></p>
   </main>
+  <!-- v1.0.0 (rediseño, cubeta 4; plan «Preguntar (sin IA)»; maqueta #chat): panel derecho de 440 px (hoja completa en celular), CERRADO por
+       defecto; lo abre PREGUNTAR de la cabecera de la plantilla. «Pregunta lo que sea», preguntas sugeridas por rol calculadas en vivo, preguntas
+       recientes (este equipo) y la respuesta con su liga «Abrir». preguntar.js lo pinta; la respuesta sale de responder(pregunta), aislada para
+       enchufarle después un agente de Copilot Studio. -->
+  <!-- v1.0.0 (cubeta 6): en tableta (721–1100) el panel va ENCIMA del contenido: este velo lo marca y tocarlo lo cierra (el CSS lo enseña solo ahí) -->
+  <div class="pq-fondo" id="pqFondo" aria-hidden="true"></div>
+  <aside class="preguntar" id="preguntar" aria-labelledby="pqTitulo" hidden>
+    <div class="pq-cab"><span class="pq-tit" id="pqTitulo">Preguntar</span><span class="cab-esp"></span>
+      <button type="button" class="pq-btn" id="pqNueva" title="Pregunta nueva" aria-label="Pregunta nueva"><span class="ico" data-icono="mas"></span></button>
+      <button type="button" class="pq-btn" id="pqCerrar" title="Cerrar" aria-label="Cerrar Preguntar"><span class="ico" data-icono="x"></span></button></div>
+    <div class="pq-cuerpo" id="pqCuerpo"></div>
+    <p class="pq-pie" id="pqPie">Respuestas calculadas con los datos de la app (no es IA)</p>
+  </aside>
+  <!-- v1.0.0: «+ Nuevo» del celular, flotando sobre la barra (sustituye al FAB de «Nueva tarea», que sigue en el menú como «Tarea»). El menú es UNO
+       para el rail y para este botón; armazon.js lo coloca junto a quien lo abrió. -->
+  <button type="button" class="fab-nuevo" id="fabNuevo" aria-haspopup="menu" aria-expanded="false" aria-controls="menuNuevo" aria-label="Nuevo"><span class="ico" data-icono="mas"></span><span>Nuevo</span></button>
+  <div class="menu-nuevo" id="menuNuevo" role="menu" aria-label="Nuevo" hidden></div>
 </div>
 
 <!-- Tarjeta (ver / mover / editar) -->
@@ -494,19 +604,21 @@
   </div>
 </dialog>
 
-<!-- Subir al buzon -->
+<!-- Subir al buzon. v1.0.0 (rediseño, cubeta 5): el MISMO diálogo sube a la carpeta del proyecto en ERP_Proyectos cuando la biblioteca está
+     aprovisionada (docs.js abrirSubir modo 'proyecto': sin concepto ni lote); se le pueden ARRASTRAR archivos encima. -->
 <dialog id="dlgSubir" class="mn-dialog">
   <form id="formSubir" method="dialog" class="forma" novalidate>
-    <div class="mn-dialog-head"><h2>Subir al buzón</h2></div>
+    <div class="mn-dialog-head"><h2 id="sbTitulo">Subir al buzón</h2></div>
     <div class="mn-dialog-body">
       <div class="dlg-avisos"></div>
       <p class="mn-help" id="sbBiblioteca"></p>
-      <div class="mn-field"><label for="sbConcepto">Qué es (concepto)</label><input id="sbConcepto" required maxlength="120" placeholder="Borrador de filosofía de operación"></div>
+      <div class="mn-field" id="sbConceptoCampo"><label for="sbConcepto">Qué es (concepto)</label><input id="sbConcepto" required maxlength="120" placeholder="Borrador de filosofía de operación"></div>
       <div class="mn-row">
         <div class="mn-field"><label for="sbTarea">Tarjeta (opcional)</label><select id="sbTarea"></select></div>
         <div class="mn-field"><label for="sbArchivos">Archivos</label><input id="sbArchivos" type="file" multiple required></div>
       </div>
-      <p class="mn-help">Se deposita en <code>99_Pendiente-Archivar</code> de la biblioteca de la unidad, en una carpeta con fecha y con <code>_lote.json</code> al final. La skill de archivar lo acomoda después; la liga dice «en el buzón» hasta entonces.</p>
+      <p class="mn-help" id="sbAyudaBuzon">Se deposita en <code>99_Pendiente-Archivar</code> de la biblioteca de la unidad, en una carpeta con fecha y con <code>_lote.json</code> al final. La skill de archivar lo acomoda después; la liga dice «en el buzón» hasta entonces.</p>
+      <p class="mn-help" id="sbAyudaProyecto" hidden>Sube a la carpeta de trabajo del proyecto; también puedes arrastrar los archivos aquí. Antes de subir se revisa si ya existe (mismo nombre o mismo contenido) y, si sí, se retiene para que decidas. Lo formal se manda a archivar después desde el menú «⋯» del archivo.</p>
       <p class="progreso mn-mono" id="sbProgreso"></p>
     </div>
     <div class="mn-dialog-foot"><button class="mn-btn is-sm" id="sbCancelar" type="button">Cancelar</button><button class="mn-btn is-primary is-sm" id="sbGuardar" type="submit">Subir</button></div>
@@ -574,14 +686,25 @@
   </div>
 </dialog>
 
-<!-- Equipo (F13): quien tiene que rol, solo lectura; cambiar roles sigue en SharePoint -->
-<dialog id="dlgEquipo" class="mn-dialog">
-  <div class="mn-dialog-head"><h2>Equipo</h2><button class="mn-btn is-ghost is-sm" id="eqCerrar" type="button">Cerrar</button></div>
+<!-- v1.0.0: Equipo (F13) dejó de ser diálogo: es la tarjeta «Equipo y roles» de la página Cuenta (#cuenta/equipo). -->
+<!-- v1.0.0 (rediseño, cubeta 4; plan «Buscador global»): la lupa del rail, `/` y Ctrl+K abren este diálogo con el input de la maqueta (.srch).
+     Resultados AGRUPADOS (Pantallas y reportes · Proyectos · Tareas · Archivos · Personas · Órdenes · Expedientes · Vigencias), navegables con
+     flechas y Enter (combobox → listbox). Índice local sin acentos (reglas.js indiceBusqueda/buscarEnIndice) + la búsqueda por nombre en cada
+     biblioteca con permiso (la de «Ligar», docs.js), con retardo y desde 3 letras. buscador.js lo pinta. -->
+<dialog id="dlgBuscar" class="mn-dialog dlg-buscar" aria-labelledby="bsTitulo">
+  <div class="mn-dialog-head"><h2 id="bsTitulo">Buscar</h2><button class="mn-btn is-ghost is-sm" id="bsCerrar" type="button">Cerrar</button></div>
   <div class="mn-dialog-body">
-    <div class="tabla eq-tabla"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Activo</th><th>Abiertas</th></tr></thead><tbody id="eqLista"></tbody></table></div>
-    <div class="eq-fichas" id="eqFichas"></div>
-    <p class="mn-help">Los roles se cambian en la lista <code>PROY_Roles</code> de SharePoint, no aquí.</p>
+    <div class="srch"><input id="bsTexto" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bsResultados" placeholder="Busca una pantalla, un proyecto, una tarea, un archivo…" aria-label="Buscar en la app" autocomplete="off"><span class="ico" data-icono="lupa"></span></div>
+    <p class="mn-help bs-ayuda" id="bsAyuda">↑ ↓ para moverte · Enter abre · Esc cierra. También con <kbd>/</kbd> o <kbd>Ctrl</kbd>+<kbd>K</kbd>.</p>
+    <div class="bs-res" id="bsResultados" role="listbox" aria-label="Resultados"></div>
   </div>
+</dialog>
+<!-- v1.0.0 (rediseño, cubeta 4; plan «Avisos»): la campana — menciones, mensajes nuevos por frente, te asignaron, mis vencidas, vigencias (gerencia),
+     lotes ya archivados y lo que registre otro módulo (registrarFuenteAvisos: subidas con error o «¿duplicado?», cubeta 5). Contador = no vistos,
+     con la marca compartida de siempre (PROY_Roles.Visto, llave `avisos`); abrir la campana la sube. armazon.js lo pinta. -->
+<dialog id="dlgAvisos" class="mn-dialog dlg-avisos-app" aria-labelledby="avTitulo">
+  <div class="mn-dialog-head"><h2 id="avTitulo">Avisos</h2><button class="mn-btn is-ghost is-sm" id="avCerrar" type="button">Cerrar</button></div>
+  <div class="mn-dialog-body"><p class="mn-help av-sub" id="avSub"></p><div class="av-lista" id="avLista" role="list"></div></div>
 </dialog>
 
 <!-- Confirmacion propia (sustituye a confirm()) -->
@@ -616,6 +739,33 @@
       <p id="gaProgreso" class="progreso" role="status" aria-live="polite"></p>
     </div>
     <div class="mn-dialog-foot"><button id="gaCancelar" class="mn-btn" type="button">Cancelar</button><button id="gaGuardar" class="mn-btn" type="submit" disabled>Falta el monto</button></div>
+  </form>
+</dialog>
+
+<!-- v1.0.0 (rediseño, cubeta 5 «Archivos»): la vista previa de un archivo (POST …/preview). El <iframe> solo recibe una URL https del host
+     del tenant (archivos.js urlVistaPrevia; la CSP frame-src dice lo mismo) y va con sandbox; si no se puede, queda «Abrir en una pestaña nueva». -->
+<dialog id="dlgVistaPrevia" class="mn-dialog dlg-vista" aria-labelledby="vpTitulo">
+  <div class="mn-dialog-head"><h2 id="vpTitulo">Vista previa</h2><a id="vpAbrir" class="mn-btn is-ghost is-sm" target="_blank" rel="noopener noreferrer" hidden>Abrir en una pestaña nueva</a><button class="mn-btn is-ghost is-sm" id="vpCerrar" type="button">Cerrar</button></div>
+  <div class="mn-dialog-body"><p class="mn-help" id="vpEstado"></p><iframe id="vpMarco" title="Vista previa del archivo" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads" referrerpolicy="no-referrer" hidden></iframe></div>
+</dialog>
+<!-- v1.0.0 (cubeta 5): las versiones de un archivo de la carpeta del proyecto (lista + restaurar) -->
+<dialog id="dlgVersiones" class="mn-dialog" aria-labelledby="vrTitulo">
+  <div class="mn-dialog-head"><h2 id="vrTitulo">Versiones</h2><button class="mn-btn is-ghost is-sm" id="vrCerrar" type="button">Cerrar</button></div>
+  <div class="mn-dialog-body"><div class="dlg-avisos"></div><p class="mn-help" id="vrSub"></p><div class="vr-lista" id="vrLista" role="list"></div></div>
+</dialog>
+<!-- v1.0.0 (cubeta 5): al CERRAR un proyecto con archivos sin archivar, gerencia ve la lista y decide (plan, «Disciplina») -->
+<dialog id="dlgSinArchivar" class="mn-dialog" aria-labelledby="saTitulo">
+  <div class="mn-dialog-head"><h2 id="saTitulo">Archivos sin archivar</h2></div>
+  <div class="mn-dialog-body"><div class="dlg-avisos"></div><p id="saTexto"></p><ul class="sa-lista" id="saLista"></ul><p class="progreso mn-mono" id="saProgreso"></p></div>
+  <div class="mn-dialog-foot"><button class="mn-btn is-sm" id="saCancelar" type="button">Cancelar</button><button class="mn-btn is-sm" id="saSeguir" type="button">Cerrar sin archivar</button><button class="mn-btn is-primary is-sm" id="saTodo" type="button">Mandar a archivar todo</button></div>
+</dialog>
+<!-- v1.0.0 (cubeta 5): ligar un archivo de una biblioteca de unidad (Archivos › Bibliotecas) a un proyecto de esa unidad -->
+<dialog id="dlgLigarA" class="mn-dialog" aria-labelledby="laTitulo">
+  <form id="formLigarA" method="dialog" class="forma" novalidate>
+    <div class="mn-dialog-head"><h2 id="laTitulo">Ligar a un proyecto</h2></div>
+    <div class="mn-dialog-body"><div class="dlg-avisos"></div><p class="mn-help" id="laArchivo"></p>
+      <div class="mn-row"><div class="mn-field"><label for="laProyecto">Proyecto</label><select id="laProyecto"></select></div><div class="mn-field"><label for="laTarea">Tarjeta (opcional)</label><select id="laTarea"></select></div></div></div>
+    <div class="mn-dialog-foot"><button class="mn-btn is-sm" id="laCancelar" type="button">Cancelar</button><button class="mn-btn is-primary is-sm" id="laGuardar" type="submit">Ligar</button></div>
   </form>
 </dialog>
 

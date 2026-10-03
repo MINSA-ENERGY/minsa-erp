@@ -58,6 +58,18 @@ assert.ok(commits > 10, 'git log no devolvio commits');
 assert.deepEqual([...enHistoria], [], 'datos en el HISTORIAL del repo publico (borrarlos de HEAD no basta):\n  '
     + [...enHistoria].join('\n  '));
 
+// v1.0.0 (vuelta 1, revision de seguridad «baja»): en las pruebas, un RFC de contraparte es FICTICIO —fecha 000000 o 010101, la convencion de
+// los fixtures— o es una llave que config.js ya publica (CONFIG.porPagarAparte, v0.171.0). El RFC real de un cliente junto a «sin REP» en un
+// fixture del repo publico asocia a esa empresa con un estado interno de cobranza. El mensaje no repite el valor (no lo republica).
+{
+    const config = readFileSync(join(raiz, 'config.js'), 'utf8');
+    const reales = new Set();
+    for (const f of rastreados.filter(x => x.startsWith('test/')))
+        for (const m of readFileSync(join(raiz, f), 'utf8').matchAll(/\b[A-ZÑ&]{3,4}\d{6}[A-Z\d]{3}\b/g))
+            if (!/^[A-ZÑ&]{3,4}(000000|010101)/.test(m[0]) && !config.includes(m[0])) reales.add(`${f}: un RFC que no es de fixture (${m[0].slice(0, 3)}…)`);
+    assert.deepEqual([...reales], [], 'RFC de contraparte en las pruebas (usa uno ficticio, fecha 000000 o 010101):\n  ' + [...reales].join('\n  '));
+}
+
 // S-19 (v0.129.0): lo unico que deja el arnes (test/pruebas.html: sin CSP y con un MSAL falso) y el servidor local FUERA de Pages
 // es el `exclude` de _config.yml; un .nojekyll apagaria Jekyll y los publicaria en el mismo origen que guarda la sesion de MSAL.
 {

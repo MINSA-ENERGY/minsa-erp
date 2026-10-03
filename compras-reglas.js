@@ -35,3 +35,21 @@ export function resumenCompras(lista, hoy = new Date()) {
 
 /** «28,000 Litros + 1 Servicio…»: el concepto en una línea, partida por partida. */
 export const conceptoDe = o => o.partidas.map(p => p.descripcion).join(' + ');
+
+// ---------------------------------------------------------------- v1.0.0 (rediseño 2026-10-02, cubeta 3): la plantilla de reporte
+
+/** Los proveedores que hay, en orden alfabético (el desplegable «PROVEEDOR» de la maqueta). */
+export const proveedoresDe = lista => [...new Set(lista.map(o => String(o.proveedor || '—')))].sort((a, b) => a.localeCompare(b, 'es'));
+/** Las monedas que hay (MXN primero): nunca se suman entre sí, así que la gráfica y los KPIs van en una a la vez. */
+export const monedasDe = lista => [...new Set(lista.map(o => o.moneda || 'MXN'))].sort((a, b) => (a !== 'MXN') - (b !== 'MXN') || a.localeCompare(b));
+/** Las órdenes de un proveedor (o todas con null) y de una moneda. */
+export const filtrarCompras = (lista, proveedor, moneda) => lista.filter(o => (!proveedor || String(o.proveedor || '—') === proveedor) && (!moneda || (o.moneda || 'MXN') === moneda));
+/** Cuántas partidas no cuadran (cantidad × P.U. ≠ importe, marcado por compras.py) en estas órdenes. */
+export const partidasQueNoCuadran = lista => lista.reduce((n, o) => n + o.partidas.filter(p => p.cuadra === false).length, 0);
+/** Los KPIs de la maqueta para UNA moneda: órdenes, emitido en el año, promedio por orden y la última. */
+export function kpisCompras(lista, moneda, hoy = new Date()) {
+    const de = lista.filter(o => (o.moneda || 'MXN') === moneda), anio = String(hoy.getFullYear());
+    const total = de.reduce((s, o) => s + o.total, 0), delAnio = de.filter(o => String(o.fecha).startsWith(anio));
+    const ultima = [...de].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))[0] || null;
+    return { ordenes: de.length, total, anio, emitidoAnio: delAnio.reduce((s, o) => s + o.total, 0), nAnio: delAnio.length, promedio: de.length ? total / de.length : 0, ultima, noCuadran: partidasQueNoCuadran(de) };
+}

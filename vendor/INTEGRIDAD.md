@@ -28,3 +28,11 @@ atributos se regeneran con:
 ```
 openssl dgst -sha256 -binary minsa-erp-app/app/vendor/msal-browser.min.js | openssl base64 -A
 ```
+
+## Fuentes (v1.0.0)
+
+La fuente de la app desde el rediseño v1.0.0 (2026-10-03). Fuera de la tabla de arriba a propósito: `sw.test.js` coteja la PRIMERA fila de esa tabla contra el msal.
+
+| Archivo | Versión | Origen | sha256 | Verificado |
+|---|---|---|---|---|
+| `fuentes/SourceSans3-latin-var.woff2` | Source Sans 3 v20, variable 400–700, subconjunto latin (Google Fonts) | `https://fonts.gstatic.com/s/sourcesans3/v20/nwpStKy2OAdR1K-IwhWudF-R3w8aZQ.woff2` | `19143dca075972bc84e3fd9eab7416dd40cc565dccb2435a044bdfabe060c7d5` | 2026-10-03, dos descargas del origen (2-oct y 3-oct) = mismo hash. Licencia OFL 1.1 en `fuentes/SourceSans3-OFL.txt` (de `adobe-fonts/source-sans`, rama `release`) |

@@ -10,9 +10,11 @@ import { CONFIG } from './config.js';
 import { sellarAsignadoPor, PUEDE, ordenar, tareasDe, diasQuieta, rotuloQuieta, camposDeMovimiento, nombreDe, nombreCorto, diasPara, estadoVence, semaforo, vencidasEn, filtrarTareas, ordenarLista, reordenar, sinAcentos, columnasDe, normalizarColumnas, nombreColumnaEn, claseDeColumna, HECHO, MAX_COLUMNAS, MAX_NOMBRE_COLUMNA, COLORES, colorValido, hrefSeguro, delegadas, misAbiertas, misHechasHoy, diaPospuesto, ATAJOS_POSPONER, porVence, infoVence, plural } from './reglas.js';
 import { $, L, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, el, boton, chip, chipVence, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, fechaHora, aIsoDia, diaInput, fechaInput, atajosFecha, opciones, limpiar, porId, proyectoAbierto, registrarActividad, hashDe, fijarHash, irAHash, ligaDeTarjeta, notasDe, aplicarVivo, agregarSinDuplicar, fusionarActividad, pedirRelectura, equipoDe, iconoEquipo, iconoArchivo, textoConMenciones, insignia, TRAZOS, iconoSvg, puedeBorrarComentario, borrarComentario, columnasDeTarea, notasPorTarea, ligasPorTarea, buzonPorTarea, mesDia, personasActivas, contadorTexto, mayusculasEnVivo, conservarFoco } from './comun.js';
 import { abrirPartida } from './capital.js';   // v0.103.0: «Nueva partida» desde la pestaña Capital del proyecto
-import { abrirLigar, abrirSubir, abrirEnlace, quitarLiga, puedeLigarEn, puedeEnlazarEn } from './docs.js';
+import { abrirLigar, abrirEnlace, quitarLiga, puedeLigarEn, puedeEnlazarEn } from './docs.js';
+import { abrirSubida, puedeSubirEn, bibliotecaLista, archivosDeTarjeta, mandarArchivar } from './archivos.js';   // v1.0.0 (cubeta 5): «Subir» va a la carpeta del proyecto (ERP_Proyectos) y sus archivos se listan en la ficha
 import { esConflicto } from './graph.js';
 import { engancharSelectorMenciones } from './chat.js';
+import { cabecera, vistaDe, soltarIdsFuera } from './reporte.js';   // v1.0.0 (cubeta 4): Mis tareas con la cabecera de la plantilla
 
 let alCambiar = () => {};   // app.js la pone: repinta la pantalla actual tras una escritura
 export function alCambiarTareas(fn) { alCambiar = fn; }
@@ -393,10 +395,18 @@ export function pintarLista(proyecto) {
 const FILTROS_MIS = [[null, 'abiertas'], ['vencidas', 'vencidas'], ['pronto', 'vencen en 7 días'], ['sinfecha', 'sin fecha'], ['delegadas', 'las que delegué']];   // v0.15.0: quien reparte no las pierde de vista; v0.58.0: «sin fecha» nace con los contadores
 // C-07 (mejorar-app mis, 2-oct): el clic en un contador y el refresco de 120 s recrean los .kpi y los renglones; conservarFoco devuelve
 // el foco al mismo control (data-mis / data-t) en vez de dejarlo caer al body, como ya hacen Inicio, Proyectos y Capital.
-export function pintarMisTareas() { conservarFoco($('p-mis'), ['mis', 't'], pintarMisAhora); }
+export function pintarMisTareas() { conservarFoco($('p-mis'), ['mis', 't', 'rp', 'preguntar'], pintarMisAhora); }
+const AYUDA_MIS = 'Tus tarjetas abiertas de todos los frentes, de la que vence antes a la que vence después: Vencidas, Esta semana, Después y Sin fecha. Los contadores de arriba filtran; «las que delegué» son las abiertas de otros que tú creaste o asignaste. El círculo marca una tarjeta como hecha (con «Deshacer»), «Posponer» mueve una vencida y al pie quedan las que hiciste hoy.';
+/** v1.0.0 (cubeta 4): la cabecera de la plantilla —«Mis tareas · Nombre» (#misTitulo) + «?» + PREGUNTAR y el subtítulo (#misSub)—. */
+function pintarCabeceraMis(titulo) {
+    const cont = $('misCab');
+    soltarIdsFuera(cont); cont.textContent = '';
+    cont.appendChild(cabecera({ id: 'mis', titulo, ayuda: AYUDA_MIS, sub: ' ', subId: 'misSub' }, vistaDe('mis'), () => {}));
+    const h = cont.querySelector('.rp-h'); if (h) h.id = 'misTitulo';
+}
 function pintarMisAhora() {
     const yo = estado.cuenta.username.toLowerCase();
-    $('misTitulo').textContent = 'Mis tareas · ' + nombreDe(yo, estado.roles);
+    pintarCabeceraMis('Mis tareas · ' + nombreDe(yo, estado.roles));
     const propias = misAbiertas(estado.tareas, yo).sort(porVence);   // C-03 (v0.90.0): la misma regla que la insignia del rail (app.js)
     // v0.15.0: «Las que delegué» = abiertas de OTRO que yo cree o asigne (createdBy o la bitacora); el renglón enseña a quien. Ya vienen en orden de fecha.
     const delego = estado.filtroMis === 'delegadas';
@@ -842,8 +852,6 @@ function pintarDocsDeTarjeta(t, p) {
     const tId = t.id;   // C-20: los handlers guardan ids
     const c = $('tDocs'); c.textContent = '';
     const ligas = estado.ligas.filter(l => Number(l.TareaId) === t.id);
-    $('tDocsN').textContent = ligas.length ? String(ligas.length) : '';   // v0.24.0: «Documentos · 2»
-    $('tIrDocs').textContent = ligas.length ? `Documentos · ${ligas.length} ↓` : 'Documentos ↓';   // U-43 (v0.141.0)
     const puede = puedeLigarEn(p);
     for (const l of ligas) {
         const lId = l.id;
@@ -865,14 +873,35 @@ function pintarDocsDeTarjeta(t, p) {
         }
         c.appendChild(fila);
     }
+    // v1.0.0 (rediseño, cubeta 5): los archivos de la carpeta del proyecto (ERP_Proyectos) ligados a ESTA tarjeta (TareaId), después de las
+    // ligas: nombre, «sin archivar» / «enviado a archivar» y «Archivar» (manda el archivo al buzón de la unidad como lote). Solo con la biblioteca.
+    const deCarpeta = archivosDeTarjeta(p, t.id);
+    { const n = ligas.length + deCarpeta.length;   // v1.0.0 (cubeta 5): el contador suma los archivos de la carpeta del proyecto ligados a la tarjeta
+      $('tDocsN').textContent = n ? String(n) : '';   // v0.24.0: «Documentos · 2»
+      $('tIrDocs').textContent = n ? `Documentos · ${n} ↓` : 'Documentos ↓'; }   // U-43 (v0.141.0)
+    for (const a of deCarpeta) {
+        const fila = el('div', 'tdoc tdoc-archivo'); fila.dataset.archivoTarjeta = a.id;
+        fila.appendChild(iconoArchivo(a.nombre, null, 'sm'));
+        const cuerpo = el('div', 't'); const href = hrefSeguro(a.url, { tipo: 'archivado', host: CONFIG.sharepointHost });
+        const ln = el('a', '', a.nombre); if (href) { ln.href = href; ln.target = '_blank'; ln.rel = 'noopener noreferrer'; } cuerpo.appendChild(ln);
+        cuerpo.appendChild(chip(a.enviado ? 'enviado a archivar' : 'sin archivar · carpeta del proyecto', a.enviado ? 'ok' : 'warn'));
+        fila.appendChild(cuerpo);
+        if (!a.enviado && puede) {
+            const b = boton('', 'mn-btn is-ghost is-sm is-icono', () => mandarArchivar(p, [a]), { archivarDesdeTarjeta: a.id });
+            b.title = 'Mandar a archivar: copia al buzón de la unidad como lote'; b.setAttribute('aria-label', 'Mandar a archivar'); b.appendChild(iconoSvg(TRAZOS.exportar)); fila.appendChild(b);
+        }
+        c.appendChild(fila);
+    }
     // v0.69.0: los tres botones cortos con icono en UNA fila (Ligar · Subir · Enlace), como en la opcion B del artifact; el texto largo va en title.
+    // v1.0.0 (cubeta 5): «Subir» va a la carpeta del proyecto (ERP_Proyectos) y queda ligado a la tarjeta; sin la biblioteca, al buzón como antes.
     const accion = (texto, titulo, trazos, alClic, atributos) => { const b = boton('', 'mn-btn is-sm', alClic, atributos); b.title = titulo; b.appendChild(iconoSvg(trazos)); b.appendChild(el('span', '', texto)); return b; };
-    if (!ligas.length) c.appendChild(el('span', 'vacio', puede ? 'Sin documentos: liga uno de la biblioteca, sube al buzón o pega un enlace.' : puedeEnlazarEn(p) ? 'Sin documentos: pega un enlace.' : 'Sin documentos.'));
-    if (puede) {
+    const subeAProyecto = bibliotecaLista() && puedeSubirEn(p);
+    if (!ligas.length && !deCarpeta.length) c.appendChild(el('span', 'vacio', puede || subeAProyecto ? `Sin documentos: ${puede ? 'liga uno de la biblioteca, ' : ''}${subeAProyecto ? 'sube a la carpeta del proyecto' : 'sube al buzón'} o pega un enlace.` : puedeEnlazarEn(p) ? 'Sin documentos: pega un enlace.' : 'Sin documentos.'));
+    if (puede || subeAProyecto) {
         const acciones = el('div', 'tdoc-acciones');
         const volver = () => abrirTarjeta(t.id);
-        acciones.appendChild(accion('Ligar', 'Ligar un archivo de la biblioteca', TRAZOS.liga, () => { cerrarDialogo('dlgTarea'); abrirLigar({ proyectoId: p.id, tareaId: t.id, alTerminar: volver }); }, { ligar: String(t.id) }));
-        acciones.appendChild(accion('Subir', 'Subir al buzón de la unidad', TRAZOS.subir, () => { cerrarDialogo('dlgTarea'); abrirSubir({ proyectoId: p.id, tareaId: t.id, alTerminar: volver }); }, { subir: String(t.id) }));
+        if (puede) acciones.appendChild(accion('Ligar', 'Ligar un archivo de la biblioteca', TRAZOS.liga, () => { cerrarDialogo('dlgTarea'); abrirLigar({ proyectoId: p.id, tareaId: t.id, alTerminar: volver }); }, { ligar: String(t.id) }));
+        acciones.appendChild(accion('Subir', subeAProyecto ? 'Subir a la carpeta del proyecto (queda ligado a esta tarjeta)' : 'Subir al buzón de la unidad', TRAZOS.subir, () => { cerrarDialogo('dlgTarea'); abrirSubida({ proyectoId: p.id, tareaId: t.id, alTerminar: volver }); }, { subir: String(t.id) }));
         c.appendChild(acciones);
     }
     // F4: un enlace no necesita biblioteca; se ofrece aunque el equipo no tenga una en el piloto.
@@ -1014,6 +1043,8 @@ async function moverTarea(id, columna) {
 /** F11: Subir / Bajar. Renumera lo que cambie (reordenar()); cada cambio es un PATCH con If-Match. */
 /** C-02/C-04: vuelve a pintar la ficha de la tarjeta abierta con el objeto VIVO de estado.tareas (tras una relectura) sin tocar la nota. */
 export function repintarFicha() { const t = tarjetaAbiertaObj(); if (t && $('dlgTarea').open) pintarFicha(t); }
+/** v1.0.0 (cubeta 5): solo los Documentos de la ficha abierta (una subida o un «Mandar a archivar» terminó): la nota a medio escribir ni se toca. */
+export function repintarDocsDeFicha() { const t = tarjetaAbiertaObj(); if (t && $('dlgTarea').open) pintarDocsDeTarjeta(t, porId(estado.proyectos, t.ProyectoId)); }
 /** C-35 (v0.141.0): tras una relectura, la ficha de ESA tarjeta ya abierta se repinta —la nota a medio escribir se queda—; si no, se abre. */
 function reabrirFicha(id) { if (tarjetaAbiertaId() === id) { limpiarAvisos(); repintarFicha(); } else abrirTarjeta(id); }
 async function reordenarTarea(id, delta) {

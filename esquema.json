@@ -88,7 +88,7 @@
         { "nombre": "Title", "titulo": "Que paso (frase)", "tipo": "text", "obligatorio": true },
         { "nombre": "ProyectoId", "titulo": "ID del proyecto", "tipo": "number", "indexada": true },
         { "nombre": "TareaId", "titulo": "ID de la tarea", "tipo": "number" },
-        { "nombre": "Accion", "titulo": "Accion", "tipo": "choice", "opciones": ["crear-proyecto", "editar-proyecto", "cerrar-proyecto", "crear-tarea", "editar-tarea", "mover-tarea", "borrar-tarea", "ligar", "subir", "desligar", "comentar", "reabrir-proyecto", "borrar-proyecto", "visto"], "obligatorio": true, "nota": "«desligar» y «comentar» nacieron en v0.2.0 (2026-09-11) y «reabrir-proyecto» en v0.3.0 (F6) y «borrar-proyecto» en v0.13.0 (2026-09-12): en una lista ya provisionada se AGREGAN con provisionar.html (PATCH de opciones, idempotente). «comentar» es la nota de una tarjeta: el texto va en Title (255 max) y se pinta en el dialogo de la tarjeta. «visto» (v0.15.0, 2026-09-13) es la reaccion ✓ a un comentario del chat: Title = id del comentario, ProyectoId el del frente, sin TareaId; un renglon por persona y quitarlo es borrarlo" },
+        { "nombre": "Accion", "titulo": "Accion", "tipo": "choice", "opciones": ["crear-proyecto", "editar-proyecto", "cerrar-proyecto", "crear-tarea", "editar-tarea", "mover-tarea", "borrar-tarea", "ligar", "subir", "desligar", "comentar", "reabrir-proyecto", "borrar-proyecto", "visto", "archivar", "borrar-archivo", "restaurar-version"], "obligatorio": true, "nota": "«desligar» y «comentar» nacieron en v0.2.0 (2026-09-11) y «reabrir-proyecto» en v0.3.0 (F6) y «borrar-proyecto» en v0.13.0 (2026-09-12): en una lista ya provisionada se AGREGAN con provisionar.html (PATCH de opciones, idempotente). «comentar» es la nota de una tarjeta: el texto va en Title (255 max) y se pinta en el dialogo de la tarjeta. «visto» (v0.15.0, 2026-09-13) es la reaccion ✓ a un comentario del chat: Title = id del comentario, ProyectoId el del frente, sin TareaId; un renglon por persona y quitarlo es borrarlo. v1.0.0 (rediseño, cubeta 5, Archivos): «archivar» (mandar a archivar un archivo de ERP_Proyectos al buzon de la unidad), «borrar-archivo» y «restaurar-version»; subir a la carpeta del proyecto sigue siendo «subir» y ligar un archivo a una tarjeta, «ligar». Las agrega herramientas-dev/provisionar-rediseno.html" },
         { "nombre": "Quien", "titulo": "Quien (correo)", "tipo": "text", "obligatorio": true },
         { "nombre": "Cuando", "titulo": "Cuando", "tipo": "dateTime", "obligatorio": true, "indexada": true }
       ]
@@ -151,9 +151,28 @@
         { "nombre": "Rol", "titulo": "Rol", "tipo": "choice", "opciones": ["tesoreria", "contabilidad"], "obligatorio": true },
         { "nombre": "Activo", "titulo": "Activo", "tipo": "boolean" }
       ]
+    },
+    {
+      "nombre": "ERP_Vistas",
+      "titulo": "Guardados (vistas, segmentos y fijados)",
+      "clave": "vistas",
+      "regla": "v1.0.0 (rediseño 2026-10-02, plan «Defaults del implementador»): lo que cada persona GUARDA en la app — un reporte con su moneda, rango y periodo, un segmento de Dinero, un archivo fijado (cubeta 5). Un renglon por vista; Dueno = correo de quien la guardo; Compartida = la ve todo el equipo (si no, solo su dueño). Definicion es el JSON que escribe la app (tipo, ruta, condiciones…); la app lo VALIDA al leerlo porque cualquier Miembro puede editar la lista. Ojo: un segmento de Dinero guarda nombres de contraparte y la lista la leen todos los Miembros del sitio. Mientras la lista no exista, la app guarda en el equipo (localStorage) y lo dice.",
+      "columnas": [
+        { "nombre": "Title", "titulo": "Nombre", "tipo": "text", "obligatorio": true },
+        { "nombre": "Dueno", "titulo": "Dueño (correo)", "tipo": "text", "obligatorio": true, "indexada": true },
+        { "nombre": "Compartida", "titulo": "Compartida con el equipo", "tipo": "boolean" },
+        { "nombre": "Modulo", "titulo": "Módulo", "tipo": "choice", "opciones": ["inicio", "trabajo", "archivos", "dinero", "operacion"], "obligatorio": true, "indexada": true },
+        { "nombre": "Definicion", "titulo": "Definición (JSON)", "tipo": "note", "obligatorio": true, "nota": "la escribe la app; no se edita a mano" }
+      ]
     }
   ],
   "bibliotecas": [
-    {"nombre": "Gastos", "titulo": "Comprobantes de gastos", "clave": "gastos", "regla": "decision 10: biblioteca nueva del sitio Administracion, una carpeta por mes del gasto (AAAA-MM) que la app crea al subir el primer comprobante del mes. La escribe el ERP con la cuenta de quien registra; ninguna skill la archiva y no tiene buzon. Nace con su _LEEME_estructura-y-nombres.md en la raiz (el censo de bibliotecas.py no ve una biblioteca sin el).", "carpetaPorMes": "AAAA-MM", "leeme": "_LEEME_estructura-y-nombres.md"}
+    {"nombre": "Gastos", "titulo": "Comprobantes de gastos", "clave": "gastos", "regla": "decision 10: biblioteca nueva del sitio Administracion, una carpeta por mes del gasto (AAAA-MM) que la app crea al subir el primer comprobante del mes. La escribe el ERP con la cuenta de quien registra; ninguna skill la archiva y no tiene buzon. Nace con su _LEEME_estructura-y-nombres.md en la raiz (el censo de bibliotecas.py no ve una biblioteca sin el).", "carpetaPorMes": "AAAA-MM", "leeme": "_LEEME_estructura-y-nombres.md"},
+    {"nombre": "ERP_Proyectos", "titulo": "Archivos de trabajo de los proyectos", "clave": "proyectosArchivos", "regla": "v1.0.0 (rediseño 2026-10-02, decision 2 «Archivos opcion A»): biblioteca de TRABAJO del sitio Administracion, una carpeta <clave>/ por proyecto (la app la crea al crear el proyecto y al primer uso en los existentes). La escribe el equipo desde la app (subida directa, visible para todos los Miembros); lo FORMAL se manda al buzon 99_Pendiente-Archivar de la unidad con «Mandar a archivar» (lote con _lote.json, contrato 1) y la skill /archivar-* de esa unidad lo acomoda como siempre. No es un acervo: lo que importa termina en la biblioteca de la unidad. Versiones = Si (la app las lista y restaura). La crea herramientas-dev/provisionar-rediseno.html.", "carpetaPorProyecto": "<clave>", "columnas": [
+      { "nombre": "ProyectoClave", "titulo": "Clave del proyecto", "tipo": "text", "indexada": true, "nota": "la carpeta ya lo dice; la columna sobrevive a un archivo movido a mano" },
+      { "nombre": "TareaId", "titulo": "ID de la tarea", "tipo": "number", "nota": "la tarjeta a la que va ligado (vacio = del proyecto entero); «Subir» desde una tarjeta lo pone y «Ligar a tarjeta» lo cambia" },
+      { "nombre": "EnviadoArchivar", "titulo": "Enviado a archivar", "tipo": "boolean", "nota": "lo pone «Mandar a archivar» cuando el lote quedo completo en el buzon de la unidad; lo que no lo trae cuenta en «N sin archivar»" },
+      { "nombre": "Lote", "titulo": "Lote en el buzon", "tipo": "text", "nota": "99_Pendiente-Archivar/<carpeta del lote> en la biblioteca de la unidad (la misma Ruta que la liga de tipo buzon)" }
+    ]}
   ]
 }

@@ -6,7 +6,12 @@
 
 import { esConflicto } from './graph.js';
 import { PUEDE, CAPITAL_CATEGORIAS, CAPITAL_TIPOS, formatoMXN, leerMonto, validarPartida, resumenCapital, capitalPorProyecto, totalCapital, capitalPorMes, ordenarPartidas, ordenarProyectos, activosDe, diaDe, partidaVencida, plural } from './reglas.js';
-import { $, L, estado, el, avisar, abrirDialogo, cerrarDialogo, confirmar, fijarGuarda, opciones, porId, aplicarVivo, agregarSinDuplicar, pedirRelectura, fechaCorta, aIsoDia, diaInput, fechaInput, limpiar, equipoDe, iconoEquipo, iconoSvg, fijarHash, hashDe, mayusculasEnVivo, conservarFoco } from './comun.js';
+import { $, L, estado, el, avisar, abrirDialogo, cerrarDialogo, confirmar, fijarGuarda, opciones, porId, aplicarVivo, agregarSinDuplicar, pedirRelectura, fechaCorta, aIsoDia, fechaInput, limpiar, fijarHash, hashDe, mayusculasEnVivo, conservarFoco } from './comun.js';
+// v1.0.0 (rediseño, cubeta 2): la piel de la plantilla de reporte — cabecera, tarjetas y, en «Por mes» (#capital/mes), la gráfica con sus KPIs
+import { cabecera, pintarReporte, vistaDe, descargar, ultimoCsv, soltarIdsFuera } from './reporte.js';
+import { agrupar, fmtCorto, csv, nombreCsv, diaIso } from './reporte-reglas.js';
+import { asegurarGuardados, guardarVista, estadoGuardados } from './guardados.js';
+import { abrirGuardar } from './segmentos.js';
 
 let repintar = () => {};
 export function alCambiarCapital(fn) { repintar = fn; }
@@ -45,9 +50,18 @@ function proyectosDelFiltro() {
     return ordenarProyectos(estado.proyectos.filter(p => p.Estado === 'activo' || ids.has(p.id)));
 }
 
+// v1.0.0: el botón «Nueva partida» y el filtro de proyecto viajan a la cabecera de la plantilla (se guardan sus nodos: la cabecera se repinta)
+let refs = null;
+const REF = () => refs || (refs = { btn: $('btnNuevaPartida'), filtro: $('capitalProyecto').closest('label') });
+const SUB_TODOS = 'Capital de trabajo estimado por proyecto: lo necesario, lo cubierto y lo que falta. En pesos (MXN).';
+const AYUDA_PROYECTO = 'Cómo se calcula: por proyecto, Necesario = la suma de sus necesidades (estimadas, comprometidas o pagadas); Cubierto = sus fondeos comprometidos o recibidos; Falta = Necesario − Cubierto (si sobra, se dice). La falta total suma lo que falta por frente: la sobra de uno no cubre a otro. Todo en pesos (MXN).';
+const AYUDA_MES = 'Cómo se calcula: cada partida cae en el mes de su fecha estimada. «Falta acumulada» es lo que falta al cierre de cada mes, frente por frente, con lo necesitado y fondeado hasta ese mes; las partidas sin fecha van al final. La línea es esa falta acumulada; el globo dice además la necesidad del periodo. En pesos (MXN).';
+
 export function pintarCapital() {
-    const ver = puedeVerCapital();
-    $('btnNuevaPartida').classList.toggle('oculto', !ver || estado.capitalLista !== true);
+    const ver = puedeVerCapital(), porMes = estado.sub === 'mes';
+    const { btn, filtro } = REF();
+    btn.classList.toggle('oculto', !ver || estado.capitalLista !== true);
+    filtro.classList.toggle('oculto', !ver || estado.capitalLista !== true);
     const aviso = $('capitalFalta');
     const falta = estado.capitalLista === false;
     aviso.classList.toggle('oculto', !falta && !estado.capitalError);
@@ -55,7 +69,10 @@ export function pintarCapital() {
     aviso.textContent = falta ? FALTA_LISTA + ' Mientras tanto no hay partidas que mostrar; el resto de la app funciona igual.'
         : estado.capitalError ? 'No se pudo leer PROY_Capital: ' + estado.capitalError : '';
     $('capitalCuerpo').classList.toggle('oculto', !ver || estado.capitalLista !== true);
-    if (!ver || estado.capitalLista !== true) return;
+    $('capitalPorProyecto').classList.toggle('oculto', porMes);
+    $('capitalPorMes').classList.toggle('oculto', !porMes);
+    if (!ver || estado.capitalLista !== true) { pintarCabecera(porMes, [], SUB_TODOS); return; }
+    if (porMes) asegurarGuardados();
     // el filtro: un proyecto que ya no existe cae a «Todos»
     if (estado.filtroCapital && !porId(estado.proyectos, estado.filtroCapital)) estado.filtroCapital = null;
     const sel = $('capitalProyecto');
@@ -65,12 +82,49 @@ export function pintarCapital() {
     const grupos = capitalPorProyecto(partidas, estado.proyectos);
     const t = totalCapital(grupos);
     const fp = estado.filtroCapital ? porId(estado.proyectos, estado.filtroCapital) : null;
-    $('capitalSub').textContent = fp ? `Capital de trabajo estimado de «${fp.Title}». En pesos (MXN).` : 'Capital de trabajo estimado por proyecto: lo necesario, lo cubierto y lo que falta. En pesos (MXN).';
+    pintarCabecera(porMes, partidas, fp ? `Capital de trabajo estimado de «${fp.Title}». En pesos (MXN).` : SUB_TODOS);
     // U-04 (revisor-entregable, 26-sep): filtrado a UN frente, el resumen es el de ese frente (trae `sobra`); totalCapital no
     // la suma a proposito — con varios frentes la sobra de uno no cubre a otro
     pintarKpis(estado.filtroCapital && grupos.length === 1 ? grupos[0] : t);
     conservarFoco($('capitalTabla'), FOCO_HOJA, () => pintarTabla(grupos, partidas.length));   // C-09
     pintarMeses(partidas);
+}
+
+/** La cabecera de la plantilla; en «Por mes» (#capital/mes), además la tarjeta 1 de la maqueta: la falta acumulada por mes y sus KPIs. */
+function pintarCabecera(porMes, partidas, sub) {
+    const cont = $('capitalCab'), { btn, filtro } = REF();
+    const acciones = [filtro, btn];
+    const foco = [btn, filtro.querySelector('select')].find(x => x === document.activeElement);   // moverlos a la cabecera nueva les quita el foco
+    if (!porMes) conservarFoco(cont, ['rp'], () => { soltarIdsFuera(cont); cont.textContent = ''; cont.appendChild(cabecera({ id: 'capital-proyecto', titulo: 'Capital por proyecto', ayuda: AYUDA_PROYECTO, acciones, sub, subId: 'capitalSub' }, vistaDe('capital-proyecto'), () => repintar())); });
+    else pintarMes(cont, acciones, partidas, sub);
+    if (foco && document.activeElement !== foco) foco.focus();
+}
+function pintarMes(cont, acciones, partidas, sub) {
+    const meses = capitalPorMes(partidas), conFecha = meses.filter(m => m.mes), sinFecha = meses.find(m => !m.mes);
+    const guardar = b => {
+        const g = estadoGuardados(), w = vistaDe('capital-mes');
+        abrirGuardar(b, { notaGuardar: g.modo === 'local' ? g.nota : '' }, { sugerido: 'Capital por mes', soloEquipo: true, alGuardar: (titulo, compartida) => guardarVista({ titulo, compartida, modulo: 'dinero', definicion: { tipo: 'reporte', ruta: '#capital/mes', vistaId: 'capital-mes', vista: { grano: w.grano, tipo: w.tipo } } }).then(() => repintar()) });
+    };
+    pintarReporte(cont, {
+        id: 'capital-mes', titulo: 'Capital por mes', ayuda: AYUDA_MES, acciones, sub, subId: 'capitalSub', ojo: true, guardar,
+        grafica: { tipos: true, grano: true, moneda: () => 'MXN', incTexto: 'necesidad del periodo', vacio: 'Sin partidas con fecha que repartir por mes.',
+            datos: v => ({ puntos: agrupar(conFecha.map(m => ({ k: m.mes, v: m.faltaAcumulada, inc: m.necesidad })), v.grano).map(p => ({ etiqueta: p.etiqueta, y: p.v, inc: p.inc })) }) },
+        kpis: () => {
+            const fin = meses.length ? meses[meses.length - 1].faltaAcumulada : 0, ult = conFecha[conFecha.length - 1], sum = k => meses.reduce((s, m) => s + (m[k] || 0), 0);
+            return [{ clave: 'falta', valor: fmtCorto(fin, 'MXN'), texto: 'falta al final', clase: fin > 0 ? 'neg' : '' },
+                { clave: 'necesidad', valor: fmtCorto(sum('necesidad'), 'MXN'), texto: 'necesidad total' },
+                { clave: 'fondeo', valor: fmtCorto(sum('fondeo'), 'MXN'), texto: 'fondeo total' },
+                { clave: 'ultimo', valor: ult ? rotuloMesCorto(ult.mes) : '—', texto: 'último mes con partidas' },
+                { clave: 'sinfecha', valor: String(sinFecha ? sinFecha.n : 0), texto: 'partidas sin fecha' }];
+        }
+    });
+}
+/** «Exportar» de la tabla por mes (CSV con BOM para Excel). */
+function exportarMeses() {
+    const partidas = estado.filtroCapital ? partidasDe(estado.filtroCapital) : estado.capital;
+    const filas = capitalPorMes(partidas).map(m => [m.mes || 'Sin fecha', m.necesidad, m.fondeo, m.faltaAcumulada, m.n]);
+    const nombre = nombreCsv('capital-por-mes', diaIso(new Date())), texto = csv(['Mes', 'Necesidad', 'Fondeo', 'Falta acumulada', 'Partidas'], filas);
+    ultimoCsv.nombre = nombre; ultimoCsv.texto = texto; descargar(nombre, texto);
 }
 
 // v0.101.0 (Carlos, 25-sep; artifact QSAqBmdn ronda 3): los 4 KPI salen. El total es UN renglon con la misma forma que la
@@ -453,6 +507,8 @@ async function borrar() {
 export function engancharCapital() {
     $('cpConcepto').addEventListener('input', () => mayusculasEnVivo($('cpConcepto')));   // v0.107.0; C-06 (26-sep): aqui, no al importar
     $('btnNuevaPartida').addEventListener('click', () => abrirPartida(null));
+    REF();   // v1.0.0: el botón y el filtro se mueven a la cabecera de la plantilla: se guardan sus nodos antes del primer pintado
+    $('capitalCsv').addEventListener('click', exportarMeses);
     $('formPartida').addEventListener('submit', guardar);
     $('cpCancelar').addEventListener('click', cancelar);
     $('cpBorrar').addEventListener('click', borrar);

@@ -35,7 +35,10 @@ export const CONFIG = {
         // v0.162.0: Gastos (traido de la ERP v1). Ya existen en /sites/Administracion (las creo Carlos el 1-oct, con datos reales);
         // si faltaran, #gastos lo dice y lo demas sigue igual.
         gastos: 'ERP_Gastos',
-        rolesErp: 'ERP_Roles'
+        rolesErp: 'ERP_Roles',
+        // v1.0.0 (rediseño, cubeta 2): «Guardados» — vistas, segmentos y fijados (Title, Dueno, Compartida, Modulo, Definicion JSON). La crea la
+        // página de aprovisionamiento de la cubeta 5; mientras no exista, guardados.js guarda en este equipo (localStorage) y lo dice.
+        vistas: 'ERP_Vistas'
     },
     // v0.162.0: biblioteca de los comprobantes de gastos, en el MISMO sitio (Administracion), una carpeta por AAAA-MM.
     bibliotecaGastos: 'Gastos',
@@ -56,6 +59,12 @@ export const CONFIG = {
     archivoServicios: 'servicios.json',
     // v0.169.0: Compras, en la misma biblioteca del equipo. CON montos (Carlos, 2-oct: «no importa que vean los montos»).
     archivoCompras: 'compras.json',
+    // v1.0.0 (rediseño, cubeta 5; plan decisión 2 «Archivos opción A»): la biblioteca de TRABAJO de los proyectos, en el sitio Administración.
+    // Una carpeta <clave>/ por proyecto; la escribe el equipo (subida directa, visible para todos) y lo formal se MANDA A ARCHIVAR al buzón de
+    // la unidad (/archivar-* intacto). Columnas: ProyectoClave, TareaId, EnviadoArchivar, Lote (esquema.json, `bibliotecas`). Sin ella
+    // aprovisionada la app lo dice («Falta preparar ERP_Proyectos») y lo demás funciona como antes (ligar, enlace, subir al buzón).
+    bibliotecaProyectos: 'ERP_Proyectos',
+    instruccionesRediseno: 'minsa-erp-app/docs/rediseno-instrucciones-carlos.md',
 
     // Las cubetas (columnas) del tablero YA NO viven aqui: desde v0.11.0 (Carlos, 12-sep) cada proyecto
     // trae las suyas en PROY_Proyectos.Columnas y el default es COLUMNAS_DEFAULT de reglas.js.
@@ -102,7 +111,8 @@ export const CONFIG = {
 
     // Donde deja lo que se sube desde Docs: el buzon de la biblioteca de la unidad, en una
     // carpeta por lote con `_lote.json` al final (contrato 1, lote.js). La skill de archivar de
-    // esa unidad lo acomoda despues. Nada se escribe fuera del buzon.
+    // esa unidad lo acomoda despues. En las bibliotecas de UNIDAD nada se escribe fuera del buzon (v1.0.0: la regla de 11-sep queda
+    // para ellas; la carpeta del proyecto vive en ERP_Proyectos, arriba, y de ahi sale al buzon con «Mandar a archivar»).
     buzon: '99_Pendiente-Archivar',
     etiquetaLote: 'Proyecto',
 

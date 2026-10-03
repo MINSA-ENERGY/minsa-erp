@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { problemaVigencias, diasPara, chipFaltan, ordenarVigencias, resumenVigencias, fechaVigencia, VERSION_VIGENCIAS, VIG_ROJO, VIG_AMBAR } from '../vigencias-reglas.js';
+import { problemaVigencias, diasPara, chipFaltan, ordenarVigencias, resumenVigencias, fechaVigencia, VERSION_VIGENCIAS, VIG_ROJO, VIG_AMBAR, unidadesDe, filtrarVigencias, siguienteVigencia } from '../vigencias-reglas.js';
 
 let n = 0;
 const ok = (nombre, cond) => { assert.ok(cond, nombre); n++; };
@@ -40,7 +40,13 @@ ok('orden: la vencida arriba, luego la mas proxima', o.map(x => x.titulo).join('
 ok('orden: trae los dias calculados', o[0].dias === -14 && o[1].dias === 8);
 const r = resumenVigencias(o);
 ok('resumen: 1 vencida, 1 en rojo (8 d), 1 en ambar (49 d), 4 en total', r.vencidas === 1 && r.rojo === 1 && r.ambar === 1 && r.total === 4);
-ok('fecha legible sin zona horaria', fechaVigencia('2027-01-17') === '17-ene-2027' && fechaVigencia('2026-12-01') === '1-dic-2026');
+// v1.0.0 (cubeta 6, fidelidad #12): la forma única de la app, «17 ene 2027» (antes «17-ene-2027»)
+ok('fecha legible sin zona horaria', fechaVigencia('2027-01-17') === '17/01/2027' && fechaVigencia('2026-12-01') === '01/12/2026');
+// --- v1.0.0 (cubeta 3): el desplegable de unidad y «la siguiente»
+const u = [vg('2027-01-17', 'ISO'), vg('2026-10-10', 'Fianza', { unidad: 'CALYTEK' }), vg('2026-09-18', 'Sin unidad', { unidad: '' })];
+ok('unidadesDe: sin repetir, en orden, «—» la que no trae', unidadesDe(u).join() === 'CALYTEK,Grupo,—' || unidadesDe(u).join() === '—,CALYTEK,Grupo');
+ok('filtrarVigencias: por unidad, o todas', filtrarVigencias(u, 'CALYTEK').map(x => x.titulo).join() === 'Fianza' && filtrarVigencias(u, '—').length === 1 && filtrarVigencias(u, null).length === 3);
+ok('siguienteVigencia: la más próxima que no ha vencido', siguienteVigencia(ordenarVigencias(u, HOY)).titulo === 'Fianza' && siguienteVigencia(ordenarVigencias([vg('2026-09-18', 'X')], HOY)) === null);
 
 // --- contrato con el cosechador (Python): misma version y los campos que lee la app
 const py = readFileSync(join(raiz, '..', '..', '.claude', 'skills', '_compartido', 'scripts', 'vigencias.py'), 'utf8');
@@ -50,4 +56,14 @@ ok('cosechador: escribe cada campo que lee la app', ['version', 'generado', 'vig
 const plantilla = readFileSync(join(raiz, '..', '..', 'minsa-energy', '_plantilla-unidad.md'), 'utf8');
 ok('plantilla: documenta el marcador 📅 VIGENCIA', /^> 📅 \*\*VIGENCIA\*\* · \w+ · vence: \d{4}-\d{2}-\d{2} · título: /m.test(plantilla));
 
+// v1.0.0 (vuelta 1, revisión UI/UX «media»): el KPI de Inicio «vencidas o a ≤ 30 días» tiene SU cifra en la página de Vigencias (antes la
+// página solo cortaba a 15 y a 60 días: el 2 de Inicio no estaba en ningún lado al llegar)
+{
+    const { VIG_ATENCION } = await import('../vigencias-reglas.js');
+    const { kpisInicio } = await import('../inicio-reglas.js');
+    const vs = [vg('2026-09-18', 'vencida'), vg('2026-10-20', 'en 18 días'), vg('2026-10-31', 'en 29 días'), vg('2026-11-20', 'en 49 días'), vg('2027-03-01', 'lejos')];
+    const r = resumenVigencias(ordenarVigencias(vs, HOY));
+    const k = kpisInicio({ rol: 'gerencia', hoy: HOY, hoyDia: '2026-10-02', abiertas: 0, cobranza: { datos: null }, servicios: { datos: null }, compras: { datos: null }, vigencias: { datos: { ...DATOS, vigencias: vs }, error: null } }).find(x => x.clave === 'vigencias');
+    ok('resumenVigencias.atencion = vencidas + las que vencen en VIG_ATENCION (30) días o menos, la MISMA cifra que el KPI de Inicio', VIG_ATENCION === 30 && r.atencion === 3 && !!k && k.valor === String(r.atencion));
+}
 console.log(`vigencias.test.js: ${n} aserciones OK`);

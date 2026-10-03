@@ -3,9 +3,9 @@
 // la bitacora PROY_Actividad.
 
 import { CONFIG } from './config.js';
-import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico } from './reglas.js';
+import { PUEDE, nombreDe, nombreCorto, diasPara, diaDe, estadoVence, tipoArchivo, trozosConMenciones, columnasDe, leerVisto, fundirVisto, marcaFiable, vistosDe, aliasParaMencion, activosDe, proyectosVisibles , fechaMexico, fechaDia, mesDiaDe, fechaVenceDe } from './reglas.js';
 
-export const VERSION = '0.173.0';
+export const VERSION = '1.0.0';
 export const $ = id => document.getElementById(id);
 export const L = CONFIG.listas;
 /** C-13 (v0.95.0): el filtro de tarjetas vacio, en UN lugar — su forma ya cambio dos veces (quien paso a arreglo en v0.30.0, se sumo
@@ -25,6 +25,10 @@ export const estado = {
     proyectoAbiertoId: null,   // C-11 (v0.115.0): el ID del renglon de PROY_Proyectos; el objeto lo resuelve proyectoAbierto() (antes se guardaba el objeto y una relectura lo dejaba viejo)
     mensajesSel: null, buscaMensajes: '',   // v0.42.0: lo elegido en Mensajes ({t:'f'|'d', k: clave | correo}) y su buscador
     pestana: 'inicio', tab: 'tablero',
+    // v1.0.0 (armazón): el sufijo NUEVO de la ruta de la pantalla (#finanzas/cobrar/saldo → 'cobrar/saldo', #capital/mes → 'mes', #cuenta/equipo
+    // → 'equipo'…; reglas.js leerRuta). hashDe lo devuelve al hash; irA lo pone (null = la ruta de siempre).
+    sub: null,
+    // v1.0.0: `filtroEquipo` es tambien el ÁMBITO global (las unidades del rail y el chip «Ámbito: X ✕» de la cabecera).
     filtroEquipo: null,
     // v0.3.0: filtro y orden dentro del proyecto (F9/F10), columna visible en celular (U5), filtro de Mis tareas (U3)
     filtroTareas: filtroVacio(),   // v0.30.0: quien es ARRAY (varias personas)
@@ -286,6 +290,7 @@ export function confirmar({ titulo, texto, ok = 'Confirmar', motivo = false, eti
  * hashchange (aplicarHash); aqui solo se ESCRIBE. La clave del proyecto es un slug estable, hecho
  * para esto.
  */
+const SUFIJO_EN = ['finanzas', 'capital', 'reportes', 'servicios', 'compras', 'archivos', 'cuenta'];
 export function hashDe(tareaId) {
     let h;
     const pa = proyectoAbierto();
@@ -298,6 +303,8 @@ export function hashDe(tareaId) {
     // v0.100.0: Capital lleva el proyecto filtrado (#capital/f/<clave>), para que la tarjeta del Resumen y una liga pegada abran ese corte
     if (estado.pestana === 'capital' && estado.filtroCapital) { const p = porId(estado.proyectos, estado.filtroCapital); if (p && p.Clave) h += '/f/' + p.Clave; }
     if (estado.pestana === 'gastos' && estado.gastosSub && estado.gastosSub !== 'mios') h += '/' + estado.gastosSub;   // v0.162.0
+    // v1.0.0: los sufijos nuevos (#finanzas/cobrar/<r>, #capital/mes, #reportes/<r>, #servicios/<E#>, #compras/partidas, #archivos/<seccion>, #cuenta/equipo)
+    if (estado.sub && SUFIJO_EN.includes(estado.pestana) && !(estado.pestana === 'capital' && estado.filtroCapital)) h += '/' + estado.sub;
     if (tareaId) h += '/t/' + tareaId;
     return h;
 }
@@ -329,10 +336,12 @@ export function fechaCorta(iso) {
 }
 /** C-14 (v0.120.0): «dd/mm» de una fecha (fechaCorta sin el año). */
 export const diaMes = iso => fechaCorta(iso).slice(0, 5);
+/** Fecha y hora (de México) de un instante: «03/10/2026, 02:52» (dd/mm/aaaa desde la vuelta 1, Carlos 3-oct). v1.0.0 (cubeta 6, fidelidad #12): el día con la forma única de la app
+ *  (fechaDia); antes «03/10, 02:52» (sin año). Un instante que no es fecha: «—». */
 export function fechaHora(iso) {
     if (!iso) return '—';
-    const d = new Date(iso);
-    return d.toLocaleString('es-MX', { timeZone: 'America/Mexico_City', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+    const d = new Date(iso); if (Number.isNaN(d.getTime())) return '—';
+    return `${fechaDia(d)}, ${d.toLocaleTimeString('es-MX', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', hour12: false })}`;
 }
 /** U-04 (mensajes, 17-sep): la fecha de la bandeja — solo la hora si es de hoy, «ayer», y dd/mm (con año si no es este) para lo
  *  demas: la fecha completa se comia el titulo del frente en 390 px. Fecha invalida: «—». */
@@ -408,14 +417,12 @@ const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'o
 /** D1: «jue 18 sep» — el input type=date se pinta en el idioma del DISPOSITIVO (mm/dd/yyyy en una
  *  laptop en ingles) y <html lang="es"> no lo cambia; esta linea dice en el formato de la casa lo
  *  que quedo escrito. */
-/** v0.25.0: la fecha como hoja de calendario —{ mes: 'oct', dia: 31 }— en el dia de Mexico (diaDe); null sin fecha. */
-export function mesDia(iso) { const s = diaInput(diaDe(iso) || iso); if (!s) return null; return { mes: MESES[+s.slice(5, 7) - 1], dia: +s.slice(8, 10) }; }
-/** U-40 (v0.141.0): «26 sep», como la columna Vence de la Lista; el año solo si no es el año en curso. */
-export function fechaVence(iso) {
-    const s = diaInput(diaDe(iso) || iso); if (!s) return fechaCorta(iso);
-    const md = mesDia(s), a = s.slice(0, 4);
-    return `${md.dia} ${md.mes}` + (+a !== new Date().getFullYear() ? ` ${a}` : '');   // espacio duro: la celda Vence de la ficha partia «26 / sep»
-}
+/** v0.25.0: la fecha como hoja de calendario —{ mes: 'oct', dia: 31 }— en el dia de Mexico; null sin fecha. v1.0.0 (vuelta 1, revisión UI/UX
+ *  «fondo»): la regla vive en reglas.js (mesDiaDe, con prueba) — un AAAA-MM-DD es ESE día; antes se releía con diaDe y caía el día anterior. */
+export function mesDia(iso) { return mesDiaDe(iso); }
+/** U-40 (v0.141.0): «26 sep» (espacio duro), como la columna Vence de la Lista; el año solo si no es el año en curso. La regla, fechaVenceDe
+ *  (reglas.js): antes el tablero y la ficha decían el vencimiento UN DÍA ANTES que la Lista, Mis tareas e Inicio. */
+export function fechaVence(iso) { return fechaVenceDe(iso) || fechaCorta(iso); }
 export function fechaLegible(iso) {
     const s = diaInput(iso); if (!s) return '';
     const d = new Date(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10), 12));
@@ -596,14 +603,55 @@ export function iconoEquipo(eq, tam = '') {
     return w;
 }
 
-/** Un <svg> de trazos (viewBox 24) armado por DOM, para insignias y botones (v0.8.0). */
+/** Un <svg> de trazos (viewBox 24) armado por DOM, para insignias y botones (v0.8.0). v1.0.0: un trazo puede ser { d, w, dash }
+ *  (grosor o rayado propios, como los traen los iconos de la maqueta). */
 export function iconoSvg(trazos, clase = '') {
     const svg = document.createElementNS(SVG_NS, 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
     if (clase) svg.setAttribute('class', clase);
-    for (const d of trazos) { const path = document.createElementNS(SVG_NS, 'path'); path.setAttribute('d', d); svg.appendChild(path); }
+    for (const t of trazos) {
+        const path = document.createElementNS(SVG_NS, 'path'); path.setAttribute('d', typeof t === 'string' ? t : t.d);
+        if (t && t.w) path.setAttribute('stroke-width', t.w);
+        if (t && t.dash) path.setAttribute('stroke-dasharray', t.dash);
+        svg.appendChild(path);
+    }
     return svg;
 }
 export const TRAZOS = {
+    // v1.0.0 (rediseño 2026-10-02): los iconos de la maqueta «MINSA ERP Reportes» (su objeto P), con rect y circle pasados a <path>.
+    grid: ['M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1 -3 3h-10a3 3 0 0 1 -3 -3v-10a3 3 0 0 1 3 -3z', { d: 'M9.5 9.5h.01M14.5 9.5h.01M9.5 14.5h.01M14.5 14.5h.01', w: '2.6' }],
+    rep: ['M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1 -3 3h-10a3 3 0 0 1 -3 -3v-10a3 3 0 0 1 3 -3z', 'M8.5 16v-3M12 16V9M15.5 16v-5'],
+    ciclo: ['M19.5 12a7.5 7.5 0 1 1-2.2-5.3', 'M19.5 4.5v3.5H16', 'M9 12.5l2 2 4-4.5'],
+    matraz: ['M9.5 3.5h5M10.5 3.5v6l-5 8.8a1.5 1.5 0 0 0 1.3 2.2h10.4a1.5 1.5 0 0 0 1.3-2.2l-5-8.8v-6', 'M7.5 15h9'],
+    engrane: ['M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0', 'M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3.6 15H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9.7 4.1V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1.3z'],
+    lupa: ['M4.5 11a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0 -13 0', 'M16 16l4.5 4.5'],
+    campana: ['M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z', 'M10 20.5a2.2 2.2 0 0 0 4 0'],
+    folder: ['M3.5 7.5A1.5 1.5 0 0 1 5 6h4.2l1.8 2H19a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z'],
+    folderplus: ['M3.5 7.5A1.5 1.5 0 0 1 5 6h4.2l1.8 2H19a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z', 'M12 11v5M9.5 13.5h5'],
+    updown: ['M8 9.5l4-4 4 4M8 14.5l4 4 4-4'],
+    x: ['M6.5 6.5l11 11M17.5 6.5l-11 11'],
+    chev: ['M6 9l6 6 6-6'],
+    chevr: ['M9 6l6 6-6 6'],
+    filtro: ['M5 7h14M7.5 12h9M10 17h4'],
+    ojo: ['M3 12s3.3-5.5 9-5.5S21 12 21 12s-3.3 5.5-9 5.5S3 12 3 12z', 'M9.6 12a2.4 2.4 0 1 0 4.8 0a2.4 2.4 0 1 0 -4.8 0', 'M4.5 4.5l15 15'],
+    disco: ['M5 4.5h11.5l3 3V19a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V5a.5.5 0 0 1 .5-.5z', 'M8 4.5v4.5h7.5V4.5M8 19.5v-5.5h8v5.5'],
+    ai: [{ d: 'M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0 -17 0', dash: '40 14' }, 'M12 7.5l1.2 2.6 2.6 1.2-2.6 1.2L12 15.1l-1.2-2.6-2.6-1.2 2.6-1.2z', 'M17.5 3.5l.6 1.3 1.3.6-1.3.6-.6 1.3-.6-1.3-1.3-.6 1.3-.6z'],
+    exportar: ['M12 14.5V4M7.5 8.5L12 4l4.5 4.5', 'M5 13v6.5h14V13'],
+    flecha: ['M12 19V5.5M6.5 11L12 5.5 17.5 11'],
+    menu: ['M4 7h16M4 12h16M4 17h16'],
+    ejes: ['M12 3.5v13M8.5 7L12 3.5 15.5 7', 'M5 20.5l3.5-3.5M5 20.5h14'],
+    toggle: ['M7.5 7.5h9a4.5 4.5 0 0 1 4.5 4.5v0a4.5 4.5 0 0 1 -4.5 4.5h-9a4.5 4.5 0 0 1 -4.5 -4.5v0a4.5 4.5 0 0 1 4.5 -4.5z', 'M13.5 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0', 'M6.8 12a1.2 1.2 0 1 0 2.4 0a1.2 1.2 0 1 0 -2.4 0'],
+    pila: ['M5 20.5h14', 'M7 20.5v-4h10v4M8.5 16.5v-4h7v4M10 12.5V9h4v3.5', 'M12 9V4'],
+    pct: ['M18 6L6 18', 'M5.3 7.5a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0 -4.4 0', 'M14.3 16.5a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0 -4.4 0'],
+    img: ['M6 4.5h12a2 2 0 0 1 2 2v11a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2z', 'M7.3 9.5a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0 -3.4 0', 'M20 15.5l-4.5-4.5L6 19.5'],
+    onda: ['M4 15.5c2.5 0 3-4 5.5-4s3 3 5 3 3-4 5.5-4'],
+    dup: ['M9.5 8h8a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1 -1.5 1.5h-8a1.5 1.5 0 0 1 -1.5 -1.5v-8a1.5 1.5 0 0 1 1.5 -1.5z', 'M5 15.5V6a1 1 0 0 1 1-1h9.5'],
+    // v1.0.0: los que la maqueta no trae y el armazón pide, en el mismo trazo (24, 1.6, puntas redondas)
+    persona: ['M8 8.5a4 4 0 1 0 8 0a4 4 0 1 0 -8 0', 'M4.5 20c1.2-3.6 4.2-5.5 7.5-5.5s6.3 1.9 7.5 5.5'],   // Cuenta (sin avatar: decisión 10)
+    mas: ['M12 5v14M5 12h14'],   // «+ Nuevo»
+    dinero: ['M5.5 6h13a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-13a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2z', 'M9.5 12a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0', 'M6.5 9.5v5M17.5 9.5v5'],   // módulo Dinero
+    camara: ['M4 8.5A1.5 1.5 0 0 1 5.5 7h2.3l1.4-2h5.6l1.4 2h2.3A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1 -1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z', 'M8.8 13a3.2 3.2 0 1 0 6.4 0a3.2 3.2 0 1 0 -6.4 0'],   // «Foto»
+    recibo: ['M6 3h12v18l-3-2-3 2-3-2-3 2z', 'M9 8h6M9 12h6'],   // «Gasto» (el de la pestaña de siempre)
+    tarea: ['M5 12l4 4L19 6'],   // «Tarea»
     burbuja: ['M21 12a8 8 0 0 1-11.6 7.1L4 21l1.6-4.5A8 8 0 1 1 21 12z'],
     clip: ['M21 11.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8'],
     arroba: ['M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M16 8v5.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-4 7.5'],
@@ -751,9 +799,13 @@ const LLAVE_VISTO = llaveVisto, LLAVE_VISTO_INICIO = llaveVistoInicio;
 export function olvidarVistosLocales() {
     try {
         const yo = `proy.chatVisto.${cuentaVisto()}.`, yoInicio = llaveVistoInicio();
-        const borrar = k => (k.startsWith(yo) && /^\d+$/.test(k.slice(yo.length))) || k === yoInicio ||   // solo digitos tras el prefijo: a@x.com no borra las de a@x.com.mx
+        const borrar = k => (k.startsWith(yo) && /^\d+$/.test(k.slice(yo.length))) || k === yoInicio || k === `proy.avisosVisto.${cuentaVisto()}` ||   // solo digitos tras el prefijo: a@x.com no borra las de a@x.com.mx; v1.0.0: + la marca de la campana
             /^proy\.chatVisto\.\d+$/.test(k) || k === 'proy.inicioVisto';
         for (const k of Object.keys(localStorage)) if (borrar(k)) localStorage.removeItem(k);
+        // v1.0.0 (vuelta 1, revisión de seguridad «baja»): también lo que ESTA cuenta abrió, subió, preguntó y guardó en este equipo (Recientes,
+        // Mis subidas, las preguntas de Preguntar y los guardados locales —los de Dinero viven aquí—). La cola con pendientes se queda (plan).
+        const c = String(estado.cuenta && estado.cuenta.username || '').trim().toLowerCase();
+        if (c) for (const p of ['erp.recientes.', 'erp.subidas.', 'erp.preguntas.', 'erp.vistas.']) localStorage.removeItem(p + c);
     } catch (_) {}
 }
 const leerLocal = k => { try { return localStorage.getItem(k) || ''; } catch (_) { return ''; } };
@@ -776,6 +828,11 @@ export function inicioVistoHasta() { const local = leerLocal(LLAVE_VISTO_INICIO(
 // S-12 (24-sep): la marca nunca sube por encima de la hora actual (un Cuando del futuro la dejaba arriba para siempre)
 export function marcarChatVisto(pid, iso) { iso = iso && marcaFiable(iso); if (!iso || !(iso > chatVistoHasta(pid))) return; guardarLocal(LLAVE_VISTO(pid), iso); encolarVisto({ chat: { [String(pid)]: iso } }); }
 export function marcarInicioVisto(iso) { iso = iso && marcaFiable(iso); if (!iso || !(iso > inicioVistoHasta())) return; guardarLocal(LLAVE_VISTO_INICIO(), iso); encolarVisto({ inicio: iso }); }
+// v1.0.0 (rediseño, cubeta 4): la campana de Avisos usa la MISMA marca compartida (PROY_Roles.Visto, llave `avisos`; plan: «marca PROY_Roles.Visto
+// existente», sin lista nueva) con su caché por cuenta en este dispositivo. El contador cuenta los avisos posteriores; abrir la campana la sube.
+export const llaveVistoAvisos = () => `proy.avisosVisto.${cuentaVisto()}`;
+export function avisosVistoHasta() { const local = leerLocal(llaveVistoAvisos()); const c = vistoCompartido().avisos; return c > local ? c : local; }
+export function marcarAvisosVisto(iso) { iso = iso && marcaFiable(iso); if (!iso || !(iso > avisosVistoHasta())) return; guardarLocal(llaveVistoAvisos(), iso); encolarVisto({ avisos: iso }); }
 let vistoPendiente = null, vistoTimer = 0, vistoApagado = false;
 function encolarVisto(cambio) { vistoPendiente = fundirVisto(vistoPendiente || {}, cambio); clearTimeout(vistoTimer); vistoTimer = setTimeout(guardarVisto, 1500); }
 /** Manda al tenant lo encolado (app.js lo llama tambien al ocultarse la pagina). Devuelve true si escribio. */
@@ -783,6 +840,10 @@ export async function guardarVisto() {
     clearTimeout(vistoTimer);
     const r = miRenglonRol(); const cambio = vistoPendiente; vistoPendiente = null;
     if (!r || !cambio || vistoApagado || !estado.cliente || !estado.sesion) return false;
+    // v1.0.0 (vuelta 1): sin señal no se relee el renglón (la lectura solo prepara una escritura que graph.js negaría): la marca se queda
+    // pendiente y sale con la siguiente. Era la intermitente «sin red: la escritura falla YA… sin llamar a Graph» de las capturas (un GET de
+    // PROY_Roles a media prueba sin red; 3 de 3 en tiempo real tras la vuelta 1, 1 de 12 en la cubeta 6).
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { vistoPendiente = cambio; return false; }
     // Dos dispositivos de la misma persona escriben el mismo renglon: se RELEE antes de fundir (la copia local
     // puede tener minutos) y se manda con If-Match; un 412 (alguien escribio en medio) se reintenta una vez (revisor, 13-sep).
     for (let intento = 0; intento < 2; intento++) {

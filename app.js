@@ -14,18 +14,27 @@
 
 import { CONFIG } from './config.js';
 import { crearCliente, esConflicto } from './graph.js';
-import { rolDe, PUEDE, nombreCorto, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, estadoVence, infoVence, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, misAbiertas as misAbiertasDe, HECHO, plural } from './reglas.js';
-import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, textoVence, fechaHora, aIsoDia, diaInput, fechaInput, campoFecha, mesDia, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, comentariosNuevos, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas, conservarFoco, olvidarVistosLocales, conRetardo } from './comun.js';
-import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambiarTareas, abrirTarjeta, tarjetaAbiertaId, repintarFicha, pintarFiltroTareas, pintarBotonFiltros, abrirNuevaTarea } from './tablero.js';
+import { rolDe, PUEDE, nombreCorto, slug, validarClave, tareasDe, avance, proximos, diasQuieta, rotuloQuieta, pisoNuevo, sinDueno, nombreDe, diasPara, claseVence, fraseVence, ordenarProyectos, filtrarProyectos, proyectosVisibles, columnasDe, segmentosDe, vencidasEn, desdeHaceDias, nuevoParaMi, gruposHoy, saludoDe, SALUD, saludDe, MAX_NOTA_SALUD, diaDe, sumarDias, HECHO, plural } from './reglas.js';
+import { mayusculasEnVivo, $, L, VERSION, estado, limpiarFiltroTareas, PESTANAS_CON_FILTRO, activos, visibles, nombreEquipoFiltrado, el, boton, ondaAlPulsar, chip, avisar, limpiarAvisos, abrirDialogo, cerrarDialogo, confirmar, fechaCorta, fechaVence, textoVence, aIsoDia, fechaInput, campoFecha, mesDia, opciones, limpiar, porId, proyectoAbierto, proyectoPorClave, nuevosDe, registrarActividad, haceCuanto, fechaLegible, equipoDe, iconoEquipo, hashDe, fijarHash, irAHash, aplicar, aplicarVivo, agregarSinDuplicar, fijarReleer, pedirRelectura, fijarAlCerrar, fijarGuarda, verboComentario, mencionesA, notasDe, comentariosDe, textoConMenciones, actividadVisible, columnasDeTarea, fusionarActividad, asegurarActividadDe, inicioVistoHasta, marcarInicioVisto, guardarVisto, personasActivas, conservarFoco, olvidarVistosLocales, conRetardo } from './comun.js';
+import { pintarTablero, pintarLista, pintarMisTareas, engancharTablero, alCambiarTareas, abrirTarjeta, tarjetaAbiertaId, repintarFicha, pintarFiltroTareas, pintarBotonFiltros } from './tablero.js';
 import { pintarGastos, engancharGastos, alCambiarGastos, recargarGastosSiLeidos } from './gastos.js';   // v0.162.0: Gastos (de la ERP v1)
-import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
+import { pintarDocs, engancharDocs, alCambiarDocs } from './docs.js';
 import { pintarChat, engancharChat, alCambiarChat, fijarAbrirTarjeta, salirDelChat } from './chat.js';
 import { pintarCapital, pintarCapitalProyecto, pintarCapitalTab, puedeVerCapital, engancharCapital, alCambiarCapital, fijarIrAProyecto } from './capital.js';
-import { pintarFinanzas, alCambiarCobranza, fijarIrDesdeFinanzas } from './cobranza.js';   // v0.165.0: Finanzas > Cobranza (solo gerencia)
+import { pintarFinanzas, alCambiarCobranza, fijarIrDesdeFinanzas } from './cobranza.js';   // v0.165.0: Finanzas > Cobranza (solo gerencia); v1.0.0: Dinero › Por cobrar / Por pagar
+import { fijarNavGuardados } from './guardados.js';   // v1.0.0 (cubeta 2): «Guardados» (ERP_Vistas o este equipo)
+import { pintarArmazon, engancharArmazon, fijarNavArmazon, pintarCuenta, cerrarHoja, registrarFuenteAvisos } from './armazon.js';   // v1.0.0: rail, panel, cabecera, Cuenta (rediseño 2026-10-02)
+import { engancharModuloArchivos, alCambiarArchivos, iniciarCola, alRefrescar, pendientesCola, fuenteAvisosArchivos, revisarAntesDeCerrar, alCerrarSinArchivar, alCrearProyecto, pintarCarpetaProyecto, nArchivosDe } from './archivos.js';   // v1.0.0 (cubeta 5): Archivos (ERP_Proyectos, la cola, mandar a archivar)
+import { repintarDocsDeFicha } from './tablero.js';
+import { leerRuta, puedeVerPantalla, fechaDia } from './reglas.js';   // fechaDia: v1.0.0 (cubeta 6), la fecha que se muestra («01/10/2026»; «1 oct 2026» hasta la vuelta 1)
+import { cabecera, vistaDe, soltarIdsFuera, filaKpis } from './reporte.js';   // v1.0.0 (cubeta 3): la cabecera y la fila de KPIs de la plantilla en Proyectos y en el proyecto
 import { pintarVigencias, alCambiarVigencias } from './vigencias.js';   // v0.166.0: Vigencias (solo gerencia)
 import { pintarServicios, alCambiarServicios } from './servicios.js';   // v0.168.0: Servicios (gerencia y colaborador)
 import { pintarCompras, alCambiarCompras } from './compras.js';   // v0.169.0: Compras (gerencia y colaborador)
-import { pintarRoadmap, pintarRoadmapProyecto, roadmapFull, engancharRoadmap, olvidarLugarRoadmap, pintarCalendario, engancharCalendario, enfocarCal, pintarMensajes, engancharMensajes, devolverChat, mensajesNuevos, proyectoDeMensajes, pintarArchivos, engancharArchivos, pintarReportes, engancharReportes, anillo, abrirCargaPersona, pintarCargaPersona } from './vistas.js';
+import { pintarCabeceraInicio, pintarKpisInicio, atencionDeInicio, fijarNavInicio } from './inicio.js';   // v1.0.0 (cubeta 4): cabecera, KPIs por rol y «Requiere atención» de Operación y Dinero
+import { engancharBuscador } from './buscador.js';   // v1.0.0 (cubeta 4): buscador global (lupa, / y Ctrl+K)
+import { engancharPreguntar, fijarNavPreguntar, refrescarPreguntar } from './preguntar.js';   // v1.0.0 (cubeta 4): «Preguntar» sin IA
+import { pintarRoadmap, pintarRoadmapProyecto, roadmapFull, engancharRoadmap, olvidarLugarRoadmap, pintarCalendario, engancharCalendario, enfocarCal, pintarMensajes, engancharMensajes, devolverChat, proyectoDeMensajes, pintarArchivos, engancharArchivos, pintarReportes, engancharReportes, fijarRepintarReportes, anillo, abrirCargaPersona, pintarCargaPersona } from './vistas.js';
 
 // NO llamar `msal` a esta variable: taparia el global del bundle UMD.
 const pca = new msal.PublicClientApplication({
@@ -98,7 +107,11 @@ async function arrancar() {
     } catch (e) { fallaEntrada(e, 'No se pudo terminar el inicio de sesión'); }
 }
 async function salir() {
-    const { ok } = await confirmar({ titulo: 'Salir de la app', ok: 'Salir', texto: 'Se cierra la sesión de MINSA en este dispositivo. Lo guardado ya está en las listas.' });
+    // v1.0.0 (cubeta 5): «Salir avisa si hay pendientes» — la cola se queda en este equipo (por cuenta) y sube cuando esta cuenta vuelva a entrar
+    const n = pendientesCola();
+    const cola = n ? ` Ojo: ${n === 1 ? 'queda 1 subida' : `quedan ${n} subidas`} en la cola de este equipo; no se pierde${n === 1 ? '' : 'n'}, pero solo ${n === 1 ? 'sube' : 'suben'} cuando vuelvas a entrar con esta cuenta (revísala en Archivos › Mis subidas).` : '';
+    // v1.0.0 (vuelta 1): Salir también borra de este equipo lo que la cuenta dejó aquí (comun.js olvidarVistosLocales) — lo dice antes de hacerlo
+    const { ok } = await confirmar({ titulo: 'Salir de la app', ok: 'Salir', texto: 'Se cierra la sesión de MINSA en este dispositivo y se borra de él lo que tu cuenta dejó aquí (Recientes, preguntas y lo guardado solo en este equipo, como los guardados de Dinero). Lo demás ya está en las listas.' + cola });
     if (!ok) return;
     olvidarVistosLocales();   // S-27 (v0.156.0): la siguiente cuenta en este equipo no hereda lo que esta ya leyo
     try { await pca.logoutRedirect({ account: estado.cuenta }); }
@@ -164,13 +177,13 @@ function ponerQuien(texto) {
         q.appendChild(el('b', '', nombreDe(correo, estado.roles)));
         if (rol) q.appendChild(el('span', 'rol', rol));
     }
-    $('rolMovil').textContent = rol;
 }
 function pintarSync(leyendo = false) {
     const t = Date.now() - estado.cargadoEl;
     const hace = !estado.cargadoEl ? '' : t < 60000 ? `hace ${Math.max(1, Math.round(t / 1000))} s` : t < 3600000 ? `hace ${Math.round(t / 60000)} min` : `hace ${Math.round(t / 3600000)} h`;
+    const sinRed = navigator.onLine === false;   // v1.0.0 (vuelta 1, revisión UI/UX «fondo»): sin señal el sello no dice «Al día»
     for (const x of document.querySelectorAll('.sync')) {
-        x.textContent = 'corto' in x.dataset ? (leyendo ? 'leyendo…' : hace) : leyendo ? 'Leyendo las listas…' : estado.cargadoEl ? `Al día · leído ${hace}` : '';   // v0.48.0: dentro del menu «···» solo cabe «hace N min»
+        x.textContent = 'corto' in x.dataset ? (leyendo ? 'leyendo…' : sinRed && hace ? `sin red · ${hace}` : hace) : leyendo ? 'Leyendo las listas…' : estado.cargadoEl ? `${sinRed ? 'Sin conexión' : 'Al día'} · leído ${hace}` : '';   // v0.48.0: dentro del menu «···» solo cabe «hace N min»
         x.classList.toggle('viejo', !leyendo && t > 300000);
     }
 }
@@ -192,19 +205,18 @@ async function sesionIniciada() {
     ponerQuien(`${estado.cuenta.username} · ${estado.rol}`);
     $('pantallaEntrar').classList.add('oculto');
     $('shell').classList.remove('sin-sesion');
-    $('rail').classList.remove('oculto');
-    $('barraMovil').classList.remove('oculto');
+    for (const id of ['rail', 'panel', 'barraMovil']) $(id).classList.remove('oculto');   // v1.0.0: + el panel del módulo
     $('syncMovil').classList.remove('oculto'); pintarSync();
-    pintarRailEquipos();
-    // F13: la misma lista en Microsoft Lists (su vista Tablero es el plan B gratis del plan).
+    // F13: la misma lista en Microsoft Lists (su vista Tablero es el plan B gratis del plan). v1.0.0: vive en Cuenta.
     const urlLista = estado.cliente.urlDeLista(L.tareas);
-    for (const id of ['lnkSharePoint', 'lnkSharePointMovil']) { $(id).classList.toggle('oculto', !urlLista); if (urlLista) $(id).href = urlLista; }
+    $('lnkSharePoint').classList.toggle('oculto', !urlLista); if (urlLista) $('lnkSharePoint').href = urlLista;
     // Aterriza donde diga el hash (deep link, F5, o el destino guardado antes del login); si no, Inicio.
     let destino = null;
     try { destino = sessionStorage.getItem('proy.destino'); sessionStorage.removeItem('proy.destino'); } catch (_) {}
     if (!esHashDeLaApp(location.hash) && destino) fijarHash(destino);
     estado.pestana = null;
     aplicarHash();
+    iniciarCola();   // v1.0.0 (cubeta 5): lo que esta cuenta dejó en la cola de este equipo vuelve y se sube («al abrir la app»)
 }
 
 // ---------------------------------------------------------------- carga
@@ -277,13 +289,14 @@ async function recargar() {
         // intento y se retiro en la revision de v0.4.0 por esas dos razones.
         const y = window.scrollY; repintar(); window.scrollTo({ top: y });
         repintarFicha();   // C-02 (17-sep): la ficha abierta se re-pinta con el objeto VIVO (cargarTodo reemplazo estado.tareas)
+        alRefrescar();   // v1.0.0 (cubeta 5): la cola de subidas vuelve a intentar lo pendiente «en cada refresco»
     } catch (e) { if (!(e && e.sesionCaducada)) avisar('No se pudieron releer las listas: ' + (e && e.message ? e.message : e), 'error'); }   // C-08: con la sesion caducada lo dice la banda; el timer no apila un aviso cada 120 s
     finally { recargando = false; $('btnActualizar').disabled = false; pintarSync(); }
 }
 // Refresco automatico mientras la app esta a la vista; nunca borra un dialogo de EDICION abierto.
 // E4 (v0.6.0): Equipo y Toda la actividad son de lectura y alguien los deja abiertos minutos; con
 // ellos abiertos se sigue releyendo, y al cerrarlos se relee si ya pasaron 60 s (la regla de visibilitychange).
-const DLG_EDICION = ['dlgTarea', 'dlgNuevaTarea', 'dlgProyecto', 'dlgSalud', 'dlgCubetas', 'dlgLigar', 'dlgSubir', 'dlgEnlace', 'dlgPartida', 'dlgGasto', 'dlg'];
+const DLG_EDICION = ['dlgTarea', 'dlgNuevaTarea', 'dlgProyecto', 'dlgSalud', 'dlgCubetas', 'dlgLigar', 'dlgSubir', 'dlgEnlace', 'dlgPartida', 'dlgGasto', 'dlgSinArchivar', 'dlgLigarA', 'dlg'];   // v1.0.0 (cubeta 5): + cerrar con archivos sin archivar y ligar desde Bibliotecas
 const editando = () => DLG_EDICION.some(id => $(id).open);
 const hayBorrador = () => editando() || ['chatTexto', 'tNota'].some(id => $(id).value.trim() !== '');   // C-08 (v0.159.0): #chatTexto no vive en ningun dialogo
 const rancio = () => estado.sesion && Date.now() - estado.cargadoEl > 60000;
@@ -294,8 +307,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 // v0.15.0: la marca de lectura compartida se manda agrupada (1.5 s); al ocultarse la pagina se empuja lo que quede.
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') guardarVisto(); });
 window.addEventListener('pagehide', () => { guardarVisto(); });
-const DLG_LECTURA = ['dlgEquipo', 'dlgActividad', 'dlgPersona'];   // R-02 (v0.131.0): + las abiertas de una persona (Reportes)
-fijarAlCerrar(id => { if (DLG_LECTURA.includes(id) && rancio() && !editando()) recargar(); });
+const DLG_LECTURA = ['dlgActividad', 'dlgPersona', 'dlgBuscar', 'dlgAvisos', 'dlgVistaPrevia', 'dlgVersiones'];   // R-02 (v0.131.0): + las abiertas de una persona (Reportes). v1.0.0: Equipo es página (Cuenta); + Buscar y Avisos; cubeta 5: + vista previa y versiones
+fijarAlCerrar(id => { if (id === 'dlgSinArchivar') alCerrarSinArchivar(); if (DLG_LECTURA.includes(id) && rancio() && !editando()) recargar(); });   // v1.0.0 (vuelta 1): Atrás en «Archivos sin archivar» = no cerrar
 for (const id of DLG_LECTURA) $(id).addEventListener('close', () => { if (rancio() && !editando()) recargar(); });   // Esc no pasa por cerrarDialogo
 fijarReleer(recargar);   // un 412 (alguien cambio el renglon) se resuelve releyendo: la verdad esta en SharePoint
 
@@ -307,6 +320,7 @@ function pintarRed() {
     const sin = navigator.onLine === false;
     $('sinRed').classList.toggle('oculto', !sin || !estado.sesion);
     document.body.classList.toggle('sin-red', sin);
+    if (estado.sesion) pintarSync(recargando);   // v1.0.0 (vuelta 1): el sello cambia con la red, no en el siguiente tic de 15 s
     if (!estado.sesion && !$('btnEntrar').disabled && $('textoEntrar').textContent !== PISTA_FALLO) pistaEntrada(sin ? PISTA_SIN_RED : PISTA_MARCA);   // C-12 (v0.159.0): el motivo de un fallo no lo borra un parpadeo de la red
 }
 window.addEventListener('offline', pintarRed);
@@ -318,28 +332,38 @@ pintarRed();
 
 // ---------------------------------------------------------------- navegacion
 
-function irA(p) {
-    const sinEquipo = (p === 'servicios' || p === 'compras') && !PUEDE.tarea(estado.rol);   // v0.168.0/v0.169.0: Servicios y Compras son de gerencia y colaborador
-    const negado = sinEquipo || ((p === 'capital' || p === 'finanzas' || p === 'vigencias') && !PUEDE.capital(estado.rol));   // v0.100.0: Capital es solo de gerencia (una liga pegada tampoco entra); v0.165.0: Finanzas tambien
-    if (negado) p = 'inicio';
-    estado.pestana = p;
+/**
+ * Va a una pantalla. v1.0.0 (armazón): `sub` es el sufijo NUEVO de su ruta (#finanzas/cobrar/saldo → 'cobrar/saldo', #capital/mes → 'mes',
+ * #reportes/carga, #cuenta/equipo…); mientras la página propia no exista se pinta la pantalla de hoy que trae ese dato, y el sufijo vuelve
+ * al hash (hashDe). Quién entra lo dice puedeVerPantalla (reglas.js), la misma regla de v0.100.0/v0.168.0 que aquí se escribía a mano.
+ */
+function irA(p, sub = null) {
+    const negado = !puedeVerPantalla(p, estado.rol);
+    const sinEquipo = negado && (p === 'servicios' || p === 'compras');   // v0.168.0/v0.169.0: Servicios y Compras son de gerencia y colaborador
+    if (negado) { p = 'inicio'; sub = null; }   // v0.100.0: Capital es solo de gerencia (una liga pegada tampoco entra); v0.165.0: Finanzas tambien
+    estado.pestana = p; estado.sub = sub;
+    // v1.0.0 (cubeta 2): #finanzas/cobrar/<r> y #finanzas/pagar/<r> son páginas propias (cobranza.js paginaDe lee estado.sub); #capital/mes también
+    cerrarHoja();   // v1.0.0: navegar cierra la hoja del celular
     // U-03 (v0.90.0): el filtro que fija Inicio («ver en Mis tareas» de las vencidas) dura UNA visita: al entrar a #mis por la pestaña
     // o por un hash sin origen se vuelve a «abiertas». Lo que se elige con los contadores dentro de la pantalla no pasa por aqui.
     if (p === 'mis') { if (estado.filtroMisAlLlegar) { estado.textoMis = ''; $('textoMis').value = ''; } estado.filtroMis = estado.filtroMisAlLlegar || null; estado.filtroMisAlLlegar = null; }   // C-08 (2-oct): el «ver en Mis tareas» de Inicio no aterriza con el texto de otra visita
     if (p !== 'roadmap') roadmapFull(false);   // v0.26.0: salir de pantalla completa al cambiar de pantalla
     for (const s of document.querySelectorAll('.pantalla')) s.classList.add('oculto');
     $('p-' + (p === 'proyecto' ? 'proyecto' : p)).classList.remove('oculto');
-    for (const b of document.querySelectorAll('#pestanas button')) {
-        const on = b.dataset.p === p || (p === 'proyecto' && b.dataset.p === 'proyectos');
-        b.classList.toggle('is-on', on); b.setAttribute('aria-selected', on ? 'true' : 'false');
-    }
     limpiarAvisos();
     olvidarLugarRoadmap();   // C-07 (v0.120.0): al ENTRAR a una pantalla el gantt arranca en la raya de hoy; el refresco (repintar) conserva el lugar
     repintar();
     fijarHash(hashDe(tarjetaAbiertaId()));
     window.scrollTo({ top: 0 });
+    enfocarSub(p, sub);
     if (negado) avisar(sinEquipo ? 'Servicios y Compras son para gerencia y colaboradores.' : 'Capital, Finanzas y Vigencias son solo para gerencia.', 'ojo');
     if (p === 'calendario') enfocarCal();   // U-02 (v0.86.0): al ENTRAR, la agenda del celular aterriza en hoy (no en repintar(): ese corre en cada refresco y moveria la pantalla)
+}
+/** v1.0.0: el sufijo que apunta a una tarjeta de la pantalla de hoy la trae a la vista (el reporte de Reportes, «Por mes» de Capital, Equipo de Cuenta). */
+const TARJETA_DE_SUB = { cuenta: { equipo: 'cuentaEquipo' } };   // v1.0.0 (cubeta 2): #capital/mes ya es página (capital.js), no una tarjeta a la que bajar; cubeta 3: #reportes/<r> tambien (vistas.js pintarReportes)
+function enfocarSub(p, sub) {
+    const id = sub && TARJETA_DE_SUB[p] && TARJETA_DE_SUB[p][sub]; const x = id && $(id); if (!x) return;
+    const t = x.closest('.mn-card, section') || x; if (t.scrollIntoView) t.scrollIntoView({ block: 'start' });
 }
 // Router por hash (v0.2.0, F8): LEE location.hash y deja la pantalla como dice; es idempotente, asi
 // que las escrituras propias (fijarHash desde irA / abrirTarjeta) no repintan dos veces. Con Atras
@@ -348,43 +372,48 @@ function irA(p) {
 // v0.42.0: Mensajes lleva lo elegido en el hash (#mensajes/f/<clave> el hilo del frente), para que Atras regrese a la
 // bandeja y una liga pegada abra justo ese hilo. v0.43.0: #mensajes/d/<alias> (la ficha de la persona) ya no existe;
 // una liga vieja con /d/ cae a la bandeja de Mensajes con aviso.
-const RE_HASH = /^#(?:(inicio|proyectos|mis|roadmap|calendario|mensajes|archivos|reportes|capital|gastos|finanzas|vigencias|servicios|compras)(?:\/(f|d)\/([a-z0-9._-]+)|\/(tesoreria|contabilidad))?|p\/([a-z0-9-]+)(?:\/(lista|docs|chat|tablero|resumen|roadmap|capital))?)(?:\/t\/(\d+))?$/;
-function esHashDeLaApp(h) { return RE_HASH.test(String(h || '')); }
+// v1.0.0: la gramática vive en reglas.js (leerRuta, con prueba por cada ruta en test/reglas.test.js): las de hoy siguen siendo canónicas
+// y se suman los sufijos del plan (#finanzas/cobrar|pagar/<r>, #capital/mes, #reportes/<r>, #servicios/<E#>|ciclo, #compras/partidas,
+// #archivos/<seccion>[/…], #cuenta[/equipo]).
+function esHashDeLaApp(h) { return !!leerRuta(String(h || '')); }
 function aplicarHash() {
     if (!estado.sesion) return;
-    const m = RE_HASH.exec(location.hash || '');
-    if (!m) { irA('inicio'); return; }
-    const [, pantalla, msjTipo, msjClave, subGastos, clave, tabHash, tareaId] = m;   // v0.162.0: subGastos = #gastos/tesoreria | /contabilidad
-    if (clave) {
+    const r = leerRuta(location.hash || '');
+    if (!r) { irA('inicio'); return; }
+    const { pantalla, msj, clave, tareaId } = r;
+    if (pantalla === 'proyecto') {
         const p = proyectoPorClave(clave);   // C-07 (mensajes, 17-sep)
         if (!p) { irA('inicio'); avisar(`No hay un proyecto con la clave «${clave}».`, 'ojo'); return; }
-        const tab = tabHash || 'tablero';
+        const tab = r.tab || 'tablero';
         if (estado.pestana !== 'proyecto' || estado.proyectoAbiertoId !== p.id || estado.tab !== tab) {
             fijarProyectoAbierto(p); estado.tab = tab; irA('proyecto');
         }
     } else if (pantalla === 'mensajes') {
-        // /f/<clave> solo vale aqui; un sufijo en otra pantalla se ignora (el regex lo admite para no partir la ruta)
+        // /f/<clave> solo vale aqui; un sufijo en otra pantalla se ignora (la gramatica lo admite para no partir la ruta)
         let sel = null;
-        if (msjTipo === 'f') { const p = proyectoPorClave(msjClave); if (p) { sel = { t: 'f', k: p.Clave }; if (p.Estado === 'activo' || comentariosDe(p.id).length) asegurarActividadDe(p.id).then(hubo => { if (hubo && estado.pestana === 'mensajes') repintar(); }); } else avisar(`No hay un frente con la clave «${msjClave}».`, 'ojo'); }
-        else if (msjTipo === 'd') avisar('El chat por persona ya no está en la app (v0.43.0): escríbele por Teams.', 'ojo');
+        if (msj && msj.tipo === 'f') { const p = proyectoPorClave(msj.clave); if (p) { sel = { t: 'f', k: p.Clave }; if (p.Estado === 'activo' || comentariosDe(p.id).length) asegurarActividadDe(p.id).then(hubo => { if (hubo && estado.pestana === 'mensajes') repintar(); }); } else avisar(`No hay un frente con la clave «${msj.clave}».`, 'ojo'); }
+        else if (msj && msj.tipo === 'd') avisar('El chat por persona ya no está en la app (v0.43.0): escríbele por Teams.', 'ojo');
         const cambio = JSON.stringify(sel) !== JSON.stringify(estado.mensajesSel || null);
         estado.mensajesSel = sel;
         if (estado.pestana !== 'mensajes') irA('mensajes'); else if (cambio) repintar();
     } else if (pantalla === 'capital') {
-        // v0.100.0: #capital/f/<clave> = la seccion filtrada por ese proyecto (lo que abre la tarjeta del Resumen); sin sufijo, todos
+        // v0.100.0: #capital/f/<clave> = la seccion filtrada por ese proyecto (lo que abre la tarjeta del Resumen); sin sufijo, todos. v1.0.0: #capital/mes
         let f = null;
-        if (msjTipo === 'f') { const p = proyectoPorClave(msjClave); if (p) f = p.id; else avisar(`No hay un proyecto con la clave «${msjClave}».`, 'ojo'); }
-        const cambio = f !== estado.filtroCapital; estado.filtroCapital = f;
-        if (estado.pestana !== 'capital') irA('capital'); else if (cambio) repintar();
+        if (msj && msj.tipo === 'f') { const p = proyectoPorClave(msj.clave); if (p) f = p.id; else avisar(`No hay un proyecto con la clave «${msj.clave}».`, 'ojo'); }
+        const cambio = f !== estado.filtroCapital || r.sub !== estado.sub; estado.filtroCapital = f;
+        if (estado.pestana !== 'capital') irA('capital', r.sub); else if (cambio) { estado.sub = r.sub; repintar(); enfocarSub('capital', r.sub); }
     } else if (pantalla === 'gastos') {
         // v0.162.0: la sub-vista va en el hash (#gastos/tesoreria); a quien no tiene el rol gastos.js le pinta «Mis gastos»
-        const sub = subGastos || 'mios'; const cambio = sub !== estado.gastosSub; estado.gastosSub = sub;
+        const sub = r.subGastos || 'mios'; const cambio = sub !== estado.gastosSub; estado.gastosSub = sub;
         if (estado.pestana !== 'gastos') irA('gastos'); else if (cambio) repintar();
-    } else if (estado.pestana !== pantalla) irA(pantalla);
+    } else if (estado.pestana !== pantalla || (estado.sub || null) !== r.sub) irA(pantalla, r.sub);
     const id = tareaId ? Number(tareaId) : null;
     if (id) { if (tarjetaAbiertaId() !== id) { if (porId(estado.tareas, id)) abrirTarjeta(id); else avisar(`No hay una tarjeta #${id}.`, 'ojo'); } }
     else if ($('dlgTarea').open) cerrarDialogo('dlgTarea');
 }
+/** v1.0.0: navegar desde el armazón (panel, chips, módulos, Avisos, Buscar) como una liga pegada, pero SINCRONO y sin popstate: un popstate
+ *  cerraría los diálogos abiertos (comun.js, B8) y bajo tiempo virtual llegaría tarde. */
+function irARuta(h) { fijarHash(h); aplicarHash(); }
 window.addEventListener('popstate', aplicarHash);     // Atras / Adelante (fijarHash escribe con pushState)
 window.addEventListener('hashchange', aplicarHash);   // una URL pegada o editada a mano
 /** Deja `p` como proyecto abierto; si es OTRO proyecto, el filtro de tarjetas y la columna del celular vuelven al default. */
@@ -408,8 +437,7 @@ function repintar() {
     if (estado.pestana !== 'mensajes') devolverChat();   // v0.42.0: #tab-chat vuelve a la pestana del proyecto
     if (estado.pestana !== 'inicio') estado.nuevosInicio = null;   // v0.15.0: la proxima visita a Inicio fija otro conjunto de «Nuevo para ti»
     document.body.classList.toggle('is-chat', (estado.pestana === 'proyecto' && estado.tab === 'chat') || chatEnMensajes);   // v0.15.0: en celular el FAB se esconde en el chat
-    pintarInsignias();
-    pintarRailEquipos();
+    pintarArmazon();   // v1.0.0: módulo resaltado, panel, chips, unidades (ámbito), anillo y contadores (#nMis, #nProyectos, #nMensajes, avisos)
     if (estado.pestana === 'inicio') pintarInicio();
     else if (estado.pestana === 'proyectos') pintarProyectos();
     else if (estado.pestana === 'proyecto') pintarProyecto();
@@ -425,58 +453,18 @@ function repintar() {
     else if (estado.pestana === 'vigencias') pintarVigencias();   // v0.166.0
     else if (estado.pestana === 'servicios') pintarServicios();   // v0.168.0
     else if (estado.pestana === 'compras') pintarCompras();   // v0.169.0
+    else if (estado.pestana === 'cuenta') pintarCuenta();   // v1.0.0
     if ($('dlgPersona').open) pintarCargaPersona();   // R-02 (v0.131.0): el refresco sigue con las abiertas de la persona abiertas
     if ($('dlgActividad').open) pintarActividad();   // C-12 (v0.94.0): el refresco sigue con «Toda la actividad» abierta (E4); acCtx conserva filtro y pagina
+    refrescarPreguntar();   // v1.0.0 (cubeta 4): con el panel en su portada, las sugeridas siguen a los datos que llegan
 }
 alCambiarTareas(repintar);
 alCambiarDocs(repintar);
 alCambiarChat(repintar);
 fijarAbrirTarjeta(abrirTarjeta);
 
-const misAbiertas = () => misAbiertasDe(estado.tareas, estado.cuenta.username);   // C-03 (v0.90.0): la misma regla que pinta la pantalla (reglas.js)
-
-function pintarInsignias() {
-    // v0.100.0: el acceso a Capital (rail en escritorio, menu «···» en celular) solo existe para gerencia
-    for (const id of ['railCapital', 'irCapitalMovil', 'railFinanzas', 'irFinanzasMovil', 'railVigencias', 'irVigenciasMovil']) $(id).classList.toggle('oculto', !PUEDE.capital(estado.rol));
-    for (const id of ['railServicios', 'irServiciosMovil', 'railCompras', 'irComprasMovil']) $(id).classList.toggle('oculto', !PUEDE.tarea(estado.rol));   // v0.168.0   // v0.165.0: + Finanzas; v0.166.0: + Vigencias
-    const mias = misAbiertas();
-    // T4: el contador del rail siempre es VENCIDAS (rojo) y nada si no hay; el total abierto vive en el KPI de Inicio.
-    const vencidas = mias.filter(t => infoVence(t, CONFIG.vencePronto, CONFIG.semaforoDias).e === 'danger').length;   // C-09 (2-oct): la misma cuenta que pinta Mis tareas
-    $('nMis').textContent = String(vencidas); $('nMis').hidden = vencidas === 0;
-    const n = activos().length; $('nProyectos').textContent = String(n); $('nProyectos').hidden = n === 0;
-    // D5: el lector de pantalla leia «Mis tareas 1» sin decir que el 1 son vencidas.
-    const nombrar = (id, texto) => { $(id).setAttribute('aria-label', texto); $(id).title = texto; };
-    nombrar('nMis', `${vencidas} ${plural(vencidas, 'vencida')}`);
-    nombrar('nProyectos', `${n} ${plural(n, 'activo')}`);
-    // v0.10.0: mensajes nuevos desde tu ultima visita (v0.9.0, por dispositivo), sumados sobre los frentes activos.
-    const nm = mensajesNuevos(); $('nMensajes').textContent = String(nm); $('nMensajes').hidden = nm === 0;
-    nombrar('nMensajes', `${nm} ${plural(nm, 'mensaje')} ${plural(nm, 'nuevo')}`);
-}
-/** Rail de equipos (U2, v0.7.0): agrupados por RAMA como el rail del Tablero de escritorio (opcion A del
- *  artifact c52cb229, Carlos 2026-09-12), cada uno con su icono en su color y cuantos proyectos activos lleva.
- *  El filtro puesto se ve (is-on) y el segundo clic lo quita. Un equipo fuera de CONFIG.ramas cae en «Otros». */
-function pintarRailEquipos() {
-    const c = $('railEquipos'); c.textContent = '';
-    const vivos = activos();   // C-07 (mejorar-app, 16-sep): una vez, no por equipo
-    const ramas = [...CONFIG.ramas, ...CONFIG.equipos.map(e => e.rama || 'Otros').filter(r => !CONFIG.ramas.includes(r))];
-    for (const r of ramas) {
-        const eqs = CONFIG.equipos.filter(e => (e.rama || 'Otros') === r); if (!eqs.length) continue;
-        c.appendChild(el('div', 'mn-label rama', r));
-        for (const e of eqs) {
-            const on = estado.filtroEquipo === e.clave;
-            const b = boton('', on ? 'is-on' : '', () => { estado.filtroEquipo = on ? null : e.clave; if (['proyectos', 'roadmap', 'calendario', 'reportes'].includes(estado.pestana)) repintar(); else irA('proyectos'); }, { equipo: e.clave });   // v0.10.0: el filtro vive donde se puso
-            b.setAttribute('aria-pressed', on ? 'true' : 'false');
-            b.appendChild(iconoEquipo(e, 'sm')); b.appendChild(el('span', '', e.nombre));
-            const n = vivos.filter(p => p.Equipo === e.clave).length;
-            if (n) b.appendChild(el('span', 'n', String(n)));
-            c.appendChild(b);
-        }
-    }
-    // En celular el rail es barra de pestanas y los equipos no caben: el mismo filtro es un <select> en Proyectos.
-    const sel = $('filtroEquipoMovil');
-    opciones(sel, CONFIG.equipos, e => e.clave, e => { const n = vivos.filter(p => p.Equipo === e.clave).length; return n ? `${e.nombre} · ${n}` : e.nombre; }, 'Todos los equipos');
-    sel.value = estado.filtroEquipo || '';
-}
+// v1.0.0: los contadores del rail (pintarInsignias) y el rail de equipos (pintarRailEquipos) pasaron a armazon.js — #nMis va en el
+// módulo Inicio, #nProyectos y #nMensajes en el panel, y las unidades son el ámbito global del rail.
 
 // ---------------------------------------------------------------- Inicio
 
@@ -509,7 +497,7 @@ function fichaProyecto(p, ts) {
     const md = mesDia(p.Estado === 'activo' ? p.Vence : p.CerradoEl);
     // U-07 (mejorar-app, 16-sep): sin fecha la hoja dice «SIN / fecha» en gris — antes «— ?» y el significado solo vivia en el title, que en celular no existe
     const cal = el('span', 'cal' + (md ? '' : ' sin')); cal.appendChild(el('span', 'mes', md ? md.mes : 'sin')); cal.appendChild(el('span', 'dia', md ? String(md.dia) : 'fecha'));
-    cal.title = p.Estado !== 'activo' ? `Cerrado el ${fechaCorta(p.CerradoEl)}` : d === null ? 'Sin fin del frente' : `Fin del frente: ${fechaCorta(p.Vence)} · ${fraseVence(d, 'dias')}`;   // C-04 (v0.79.0): antes decia «vencio» sin acento y «en N d» sin verbo
+    cal.title = p.Estado !== 'activo' ? `Cerrado el ${fechaDia(p.CerradoEl)}` : d === null ? 'Sin fin del frente' : `Fin del frente: ${fechaDia(p.Vence)} · ${fraseVence(d, 'dias')}`;   // C-04 (v0.79.0): antes decia «vencio» sin acento y «en N d» sin verbo
     r.appendChild(cal);
     // icono del equipo, y en un solo bloque de texto el titulo con su etiqueta «Rama · Unidad» en linea: la etiqueta sigue al
     // titulo y envuelve con el (en columnas propias, a 820 px la etiqueta nowrap estrangulaba el titulo a 75 px — revisor 14-sep)
@@ -585,6 +573,7 @@ const llaveTarea = t => hashTarea(t.id) ? `t:${t.id}` : null;
 const llaveEvento = (a, pid) => hashEvento(a, pid) ? `a:${a.id}${pid ? ':' + pid : ''}` : null;
 document.addEventListener('click', ev => {
     const b = ev.target.closest('[data-abre]'); if (!b) return;
+    if (b.dataset.abre.startsWith('r:')) { const h = b.dataset.abre.slice(2); if (leerRuta(h)) irARuta(h); return; }   // v1.0.0 (cubeta 4): «Requiere atención» de Operación y Dinero (solo rutas de la app)
     const [tipo, id, pid] = b.dataset.abre.split(':');
     if (tipo === 'pe') { abrirCargaPersona(b.dataset.abre.slice(3)); return; }   // R-02 (v0.131.0): una persona de Carga por persona (Reportes); el correo entero, sin partirlo por ':'
     if (tipo === 'sd') { irASinDueno(); return; }   // U-12 (v0.129.0): «Sin dueño» de Carga por persona (Reportes)
@@ -708,12 +697,13 @@ function pintarInicio() {
     const ahora = new Date();
     const yo = nombreDe(estado.cuenta.username, estado.roles);
     const vivos = activos(), nAct = vivos.length;   // C-07 (mejorar-app, 16-sep): activos() se filtraba cuatro veces por pintado
-    $('inicioSaludo').textContent = `${saludoDe(ahora)}, ${yo.split(' ')[0]}`;   // C-09 (v0.133.0): el saludo NO pasa por nombreCorto, a proposito: a uno mismo no hay a quien confundir
-    // U-08: el rol va en su propio span; en celular la barra de arriba ya lo dice junto al logo y .rol-sub se oculta (estilo.css)
-    const sub = $('inicioSub'); sub.textContent = `${fechaLarga(ahora)} · ${nAct} ${plural(nAct, 'frente')} ${plural(nAct, 'activo')}`; sub.appendChild(el('span', 'rol-sub', ` · ${estado.rol}`));
+    // v1.0.0 (cubeta 4): el saludo es el título de la cabecera de la plantilla (#inicioSaludo, con «?» y PREGUNTAR); debajo fecha · frentes · rol (#inicioSub)
+    // C-09 (v0.133.0): el saludo NO pasa por nombreCorto, a proposito: a uno mismo no hay a quien confundir. U-08: el rol va en su propio span (.rol-sub)
+    conservarFoco($('inicioCab'), ['rp', 'preguntar'], () => pintarCabeceraInicio(`${saludoDe(ahora)}, ${yo.split(' ')[0]}`, `${fechaLarga(ahora)} · ${nAct} ${plural(nAct, 'frente')} ${plural(nAct, 'activo')}`, estado.rol));
     const abiertas = abiertasInicio(vivos);   // C-11 (v0.95.0): la misma cuenta que el conmutador y «Sin dueño» repiten al clic
-    // v0.41.0 (Carlos, 14-sep): la fila de KPI (mías abiertas · vencen en 7 d · vencidas · sin dueño · sin movimiento) SALIO
-    // de Inicio. Lo mio vive en Mis tareas (y el rojo del rail), lo global en la cola y en Reportes; «sin movimiento» en su tarjeta.
+    // v1.0.0 (cubeta 4; plan «fila de KPIs por rol», supera v0.41.0 «la fila de KPI salió»): gerencia 5, colaborador 3, lectura 1; cada uno abre su
+    // reporte y lo que sale de un JSON lleva su corte (inicio.js / inicio-reglas.js). Pintarla pide la lectura única de esos JSON.
+    conservarFoco($('inicioKpis'), ['kpi'], () => pintarKpisInicio(abiertas.length));
     // C-05 (mejorar-app, 16-sep): el piso de «Nuevo para ti» se congela AQUI, al entrar, y la marca de visto sube AQUI — antes eran
     // efectos colaterales de pintarCola (que se repinta con cada clic de «solo mías») y pintarActividadInicio dependia de ese orden.
     if (!estado.nuevosInicio) estado.nuevosInicio = { desde: inicioVistoHasta() };
@@ -784,15 +774,24 @@ const kHora = iso => { const d = diasPara(iso), m = mesDia(iso); return { a: HOR
  * de Vence en las tarjetas, hora + dia relativo en lo que viene de la bitacora, «—» sin fecha— y el color del estado lo lleva el
  * numero (`.k b`), no un circulo. `k` = { a: linea fuerte, b: linea tenue }; `datos` van a data-*.
  */
-function renglonCola(estadoCls, titulo, sub, k, abre, datos) {
+function renglonCola(estadoCls, titulo, sub, k, abre, datos, etq = null) {
     const r = el(abre ? 'button' : 'div', 'hoy-r' + (estadoCls ? ' is-' + estadoCls : '')); if (abre) { r.type = 'button'; r.dataset.abre = abre; }   // C-11 (v0.95.0): llave, no closure
     // U-11 (v0.94.0): la columna .k es aria-hidden; el nombre accesible del renglon trae la fecha u hora que ella enseña
-    if (abre) r.setAttribute('aria-label', [titulo, sub, k.a === '—' ? 'sin fecha' : `${k.a} ${k.b}`.trim()].filter(Boolean).join(' · '));
+    if (abre) r.setAttribute('aria-label', [titulo, etq, sub, k.a === '—' ? 'sin fecha' : `${k.a} ${k.b}`.trim()].filter(Boolean).join(' · '));
     const f = el('span', 'k'); f.setAttribute('aria-hidden', 'true'); f.appendChild(el('b', '', k.a)); f.appendChild(el('small', '', k.b)); r.appendChild(f);
-    const c = el('span', 'cuerpo'); c.appendChild(el('span', 't', titulo)); c.appendChild(el('span', 'p', sub)); c.querySelector('.t').title = titulo; r.appendChild(c);
+    // v1.0.0 (cubeta 4; maqueta «Requiere atención»): la ETIQUETA del renglón (vencida · hoy · sin dueño · nuevo · mención · bloqueado · vence · cobro ·
+    // revisar · sin movimiento) va antes del título, como texto de color (v0.98.0 «sin burbujas», igual que las cubetas 2 y 3); y «ABRIR» al final.
+    // Todo el renglón sigue siendo el botón: «ABRIR» es la señal visual de la maqueta (aria-hidden), no otro botón.
+    const c = el('span', 'cuerpo');
+    if (etq) { const e = el('span', 'etq', etq); e.setAttribute('aria-hidden', 'true'); c.appendChild(e); }
+    c.appendChild(el('span', 't', titulo)); c.appendChild(el('span', 'p', sub)); c.querySelector('.t').title = titulo; r.appendChild(c);
+    if (abre) { const a = el('span', 'abrir', 'ABRIR'); a.setAttribute('aria-hidden', 'true'); r.appendChild(a); }
     for (const [kk, v] of Object.entries(datos || {})) r.dataset[kk] = v;
     return r;
 }
+/** v1.0.0 (cubeta 4): la etiqueta de un renglón de tarjeta según su grupo de la cola. */
+const ETQ_GRUPO = { vencidas: 'vencida', hoy: 'hoy', 'sin-dueno': 'sin dueño', semana: 'esta semana' };
+const etqHoy = t => diasPara(t.Vence) === 1 ? 'mañana' : 'hoy';
 /** El encabezado de un grupo («Vencidas · 3»); con `ir` (una llave de IR_COLA) es boton. Devuelve el elemento ya colgado de `lista`.
  *  C-22 (v0.145.0): el destino es una llave data-ir que resuelve el delegado al clic, como data-abre en los renglones (antes un closure por boton).
  *  U-17 (v0.145.0): el rotulo sin boton es encabezado de nivel 3 para el lector de pantalla (la cola se recorre por grupos); el de
@@ -812,9 +811,12 @@ function extraCola(t, ahora = new Date(), nNotas = null) {   // C-21 (v0.145.0):
 /** El renglon de una tarjeta. U-04: el subtitulo ya NO repite la fecha —la columna `.k` la trae y el grupo dice vencida/hoy/semana—
  *  y asi el nombre del frente cabe a 390 px. U-10 (v0.94.0): los datos van ANTES del frente, que se repite renglon tras renglon:
  *  a 390 px el «…» se come el nombre repetido y no el dato que distingue. `datos` extra (p. ej. sinDueno) se suman al data-t. */
-const renglonTarea = (t, cls, datos, ctx = {}) => renglonCola(cls, t.Title, [ctx.motivo, ...extraCola(t, undefined, ctx.nNotas), tituloFrenteDe(t)].filter(Boolean).join(' · '), kFecha(t.Vence), llaveTarea(t), { t: String(t.id), ...datos });   // U-16 (v0.145.0): `ctx.motivo` («nuevo · Jefa te asignó») va primero
+const renglonTarea = (t, cls, datos, ctx = {}) => renglonCola(cls, t.Title, [ctx.motivo, ...extraCola(t, undefined, ctx.nNotas), tituloFrenteDe(t)].filter(Boolean).join(' · '), kFecha(t.Vence), llaveTarea(t), { t: String(t.id), ...datos }, ctx.etq);   // U-16 (v0.145.0): `ctx.motivo` («nuevo · Jefa te asignó») va primero
 /** El renglon de un evento de la bitacora (nuevo para ti / te mencionaron): quien (nombre de pila) y el frente en el subtitulo. */
-const renglonEvento = (a, titulo, datos, pid = a.ProyectoId) => { const p = porId(estado.proyectos, pid); return renglonCola('info', titulo, `${nombreCorto(a.Quien, estado.roles)}${p ? ' · ' + p.Title : ''}`, kHora(a.Cuando), llaveEvento(a, pid), datos); };
+const renglonEvento = (a, titulo, datos, pid = a.ProyectoId, etq = 'nuevo') => { const p = porId(estado.proyectos, pid); return renglonCola('info', titulo, `${nombreCorto(a.Quien, estado.roles)}${p ? ' · ' + p.Title : ''}`, kHora(a.Cuando), llaveEvento(a, pid), datos, etq); };
+/** v1.0.0 (cubeta 4): un renglón de Operación, Dinero o Trabajo que no es tarjeta (inicio-reglas.js: { etiqueta, cls, titulo, sub, ir, k }). Su llave
+ *  es «r:<ruta>»: el delegado de data-abre lleva a esa ruta al clic, como una liga pegada. */
+const renglonAtencion = it => renglonCola(it.cls, it.titulo, it.sub, it.k, 'r:' + it.ir, { atencion: it.grupo }, it.etiqueta);
 /** Los grupos por fecha se recortan a TOPE_COLA renglones con un «+N más» que lleva a donde estan todas (Mis tareas, Reportes o Calendario). */
 const TOPE_COLA = 6, TOPE_NUEVOS = 8;
 function masCola(lista, n, texto, ir) { const b = el('button', 'hoy-mas'); b.type = 'button'; b.textContent = `+${n} más · ${texto} →`; b.dataset.ir = ir; lista.appendChild(b); return b; }   // C-22: `ir` es llave de IR_COLA
@@ -825,14 +827,25 @@ const IR_COLA = {
     calendario: () => irA('calendario'),
     actividad: () => abrirActividad(null),
     'sin-dueno': () => irASinDueno(),
+    // v1.0.0 (cubeta 4): «Esta semana» vive en Mis tareas (lo mío: «vencen en 7 días») o en el Calendario (todo el frente); y los «+N más» de Operación
+    semana: () => { if (estado.hoySoloMias) { estado.filtroMisAlLlegar = 'pronto'; irA('mis'); } else irA('calendario'); },
+    servicios: () => irARuta('#servicios'), vigencias: () => irARuta('#vigencias'), compras: () => irARuta('#compras'), frentes: () => irARuta('#reportes/actividad')
 };
 document.addEventListener('click', ev => { const b = ev.target.closest && ev.target.closest('#inicioHoy [data-ir]'); const ir = b && IR_COLA[b.dataset.ir.split(':')[0]]; if (ir) ir(); });
 /** Un grupo por fecha entero: encabezado, hasta TOPE_COLA tarjetas y el «+N más». `arr` viene de gruposHoy ({ tarea, dias }).
  *  `ctx` = { nNotas, motivos }: las notas contadas una vez y el aviso «nuevo» que absorbe cada tarjeta (U-16). */
 function pintarGrupoCola(lista, clave, texto, arr, cls, textoMas, ir, ctx = {}) {
     grupoCola(lista, clave, texto, arr.length, cls);
-    for (const { tarea: t } of arr.slice(0, TOPE_COLA)) { const m = ctx.motivos && ctx.motivos.get(Number(t.id)); lista.appendChild(renglonTarea(t, cls, m ? { motivo: m.tipo } : {}, { nNotas: ctx.nNotas, motivo: m && m.texto })); }
+    for (const { tarea: t } of arr.slice(0, TOPE_COLA)) { const m = ctx.motivos && ctx.motivos.get(Number(t.id)); lista.appendChild(renglonTarea(t, cls, m ? { motivo: m.tipo } : {}, { nNotas: ctx.nNotas, motivo: m && m.texto, etq: clave === 'hoy' ? etqHoy(t) : ETQ_GRUPO[clave] })); }
     if (arr.length > TOPE_COLA) masCola(lista, arr.length - TOPE_COLA, textoMas, ir);
+}
+/** v1.0.0 (cubeta 4): un grupo de «Requiere atención» que no es de tarjetas (servicios, vigencias, cobro, O.C., frentes): encabezado, hasta
+ *  TOPE_COLA renglones y el «+N más» a su página (llave de IR_COLA). */
+function pintarGrupoAtencion(lista, clave, texto, items, cls, textoMas, ir) {
+    if (!items.length) return;
+    grupoCola(lista, clave, texto, items.length, cls);
+    for (const it of items.slice(0, TOPE_COLA)) lista.appendChild(renglonAtencion(it));
+    if (items.length > TOPE_COLA) masCola(lista, items.length - TOPE_COLA, textoMas, ir);
 }
 /** Las tarjetas abiertas de los frentes activos: lo que miran la cola «Hoy», «Sin movimiento» y el salto de «Sin dueño».
  *  C-11 (v0.95.0): el conmutador y el salto la recalculan al clic; antes capturaban el arreglo del ultimo pintado. */
@@ -884,7 +897,7 @@ function pintarCola(abiertas, eventos) {   // `eventos` = el de eventosCola() de
     // U-16 (v0.145.0; el «reason label» de GitHub, R-01): un aviso «te asignó» / «cambió tu tarjeta» sobre una tarjeta que ya se PINTA en
     // un grupo por fecha no sale aparte en «Nuevo para ti»: va como motivo en el subtitulo de ese renglon y el total la cuenta una vez.
     // Las notas y menciones siguen como evento: su texto es lo nuevo. El mas reciente gana (nuevos viene del mas nuevo al mas viejo).
-    const pintadasFecha = new Set([g.vencidas, g.hoy, g.semana].flatMap(arr => arr.slice(0, TOPE_COLA).map(x => Number(x.tarea.id))));
+    const pintadasFecha = new Set([g.vencidas, g.hoy].flatMap(arr => arr.slice(0, TOPE_COLA).map(x => Number(x.tarea.id))));   // v1.0.0 (cubeta 4): «Esta semana» ya no pinta renglones aquí
     const motivos = new Map();
     for (const x of nuevos) if ((x.tipo === 'asignada' || x.tipo === 'cambio') && x.tarea && pintadasFecha.has(Number(x.tarea.id)) && !motivos.has(Number(x.tarea.id)))
         motivos.set(Number(x.tarea.id), { tipo: x.tipo, a: x.a, texto: `nuevo · ${nombreCorto(x.a.Quien, estado.roles)} ${VERBO_NUEVO[x.tipo]}` });
@@ -897,9 +910,14 @@ function pintarCola(abiertas, eventos) {   // `eventos` = el de eventosCola() de
     // aterriza en el proyecto que mas tiene con el filtro «sin dueño» puesto (el mismo salto que tenia el KPI).
     if (huerfanas.length) {
         grupoCola(urgente, 'sin-dueno', 'Sin dueño', huerfanas.length, 'warn', 'sin-dueno').dataset.kpi = 'sin-dueno';
-        for (const t of huerfanas.slice(0, TOPE_COLA)) urgente.appendChild(renglonTarea(t, 'warn', { sinDueno: '1' }, { nNotas }));   // U-04: ni «sin dueño ·» (lo dice el grupo) ni la fecha (la columna)
+        for (const t of huerfanas.slice(0, TOPE_COLA)) urgente.appendChild(renglonTarea(t, 'warn', { sinDueno: '1' }, { nNotas, etq: ETQ_GRUPO['sin-dueno'] }));   // U-04: ni «sin dueño ·» (lo dice el grupo) ni la fecha (la columna)
     }
-    // Derecha: nuevo para ti · te mencionaron · esta semana.
+    // v1.0.0 (cubeta 4; plan «Requiere atención» por rol): lo de Operación y Dinero que pide algo (inicio-reglas.js) — izquierda lo que está detenido o
+    // vence; derecha el cobro, la O.C. que no cuadra y los frentes sin movimiento. Lectura no ve nada de esto; colaborador, sin vigencias, cobranza ni frentes.
+    const op = atencionDeInicio();
+    pintarGrupoAtencion(urgente, 'detenidos', 'Servicios detenidos', op.detenidos, 'danger', 'ver en Servicios', 'servicios:detenidos');
+    pintarGrupoAtencion(urgente, 'vigencias', 'Vigencias a 30 días o menos', op.vigencias, 'warn', 'ver en Vigencias', 'vigencias:atencion');
+    // Derecha: nuevo para ti · te mencionaron · cobro · O.C. que no cuadra · frentes sin movimiento (y la liga a «Esta semana»).
     if (nuevosAparte.length) {
         grupoCola(resto, 'nuevo', 'Nuevo para ti', nuevosAparte.length, 'info');
         for (const x of nuevosAparte.slice(0, TOPE_NUEVOS)) {
@@ -911,20 +929,55 @@ function pintarCola(abiertas, eventos) {   // `eventos` = el de eventosCola() de
     }
     if (menciones.length) {
         grupoCola(resto, 'mencion', 'Te mencionaron', menciones.length, 'info');
-        for (const a of menciones.slice(0, TOPE_COLA)) resto.appendChild(renglonEvento(a, `«${a.Title}»`, { mencion: String(a.id) }));
+        for (const a of menciones.slice(0, TOPE_COLA)) resto.appendChild(renglonEvento(a, `«${a.Title}»`, { mencion: String(a.id) }, a.ProyectoId, 'mención'));
         if (menciones.length > TOPE_COLA) masCola(resto, menciones.length - TOPE_COLA, 'ver en Toda la actividad', 'actividad:mencion');   // U-09
     }
-    if (g.semana.length) pintarGrupoCola(resto, 'semana', 'Esta semana', g.semana, null, 'ver en el Calendario', 'calendario:semana', ctx);
-    const total = g.vencidas.length + g.hoy.length + huerfanas.length + nuevosAparte.length + menciones.length + g.semana.length;
+    pintarGrupoAtencion(resto, 'cobro', 'Cobro', op.cobro, 'info', 'ver en Servicios', 'servicios:cobro');
+    pintarGrupoAtencion(resto, 'no-cuadra', 'O.C. que no cuadra', op.noCuadra, 'warn', 'ver en Compras', 'compras:atencion');
+    pintarGrupoAtencion(resto, 'frentes', 'Frentes sin movimiento', op.frentes, 'warn', 'ver en Actividad 30 días', 'frentes:atencion');
+    // v1.0.0 (cubeta 4; plan: «la cola "esta semana / después" vive en Mis tareas»): «Esta semana» ya no lista sus tarjetas aquí; queda UNA liga con
+    // su cifra — a Mis tareas («vencen en 7 días») con «solo mías», al Calendario con «todo el frente». Antes (v0.21.0–v0.173.0): el grupo con 6 renglones.
+    if (g.semana.length) { const b = el('button', 'hoy-mas hoy-semana', `Esta semana ${plural(g.semana.length, 'vence', 'vencen')} ${g.semana.length} · ver en ${estado.hoySoloMias ? 'Mis tareas' : 'el Calendario'} →`); b.type = 'button'; b.dataset.ir = 'semana'; resto.appendChild(b); }
+    const total = g.vencidas.length + g.hoy.length + huerfanas.length + nuevosAparte.length + menciones.length + op.detenidos.length + op.vigencias.length + op.cobro.length + op.noCuadra.length + op.frentes.length;
     $('nHoy').textContent = total ? String(total) : '';
     // Cada mitad vacia lo dice en su lugar; el «solo mías» sigue mandando en el texto de la izquierda.
     if (!urgente.children.length) urgente.appendChild(el('p', 'vacio', estado.hoySoloMias ? 'Nada urgente de lo tuyo: ni vencidas ni para hoy.' : 'Nada urgente: ni vencidas ni para hoy, y todo tiene dueño.'));
-    if (!resto.children.length) resto.appendChild(el('p', 'vacio', estado.hoySoloMias ? 'Nada nuevo para ti ni tuyo por vencer esta semana.' : 'Nada nuevo para ti ni por vencer esta semana.'));
+    if (!resto.children.length) resto.appendChild(el('p', 'vacio', 'Nada nuevo para ti.'));
+    plegarCola();   // v1.0.0 (cubeta 6)
     // C-18 (v0.145.0): los ids de tarjeta que se pintaron van a «Sin movimiento», que ya no lee el DOM. `nuevos` entero (con los
     // absorbidos) sube la marca de visto: el motivo en el renglon TAMBIEN se vio.
     const enCola = new Set([...pintadasFecha, ...huerfanas.slice(0, TOPE_COLA).map(t => Number(t.id))]);
     return { nuevos, enCola };
 }
+/** v1.0.0 (cubeta 6; plan «Celular a 1 toque»; premortem «celular»): en celular «Requiere atención» no es un muro — pasados TOPE_CEL renglones,
+ *  lo que sigue (renglones, encabezados y «+N más») lleva .pliega y el CSS lo esconde bajo «Ver todo · N más». En escritorio el CSS no pliega
+ *  nada. Abrirla dura la sesión (`colaDesplegada`). Vuelta 1: el primer renglón de las menciones y de «Nuevo para ti» nunca se pliega. */
+const TOPE_CEL = 6; let colaDesplegada = false;
+function plegarCola() {
+    const caja = $('inicioHoy'), btn = $('colaVerTodo'); if (!caja || !btn) return;
+    // v1.0.0 (vuelta 1, revisión UI/UX «media»): lo que TE DICEN («Te mencionaron», «Nuevo para ti») no se pliega —su primer renglón queda a la
+    // vista aunque Vencidas llene los 6—; con eso, el tope se llena en el orden en que se lee. Antes, seis vencidas escondían la mención.
+    const grupos = [];
+    for (const lista of [$('inicioUrgente'), $('inicioResto')]) [...lista.children].forEach((x, i) => {
+        if (x.classList.contains('hoy-g') || i === 0) grupos.push({ cab: x.classList.contains('hoy-g') ? x : null, clave: x.dataset.grupo || '', items: [] });
+        if (!x.classList.contains('hoy-g')) grupos[grupos.length - 1].items.push(x);
+    });
+    const renglones = g => g.items.filter(x => x.classList.contains('hoy-r'));
+    const ver = new Set();
+    for (const g of grupos) if (g.clave === 'mencion' || g.clave === 'nuevo') { const r = renglones(g)[0]; if (r) ver.add(r); }
+    for (const g of grupos) for (const r of renglones(g)) if (ver.size < TOPE_CEL && !ver.has(r)) ver.add(r);
+    let ocultos = 0;
+    for (const g of grupos) {
+        const rs = renglones(g), alguno = rs.some(r => ver.has(r)), todos = rs.every(r => ver.has(r));
+        for (const r of rs) { r.classList.toggle('pliega', !ver.has(r)); if (!ver.has(r)) ocultos++; }
+        for (const x of g.items) if (!x.classList.contains('hoy-r')) x.classList.toggle('pliega', !todos);   // el «+N más» con lo último del grupo
+        if (g.cab) g.cab.classList.toggle('pliega', !alguno);
+    }
+    caja.classList.toggle('is-plegada', !colaDesplegada && ocultos > 0);
+    btn.hidden = colaDesplegada || !ocultos;
+    btn.textContent = `Ver todo · ${ocultos} más`;
+}
+document.addEventListener('click', ev => { if (ev.target.closest && ev.target.closest('#colaVerTodo')) { colaDesplegada = true; plegarCola(); const r = document.querySelector('#inicioHoy .pliega.hoy-r, #inicioHoy .pliega[data-ir]'); if (r) r.focus(); } });   // el foco va a lo primero que apareció (el botón se esconde)
 /** El salto de «sin dueño» (C7): al proyecto que mas tiene, con el filtro «sin dueño» puesto ENTERO — si ese proyecto ya
  *  estaba abierto, fijarProyectoAbierto no lo limpia y un «quien» previo se combinaria dejando el tablero vacio (revisor, 12-sep).
  *  C-11 (v0.95.0): las huerfanas se calculan AL CLIC (antes el encabezado capturaba las del pintado). C-13: el filtro se fija
@@ -974,36 +1027,7 @@ function pintarActividad() {
     $('acMas').hidden = filtradas.length <= acCtx.n;
     $('acMas').textContent = `ver 50 más (${filtradas.length - Math.min(acCtx.n, filtradas.length)} restantes)`;
 }
-/** Quien tiene que rol (PROY_Roles), solo lectura, con sus tarjetas abiertas. Cambiar roles sigue en SharePoint. */
-function abrirEquipo() {
-    const tb = $('eqLista'); tb.textContent = '';
-    // A2: en celular la tabla de 5 columnas no cabe (354 px) y se corta despues de «Rol»; las mismas
-    // filas se pintan ademas como fichas, y el CSS elige cual se ve.
-    const fi = $('eqFichas'); fi.textContent = '';
-    const roles = estado.roles.slice().sort((a, b) => String(a.Nombre || a.Title || '').localeCompare(String(b.Nombre || b.Title || '')));
-    for (const r of roles) {
-        const correo = String(r.Title || '').toLowerCase();
-        const abiertas = estado.tareas.filter(t => String(t.Asignado || '').toLowerCase() === correo && t.Columna !== HECHO).length;
-        const fa = el('div', 'eq-ficha' + (r.Activo === false ? ' inactivo' : ''));
-        fa.appendChild(el('span', 'n', nombreDe(correo, estado.roles)));
-        const ch = el('span', 'ch');
-        ch.appendChild(chip(r.Rol || 'lectura', r.Rol === 'gerencia' ? 'info' : null));
-        if (r.Activo === false) ch.appendChild(chip('inactiva', 'danger'));
-        ch.appendChild(el('span', '', `${abiertas} ${plural(abiertas, 'abierta')}`));
-        fa.appendChild(ch);
-        fa.appendChild(el('span', 'c', correo));
-        fi.appendChild(fa);
-        const tr = el('tr', r.Activo === false ? 'inactivo' : '');
-        tr.appendChild(el('td', '', nombreDe(correo, estado.roles)));
-        tr.appendChild(el('td', 'mn-mono', correo));
-        const tdr = el('td'); tdr.appendChild(chip(r.Rol || 'lectura', r.Rol === 'gerencia' ? 'info' : null)); tr.appendChild(tdr);
-        const tda = el('td'); tda.appendChild(r.Activo === false ? chip('no', 'danger') : chip('sí', 'ok')); tr.appendChild(tda);
-        tr.appendChild(el('td', 'mn-mono', String(estado.tareas.filter(t => String(t.Asignado || '').toLowerCase() === correo && t.Columna !== HECHO).length)));
-        tb.appendChild(tr);
-    }
-    if (!roles.length) { const tr = el('tr'); const td = el('td', 'vacio', 'PROY_Roles está vacía.'); td.colSpan = 5; tr.appendChild(td); tb.appendChild(tr); fi.appendChild(el('p', 'vacio', 'PROY_Roles está vacía.')); }
-    abrirDialogo('dlgEquipo');
-}
+// v1.0.0: «Equipo» (F13) dejó de ser diálogo: es la tarjeta «Equipo y roles» de la página Cuenta (armazon.js pintarCuenta, misma lógica).
 
 // ---------------------------------------------------------------- Proyectos
 
@@ -1012,7 +1036,30 @@ function abrirEquipo() {
 function pintarProyectos() { conservarFoco($('p-proyectos'), ['open', 'todos'], pintarProyectosAhora); }
 // C-14 (29-sep): el boton que quita el filtro de equipo se escribia dos veces con el mismo handler.
 const botonVerTodos = rotulo => boton(rotulo, 'mn-btn is-ghost is-sm', () => { estado.filtroEquipo = null; repintar(); }, { todos: '1' });
+/**
+ * v1.0.0 (rediseño 2026-10-02, cubeta 3; plan «Trabajo»; maqueta tablero()): la cabecera de la plantilla (título + «?» + «Nuevo proyecto», que se
+ * MUEVE a sus acciones como «Nueva partida» en Capital) y la fila de KPIs de la maqueta sobre los frentes activos del ámbito. Solo piel: la lista
+ * (v0.25.0), el buscador, los cerrados plegados y el filtro de equipo son los de siempre.
+ */
+const AYUDA_PROYECTOS = 'Un renglón por frente activo, del que vence antes al que vence después: la hoja de calendario es el fin del frente (rojo vencido, ámbar cerca) y las tres cifras son sus tarjetas abiertas, vencidas y hechas. La unidad del rail (el ámbito) filtra la lista y los KPIs; los cerrados van plegados al pie.';
+function pintarCabeceraProyectos() {
+    const cont = $('proyectosCab'), btn = $('btnNuevoProyecto'), conFoco = document.activeElement === btn;   // moverlo a la cabecera nueva le quita el foco
+    conservarFoco(cont, ['rp'], () => { soltarIdsFuera(cont); cont.textContent = ''; cont.appendChild(cabecera({ id: 'proyectos', titulo: 'Proyectos', ayuda: AYUDA_PROYECTOS, sub: 'Frentes activos, del que vence antes al que vence después.', subId: 'proyectosSub', acciones: [btn] }, vistaDe('proyectos'), repintar)); });
+    if (conFoco && document.activeElement !== btn) btn.focus();
+    // la fila de KPIs de la maqueta (tablero(): tareas abiertas · prioridad alta · con fecha · personas · proyectos), sobre los activos del ámbito
+    const vivos = visibles(), ids = new Set(vivos.map(p => p.id)), ab = estado.tareas.filter(t => ids.has(Number(t.ProyectoId)) && t.Columna !== HECHO);
+    const nV = vencidasEn(ab), nA = ab.filter(t => t.Prioridad === 'alta').length, nP = new Set(ab.map(t => String(t.Asignado || '').toLowerCase()).filter(Boolean)).size;
+    const card = $('proyectosKpisCard'); card.textContent = '';
+    card.appendChild(filaKpis([
+        { clave: 'abiertas', valor: String(ab.length), texto: plural(ab.length, 'Tarjeta abierta', 'Tarjetas abiertas') },
+        { clave: 'vencidas', valor: String(nV), texto: plural(nV, 'Vencida', 'Vencidas'), clase: nV ? 'neg' : '' },
+        { clave: 'alta', valor: String(nA), texto: 'Prioridad alta' },
+        { clave: 'personas', valor: String(nP), texto: plural(nP, 'Persona con abiertas', 'Personas con abiertas') },
+        { clave: 'frentes', valor: String(vivos.length), texto: plural(vivos.length, 'Frente activo', 'Frentes activos') }
+    ], 'proyectosKpis'));
+}
 function pintarProyectosAhora() {
+    pintarCabeceraProyectos();
     $('btnNuevoProyecto').disabled = !PUEDE.proyecto(estado.rol);
     $('btnNuevoProyecto').title = PUEDE.proyecto(estado.rol) ? '' : 'Solo gerencia crea proyectos';
     $('btnNuevoProyecto').hidden = !PUEDE.proyecto(estado.rol);   // U-05 (16-sep): en celular el title no existe y el boton gris no explicaba nada; quien no puede crear no lo ve
@@ -1058,6 +1105,12 @@ function abrirProyecto(id, filtro = null) {
     irA('proyecto');
 }
 /** C-12 (v0.115.0): el proyecto se pinta en tres partes; el clic de pestaña solo repinta pintarPestanas y «Filtrar» solo pintarFiltrosProyecto. */
+/** v1.0.0 (cubeta 6): «Documentos · N» = ligas + archivos conocidos de la carpeta del proyecto (ERP_Proyectos), como el contador de la tarjeta; la
+ *  carpeta la leen Documentos, la ficha y Archivos, y el repintado de su llegada pasa por aquí. */
+function contarDocs(p) {
+    const n = estado.ligas.filter(l => Number(l.ProyectoId) === p.id).length + nArchivosDe(p);
+    $('nDocsTab').textContent = String(n); $('nDocsTab').hidden = !n;
+}
 function pintarProyecto() {
     const p = proyectoAbierto(); if (!p) { irA('proyectos'); return; }
     // B2 (v0.5.0) caia de «resumen» a «tablero» en escritorio porque la pestaña solo existia en celular;
@@ -1086,6 +1139,16 @@ function pintarCabeceraProyecto(p, ts, a) {
     // F6: un cerrado se reabre (solo gerencia); el boton solo existe en ese estado.
     $('btnReabrirProyecto').classList.toggle('oculto', !(PUEDE.proyecto(estado.rol) && p.Estado === 'cerrado'));
     $('btnEliminarProyecto').classList.toggle('oculto', !PUEDE.borrar(estado.rol));   // v0.13.0: solo gerencia, en cualquier estado
+    // v1.0.0 (cubeta 3; maqueta tablero()): la fila de KPIs del frente bajo la cabecera; la cabecera contraída (v0.29.0) también la pliega
+    { const ab = ts.filter(t => t.Columna !== HECHO), nV = vencidasEn(ab), nA = ab.filter(t => t.Prioridad === 'alta').length;
+      const dF = diasPara(p.Vence), card = $('proyectoKpisCard'); card.textContent = ''; card.classList.toggle('oculto', cabeceraContraida());
+      card.appendChild(filaKpis([
+          { clave: 'abiertas', valor: String(ab.length), texto: plural(ab.length, 'Tarjeta abierta', 'Tarjetas abiertas') },
+          { clave: 'vencidas', valor: String(nV), texto: plural(nV, 'Vencida', 'Vencidas'), clase: nV ? 'neg' : '' },
+          { clave: 'alta', valor: String(nA), texto: 'Prioridad alta' },
+          { clave: 'hechas', valor: `${a.pct}%`, texto: `${a.hechas} de ${a.total} ${plural(a.total, 'hecha', 'hechas')}` },
+          { clave: 'fin', valor: p.Vence ? fechaDia(p.Vence) : '—', texto: p.Estado !== 'activo' ? 'Frente cerrado' : dF === null ? 'Sin fin del frente' : `Fin del frente · ${fraseVence(dF, 'dias')}`, clase: p.Estado === 'activo' && dF !== null && dF < 0 ? 'neg' : '' }
+      ], 'proyectoKpis')); }
     // B2: la linea que resume el frente arriba, donde se lee sin bajar a la lateral.
     const dias = diasPara(p.Vence);
     // C8: el chip «vence en N d · faltan M» de la lista, junto al %, en escritorio y celular. Cuando
@@ -1117,8 +1180,8 @@ function pintarPestanas(p) {
     if (estado.tab !== 'chat') salirDelChat();   // v0.9.0: cambiar de pestana dentro del proyecto tambien es salir
     document.body.classList.toggle('is-chat', estado.tab === 'chat');   // v0.15.0: pintarProyecto no pasa por repintar() al cambiar de pestana
     // v0.8.0: las pestanas dicen cuanto hay adentro (Trello): documentos ligados y comentarios del chat.
-    const nDocs = estado.ligas.filter(l => Number(l.ProyectoId) === p.id).length, nChat = comentariosDe(p.id).length;
-    $('nDocsTab').textContent = String(nDocs); $('nDocsTab').hidden = !nDocs;
+    contarDocs(p);
+    const nChat = comentariosDe(p.id).length;
     $('nChatTab').textContent = String(nChat); $('nChatTab').hidden = !nChat;
     // v0.9.0: el contador se pinta en ambar si hay comentarios ajenos que esta persona no ha tenido en pantalla.
     const nNuevos = estado.tab === 'chat' ? 0 : nuevosDe(p.id);   // C-04
@@ -1130,7 +1193,7 @@ function pintarPestanas(p) {
     if (estado.tab === 'tablero') pintarTablero(p);
     else if (estado.tab === 'lista') pintarLista(p);
     else if (estado.tab === 'roadmap') pintarRoadmapProyecto(p);   // v0.10.0
-    else if (estado.tab === 'docs') pintarDocs(p);
+    else if (estado.tab === 'docs') { pintarCarpetaProyecto($('docsCarpeta'), p); pintarDocs(p); }   // v1.0.0 (cubeta 5): arriba la carpeta del proyecto (el mismo componente que #archivos/proyecto/<clave>)
     else if (estado.tab === 'chat') pintarChat(p);
     else if (estado.tab === 'capital') pintarCapitalTab(p);   // v0.102.0
 }
@@ -1150,9 +1213,9 @@ function pintarLateralProyecto(p, ts, a) {
     const par = (k, v, seg) => { const b = el('b', seg ? 'muestra is-' + seg[2] : '', k); if (seg) { if (seg[3]) b.dataset.tono = seg[3]; b.prepend(el('i')); } kv.appendChild(b); kv.appendChild(el('span', '', v)); };
     const segDe = clave => segs.find(s => s[0].clave === clave);
     par('Hechas', `${a.hechas} de ${a.total}`, segDe(a.columnas[a.columnas.length - 1].clave)); for (const c of a.columnas.slice(1, -1)) par(c.nombre, String(a.porColumna[c.clave]), segDe(c.clave));
-    par('Fin del frente', fechaCorta(p.Vence)); par('Responsable', p.Responsable ? nombreDe(p.Responsable, estado.roles) : '—'); par('Clave', p.Clave);
+    par('Fin del frente', p.Vence ? fechaDia(p.Vence) : '—'); par('Responsable', p.Responsable ? nombreDe(p.Responsable, estado.roles) : '—'); par('Clave', p.Clave);
     if (p.Carpeta) par('Carpeta', p.Carpeta);
-    if (p.Estado === 'cerrado') par('Cerrado', `${nombreDe(p.CerradoPor, estado.roles)} · ${fechaCorta(p.CerradoEl)}`);
+    if (p.Estado === 'cerrado') par('Cerrado', `${nombreDe(p.CerradoPor, estado.roles)} · ${fechaDia(p.CerradoEl)}`);
     const q = $('pQuienes'); q.textContent = '';
     // C-16 (v0.114.0): abiertas por persona en UNA pasada (antes un filter por persona dentro del for).
     const abiertasDe = new Map();
@@ -1305,6 +1368,7 @@ async function guardarProyecto(ev) {
     }
     avisar(`Proyecto «${titulo}» creado. Clave: ${clave}.`, 'ok');
     await registrarActividad('crear-proyecto', `creó el proyecto «${titulo.slice(0, 80)}»`, creado.id, null);
+    alCrearProyecto(creado);   // v1.0.0 (cubeta 5): su carpeta en ERP_Proyectos nace ya (best-effort; si no, con la primera subida)
     abrirProyecto(creado.id);
 }
 
@@ -1361,6 +1425,8 @@ async function cerrarProyecto() {
     const p = proyectoAbierto(); if (!p) return;
     if (!PUEDE.proyecto(estado.rol)) { avisar('Solo gerencia cierra proyectos.', 'error'); return; }
     const faltan = tareasDe(p, estado.tareas).filter(t => t.Columna !== HECHO).length;
+    // v1.0.0 (cubeta 5; plan «Disciplina»): con archivos SIN ARCHIVAR en su carpeta, gerencia ve la lista y puede «Mandar a archivar todo» antes
+    if (!await revisarAntesDeCerrar(p)) return;
     const { ok } = await confirmar({ titulo: 'Cerrar el proyecto', ok: 'Cerrar', texto: `«${p.Title}» pasa a cerrado con tu sello. Sale de Inicio; sus tarjetas quedan como registro y nada se borra.${faltan ? ` Ojo: ${plural(faltan, 'queda', 'quedan')} ${faltan} ${plural(faltan, 'tarjeta')} sin terminar.` : ''}` });
     if (!ok) return;
     const campos = { Estado: 'cerrado', CerradoPor: estado.cuenta.username, CerradoEl: new Date().toISOString() };
@@ -1419,6 +1485,7 @@ async function eliminarProyecto() {
 }
 
 // ---------------------------------------------------------------- tema
+// v1.0.0 (decisión 9 del plan): el segmento Claro | Oscuro vive en la página Cuenta; la llave `tema` de localStorage es la de siempre.
 
 function aplicarTema(t) {
     if (t === 'claro' || t === 'oscuro') document.documentElement.dataset.theme = t === 'oscuro' ? 'dark' : 'light';
@@ -1426,7 +1493,7 @@ function aplicarTema(t) {
     const oscuro = t === 'oscuro' || (t !== 'claro' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     // v0.13.0 (Carlos, 12-sep): el boton marcado es el tema EFECTIVO —sin eleccion guardada, el del sistema—, asi siempre hay uno.
     for (const b of document.querySelectorAll('.tema button')) b.setAttribute('aria-pressed', b.dataset.tema === (oscuro ? 'oscuro' : 'claro') ? 'true' : 'false');
-    const mt = $('metaTema'); if (mt) mt.content = oscuro ? '#131313' : '#f7f7f7';   // --page del Tablero (v0.7.0)   // el arnés E2E no monta el <head>
+    const mt = $('metaTema'); if (mt) mt.content = oscuro ? '#141b27' : '#f7f8fa';   // v1.0.0: --bg de la maqueta (claro) y su oscuro derivado   // el arnés E2E no monta el <head>
 }
 try { aplicarTema(localStorage.getItem('tema') || ''); } catch (_) { aplicarTema(''); }
 // v0.13.0: un clic ELIGE ese tema y ya (antes el segundo clic lo apagaba y volvia al del sistema, que en una maquina oscura
@@ -1438,22 +1505,8 @@ for (const b of document.querySelectorAll('.tema button')) b.addEventListener('c
     aplicarTema(t);
 });
 
-// ---------------------------------------------------------------- rail plegable (v0.28.0)
-// En escritorio el rail se pliega a 64 px de iconos; la eleccion se guarda en localStorage `rail` = 'plegado'
-// v0.28.1 (Carlos): la MARCA pliega y el chevron —visible solo plegado— despliega; los dos declaran aria-expanded.
-// (sin llave = desplegado). Cada pestana lleva su rotulo en el title para que plegada siga diciendo que es.
-function aplicarRail(plegado) {
-    $('shell').classList.toggle('rail-plegado', plegado);
-    for (const id of ['btnMarca', 'btnPlegar']) $(id).setAttribute('aria-expanded', plegado ? 'false' : 'true');
-}
-for (const b of document.querySelectorAll('#pestanas button')) { const s = b.querySelector('span'); if (s) b.title = s.textContent; }
-try { aplicarRail(localStorage.getItem('rail') === 'plegado'); } catch (_) { aplicarRail(false); }
-function fijarRail(plegado) {
-    try { if (plegado) localStorage.setItem('rail', 'plegado'); else localStorage.removeItem('rail'); } catch (_) {}
-    aplicarRail(plegado);
-}
-$('btnMarca').addEventListener('click', () => fijarRail(true));
-$('btnPlegar').addEventListener('click', () => fijarRail(false));
+// v1.0.0: el rail plegable de v0.28.0 (llave `rail`) se fue: el rail mide 64 px siempre y lo que se pliega es el PANEL del módulo
+// (clic en el módulo activo; llave `panel`, armazon.js).
 
 // ---------------------------------------------------------------- bandeja de Mensajes plegable (v0.56.0)
 // Carlos, 15-sep (artifact MHCmeJw5, opción C): la bandeja se pliega a 52 px de iconos por frente (#mensajesRail) y el
@@ -1506,7 +1559,7 @@ $('selProyecto').addEventListener('keydown', e => { if (e.key === 'Escape') { $(
 function cabeceraContraida() { try { return localStorage.getItem('cabecera') === 'contraida'; } catch (_) { return false; } }
 function fijarCabecera(contraida) {
     try { if (contraida) localStorage.setItem('cabecera', 'contraida'); else localStorage.removeItem('cabecera'); } catch (_) {}
-    $('proyectoCab').classList.toggle('contraida', contraida);
+    $('proyectoCab').classList.toggle('contraida', contraida); $('proyectoKpisCard').classList.toggle('oculto', contraida);   // v1.0.0 (cubeta 3): la fila de KPIs se pliega con ella
     $('btnCabecera').setAttribute('aria-expanded', contraida ? 'false' : 'true'); $('btnCabecera').title = contraida ? 'Desplegar la cabecera' : 'Contraer la cabecera';
 }
 $('btnCabecera').addEventListener('click', () => fijarCabecera(!cabeceraContraida()));
@@ -1516,10 +1569,14 @@ fijarCabecera(cabeceraContraida());
 
 $('btnEntrar').addEventListener('click', entrar);
 $('btnSalir').addEventListener('click', salir);
-$('btnSalirMovil').addEventListener('click', salir);
 $('btnActualizar').addEventListener('click', recargar);
-$('btnActualizarMovil').addEventListener('click', () => { $('menuMovil').open = false; recargar(); });
-for (const b of document.querySelectorAll('#pestanas button')) b.addEventListener('click', () => irA(b.dataset.p));
+// v1.0.0: el armazón (rail de módulos, panel, chips, hoja, «+ Nuevo», Buscar, Avisos, Cuenta) navega con las funciones de aquí.
+fijarNavArmazon({ irARuta, irA, repintar, abrirProyecto: id => abrirProyecto(id) });
+engancharArmazon();
+// v1.0.0 (cubeta 4): Inicio (KPIs que llevan a su reporte), el buscador global y «Preguntar» navegan como una liga pegada (irARuta, síncrono)
+fijarNavInicio(irARuta);
+engancharBuscador({ irARuta, abrirProyecto: id => abrirProyecto(id) });
+fijarNavPreguntar({ irARuta, irA }); engancharPreguntar();
 for (const b of document.querySelectorAll('.tab')) b.addEventListener('click', () => { estado.tab = b.dataset.tab; olvidarLugarRoadmap(); pintarPestanasAbierto(); fijarHash(hashDe()); });   // C-12 (v0.115.0): solo lo que cambia con la pestaña
 // U-35 (v0.123.0): las pestañas del proyecto como tablist de verdad — una sola parada de Tab (tabindex rotativo, lo pone pintarPestanas)
 // y flechas izquierda/derecha entre las visibles (Capital se salta cuando esta oculta).
@@ -1547,11 +1604,7 @@ acomodarAccMenu(); acomodarLeyenda();
 document.addEventListener('click', e => { const m = $('accMenu'); if (m.open && !m.contains(e.target)) m.open = false; });
 $('accMenu').querySelector('.acciones').addEventListener('click', e => { if (e.target.closest('button')) $('accMenu').open = false; });
 // U-12 (17-sep): el submenu «Editar ›» (#accEditar) se aplano; ya no hay nada que plegar al cerrar el «⋮».
-// D6: el pie del rail apilaba seis controles en 60 px; Equipo, Ver en SharePoint y Salir viven en un
-// menu «···» hacia arriba (Actualizar y el tema se quedan a la vista). Se cierra al elegir y al tocar fuera.
-document.addEventListener('click', e => { const m = $('menuRail'); if (m.open && !m.contains(e.target)) m.open = false; });
-$('menuRail').querySelector('.menu-caja').addEventListener('click', () => { $('menuRail').open = false; });
-$('menuRail').addEventListener('keydown', e => { if (e.key === 'Escape' && $('menuRail').open) { $('menuRail').open = false; $('menuRail').querySelector('summary').focus(); } });   // U-15 (v0.145.0): Esc cierra, como selProyecto
+// v1.0.0: el menú «···» del pie del rail se fue: Actualizar, Ver en SharePoint, Salir, el tema y Equipo viven en la página Cuenta.
 // C3: buscador en Proyectos y en Mis tareas (misma normalizacion que el del tablero).
 $('filtroEquipoMovil').addEventListener('change', () => { estado.filtroEquipo = $('filtroEquipoMovil').value || null; repintar(); });
 $('textoProyectos').addEventListener('input', () => { estado.textoProyectos = $('textoProyectos').value; if (estado.pestana === 'proyectos') pintarProyectos(); });
@@ -1576,24 +1629,29 @@ $('dlgSalud').addEventListener('cancel', ev => { if (slValores() !== slAlAbrir) 
 $('npCancelar').addEventListener('click', cancelarFormaProyecto);   // U-08 (24-sep)
 engancharTablero();
 engancharDocs();
+// v1.0.0 (cubeta 5): Archivos — la cola y Mandar a archivar repintan la pantalla y los Documentos de la ficha abierta; la campana suma las
+// subidas con error y los «¿duplicado?» retenidos
+engancharModuloArchivos(); alCambiarArchivos(() => { repintar(); repintarDocsDeFicha(); }); registrarFuenteAvisos(fuenteAvisosArchivos);
 engancharChat();
 engancharMensajes();   // v0.42.0
 engancharGastos(); alCambiarGastos(repintar);   // v0.162.0
+// v1.0.0 (cubeta 2): Por cobrar y Por pagar ya no son pestañas de Finanzas sino páginas con ruta propia (#finanzas/cobrar|pagar/<r>): la
+// página la dice el sufijo (estado.sub) y cobranza.js solo repinta. Abrir una vista guardada navega con irA (guardados.js).
 alCambiarCobranza(repintar); fijarIrDesdeFinanzas(irA);   // v0.165.0
+fijarNavGuardados(irA);
 alCambiarVigencias(repintar);   // v0.166.0
 alCambiarServicios(repintar);   // v0.168.0
 alCambiarCompras(repintar);   // v0.169.0
+fijarRepintarReportes(repintar);   // v1.0.0 (cubeta 3): guardar una vista de Trabajo la pinta en «Guardados» del panel
 engancharCapital(); alCambiarCapital(repintar); fijarIrAProyecto(id => abrirProyecto(id));   // v0.100.0; C-04 (26-sep): recibe el id
 $('pCapitalIr').addEventListener('click', () => { const p = proyectoAbierto(); if (!p) return; estado.filtroCapital = p.id; irA('capital'); });
 engancharRoadmap(); engancharCalendario(); engancharArchivos(); engancharReportes();   // v0.10.0 · v0.26.0 roadmap a pantalla completa
-for (const b of document.querySelectorAll('.ir-movil')) b.addEventListener('click', () => { $('menuMovil').open = false; irA(b.dataset.ir); });   // v0.10.0: Roadmap · Archivos · Reportes no caben en la barra del celular
+// v1.0.0: el menú «···» del celular se fue: cada destino está a ≤ 2 toques por la barra de módulos y los chips (armazon.js).
 $('btnActividadInicio').addEventListener('click', () => abrirActividad(null));
 $('btnActividadProyecto').addEventListener('click', () => abrirActividad(proyectoAbierto() ? estado.proyectoAbiertoId : null));
 $('acCerrar').addEventListener('click', () => cerrarDialogo('dlgActividad'));
 $('acMas').addEventListener('click', () => { acCtx.n += 50; pintarActividad(); });
-$('btnEquipo').addEventListener('click', abrirEquipo);
-$('btnEquipoMovil').addEventListener('click', () => { $('menuMovil').open = false; abrirEquipo(); });
-$('eqCerrar').addEventListener('click', () => cerrarDialogo('dlgEquipo'));
+// v1.0.0: Equipo es la tarjeta «Equipo y roles» de Cuenta (#cuenta/equipo): su entrada vive en el panel de Cuenta (armazon.js).
 $('btnImprimir').addEventListener('click', () => window.print());
 $('shell').classList.add('sin-sesion');
 

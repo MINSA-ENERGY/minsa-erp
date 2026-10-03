@@ -4,6 +4,8 @@
 // .claude/skills/_compartido/scripts/vigencias.py de los marcadores `> 📅 **VIGENCIA**` de la KB y se publica como
 // vigencias.json en CONFIG.bibliotecaDatos. Aqui solo se valida y se cuentan los dias.
 
+import { fechaDia } from './reglas.js';   // v1.0.0 (cubeta 6): la fecha que se muestra, una sola forma en la app
+
 export const VERSION_VIGENCIAS = 1;
 /** Umbrales del semaforo, en dias que faltan: hasta ROJO es rojo, hasta AMBAR es ambar. Una renovacion pide tiempo. */
 export const VIG_ROJO = 15;
@@ -45,9 +47,13 @@ export function ordenarVigencias(lista, hoy = new Date()) {
 }
 
 /** Conteos para el resumen: vencidas, en rojo (sin vencer) y en ambar. */
+/** v1.0.0 (vuelta 1, revisión UI/UX «media»): «vencidas o a ≤ 30 días» — la ventana de «Requiere atención» y del KPI de Inicio (plan), que la
+ *  página de Vigencias también enseña: el número de Inicio tiene que estar donde su KPI lleva. */
+export const VIG_ATENCION = 30;
 export function resumenVigencias(ordenadas) {
-    const r = { vencidas: 0, rojo: 0, ambar: 0, total: ordenadas.length };
+    const r = { vencidas: 0, rojo: 0, ambar: 0, atencion: 0, total: ordenadas.length };
     for (const v of ordenadas) {
+        if (v.dias <= VIG_ATENCION) r.atencion++;
         if (v.dias < 0) r.vencidas++;
         else if (v.dias <= VIG_ROJO) r.rojo++;
         else if (v.dias <= VIG_AMBAR) r.ambar++;
@@ -55,6 +61,15 @@ export function resumenVigencias(ordenadas) {
     return r;
 }
 
-const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-/** 2027-01-17 -> «17-ene-2027» (sin pasar por Date: la fecha es de calendario, no un instante). */
-export const fechaVigencia = iso => { const [a, m, d] = iso.split('-'); return `${Number(d)}-${MESES[Number(m) - 1]}-${a}`; };
+// ---------------------------------------------------------------- v1.0.0 (rediseño 2026-10-02, cubeta 3): la plantilla de reporte
+
+/** Las unidades que hay, en orden (el desplegable «TODAS LAS UNIDADES» de la maqueta); sin unidad, «—». */
+export const unidadesDe = lista => [...new Set(lista.map(v => String(v.unidad || '—')))].sort((a, b) => a.localeCompare(b, 'es'));
+/** Las de una unidad (o todas con null). */
+export const filtrarVigencias = (lista, unidad) => unidad ? lista.filter(v => String(v.unidad || '—') === unidad) : lista.slice();
+/** La más próxima que NO ha vencido (para el KPI «la siguiente»); null si no hay. Recibe la lista ya ordenada (con `dias`). */
+export const siguienteVigencia = ordenadas => ordenadas.find(v => v.dias >= 0) || null;
+
+/** 2027-01-17 -> «17/01/2027» (dd/mm/aaaa desde la vuelta 1, Carlos 3-oct) (sin pasar por Date: la fecha es de calendario, no un instante). v1.0.0 (cubeta 6): el formateador único de la
+ *  app (reglas.js fechaDia); antes «17-ene-2027» y, en la cubeta 6, «17 ene 2027». */
+export const fechaVigencia = iso => fechaDia(iso);
