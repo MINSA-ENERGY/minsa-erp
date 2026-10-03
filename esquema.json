@@ -151,6 +151,19 @@
         { "nombre": "Rol", "titulo": "Rol", "tipo": "choice", "opciones": ["tesoreria", "contabilidad"], "obligatorio": true },
         { "nombre": "Activo", "titulo": "Activo", "tipo": "boolean" }
       ]
+    },
+    {
+      "nombre": "ERP_Vistas",
+      "titulo": "Guardados (vistas, segmentos y fijados)",
+      "clave": "vistas",
+      "regla": "v1.0.0 (rediseño 2026-10-02, plan «Defaults del implementador»): lo que cada persona GUARDA en la app — un reporte con su moneda, rango y periodo, un segmento de Dinero, un archivo fijado (cubeta 5). Un renglon por vista; Dueno = correo de quien la guardo; Compartida = la ve todo el equipo (si no, solo su dueño). Definicion es el JSON que escribe la app (tipo, ruta, condiciones…); la app lo VALIDA al leerlo porque cualquier Miembro puede editar la lista. Ojo: un segmento de Dinero guarda nombres de contraparte y la lista la leen todos los Miembros del sitio. Mientras la lista no exista, la app guarda en el equipo (localStorage) y lo dice.",
+      "columnas": [
+        { "nombre": "Title", "titulo": "Nombre", "tipo": "text", "obligatorio": true },
+        { "nombre": "Dueno", "titulo": "Dueño (correo)", "tipo": "text", "obligatorio": true, "indexada": true },
+        { "nombre": "Compartida", "titulo": "Compartida con el equipo", "tipo": "boolean" },
+        { "nombre": "Modulo", "titulo": "Módulo", "tipo": "choice", "opciones": ["inicio", "trabajo", "archivos", "dinero", "operacion"], "obligatorio": true, "indexada": true },
+        { "nombre": "Definicion", "titulo": "Definición (JSON)", "tipo": "note", "obligatorio": true, "nota": "la escribe la app; no se edita a mano" }
+      ]
     }
   ],
   "bibliotecas": [

@@ -20,6 +20,8 @@ import { activosDe, ordenarProyectos, fechaMexico, nombreDe, diaDe, hrefSeguro, 
 import { $, L, estado, el, boton, chip, avisar, abrirDialogo, cerrarDialogo, confirmar, opciones, porId, agregarSinDuplicar,
     aplicarVivo, campoFecha, aIsoDia, diaDeCampo, fechaInput, fechaCorta, equipoDe, fijarHash, hashDe } from './comun.js';
 import { esConflicto } from './graph.js';
+import { cabecera, vistaDe, soltarIdsFuera } from './reporte.js';   // v1.0.0: la piel de la plantilla de reporte
+import { conservarFoco } from './comun.js';
 import { rolesErpDe, PUEDE_GASTO, misGastos, porReembolsar, resueltos, yaReembolsadoAntes, totalesPorMes, sumaPorMoneda,
     formatoMonto, etiquetaEstado, etiquetaCfdi, tipoComprobante, extComprobante, comprobanteValido, nombreComprobante,
     rutaComprobante, faltanGasto, largoInvalido, camposGasto, camposReembolso, camposRechazo, CATEGORIAS_GASTO, MONEDAS,
@@ -89,9 +91,20 @@ function pintarBotonNuevo() {
     b.classList.toggle('is-primary', !b.disabled);
 }
 
-/** #gastos · #gastos/tesoreria · #gastos/contabilidad. Pinta en #gastosCuerpo; la cabecera es fija (index.html). */
+/** v1.0.0 (rediseño, cubeta 2): la cabecera de la plantilla de reporte (título + «?» + «Registrar gasto»); #gastosSub sigue siendo el renglón de abajo. */
+const AYUDA_GASTOS = 'Cómo funciona: registras el gasto (con o sin factura, con o sin ticket; sin comprobante, con una nota que diga por qué) y tesorería lo marca reembolsado o rechazado. Contabilidad confirma el CFDI que la tarea semanal propone. Pesos y dólares nunca se suman.';
+let btnNuevo = null;
+function pintarCabeceraGastos() {
+    const cont = $('gastosCab'); btnNuevo = btnNuevo || $('btnNuevoGasto');
+    const foco = document.activeElement === btnNuevo;
+    conservarFoco(cont, ['rp'], () => { soltarIdsFuera(cont); cont.textContent = ''; cont.appendChild(cabecera({ id: 'gastos', titulo: 'Gastos', ayuda: AYUDA_GASTOS, acciones: [btnNuevo], sub: ' ', subId: 'gastosSub' }, vistaDe('gastos'), () => alCambiar())); });
+    if (foco && document.activeElement !== btnNuevo) btnNuevo.focus();
+}
+
+/** #gastos · #gastos/tesoreria · #gastos/contabilidad. Pinta en #gastosCuerpo; la cabecera la pone la plantilla (v1.0.0). */
 export function pintarGastos() {
     const v = $('gastosCuerpo'); v.textContent = '';
+    pintarCabeceraGastos();
     pintarBotonNuevo();
     $('gastosSub').textContent = 'Con o sin factura, con o sin ticket.';
     if (G.lista === null && !G.error) {

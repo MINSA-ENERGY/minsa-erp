@@ -305,21 +305,32 @@
 
     <!-- v0.100.0 (Carlos, 25-sep): Capital de trabajo = partidas ESTIMADAS (necesidad | fondeo) ligadas a un proyecto, en MXN.
          Solo gerencia. KPI arriba (Necesario · Cubierto · Falta · Partidas), tabla agrupada por proyecto con subtotal y corte por mes. -->
+    <!-- v1.0.0 (rediseño, cubeta 2): Capital vive en Dinero con la plantilla de reporte. #capitalCab = la cabecera (capital.js la pinta y le
+         mueve «Nueva partida» y el filtro de proyecto); en #capital/mes trae además la tarjeta 1 (gráfica de la falta acumulada + KPIs).
+         «Por proyecto» (#capital) y «Por mes» (#capital/mes) son dos páginas; las dos tablas se pintan siempre y se ve la de la página. -->
     <section id="p-capital" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3z"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5v5M17.5 9.5v5"/></svg></span><h1>Capital</h1><button id="btnNuevaPartida" class="mn-btn is-primary is-sm" type="button">Nueva partida</button><p class="sub" id="capitalSub">Capital de trabajo estimado por proyecto: lo necesario, lo cubierto y lo que falta. En pesos (MXN).</p></header>
+      <div id="capitalCab"></div>
       <p class="capital-falta oculto" id="capitalFalta" role="status"></p>
       <div class="capital-cuerpo" id="capitalCuerpo">
         <label class="capital-filtro" for="capitalProyecto"><span class="mn-label">Proyecto</span><select id="capitalProyecto"></select></label>
-        <div class="cres-caja" id="capitalKpis"></div>
-        <div id="capitalTabla"></div>
-        <section class="choja-sec"><h2 class="choja-tit">Por mes · según la fecha estimada</h2><div id="capitalMeses"></div></section>
+        <button id="btnNuevaPartida" class="mn-btn is-primary is-sm" type="button">Nueva partida</button>
+        <section class="rp-card rp-hoja" id="capitalPorProyecto">
+          <div class="rp-dh"><h3>Partidas por proyecto</h3></div>
+          <div class="cres-caja" id="capitalKpis"></div>
+          <div id="capitalTabla"></div>
+        </section>
+        <section class="rp-card rp-datos choja-sec" id="capitalPorMes">
+          <div class="rp-dh"><h3>Datos del reporte</h3><button type="button" class="rp-exb" id="capitalCsv" title="Exportar a CSV (se abre en Excel)" aria-label="Exportar a CSV (se abre en Excel)"><span class="ico" data-icono="exportar"></span></button></div>
+          <div id="capitalMeses"></div>
+          <p class="rp-nota">Por el mes de la fecha estimada de cada partida; las que no tienen fecha van al final. El fondeo resta. En pesos (MXN).</p>
+        </section>
       </div>
     </section>
 
-    <!-- v0.165.0: Finanzas (cobranza.js). Cabecera fija; cobranza.js pinta #finanzasCuerpo (pestañas Cobranza · Gastos · Capital). -->
+    <!-- v1.0.0 (rediseño, cubeta 2): Dinero › Por cobrar y Por pagar (cobranza.js) — ocho páginas con la plantilla de reporte; todo se pinta en
+         #finanzasCuerpo (cabecera incluida). Antes: cabecera fija y pestañas Cobranza · Por pagar · Gastos · Capital (v0.165.0–v0.173.0). -->
     <section id="p-finanzas" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16"/><path d="M6 15l4-4 3 3 5-6"/><path d="M15 8h3v3"/></svg></span><h1>Finanzas</h1><p class="sub" id="finanzasSub">Lo que nos deben y qué tan probado está cada saldo.</p></header>
-      <div class="gastos-cuerpo" id="finanzasCuerpo"></div>
+      <div class="rp-cuerpo" id="finanzasCuerpo"></div>
     </section>
     <!-- v0.166.0: Vigencias (vigencias.js). Cabecera fija; vigencias.js pinta #vigenciasCuerpo. -->
     <section id="p-vigencias" class="pantalla oculto">
@@ -339,8 +350,11 @@
     </section>
 
     <!-- v0.162.0: Gastos (gastos.js, traido de la ERP v1). Cabecera fija; gastos.js pinta #gastosCuerpo (Mis gastos · Tesoreria · Contabilidad). -->
+    <!-- v1.0.0 (rediseño, cubeta 2): Gastos vive en Dinero con la cabecera de la plantilla (gastos.js la pinta en #gastosCab y le mueve
+         «Registrar gasto»); la lógica de v0.162.0 no cambia. -->
     <section id="p-gastos" class="pantalla oculto">
-      <header class="cabecera"><span class="titulo-ico" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span><h1>Gastos</h1><button id="btnNuevoGasto" class="mn-btn is-primary is-sm" type="button">Registrar gasto</button><p class="sub" id="gastosSub"></p></header>
+      <div id="gastosCab"></div>
+      <button id="btnNuevoGasto" class="mn-btn is-primary is-sm" type="button">Registrar gasto</button>
       <div class="gastos-cuerpo" id="gastosCuerpo"></div>
     </section>
 

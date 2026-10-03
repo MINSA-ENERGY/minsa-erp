@@ -35,7 +35,10 @@ export const CONFIG = {
         // v0.162.0: Gastos (traido de la ERP v1). Ya existen en /sites/Administracion (las creo Carlos el 1-oct, con datos reales);
         // si faltaran, #gastos lo dice y lo demas sigue igual.
         gastos: 'ERP_Gastos',
-        rolesErp: 'ERP_Roles'
+        rolesErp: 'ERP_Roles',
+        // v1.0.0 (rediseño, cubeta 2): «Guardados» — vistas, segmentos y fijados (Title, Dueno, Compartida, Modulo, Definicion JSON). La crea la
+        // página de aprovisionamiento de la cubeta 5; mientras no exista, guardados.js guarda en este equipo (localStorage) y lo dice.
+        vistas: 'ERP_Vistas'
     },
     // v0.162.0: biblioteca de los comprobantes de gastos, en el MISMO sitio (Administracion), una carpeta por AAAA-MM.
     bibliotecaGastos: 'Gastos',

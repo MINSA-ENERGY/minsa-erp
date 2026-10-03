@@ -257,7 +257,7 @@
         DB.datos = {};
         DB.listas.bibGastos = { id: 'lista-bibgastos', nombre: 'Gastos', items: [], drive: 'drive-gastos' };   // v0.162.0: la biblioteca de comprobantes (una lista con drive)
         // v0.162.0: ?gastos=no = el sitio SIN ERP_Gastos, ERP_Roles ni la biblioteca (antes de entrar: la app cachea la lista de listas al iniciar)
-        if (new URLSearchParams(location.search).get('gastos') === 'no') { delete DB.listas.gastos; delete DB.listas.rolesErp; delete DB.listas.bibGastos; delete DB.listas.bibOperacion; }   // v0.168.0: + ERP_Operacion = colaborador sin permiso
+        if (new URLSearchParams(location.search).get('gastos') === 'no') { delete DB.listas.gastos; delete DB.listas.rolesErp; delete DB.listas.bibGastos; delete DB.listas.bibOperacion; delete DB.listas.vistas; }   // v0.168.0: + ERP_Operacion = colaborador sin permiso; v1.0.0 (cubeta 2): + ERP_Vistas = «Guardados» en este equipo
         const roles = DB.listas.roles.items;
         roles.push({ id: DB.siguienteId++, fields: { Title: window.__CUENTA.username, Nombre: 'Persona de Prueba', Rol: rol, Activo: true } });
         roles.push({ id: DB.siguienteId++, fields: { Title: 'colega@example.invalid', Nombre: 'Colega Demo', Rol: 'colaborador', Activo: true } });
@@ -2068,7 +2068,11 @@ try {
         // ---- v0.10.0: Roadmap · Calendario · Mensajes · Archivos · Reportes (foto de referencia, 12-sep) + titulo con icono + anillo
         {
             const hoyIso = new Date().toISOString();
-            R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-proyectos', 'p-mis', 'p-roadmap', 'p-calendario', 'p-mensajes', 'p-archivos', 'p-reportes', 'p-capital', 'p-gastos', 'p-finanzas', 'p-cuenta'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));   // v1.0.0: + Cuenta
+            R.ok('v0.10.0: cada pantalla lleva su icono a la izquierda del título', ['p-inicio', 'p-proyectos', 'p-mis', 'p-roadmap', 'p-calendario', 'p-mensajes', 'p-archivos', 'p-reportes', 'p-cuenta'].every(id => !!$(id).querySelector('.cabecera > .titulo-ico svg')));   // v1.0.0: + Cuenta; cubeta 2: Capital, Gastos y Finanzas pasan a la plantilla (abajo)
+            // v1.0.0 (cubeta 2; sustituye a Capital, Gastos y Finanzas en la de arriba): las pantallas de Dinero ya no traen cabecera fija con icono —
+            // la pinta la plantilla de reporte (título + «?») al entrar; aquí, que el hueco de la plantilla existe y la cabecera vieja se fue
+            R.ok('v1.0.0 (cubeta 2): Capital, Gastos y Finanzas traen el hueco de la cabecera de la plantilla (#capitalCab, #gastosCab, #finanzasCuerpo) y ya no la cabecera fija con icono',
+                !!$('capitalCab') && !!$('gastosCab') && $('finanzasCuerpo').classList.contains('rp-cuerpo') && ['p-capital', 'p-gastos', 'p-finanzas'].every(id => !$(id).querySelector('.cabecera > .titulo-ico')));
             // v1.0.0 (rediseño 2026-10-02, sustituye a «el rail trae las 9 secciones … y las que no caben van en el menú «···»» de v0.10.0–v0.169.0):
             // el rail trae los 5 MÓDULOS (5/5/4 por rol); los destinos que no son módulo viven en el panel (un árbol por módulo) y, en celular, en los
             // chips del módulo. El menú «···» del celular se fue.
@@ -3264,7 +3268,7 @@ try {
             DB.listas.capital.items = [];
             await recargarYEsperar();
             pestana('capital'); await esperar(() => visible('p-capital'), 'capital');
-            R.ok('gerencia (v0.100.0): «Capital» en el panel de su módulo y en sus chips (v1.0.0; antes rail y menú «···»); la sección trae el encabezado de la casa y sale vacía', !$('panelCapital').classList.contains('oculto') && !$('chipCapital').classList.contains('oculto') && !!document.querySelector('#p-capital > header.cabecera > .titulo-ico svg') && document.querySelector('#p-capital h1').textContent === 'Capital' && !!$('capitalTabla').querySelector('.vacio') && $('capitalFalta').classList.contains('oculto') && location.hash === '#capital', location.hash);
+            R.ok('gerencia (v0.100.0): «Capital» en el panel de su módulo y en sus chips (v1.0.0; antes rail y menú «···»); la sección trae la cabecera de la plantilla (v1.0.0 cubeta 2: «Capital por proyecto» + «?»; antes el encabezado de la casa con icono) y sale vacía', !$('panelCapital').classList.contains('oculto') && !$('chipCapital').classList.contains('oculto') && !!document.querySelector('#p-capital .rp-top .rp-qm') && document.querySelector('#p-capital .rp-top h1.rp-h').textContent === 'Capital por proyecto' && !!$('capitalTabla').querySelector('.vacio') && $('capitalFalta').classList.contains('oculto') && location.hash === '#capital', location.hash);
             R.ok('gerencia (v0.100.0): UN primario verde por vista («Nueva partida», mn-btn is-primary is-sm)', $('btnNuevaPartida').className === 'mn-btn is-primary is-sm' && document.querySelectorAll('#p-capital .mn-btn.is-primary').length === 1);
             // crear una necesidad
             clic('btnNuevaPartida'); await esperar(() => $('dlgPartida').open, 'dlgPartida');
@@ -3801,18 +3805,48 @@ try {
     }
     // ==================================================================================================================
     // v0.165.0: FINANZAS > COBRANZA. Solo gerencia; solo LEE cobranza.json de ERP_Datos (lo publica exportar_cobranza.py).
+    // v1.0.0 (rediseño, cubeta 2): Por cobrar y Por pagar ya no son pestañas de #finanzas sino OCHO páginas con la plantilla de reporte
+    // (#finanzas/cobrar/saldo|cliente|antiguedad|emitido|sin-rep, #finanzas/pagar/saldo|proveedor|antiguedad); cada aserción de las pestañas
+    // lleva su sustituta (bitácora de cubetas, «Aserciones quitadas → sustitutas»). Gastos y Capital dejan de ser pestañas: viven en el panel.
     {
         for (const d of document.querySelectorAll('dialog[open]')) d.close();
         const leidasDatos = () => DB.llamadas.filter(c => c.includes('/drives/drive-datos/')).length;
         const escritas = () => DB.llamadas.filter(c => /^(POST|PATCH|PUT|DELETE) /.test(c)).length;
+        const pagina = () => document.querySelector('#finanzasCuerpo .rp-pag')?.dataset.reporte;
+        const irPagina = async (h, id) => { await irHash(h); await esperar(() => pagina() === id, 'página ' + id); await dormir(20); };
+        const elegirMoneda = async m => { if ($('rpMoneda').dataset.moneda === m) return; clic('rpMoneda'); await dormir(10); document.querySelector(`.rp-menu [data-moneda="${m}"]`).click(); await esperar(() => $('rpMoneda') && $('rpMoneda').dataset.moneda === m, 'moneda ' + m); await dormir(10); };
+        const kpi = k => document.querySelector(`#rpKpis [data-kpi="${k}"]`);
         if (ROL !== 'gerencia') {
             const n0 = leidasDatos();
             await irHash('#finanzas'); await esperar(() => visible('p-inicio'), 'finanzas negado');
             R.ok(`${ROL} (v0.165.0): sin «Finanzas» en el panel de su módulo ni en sus chips (v1.0.0; antes rail y menú «···»); #finanzas cae a Inicio y cobranza.json ni se lee`,
                 $('panelFinanzas').classList.contains('oculto') && $('chipFinanzas').classList.contains('oculto') && leidasDatos() === n0 && $('finanzasCuerpo').textContent === '');
             document.querySelector('#avisos .cerrar')?.click();
+            await irHash('#finanzas/pagar/proveedor'); await esperar(() => visible('p-inicio'), 'por pagar negado');
+            R.ok(`${ROL} (v1.0.0, cubeta 2): una liga a una página de Dinero (#finanzas/pagar/proveedor) también cae a Inicio y no lee cobranza.json`, visible('p-inicio') && leidasDatos() === n0 && !document.querySelector('#finanzasCuerpo .rp-pag'));
+            document.querySelector('#avisos .cerrar')?.click();
+            if (params.get('gastos') === 'no') {
+                // «Guardados» SIN la lista ERP_Vistas (este escenario no la tiene): se guarda en ESTE equipo, se dice en una nota discreta y el
+                // panel de Dinero la lista; abrirla lleva a su ruta (una vista de «Mis gastos», que este rol sí ve).
+                const GU = await import('../guardados.js');
+                await GU.releerGuardados();
+                const llave = 'erp.vistas.' + YO.toLowerCase(), nPost = escritas();
+                R.ok('v1.0.0 (cubeta 2): sin ERP_Vistas, «Guardados» queda en este equipo y lo dice (sin error ni lectura de la lista)', GU.estadoGuardados().modo === 'local' && /en este equipo/.test(GU.estadoGuardados().nota) && !DB.llamadas.some(c => c.includes('lista-vistas')));
+                await GU.guardarVista({ titulo: 'Mis gastos (prueba local)', modulo: 'dinero', definicion: { tipo: 'reporte', ruta: '#gastos', vistaId: 'gastos', vista: {} } });
+                let local = []; try { local = JSON.parse(localStorage.getItem(llave) || '[]'); } catch (_) {}
+                R.ok('v1.0.0 (cubeta 2): guardar sin la lista escribe en localStorage (una llave por cuenta) y CERO llamadas a Graph', local.length === 1 && local[0].titulo === 'Mis gastos (prueba local)' && escritas() === nPost);
+                await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio'); document.querySelector('#modulos [data-m="dinero"]').click(); await esperar(() => visible('p-gastos'), 'dinero');
+                const sv = [...document.querySelectorAll('#panelArbol [data-modulo="dinero"] .panel-guardados .sv')];
+                R.ok('v1.0.0 (cubeta 2): el panel de Dinero lista lo guardado y avisa «Guardados en este equipo»', sv.length === 1 && sv[0].textContent.includes('Mis gastos (prueba local)') && /en este equipo/.test(document.querySelector('#panelArbol [data-modulo="dinero"] .panel-nota')?.textContent || ''), sv.map(b => b.textContent).join(' | '));
+                await irHash('#inicio'); await esperar(() => visible('p-inicio'), 'inicio');
+                sv[0].click(); await esperar(() => visible('p-gastos') && location.hash === '#gastos', 'vista guardada abierta');
+                R.ok('v1.0.0 (cubeta 2): tocar una vista guardada lleva a su ruta (#gastos)', visible('p-gastos') && location.hash === '#gastos');
+                try { localStorage.removeItem(llave); } catch (_) {}
+                await GU.releerGuardados();
+            }
         } else {
             const esc0 = escritas();
+            const RP = await import('../reporte.js');
             const hace = d => new Date(Date.now() - d * 86400000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 19);   // hora LOCAL sin zona, como la escribe exportar_cobranza.py
             const mon = (moneda, facturado, pagado, ok, duda, sin) => ({ moneda, facturado, pagado, ok, duda_min: duda, duda_max: duda, sin, n_facturas: 2 });
             const fac = (id, moneda, ins, estado, extra = {}) => ({ id, uuid: id + '-UUID', fecha: '2026-03-01', concepto: 'Servicio de prueba', moneda, neto: ins, pagado: 0, insoluto_min: ins, insoluto_max: ins, estado, cancelada: false, ...extra });
@@ -3832,40 +3866,97 @@ try {
             DB.datos['cobranza.json'] = JSON.stringify({ ...FIX, version: 2 });
             clic('btnLeerCobranza'); await esperar(() => $('cobranzaError'), 'cobranza version');
             R.ok('cobranza (v0.165.0): una versión distinta del exportador se dice, no se pinta a medias', /versión 2/.test($('cobranzaError').textContent) && !$('cobranzaTabla'));
-            // (c) el JSON bueno
+            // (c) el JSON bueno (revisión 1, el de antes de publicar-cobranza.ps1 v1.5.0)
             DB.datos['cobranza.json'] = JSON.stringify(FIX);
             const nDesc = DB.descargas.length;
             clic('btnLeerCobranza'); await esperar(() => $('cobranzaTabla'), 'tabla de cobranza');
             R.ok('cobranza: la descarga va por la liga pre-autenticada, SIN Authorization', DB.descargas.length === nDesc + 1 && DB.descargas[DB.descargas.length - 1].auth === false);
-            const kpis = [...document.querySelectorAll('#cobranzaKpis .cob-kpi')];
-            R.ok('cobranza: un KPI por moneda (USD, MXN) + la antigüedad del corte', kpis.length === 3 && /USD/.test(kpis[0].textContent) && /MXN/.test(kpis[1].textContent) && kpis[2].id === 'cobranzaCorte', kpis.map(k => k.textContent).join(' | '));
-            R.ok('cobranza: USD = 2,900.00 (2,000 + 900) con 2,100.00 sin REP; nunca suma MXN; lo de un CFDI cancelado no suma y se dice aparte', /2,900\.00/.test(kpis[0].textContent) && /2,100\.00 sin REP/.test(kpis[0].textContent) && /MXN0\.00/.test(kpis[1].textContent) && /600\.00 en CFDI cancelados, no suma/.test(kpis[1].textContent), kpis[1].textContent);
-            R.ok('cobranza: corte de 2 días = al día', /2 días/.test($('cobranzaCorte').textContent) && /al día/.test($('cobranzaCorte').textContent));
+            await elegirMoneda('USD');
+            // sustituye a «un KPI por moneda (USD, MXN) + la antigüedad del corte» (v0.165.0): la fila de la maqueta va en UNA moneda y el corte va en la cabecera
+            R.ok('v1.0.0 (cubeta 2): #finanzas a secas es Por cobrar · «Saldo sin pago probado» — KPIs de la maqueta (saldo actual y hace 30/60/180/365 días) en UNA moneda (USD primero) y el corte en la cabecera',
+                pagina() === 'finanzas-cobrar-saldo' && $('rpTitulo').textContent === 'Saldo sin pago probado' && document.querySelectorAll('#rpKpis .rp-kpi').length === 5 && /Saldo actual/.test(kpi('actual').textContent) && kpi('actual').querySelector('b').textContent === 'US$2.90k'
+                && ['hace30', 'hace60', 'hace180', 'hace365'].every(k => !!kpi(k)) && $('rpMoneda').dataset.moneda === 'USD' && !!$('rpCorte'), [...document.querySelectorAll('#rpKpis .rp-kpi')].map(k => k.textContent).join(' | '));
+            // sustituye a «corte de 2 días = al día» (v0.165.0)
+            R.ok('v1.0.0 (cubeta 2): el chip «corte: fecha» de la cabecera — 2 días = al día (verde)', $('rpCorte').classList.contains('is-ok') && $('rpCorte').dataset.dias === '2' && /^corte: \d{1,2} [a-z]{3} \d{4}$/.test($('rpCorte').textContent), $('rpCorte').textContent);
+            R.ok('v1.0.0 (cubeta 2): la cabecera de la plantilla — título, «?», corte, filtro, ojo, guardar y rango; el hueco de PREGUNTAR oculto',
+                !!document.querySelector('#finanzasCuerpo .rp-top .rp-qm') && !!$('rpFiltro') && !!$('rpOjo') && !!$('rpGuardar') && !!$('rpRango') && document.querySelector('#finanzasCuerpo .rp-ask').hidden);
+            document.querySelector('#finanzasCuerpo .rp-qm').click(); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): el «?» dice cómo se calcula', /Cómo se calcula/.test(document.querySelector('.rp-menu.rp-ayuda')?.textContent || ''));
+            document.body.click(); await dormir(10);
+            // la tabla de la maqueta: contraparte × antigüedad + sin pago probado, con el total y lo facturado
+            const filasCp = () => [...document.querySelectorAll('#cobranzaTabla tbody tr.rp-cp')];
+            R.ok('v1.0.0 (cubeta 2): «Datos del reporte» de Saldo — un renglón por cliente con saldo (USD), cuatro cubetas de antigüedad + «Sin pago probado», total y facturado histórico',
+                filasCp().map(r => r.dataset.clave).join() === 'CPL801111PS2|USD,XSS000000AAA|USD' && [...document.querySelectorAll('#cobranzaTabla thead th')].map(t => t.textContent).join('|') === '|0–90 días|91–180 días|181–365 días|Más de 365 días|Sin pago probado'
+                && /Total clientes USD.*US\$2,900/.test(document.querySelector('#cobranzaTabla tr.tot[data-total="saldo"]').textContent) && /US\$3,900 facturado/.test(document.querySelector('#cobranzaTabla tr.tot[data-total="facturado"]').textContent), filasCp().map(r => r.textContent).join(' | '));
+            filasCp()[0].querySelector('.rp-exp').click(); await esperar(() => document.querySelector('#cobranzaTabla tr.hijo'), 'facturas desplegadas');
+            R.ok('v1.0.0 (cubeta 2): filas DESPLEGABLES — la › abre las facturas de la contraparte (la mayor primero) y se vuelve a plegar',
+                [...document.querySelectorAll('#cobranzaTabla tr.hijo')].map(r => r.dataset.factura).join() === 'F10,F11' && filasCp()[0].classList.contains('abierto') && filasCp()[0].querySelector('.rp-exp').getAttribute('aria-expanded') === 'true');
+            filasCp()[0].querySelector('.rp-exp').click(); await esperar(() => !document.querySelector('#cobranzaTabla tr.hijo'), 'plegada');
+            R.ok('v1.0.0 (cubeta 2): la nota dice que la gráfica NO es el saldo histórico y que para la tendencia real falta re-publicar', /NO es el saldo histórico/.test($('cobranzaNota').textContent) && /falta re-publicar \(gerencia: publicar-cobranza\.ps1\)/.test($('cobranzaNota').textContent));
+            // la gráfica (SVG por DOM, sin librerías), sus controles y el globo
+            const svg = () => document.querySelector('#rpGrafica svg.rp-svg');
+            R.ok('v1.0.0 (cubeta 2): la gráfica es SVG armado por DOM, en LÍNEA por omisión, un punto por mes con su área y su línea', !!svg() && svg().dataset.tipo === 'line' && Number(svg().dataset.n) >= 2 && !!svg().querySelector('path.rp-linea') && !!svg().querySelector('path.rp-area') && !document.querySelector('#rpGrafica canvas'));
+            svg().querySelector('rect.rp-hit').dispatchEvent(new PointerEvent('pointerenter')); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): al pasar el puntero, el globo con el mes y el monto y la guía vertical', document.querySelector('#rpGrafica .rp-globo').classList.contains('is-on') && /US\$/.test(document.querySelector('#rpGrafica .rp-globo').textContent) && svg().querySelector('.rp-guia').classList.contains('is-on'));
+            const nMes = Number(svg().dataset.n);
+            document.querySelector('[data-rp="tipo:bar"]').click(); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): LÍNEA | BARRAS cambia el tipo', svg().dataset.tipo === 'bar' && svg().querySelectorAll('rect.rp-barra').length === nMes);
+            document.querySelector('[data-rp="tipo:line"]').click(); await dormir(10);
+            document.querySelector('[data-rp="grano:anio"]').click(); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): MES | TRIMESTRE | AÑO agrupa (por año, menos puntos); DÍA y SEMANA deshabilitados (datos mensuales)', Number(svg().dataset.n) < nMes && document.querySelector('[data-rp="grano:dia"]').disabled && document.querySelector('[data-rp="grano:semana"]').disabled);
+            document.querySelector('[data-rp="grano:mes"]').click(); await dormir(10);
+            const nVal = svg().querySelectorAll('.rp-val').length; clic('rpValores'); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): «Mostrar valores» (123) apaga y prende las etiquetas', nVal > 0 && svg().querySelectorAll('.rp-val').length === 0 && $('rpValores').getAttribute('aria-pressed') === 'false');
+            clic('rpValores'); await dormir(10);
+            clic('rpOjo'); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): el ojo oculta la serie (y la vuelve a mostrar)', !svg().querySelector('.rp-linea') && $('rpOjo').getAttribute('aria-pressed') === 'true');
+            clic('rpOjo'); await dormir(10);
+            clic('rpRango'); await dormir(10); document.querySelector('.rp-menu [data-rango="todo"]').click(); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): el rango de fechas se cuenta desde el corte («todo el historial» empieza en la primera factura)', /^2026-03-01 a \d{4}-\d{2}-\d{2}$/.test($('rpRango').textContent.trim()), $('rpRango').textContent);
+            clic('rpRango'); await dormir(10); document.querySelector('.rp-menu [data-rango="2a"]').click(); await dormir(10);
+            // exportar CSV
+            clic('rpExportar'); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): exportar CSV — BOM UTF-8, encabezados y un renglón por cliente (con el RFC y las cubetas como números)', RP.ultimoCsv.texto.charCodeAt(0) === 0xFEFF && RP.ultimoCsv.texto.startsWith('﻿Cliente,RFC,Moneda,0–90 días') && RP.ultimoCsv.texto.includes('Constructora Demo,CPL801111PS2,USD,') && /^cobrar-saldo_\d{4}-\d{2}-\d{2}\.csv$/.test(RP.ultimoCsv.nombre), RP.ultimoCsv.nombre);
+            // Por cliente: la tabla de siempre (evidencia y detalle), ahora UNA moneda a la vez
+            await irPagina('#finanzas/cobrar/cliente', 'finanzas-cobrar-cliente'); await elegirMoneda('USD');
             const filas = () => [...document.querySelectorAll('#cobranzaTabla tr.cob-cliente')];
-            R.ok('cobranza: un renglón por cliente y moneda con saldo, USD primero y el mayor primero; el saldado no sale',
-                filas().map(r => r.dataset.clave).join(',') === 'CPL801111PS2|USD,XSS000000AAA|USD,CPL801111PS2|MXN', filas().map(r => r.dataset.clave).join(','));
-            R.ok('cobranza: un nombre con etiqueta sale como TEXTO y no ejecuta', !window.__xssCob && filas()[1].querySelector('.cob-abrir').textContent.startsWith('<img') && !document.querySelector('#cobranzaTabla img'));
-            filas()[1].querySelector('.cob-abrir').click(); await esperar(() => document.querySelector('#cobranzaTabla .cob-detalle'), 'detalle abierto');
-            const det = [...document.querySelectorAll('#cobranzaTabla .cob-detalle li')];
-            R.ok('cobranza: abrir el cliente lista sus facturas con saldo, la mayor primero, con su semáforo y el rango cuando lo hay',
-                det.length === 2 && /X2/.test(det[0].textContent) && /sin REP/.test(det[0].textContent) && /100\.00 – 300\.00/.test(det[1].textContent) && /en verificación/.test(det[1].textContent), det.map(x => x.textContent).join(' | '));
-            filas()[2].querySelector('.cob-abrir').click(); await esperar(() => document.querySelectorAll('#cobranzaTabla .cob-detalle').length === 2, 'segundo detalle');
-            R.ok('cobranza: un CFDI cancelado lo dice en su renglón, sale tachado y el cliente lo marca «no suma»', /CFDI cancelado/.test(document.querySelectorAll('#cobranzaTabla .cob-detalle')[1].textContent) && !!document.querySelector('#cobranzaTabla .cob-detalle li.is-cancelada') && /600\.00 cancelado, no suma/.test(filas()[2].textContent));
-            // (d) corte viejo
+            // sustituye a «USD = 2,900.00 (2,000 + 900) con 2,100.00 sin REP; nunca suma MXN; lo de un CFDI cancelado no suma y se dice aparte» (v0.165.0)
+            R.ok('v1.0.0 (cubeta 2): Por cliente — USD: saldo US$2,900.00 (2,000 + 900) con US$2,100.00 sin REP; nunca suma MXN', kpi('saldo').querySelector('b').textContent === 'US$2.90k' && kpi('sin').querySelector('b').textContent === 'US$2.10k' && /Total clientes USD.*US\$2,900\.00/.test(document.querySelector('#cobranzaTabla tr.tot').textContent));
+            // sustituye a «un renglón por cliente y moneda con saldo, USD primero y el mayor primero; el saldado no sale» (v0.165.0)
+            R.ok('v1.0.0 (cubeta 2): un renglón por cliente con saldo en la moneda elegida, el mayor primero; el saldado no sale', filas().map(r => r.dataset.clave).join(',') === 'CPL801111PS2|USD,XSS000000AAA|USD' && !/Saldado/.test($('cobranzaTabla').textContent), filas().map(r => r.dataset.clave).join(','));
+            R.ok('cobranza: un nombre con etiqueta sale como TEXTO y no ejecuta', !window.__xssCob && filas()[1].querySelector('.rp-lk').textContent.startsWith('<img') && !document.querySelector('#cobranzaTabla img'));
+            filas()[1].querySelector('.rp-lk').click(); await esperar(() => document.querySelector('#cobranzaTabla tr.hijo'), 'detalle abierto');
+            const det = [...document.querySelectorAll('#cobranzaTabla tr.hijo')];
+            R.ok('cobranza: abrir el cliente lista sus facturas con saldo, la mayor primero, con su semáforo y el rango cuando lo hay (v1.0.0: renglones hijos de la tabla)',
+                det.length === 2 && /X2/.test(det[0].textContent) && /sin REP/.test(det[0].textContent) && /US\$100\.00 – US\$300\.00/.test(det[1].textContent) && /en verificación/.test(det[1].textContent), det.map(x => x.textContent).join(' | '));
+            await elegirMoneda('MXN');
+            filas()[0].querySelector('.rp-exp').click(); await esperar(() => document.querySelector('#cobranzaTabla tr.hijo'), 'detalle MXN');
+            // sustituye a «un CFDI cancelado lo dice en su renglón, sale tachado y el cliente lo marca «no suma»» (v0.165.0) y a la mitad MXN de la de arriba
+            R.ok('v1.0.0 (cubeta 2): en pesos — saldo $0 (no se suma a los dólares) y el CFDI cancelado tachado, «no suma» en su renglón y en su KPI',
+                filas().map(r => r.dataset.clave).join() === 'CPL801111PS2|MXN' && kpi('saldo').querySelector('b').textContent === '$0' && /no suma/.test(kpi('cancelado').textContent) && /\$600\.00 cancelado, no suma/.test(filas()[0].textContent)
+                && !!document.querySelector('#cobranzaTabla tr.hijo.is-cancelada') && /CFDI cancelado/.test(document.querySelector('#cobranzaTabla tr.hijo').textContent));
+            // (d) corte viejo — sustituye a «un corte de 20 días pide re-correr el exportador» (v0.165.0)
             DB.datos['cobranza.json'] = JSON.stringify({ ...FIX, generado: hace(20) });
-            clic('btnLeerCobranza'); await esperar(() => $('cobranzaCorte') && /20 días/.test($('cobranzaCorte').textContent), 'corte viejo');
-            R.ok('cobranza: un corte de 20 días pide re-correr el exportador', /re-correr el exportador/.test($('cobranzaCorte').textContent));
-            // (e) las pestañas llevan a Gastos y Capital; el refresco de la app no relee el archivo
+            clic('btnLeerCobranza'); await esperar(() => $('rpCorte') && $('rpCorte').dataset.dias === '20', 'corte viejo');
+            R.ok('v1.0.0 (cubeta 2): un corte de 20 días pinta el chip del corte en ROJO y pide re-publicar (ámbar desde 9 días)', $('rpCorte').classList.contains('is-danger') && /re-publicar/.test($('rpCorte').title), $('rpCorte').title);
+            // (e) el refresco de la app no relee el archivo; Gastos y Capital ya no son pestañas
             const nLeidas = leidasDatos();
             await recargarYEsperar();
             R.ok('cobranza: «Actualizar» de la app no vuelve a bajar cobranza.json (cambia por semana; tiene su «Volver a leer»)', leidasDatos() === nLeidas);
-            document.querySelector('#tabsFinanzas [data-tab="capital"]').click(); await esperar(() => visible('p-capital'), 'pestaña Capital');
-            R.ok('cobranza: la pestaña «Capital» lleva a Capital', location.hash.startsWith('#capital'));
-            await irHash('#finanzas'); await esperar(() => $('tabsFinanzas'), 'de vuelta a Finanzas');
+            // sustituye a «la pestaña «Capital» lleva a Capital» (v0.165.0)
+            R.ok('v1.0.0 (cubeta 2): Finanzas ya no trae pestañas (ni Cobranza|Por pagar ni Gastos|Capital): cada página es una entrada del panel de Dinero', !$('tabsFinanzas') && ['panelFinanzas', 'panelPorPagar', 'panelGastos', 'panelCapital'].every(id => !!$(id)));
+            clic('panelCapital'); await esperar(() => visible('p-capital'), 'Capital por el panel');
+            R.ok('v1.0.0 (cubeta 2): «Capital › Por proyecto» del panel lleva a Capital (sin doble entrada)', location.hash.startsWith('#capital') && document.querySelector('#p-capital .rp-top h1').textContent === 'Capital por proyecto');
+            await irHash('#capital/mes'); await esperar(() => visible('p-capital') && !$('capitalPorMes').classList.contains('oculto'), 'capital por mes');
+            R.ok('v1.0.0 (cubeta 2): «Capital › Por mes» (#capital/mes) es página propia — la gráfica de la falta acumulada, sus KPIs y la tabla por mes en «Datos del reporte»',
+                document.querySelector('#p-capital .rp-top h1').textContent === 'Capital por mes' && $('capitalPorProyecto').classList.contains('oculto') && document.querySelectorAll('#p-capital #rpKpis .rp-kpi').length === 5 && !!document.querySelector('#p-capital #rpGrafica') && $('capitalPorMes').contains($('capitalMeses')));
+            clic('capitalCsv'); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): «Por mes» exporta su tabla a CSV (BOM y encabezados)', /^capital-por-mes_\d{4}-\d{2}-\d{2}\.csv$/.test(RP.ultimoCsv.nombre) && RP.ultimoCsv.texto.startsWith('﻿Mes,Necesidad,Fondeo,Falta acumulada,Partidas'), RP.ultimoCsv.nombre);
+            await irHash('#finanzas'); await esperar(() => pagina() === 'finanzas-cobrar-saldo', 'de vuelta a Finanzas');
             // (e0) v0.170.0: POR PAGAR. Un cobranza.json de antes (sin `proveedores`) lo dice; con proveedores, la misma tabla.
-            const tabPP = () => document.querySelector('#tabsFinanzas [data-tab="porpagar"]');
-            tabPP().click(); await esperar(() => $('porPagarSinDatos') || $('porPagarTabla'), 'por pagar sin proveedores');
-            R.ok('por pagar (v0.170.0): un archivo publicado sin `proveedores` pide re-publicar, no pinta una tabla vacía', !!$('porPagarSinDatos') && !$('porPagarTabla') && tabPP().getAttribute('aria-selected') === 'true');
+            // sustituye a la pestaña «Por pagar» (v0.170.0): la ruta #finanzas/pagar/saldo
+            await irHash('#finanzas/pagar/saldo'); await esperar(() => $('porPagarSinDatos') || $('porPagarTabla'), 'por pagar sin proveedores');
+            R.ok('por pagar (v0.170.0): un archivo publicado sin `proveedores` pide re-publicar, no pinta una tabla vacía (v1.0.0: en #finanzas/pagar/saldo, resaltado en el panel)', !!$('porPagarSinDatos') && !$('porPagarTabla') && document.querySelector('#panelArbol .panel-modulo:not([hidden]) .ch.on')?.id === 'panelPorPagar');
             const FIXPP = { ...FIX, proveedores: [
                 { rfc: 'MSO220721AU0', nombre: 'Proveedor Demo', monedas: [mon('MXN', 5000, 1000, 3000, 0, 1000)],
                   facturas: [fac('P1', 'MXN', 3000, 'OK'), fac('P2', 'MXN', 1000, 'SIN')] },
@@ -3874,29 +3965,161 @@ try {
             ], vigencia_proveedores: false };
             DB.datos['cobranza.json'] = JSON.stringify(FIXPP);
             clic('btnLeerCobranza'); await esperar(() => $('porPagarTabla'), 'tabla por pagar');
-            const filasPP = () => [...document.querySelectorAll('#porPagarTabla tr.cob-cliente:not(.is-aparte)')];
-            const tkc = [...document.querySelectorAll('#porPagarTabla tr.is-aparte')];
-            R.ok('por pagar (v0.171.0): TKC va APARTE — fuera del KPI, en su tarjeta con el motivo y al final de la tabla bajo su título',
-                tkc.length === 1 && /TKC Demo/.test(tkc[0].textContent) && /Flash Tab\/TKC/.test(tkc[0].textContent)
-                && !!document.querySelector('#porPagarKpis .cob-aparte[data-rfc="TOS230824ID4"]') && /90,000\.00 MXN/.test(document.querySelector('#porPagarKpis .cob-aparte').textContent)
-                && document.querySelector('#porPagarTabla tr.cob-aparte-tit').compareDocumentPosition(tkc[0]) === Node.DOCUMENT_POSITION_FOLLOWING
-                && !/94,000/.test($('porPagarKpis').textContent), $('porPagarKpis').textContent);
-            R.ok('por pagar: un renglón por proveedor y moneda, con «Proveedor» de encabezado y KPI «Por pagar» por moneda',
-                filasPP().length === 2 && /Proveedor/.test($('porPagarTabla').querySelector('th').textContent) && /Por pagar · MXN/.test($('porPagarKpis').textContent) && /4,000\.00/.test($('porPagarKpis').textContent) && /Por pagar · USD/.test($('porPagarKpis').textContent), $('porPagarKpis').textContent);
-            R.ok('por pagar: la evidencia se parte igual que en cobranza (sana / sin REP)', /3,000\.00 sana/.test(filasPP().find(f => /Proveedor Demo/.test(f.textContent)).textContent) && /1,000\.00 sin REP/.test(filasPP().find(f => /Proveedor Demo/.test(f.textContent)).textContent));
-            R.ok('por pagar: un nombre con etiqueta sale como TEXTO', !window.__xssPP && filasPP().some(f => f.querySelector('.cob-abrir').textContent.startsWith('<img')));
+            await irPagina('#finanzas/pagar/proveedor', 'finanzas-pagar-proveedor'); await elegirMoneda('MXN');
+            const filasPP = () => [...document.querySelectorAll('#porPagarTabla tr.cob-cliente')];
+            // sustituye a «TKC va APARTE — fuera del KPI, en su tarjeta con el motivo y al final de la tabla bajo su título» (v0.171.0)
+            R.ok('por pagar (v0.171.0; v1.0.0: en su BLOQUE bajo la tabla): TKC va APARTE — fuera del KPI y de la tabla, con su saldo y el motivo',
+                !!document.querySelector('#rpAparte .cob-aparte[data-rfc="TOS230824ID4"]') && /TKC Demo/.test($('rpAparte').textContent) && /Flash Tab\/TKC/.test($('rpAparte').textContent) && /\$90,000\.00/.test($('rpAparte').textContent)
+                && !filasPP().some(f => /TKC/.test(f.textContent)) && kpi('saldo').querySelector('b').textContent === '$4.00k' && /Aparte — no suma a «Por pagar»/.test($('rpAparte').textContent), $('rpAparte').textContent);
+            // sustituye a «un renglón por proveedor y moneda, con «Proveedor» de encabezado y KPI «Por pagar» por moneda» (v0.170.0)
+            R.ok('por pagar: un renglón por proveedor en la moneda elegida, con «Proveedor» de encabezado y KPI «Por pagar · MXN» (v1.0.0: una moneda a la vez)',
+                filasPP().length === 1 && /Proveedor/.test($('porPagarTabla').querySelector('th').textContent) && /Por pagar · MXN/.test(kpi('saldo').textContent) && /\$4,000\.00/.test(document.querySelector('#porPagarTabla tr.tot').textContent), kpi('saldo').textContent);
+            R.ok('por pagar: la evidencia se parte igual que en cobranza (sana / sin REP)', /\$3,000\.00 sana/.test(filasPP()[0].textContent) && /\$1,000\.00 sin REP/.test(filasPP()[0].textContent));
             R.ok('por pagar: sin vigencia de proveedores lo dice', /No se consultó al SAT/.test($('porPagarNota').textContent));
-            filasPP().find(f => /Proveedor Demo/.test(f.textContent)).querySelector('.cob-abrir').click(); await esperar(() => document.querySelector('#porPagarTabla .cob-detalle'), 'detalle por pagar');
-            R.ok('por pagar: abrir el proveedor lista sus facturas, la mayor primero', [...document.querySelectorAll('#porPagarTabla .cob-detalle li')].map(li => li.querySelector('b').textContent).join() === 'P1,P2');
-            document.querySelector('#tabsFinanzas [data-tab="cobranza"]').click(); await esperar(() => $('cobranzaTabla'), 'de vuelta a Cobranza');
-            R.ok('por pagar: volver a «Cobranza» pinta clientes, no proveedores, y no abre lo que se abrió en Por pagar', !$('porPagarTabla') && !/Proveedor Demo/.test($('cobranzaTabla').textContent) && /Cliente/.test($('cobranzaTabla').querySelector('th').textContent));
+            filasPP()[0].querySelector('.rp-exp').click(); await esperar(() => document.querySelector('#porPagarTabla tr.hijo'), 'detalle por pagar');
+            R.ok('por pagar: abrir el proveedor lista sus facturas, la mayor primero', [...document.querySelectorAll('#porPagarTabla tr.hijo')].map(r => r.dataset.factura).join() === 'P1,P2');
+            await elegirMoneda('USD');
+            R.ok('por pagar: un nombre con etiqueta sale como TEXTO (v1.0.0: en dólares)', !window.__xssPP && filasPP().length === 1 && filasPP()[0].querySelector('.rp-lk').textContent.startsWith('<img'));
+            // sustituye a «volver a «Cobranza» pinta clientes, no proveedores, y no abre lo que se abrió en Por pagar» (v0.170.0)
+            await irPagina('#finanzas/cobrar/cliente', 'finanzas-cobrar-cliente');
+            R.ok('por pagar: volver a Por cobrar pinta clientes, no proveedores, y no abre lo que se abrió en Por pagar', !$('porPagarTabla') && !/Proveedor Demo/.test($('cobranzaTabla').textContent) && /Cliente/.test($('cobranzaTabla').querySelector('th').textContent) && !document.querySelector('#cobranzaTabla tr.hijo'));
             DB.datos['cobranza.json'] = JSON.stringify({ ...FIX, proveedores: 'no' });
             clic('btnLeerCobranza'); await esperar(() => $('cobranzaError'), 'proveedores mal formado');
             R.ok('por pagar: un `proveedores` que no es lista se dice como error del archivo', /proveedores no es una lista/.test($('cobranzaError').textContent));
-            DB.datos['cobranza.json'] = JSON.stringify(FIXPP); clic('btnLeerCobranza'); await esperar(() => $('cobranzaTabla'), 'cobranza restaurada');   // con proveedores: la vista porpagar de capturas.mjs
-            document.querySelector('#tabsFinanzas [data-tab="gastos"]').click(); await esperar(() => visible('p-gastos'), 'pestaña Gastos');
-            R.ok('cobranza: la pestaña «Gastos» lleva a Gastos', location.hash.startsWith('#gastos'));
+            DB.datos['cobranza.json'] = JSON.stringify(FIXPP); clic('btnLeerCobranza'); await esperar(() => $('cobranzaTabla'), 'cobranza restaurada');
+            // sustituye a «la pestaña «Gastos» lleva a Gastos» (v0.165.0)
+            clic('panelGastos'); await esperar(() => visible('p-gastos'), 'Gastos por el panel');
+            R.ok('v1.0.0 (cubeta 2): «Gastos › Mis gastos» del panel de Dinero lleva a Gastos, con la cabecera de la plantilla (título + «?» + «Registrar gasto»)', location.hash.startsWith('#gastos') && document.querySelector('#p-gastos .rp-top h1').textContent === 'Gastos' && !!document.querySelector('#p-gastos .rp-top .rp-qm') && $('gastosCab').contains($('btnNuevoGasto')));
             R.ok('cobranza: CERO escrituras (solo lee)', escritas() === esc0);
+
+            // ---- las demás páginas (revisión 1): Antigüedad, Emitido por mes, Facturas sin REP, Por pagar · Saldo y Antigüedad
+            await irPagina('#finanzas/cobrar/antiguedad', 'finanzas-cobrar-antiguedad'); await elegirMoneda('USD');
+            R.ok('v1.0.0 (cubeta 2): «Antigüedad de saldos» — barras por cubeta y KPIs: total + las 4 cubetas con cuántas facturas', svg().dataset.tipo === 'bar' && Number(svg().dataset.n) === 4 && document.querySelectorAll('#rpKpis .rp-kpi').length === 5 && kpi('total').querySelector('b').textContent === 'US$2.90k' && /fact\./.test(kpi('ant0').textContent));
+            await irPagina('#finanzas/cobrar/emitido', 'finanzas-cobrar-emitido');
+            R.ok('v1.0.0 (cubeta 2): «Emitido por mes» — barras por periodo y la tabla por periodo con sus facturas (marzo: 4 facturas en dólares)', svg().dataset.tipo === 'bar' && [...document.querySelectorAll('#cobranzaTabla tbody tr[data-periodo]')].map(r => r.dataset.periodo).join() === '2026-03' && /4/.test(document.querySelector('#cobranzaTabla tr[data-periodo="2026-03"]').children[1].textContent));
+            await irPagina('#finanzas/cobrar/sin-rep', 'finanzas-cobrar-sin-rep');
+            R.ok('v1.0.0 (cubeta 2): «Facturas sin REP» (revisión 1: por el semáforo SIN) — 2 facturas, desplegadas la primera vez, y dice cómo contarlas mejor', kpi('n').querySelector('b').textContent === '2' && document.querySelectorAll('#cobranzaTabla tr.hijo').length === 2 && /falta re-publicar/.test($('cobranzaNota').textContent));
+            await irPagina('#finanzas/pagar/saldo', 'finanzas-pagar-saldo'); await elegirMoneda('MXN');
+            R.ok('v1.0.0 (cubeta 2): Por pagar · Saldo — sin TKC en el KPI ni en la tabla; TKC en su bloque', kpi('actual').querySelector('b').textContent === '$4.00k' && !/TKC/.test($('porPagarTabla').textContent) && /TKC Demo/.test($('rpAparte').textContent));
+            await irPagina('#finanzas/pagar/antiguedad', 'finanzas-pagar-antiguedad');
+            R.ok('v1.0.0 (cubeta 2): Por pagar · Antigüedad — total sin TKC ($4,000) y TKC aparte', kpi('total').querySelector('b').textContent === '$4.00k' && !!$('rpAparte'));
+            await irPagina('#finanzas/cobrar/saldo', 'finanzas-cobrar-saldo'); await elegirMoneda('USD');
+            clic('rpFiltro'); await esperar(() => $('rpPop') && !$('rpPop').hidden, 'filtros sin revisión 2');
+            R.ok('v1.0.0 (cubeta 2): sin la revisión 2 los SEGMENTOS dicen «falta re-publicar (gerencia: publicar-cobranza.ps1)» (lo demás se pinta igual)', /falta re-publicar \(gerencia: publicar-cobranza\.ps1\)/.test($('rpPop').textContent) && !$('rpPop').querySelector('[data-prop]'));
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await dormir(10);
+
+            // ---- REVISIÓN 2 (publicar-cobranza.ps1 v1.5.0): facturas con producto, REP y cadena, e historial semanal
+            const fr = (id, moneda, fecha, ins, estado, extra = {}) => fac(id, moneda, ins, estado, { fecha, total: ins, serie: '', folio: id, reps: 0, cadena: false, producto: 'Cajas de recorte', ...extra });
+            const corte = h => ({ semana: 'x', fecha: h, cobrar: { USD: { saldo: 0 }, MXN: { saldo: 1200 } }, pagar: { MXN: { saldo: 94000 } }, rfc: { pagar: { TOS230824ID4: { MXN: 90000 } } } });
+            const FIX2 = { version: 1, revision: 2, generado: hace(2), fuente: 'pruebas', vigencia_proveedores: false, clientes: [
+                { rfc: 'CPL801111PS2', nombre: 'CPL Servicios Demo', monedas: [mon('USD', 5000, 1000, 0, 0, 4000)],
+                  facturas: [fr('C1', 'USD', '2025-06-01', 2500, 'SIN', { producto: 'Supersacos (RME)' }), fr('C2', 'USD', hace(46).slice(0, 10), 1500, 'SIN')] },
+                { rfc: 'LAT000000AAA', nombre: 'Constructora Demo', monedas: [mon('USD', 1200, 300, 0, 900, 0)], facturas: [fr('L1', 'USD', '2026-02-10', 900, 'DUDA', { reps: 1, pagado: 300 })] },
+                { rfc: 'PES000000AAA', nombre: 'Cliente Pesos Demo', monedas: [mon('MXN', 1200, 0, 0, 0, 1200)], facturas: [fr('K1', 'MXN', '2026-05-01', 1200, 'SIN')] }
+            ], proveedores: FIXPP.proveedores.map(p => ({ ...p, facturas: p.facturas.map(f => ({ ...f, total: f.neto, reps: 0, cadena: false, producto: 'Nafta precursora' })) })), historial: [corte(hace(16).slice(0, 10))] };
+            FIX2.historial[0].cobrar.USD.saldo = 4400;
+            DB.datos['cobranza.json'] = JSON.stringify(FIX2); clic('btnLeerCobranza'); await esperar(() => $('cobranzaTabla') && /CPL Servicios Demo/.test($('cobranzaTabla').textContent), 'revisión 2');
+            R.ok('v1.0.0 (cubeta 2): revisión 2 con UN corte de historial — la nota dice desde cuándo y que la tendencia aparece desde la segunda semana', /la tendencia aparece desde la segunda semana/.test($('cobranzaNota').textContent) && /NO es el saldo histórico/.test($('cobranzaNota').textContent));
+            FIX2.historial = [corte(hace(16).slice(0, 10)), corte(hace(9).slice(0, 10)), corte(hace(2).slice(0, 10))];
+            FIX2.historial.forEach((c, i) => { c.cobrar.USD.saldo = [4400, 4700, 4800][i]; });
+            DB.datos['cobranza.json'] = JSON.stringify(FIX2); clic('btnLeerCobranza'); await esperar(() => $('cobranzaNota') && /3 cortes desde/.test($('cobranzaNota').textContent), 'historial en un mes');
+            // Orquestación (2-oct): 3 cortes semanales vistos por MES caben (casi siempre) en UN punto; la curva por emisión NO se borra
+            const unMes = new Set(FIX2.historial.map(c => c.fecha.slice(0, 7))).size === 1;
+            R.ok('v1.0.0 (cubeta 2): cortes que caben en un solo periodo de la vista NO borran la curva por emisión, y la nota lo dice', unMes ? /cabe en un solo periodo/.test($('cobranzaNota').textContent) && kpi('actual').querySelector('b').textContent === 'US$4.90k' : /un punto por corte semanal/.test($('cobranzaNota').textContent), $('cobranzaNota').textContent);
+            FIX2.historial = [corte(hace(75).slice(0, 10)), corte(hace(40).slice(0, 10)), corte(hace(2).slice(0, 10))];
+            FIX2.historial.forEach((c, i) => { c.cobrar.USD.saldo = [4400, 4700, 4800][i]; });
+            DB.datos['cobranza.json'] = JSON.stringify(FIX2); clic('btnLeerCobranza'); await esperar(() => $('cobranzaNota') && /un punto por corte semanal/.test($('cobranzaNota').textContent), 'historial en 3 meses');
+            R.ok('v1.0.0 (cubeta 2): con cortes en 2 o más periodos la gráfica sale del HISTORIAL semanal (la tendencia real) y la nota lo dice', /3 cortes/.test($('cobranzaNota').textContent) && kpi('actual').querySelector('b').textContent === 'US$4.80k' && Number(svg().dataset.n) >= 2, `${kpi('actual').querySelector('b').textContent} · n=${svg().dataset.n}`);
+            await irPagina('#finanzas/pagar/saldo', 'finanzas-pagar-saldo'); await elegirMoneda('MXN');
+            R.ok('v1.0.0 (cubeta 2): la tendencia de Por pagar sale del historial RESTANDO lo que va aparte (94,000 − 90,000 de TKC)', kpi('actual').querySelector('b').textContent === '$4.00k');
+            await irPagina('#finanzas/cobrar/sin-rep', 'finanzas-cobrar-sin-rep'); await elegirMoneda('USD');
+            if (!document.querySelector('#cobranzaTabla tr.hijo')) { document.querySelector('#cobranzaTabla .rp-exp').click(); await dormir(10); }   // cambiar de moneda pliega los renglones
+            R.ok('v1.0.0 (cubeta 2): «Facturas sin REP» con la revisión 2 cuenta por `reps` (cero REP): las 2 de CPL, no la de Constructora (1 REP)', kpi('n').querySelector('b').textContent === '2' && /0 REP/.test($('cobranzaTabla').textContent) && !/Constructora/.test($('cobranzaTabla').textContent));
+
+            // ---- SEGMENTOS (maqueta): niveles, editor, Y/O, hasta 7, desglose, armar con frase, guardar (solo yo / equipo) y Guardados del panel
+            await irPagina('#finanzas/cobrar/saldo', 'finanzas-cobrar-saldo'); await elegirMoneda('USD');
+            const segs = () => [...document.querySelectorAll('#rpSegmentos .rp-seg-r')];
+            clic('rpFiltro'); await esperar(() => $('rpPop') && !$('rpPop').hidden && $('rpPop').querySelector('[data-prop]'), 'ventana de filtros');
+            R.ok('v1.0.0 (cubeta 2): el filtro abre «Elegir un filtro» con los tres niveles (Contraparte · Factura · Producto) y sus 15 propiedades', $('rpPop').querySelectorAll('[data-prop]').length === 15 && /Contraparte/.test($('rpPop').textContent) && /Producto o servicio/.test($('rpPop').textContent) && $('rpPop').querySelectorAll('.rp-pop-tab').length === 2);
+            poner('rpPopQ', 'antig'); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): el buscador de la ventana deja solo las propiedades que casan', [...$('rpPop').querySelectorAll('[data-prop]')].map(b => b.dataset.prop).join() === 'ant' && !$('rpPop').querySelector('.rp-arma').hidden);
+            $('rpPop').querySelector('[data-prop="ant"]').click(); await esperar(() => $('rpEdOpts'), 'editor');
+            $('rpEdOpts').querySelector('input[data-edopt="Más de 365 días"]').click(); await dormir(10);
+            document.querySelector('[data-rp="edaplicar"]').click(); await esperar(() => segs().length === 1, 'segmento 1');
+            R.ok('v1.0.0 (cubeta 2): aplicar el editor crea el segmento — su renglón con el color y la condición «Antigüedad • es uno de • Más de 365 días»; la gráfica compara segmentos y la tabla es por segmento',
+                /Antigüedad • es uno de • Más de 365 días/.test(segs()[0].textContent) && svg().dataset.series === '1' && document.querySelectorAll('#rpKpis').length === 0 && /^1$/.test(document.querySelector('#cobranzaTabla tr.rp-segfila').lastElementChild.textContent) && $('rpPop').hidden);
+            clic('rpFiltro'); await esperar(() => $('rpPopQ'), 'ventana otra vez');
+            poner('rpPopQ', 'facturas de CPL sin REP de más de 180 días'); $('rpPopQ').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await esperar(() => segs().length === 2, 'segmento por frase');
+            R.ok('v1.0.0 (cubeta 2): «armar con frase» (sin IA): «facturas de CPL sin REP de más de 180 días» → Cliente CPL · Sin REP · más de 180 días, y lo dice',
+                /Cliente • es uno de • CPL Servicios Demo/.test(segs()[1].textContent) && /Estado de la evidencia • es uno de • Sin REP/.test(segs()[1].textContent) && /181–365 días o Más de 365 días/.test(segs()[1].textContent) && !!avisoCon('Segmento armado con la frase') && svg().dataset.series === '2', segs()[1].textContent);
+            clic('rpFiltro'); await esperar(() => $('rpPopQ'), 'ventana 3'); poner('rpPopQ', 'hola qué tal'); $('rpPopQ').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await dormir(20);
+            R.ok('v1.0.0 (cubeta 2): una frase que no se entiende lo dice con ejemplos y no agrega nada', /No pude armar un segmento/.test($('rpPop').textContent) && segs().length === 2);
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await dormir(10);
+            document.querySelector('#rpSegmentos [data-rp="join:1"]').click(); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): tocar la Y la cambia a O', document.querySelector('#rpSegmentos [data-rp="join:1"]').textContent === 'O');
+            document.querySelector('#rpSegmentos [data-rp="join:1"]').click(); await dormir(10);
+            for (let i = 0; i < 5; i++) { document.querySelector('#rpSegmentos [data-rp="segdup:0"]').click(); await dormir(5); }
+            document.querySelector('#rpSegmentos [data-rp="segdup:0"]').click(); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): hasta 7 segmentos a la vez (el octavo se niega y lo dice), cada uno con su color', segs().length === 7 && !!avisoCon('Máximo 7 segmentos') && new Set(segs().map(s => s.querySelector('.rp-sq').style.background)).size === 7 && svg().dataset.series === '7');
+            while (segs().length > 2) { segs()[segs().length - 1].querySelector('[data-rp^="segquitar"]').click(); await dormir(5); }
+            $('rpDesglose').click(); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): «Mostrar el desglose por cliente» pone los clientes de cada segmento debajo', document.querySelectorAll('#cobranzaTabla tr.hijo[data-rfc]').length >= 2 && $('rpDesglose').checked);
+            $('rpDesglose').click(); await dormir(10);
+            clic('rpExportar'); await dormir(10);
+            R.ok('v1.0.0 (cubeta 2): con segmentos, el CSV es un renglón por segmento', RP.ultimoCsv.texto.split('\r\n').filter(Boolean).length === 3 && RP.ultimoCsv.texto.startsWith('﻿Segmento,'));
+            // guardar (equipo) → ERP_Vistas
+            const vistas = () => DB.listas.vistas.items;
+            document.querySelector('#rpSegmentos [data-rp="segguardar:0"]').click(); await esperar(() => $('rpGuNombre'), 'guardar segmento');
+            poner('rpGuNombre', 'Más de un año (prueba)'); document.querySelector('#rpPop [data-compartida="true"]').click(); await dormir(5); clic('rpGuGuardar');
+            await esperar(() => vistas().length === 1 && $('rpPop').hidden, 'segmento guardado');
+            const v1 = vistas()[0].fields, d1 = JSON.parse(v1.Definicion || '{}');
+            R.ok('v1.0.0 (cubeta 2): guardar un segmento (EQUIPO) escribe en ERP_Vistas — Title, Dueno, Compartida, Modulo «dinero» y la Definicion JSON',
+                v1.Title === 'Más de un año (prueba)' && v1.Dueno === YO.toLowerCase() && v1.Compartida === true && v1.Modulo === 'dinero' && d1.tipo === 'segmento' && d1.lado === 'cobrar' && d1.moneda === 'USD' && d1.conds[0].p === 'ant', JSON.stringify(v1));
+            const svDinero = () => [...document.querySelectorAll('#panelArbol [data-modulo="dinero"] .panel-guardados .sv')];
+            R.ok('v1.0.0 (cubeta 2): «Guardados» del panel de Dinero lista el segmento (marcado «equipo»)', svDinero().length === 1 && /Más de un año \(prueba\)/.test(svDinero()[0].textContent) && /equipo/.test(svDinero()[0].textContent));
+            while (segs().length) { segs()[0].querySelector('[data-rp^="segquitar"]').click(); await dormir(5); }
+            await irPagina('#finanzas/cobrar/cliente', 'finanzas-cobrar-cliente');
+            svDinero()[0].click(); await esperar(() => pagina() === 'finanzas-cobrar-saldo' && segs().length === 1, 'segmento guardado abierto');
+            R.ok('v1.0.0 (cubeta 2): tocar el guardado lleva a Saldo y lo aplica', /Antigüedad • es uno de • Más de 365 días/.test(segs()[0].textContent) && location.hash === '#finanzas/cobrar/saldo');
+            // guardar el REPORTE (cabecera): página, moneda y rango; abrirlo lo restaura
+            await irPagina('#finanzas/cobrar/antiguedad', 'finanzas-cobrar-antiguedad'); await elegirMoneda('MXN');
+            clic('rpGuardar'); await esperar(() => $('rpGuNombre'), 'guardar reporte'); poner('rpGuNombre', 'Antigüedad en pesos'); clic('rpGuGuardar');
+            await esperar(() => vistas().length === 2, 'reporte guardado');
+            const d2 = JSON.parse(vistas()[1].fields.Definicion);
+            R.ok('v1.0.0 (cubeta 2): el disquete de la cabecera guarda la VISTA (solo yo): ruta, moneda, rango y periodo', d2.tipo === 'reporte' && d2.ruta === '#finanzas/cobrar/antiguedad' && d2.vista.moneda === 'MXN' && vistas()[1].fields.Compartida === false);
+            await irPagina('#finanzas/cobrar/saldo', 'finanzas-cobrar-saldo'); await elegirMoneda('USD');
+            svDinero().find(b => /Antigüedad en pesos/.test(b.textContent)).click(); await esperar(() => pagina() === 'finanzas-cobrar-antiguedad', 'reporte abierto');
+            R.ok('v1.0.0 (cubeta 2): abrir la vista guardada vuelve a esa página y a su moneda', $('rpMoneda').dataset.moneda === 'MXN' && location.hash === '#finanzas/cobrar/antiguedad');
+            // «Segmentos guardados» en la ventana: APLICAR y QUITAR (el propio)
+            await irPagina('#finanzas/cobrar/saldo', 'finanzas-cobrar-saldo'); await elegirMoneda('USD');
+            clic('rpFiltro'); await esperar(() => $('rpPop') && !$('rpPop').hidden, 'ventana'); document.querySelector('#rpPop [data-rp="tab:guardados"]').click(); await esperar(() => $('rpGuardadosLista'), 'pestaña guardados');
+            R.ok('v1.0.0 (cubeta 2): la pestaña «Segmentos guardados» lista los segmentos (no las vistas de reporte) con APLICAR y QUITAR', $('rpGuardadosLista').querySelectorAll('[data-vista]').length === 1 && !!$('rpGuardadosLista').querySelector('[data-aplicar]') && !!$('rpGuardadosLista').querySelector('[data-quitar]'));
+            $('rpGuardadosLista').querySelector('[data-quitar]').click(); await esperar(() => vistas().length === 1, 'segmento quitado');
+            R.ok('v1.0.0 (cubeta 2): QUITAR borra el renglón de ERP_Vistas (DELETE)', DB.llamadas.some(c => /^DELETE \/sites\/sitio-falso\/lists\/lista-vistas\/items\/\d+$/.test(c)) && !vistas().some(x => /Más de un año/.test(x.fields.Title)));
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await dormir(10);
+            // lo que llega de ERP_Vistas se valida (cualquier Miembro puede editar la lista)
+            vistas().push({ id: DB.siguienteId++, fields: { Title: 'Roto', Dueno: YO.toLowerCase(), Compartida: true, Modulo: 'dinero', Definicion: '{no es json' } });
+            vistas().push({ id: DB.siguienteId++, fields: { Title: 'Propiedad rara', Dueno: 'otra@example.invalid', Compartida: true, Modulo: 'dinero', Definicion: JSON.stringify({ tipo: 'segmento', lado: 'cobrar', join: 'Y', conds: [{ p: 'zz', op: 'es uno de', v: ['x'] }] }) } });
+            vistas().push({ id: DB.siguienteId++, fields: { Title: 'Ajena privada', Dueno: 'otra@example.invalid', Compartida: false, Modulo: 'dinero', Definicion: JSON.stringify({ tipo: 'reporte', ruta: '#finanzas/cobrar/saldo', vistaId: 'x', vista: {} }) } });
+            clic('btnLeerCobranza'); await esperar(() => svDinero().some(b => /Propiedad rara/.test(b.textContent)), 'guardados releídos');
+            R.ok('v1.0.0 (cubeta 2): de ERP_Vistas no se pinta una Definicion que no es JSON ni la vista PRIVADA de otra persona; la compartida sí', !svDinero().some(b => /Roto|Ajena/.test(b.textContent)));
+            const nSeg = segs().length;
+            svDinero().find(b => /Propiedad rara/.test(b.textContent)).click(); await dormir(20);
+            R.ok('v1.0.0 (cubeta 2): un segmento guardado con una propiedad desconocida no se aplica y lo dice', segs().length === nSeg && !!avisoCon('propiedad desconocida'));
+            document.querySelector('#avisos .cerrar')?.click();
+            // sin poder leer ERP_Vistas: se guarda en este equipo y lo dice en una nota discreta (ningún error a la vista)
+            DB.fallas.push({ metodo: 'GET', incluye: '/lists/lista-vistas/items', status: 403, veces: 1 });
+            clic('btnLeerCobranza'); await esperar(() => $('guardadosNota'), 'guardados en local');
+            const nPostVistas = DB.llamadas.filter(c => c.startsWith('POST /sites/sitio-falso/lists/lista-vistas')).length;
+            clic('rpGuardar'); await esperar(() => $('rpGuNombre'), 'guardar local'); poner('rpGuNombre', 'Vista local de prueba'); clic('rpGuGuardar'); await esperar(() => $('rpPop').hidden, 'guardada local');
+            let loc = []; try { loc = JSON.parse(localStorage.getItem('erp.vistas.' + YO.toLowerCase()) || '[]'); } catch (_) {}
+            R.ok('v1.0.0 (cubeta 2): si ERP_Vistas no se puede leer, guardar va a localStorage (sin POST) y la nota discreta lo dice',
+                /en este equipo/.test($('guardadosNota').textContent) && loc.some(x => x.titulo === 'Vista local de prueba') && DB.llamadas.filter(c => c.startsWith('POST /sites/sitio-falso/lists/lista-vistas')).length === nPostVistas && !document.querySelector('#avisos .mensaje.error'));
+            try { localStorage.removeItem('erp.vistas.' + YO.toLowerCase()); } catch (_) {}
+            clic('btnLeerCobranza'); await esperar(() => !$('guardadosNota') && $('cobranzaTabla'), 'guardados de vuelta a la lista');
+            while (segs().length) { segs()[0].querySelector('[data-rp^="segquitar"]').click(); await dormir(5); }
+            DB.listas.vistas.items = DB.listas.vistas.items.filter(x => x.fields.Title === 'Antigüedad en pesos');
+            clic('btnLeerCobranza'); await esperar(() => $('cobranzaTabla'), 'cobranza final');   // revisión 2 con historial: la que ven las capturas
         }
         pestana('inicio'); await dormir(30);
     }
@@ -4113,11 +4336,20 @@ try {
             document.querySelector('#avisos .cerrar')?.click();
         }
         if (gerencia) {
-            await irHash('#finanzas/pagar/saldo'); const pp = await esperar(() => document.querySelector('#tabsFinanzas [data-tab="porpagar"][aria-selected="true"]'), 'pestaña Por pagar', 4000).then(() => true, () => false);
-            await irHash('#finanzas/cobrar/saldo'); const cc = await esperar(() => document.querySelector('#tabsFinanzas [data-tab="cobranza"][aria-selected="true"]'), 'pestaña Cobranza', 4000).then(() => true, () => false);
-            R.ok('v1.0.0: #finanzas/pagar/<r> deja Finanzas en «Por pagar» y #finanzas/cobrar/<r> en «Cobranza» (hasta que tengan página propia)', pp && cc);
-            document.querySelector('#tabsFinanzas [data-tab="porpagar"]').click(); await esperar(() => location.hash === '#finanzas/pagar/saldo', 'sufijo de Por pagar', 4000).catch(() => {});
-            R.ok('v1.0.0: elegir «Por pagar» dentro de Finanzas mueve el sufijo (#finanzas/pagar/saldo) y el panel lo resalta', location.hash === '#finanzas/pagar/saldo' && document.querySelector('#panelArbol .panel-modulo:not([hidden]) .ch.on')?.dataset.ir === '#finanzas/pagar/saldo', location.hash);
+            // v1.0.0 (cubeta 2; sustituye a «#finanzas/pagar/<r> deja Finanzas en «Por pagar»… (hasta que tengan página propia)» y a «elegir «Por pagar» dentro de
+            // Finanzas mueve el sufijo»): cada sufijo ES su página, y cada página es una entrada del panel de Dinero que queda resaltada
+            const pag = () => document.querySelector('#finanzasCuerpo .rp-pag')?.dataset.reporte;
+            await irHash('#finanzas/pagar/saldo'); const pp = await esperar(() => pag() === 'finanzas-pagar-saldo' && $('rpTitulo').textContent === 'Por pagar sin pago probado', 'página Por pagar', 4000).then(() => true, () => false);
+            await irHash('#finanzas/cobrar/saldo'); const cc = await esperar(() => pag() === 'finanzas-cobrar-saldo' && $('rpTitulo').textContent === 'Saldo sin pago probado', 'página Por cobrar', 4000).then(() => true, () => false);
+            R.ok('v1.0.0 (cubeta 2): #finanzas/pagar/saldo pinta «Por pagar sin pago probado» y #finanzas/cobrar/saldo «Saldo sin pago probado» (páginas propias)', pp && cc);
+            document.querySelector('#panel [data-ir="#finanzas/pagar/proveedor"]').click(); await esperar(() => pag() === 'finanzas-pagar-proveedor', 'Por proveedor por el panel', 4000).catch(() => {});
+            R.ok('v1.0.0 (cubeta 2): tocar «Por pagar › Por proveedor» en el panel lleva a #finanzas/pagar/proveedor y queda resaltado', location.hash === '#finanzas/pagar/proveedor' && document.querySelector('#panelArbol .panel-modulo:not([hidden]) .ch.on')?.dataset.ir === '#finanzas/pagar/proveedor', location.hash);
+            // las 8 páginas de Dinero, cada una con su título y su entrada del panel (y #capital/mes)
+            const DINERO = [['#finanzas/cobrar/saldo', 'Saldo sin pago probado'], ['#finanzas/cobrar/cliente', 'Saldo por cliente'], ['#finanzas/cobrar/antiguedad', 'Antigüedad de saldos'], ['#finanzas/cobrar/emitido', 'Emitido por mes'],
+                ['#finanzas/cobrar/sin-rep', 'Facturas sin REP'], ['#finanzas/pagar/saldo', 'Por pagar sin pago probado'], ['#finanzas/pagar/proveedor', 'Saldo por proveedor'], ['#finanzas/pagar/antiguedad', 'Antigüedad de lo que debemos']];
+            const malas = [];
+            for (const [h, t] of DINERO) { await irHash(h); const ok = await esperar(() => $('rpTitulo') && $('rpTitulo').textContent === t && !!document.querySelector(`#panel [data-ir="${h}"]`), h, 4000).then(() => true, () => false); if (!ok) malas.push(h); }
+            R.ok('v1.0.0 (cubeta 2): las 8 páginas de Por cobrar (5) y Por pagar (3) abren por su ruta con su título y tienen su entrada en el panel', !malas.length, malas.join());
         }
         // /t/<id> sigue abriendo la ficha sobre cualquier ruta, también las nuevas
         { const t0 = ESTADO.tareas[0];

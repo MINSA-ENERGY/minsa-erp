@@ -21,6 +21,7 @@ import { abrirSubir, puedeLigarEn } from './docs.js';
 import { abrirNuevoGasto, estadoGastos, misRolesErp } from './gastos.js';
 import { estadoServicios } from './servicios.js';
 import { mensajesNuevos } from './vistas.js';
+import { guardadosDe, puedeAbrir, abrirGuardado, iconoDe, estadoGuardados } from './guardados.js';   // v1.0.0 (cubeta 2): «Guardados» del panel
 
 // app.js pasa su navegacion: irARuta(hash) escribe el hash y aplica la ruta (sincrono, sin popstate: no cierra dialogos ajenos);
 // irA(pantalla) va a una pantalla sin sufijo; abrirProyecto(id) abre el frente en su Tablero.
@@ -143,7 +144,7 @@ function contador(id, n, cls, texto) {
 }
 function pintarArbol() {
     const caja = $('panelArbol'); const hash = hashDe();   // lo que dice el ESTADO: irA repinta antes de escribir el hash nuevo
-    conservarFoco(caja, ['ir', 'grupo', 'accion'], () => {
+    conservarFoco(caja, ['ir', 'grupo', 'accion', 'vista'], () => {
         caja.textContent = '';
         for (const m of [...MODULOS.map(x => x.clave), 'cuenta']) {
             const div = el('div', 'panel-modulo'); div.dataset.modulo = m; div.hidden = m !== moduloActual();
@@ -169,12 +170,28 @@ function pintarArbol() {
             }
             div.appendChild(el('div', 'gsep'));
             const gh = el('div', 'gh'); gh.appendChild(el('span', '', 'Guardados')); div.appendChild(gh);
-            div.appendChild(el('p', 'panel-vacio', 'Aquí quedarán las vistas que guardes.'));
+            div.appendChild(pintarGuardados(m));
             caja.appendChild(div);
         }
         filtrarPanel();
     });
     $('panelTitulo').textContent = NOMBRE_MODULO[moduloActual()];
+}
+/** v1.0.0 (cubeta 2): «Guardados» al pie del panel — las vistas y segmentos de ERP_Vistas (o de este equipo) del módulo que la persona puede
+ *  abrir; tocar una la abre (guardados.js abrirGuardado). Sin nada guardado, el texto de siempre. */
+function pintarGuardados(m) {
+    const caja = el('div', 'grupo-panel panel-guardados'); caja.dataset.grupo = 'guardados'; caja.dataset.modulo = m;
+    const xs = guardadosDe(m).filter(puedeAbrir), g = estadoGuardados();
+    if (!xs.length) { caja.appendChild(el('p', 'panel-vacio', 'Aquí quedarán las vistas que guardes.')); return caja; }
+    for (const v of xs) {
+        const b = el('button', 'sv'); b.type = 'button'; b.dataset.vista = String(v.id); b.title = v.compartida ? `${v.titulo} · la ve el equipo` : v.titulo;
+        b.appendChild(iconoSvg(TRAZOS[iconoDe(v)] || [], 'em')); b.appendChild(el('span', 'tx', v.titulo));
+        if (v.compartida) b.appendChild(el('span', 'n', 'equipo'));
+        b.addEventListener('click', () => { cerrarHoja(); abrirGuardado(v); });
+        caja.appendChild(b);
+    }
+    if (g.modo === 'local') { const p = el('p', 'panel-vacio panel-nota', 'Guardados en este equipo.'); p.title = g.nota; caja.appendChild(p); }
+    return caja;
 }
 function botonIcono(icono, titulo, alClic, datos = {}) {
     const b = boton('', 'gh-btn', alClic, datos); b.title = titulo; b.setAttribute('aria-label', titulo); b.appendChild(iconoSvg(TRAZOS[icono])); return b;
@@ -199,9 +216,9 @@ function filtrarPanel() {
     const q = sinAcentos($('panelBusca').value.trim());
     for (const g of document.querySelectorAll('#panelArbol .grupo-panel')) {
         let alguna = false;
-        for (const c of g.querySelectorAll('.ch')) { const si = !q || sinAcentos(c.textContent).includes(q); c.classList.toggle('no-casa', !si); if (si) alguna = true; }
-        g.classList.toggle('no-casa', !!q && !alguna);
-        const hijos = g.querySelector('.fo-hijos'); if (q) hijos.dataset.busca = '1'; else delete hijos.dataset.busca;
+        for (const c of g.querySelectorAll('.ch, .sv')) { const si = !q || sinAcentos(c.textContent).includes(q); c.classList.toggle('no-casa', !si); if (si) alguna = true; }
+        g.classList.toggle('no-casa', !!q && !alguna && !g.classList.contains('panel-guardados'));
+        const hijos = g.querySelector('.fo-hijos'); if (hijos) { if (q) hijos.dataset.busca = '1'; else delete hijos.dataset.busca; }
     }
 }
 

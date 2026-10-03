@@ -21,7 +21,8 @@ import { pintarGastos, engancharGastos, alCambiarGastos, recargarGastosSiLeidos 
 import { pintarDocs, engancharDocs, alCambiarDocs, abrirLigar, abrirEnlace, puedeLigarEn } from './docs.js';
 import { pintarChat, engancharChat, alCambiarChat, fijarAbrirTarjeta, salirDelChat } from './chat.js';
 import { pintarCapital, pintarCapitalProyecto, pintarCapitalTab, puedeVerCapital, engancharCapital, alCambiarCapital, fijarIrAProyecto } from './capital.js';
-import { pintarFinanzas, alCambiarCobranza, fijarIrDesdeFinanzas, estadoCobranza } from './cobranza.js';   // v0.165.0: Finanzas > Cobranza (solo gerencia)
+import { pintarFinanzas, alCambiarCobranza, fijarIrDesdeFinanzas } from './cobranza.js';   // v0.165.0: Finanzas > Cobranza (solo gerencia); v1.0.0: Dinero › Por cobrar / Por pagar
+import { fijarNavGuardados } from './guardados.js';   // v1.0.0 (cubeta 2): «Guardados» (ERP_Vistas o este equipo)
 import { pintarArmazon, engancharArmazon, fijarNavArmazon, pintarCuenta, cerrarHoja } from './armazon.js';   // v1.0.0: rail, panel, cabecera, Cuenta (rediseño 2026-10-02)
 import { leerRuta, puedeVerPantalla } from './reglas.js';
 import { pintarVigencias, alCambiarVigencias } from './vigencias.js';   // v0.166.0: Vigencias (solo gerencia)
@@ -327,8 +328,7 @@ function irA(p, sub = null) {
     const sinEquipo = negado && (p === 'servicios' || p === 'compras');   // v0.168.0/v0.169.0: Servicios y Compras son de gerencia y colaborador
     if (negado) { p = 'inicio'; sub = null; }   // v0.100.0: Capital es solo de gerencia (una liga pegada tampoco entra); v0.165.0: Finanzas tambien
     estado.pestana = p; estado.sub = sub;
-    // v1.0.0: #finanzas/cobrar/<r> y #finanzas/pagar/<r> eligen la pestaña de Finanzas (Cobranza o Por pagar) hasta que tengan página propia (cubeta 2)
-    if (p === 'finanzas' && sub) estadoCobranza().tab = sub.startsWith('pagar') ? 'porpagar' : 'cobranza';
+    // v1.0.0 (cubeta 2): #finanzas/cobrar/<r> y #finanzas/pagar/<r> son páginas propias (cobranza.js paginaDe lee estado.sub); #capital/mes también
     cerrarHoja();   // v1.0.0: navegar cierra la hoja del celular
     // U-03 (v0.90.0): el filtro que fija Inicio («ver en Mis tareas» de las vencidas) dura UNA visita: al entrar a #mis por la pestaña
     // o por un hash sin origen se vuelve a «abiertas». Lo que se elige con los contadores dentro de la pantalla no pasa por aqui.
@@ -346,7 +346,7 @@ function irA(p, sub = null) {
     if (p === 'calendario') enfocarCal();   // U-02 (v0.86.0): al ENTRAR, la agenda del celular aterriza en hoy (no en repintar(): ese corre en cada refresco y moveria la pantalla)
 }
 /** v1.0.0: el sufijo que apunta a una tarjeta de la pantalla de hoy la trae a la vista (el reporte de Reportes, «Por mes» de Capital, Equipo de Cuenta). */
-const TARJETA_DE_SUB = { reportes: { avance: 'repGlobal', carga: 'repPersonas', semanas: 'repSemanas', actividad: 'repActividad', vencidas: 'repVencidas' }, capital: { mes: 'capitalMeses' }, cuenta: { equipo: 'cuentaEquipo' } };
+const TARJETA_DE_SUB = { reportes: { avance: 'repGlobal', carga: 'repPersonas', semanas: 'repSemanas', actividad: 'repActividad', vencidas: 'repVencidas' }, cuenta: { equipo: 'cuentaEquipo' } };   // v1.0.0 (cubeta 2): #capital/mes ya es página (capital.js), no una tarjeta a la que bajar
 function enfocarSub(p, sub) {
     const id = sub && TARJETA_DE_SUB[p] && TARJETA_DE_SUB[p][sub]; const x = id && $(id); if (!x) return;
     const t = x.closest('.mn-card, section') || x; if (t.scrollIntoView) t.scrollIntoView({ block: 'start' });
@@ -1506,12 +1506,10 @@ engancharDocs();
 engancharChat();
 engancharMensajes();   // v0.42.0
 engancharGastos(); alCambiarGastos(repintar);   // v0.162.0
-// v1.0.0: la pestaña Cobranza | Por pagar elegida DENTRO de Finanzas mueve el sufijo de la ruta (#finanzas/cobrar/… ↔ #finanzas/pagar/…), para que
-// el panel y los chips resalten lo que se ve y una liga copiada abra lo mismo. Sin sufijo (#finanzas a secas) se queda como está.
-alCambiarCobranza(() => {
-    if (estado.pestana === 'finanzas' && estado.sub) { const lado = estadoCobranza().tab === 'porpagar' ? 'pagar' : 'cobrar'; if (!estado.sub.startsWith(lado)) { estado.sub = lado + '/saldo'; fijarHash(hashDe(tarjetaAbiertaId())); } }
-    repintar();
-}); fijarIrDesdeFinanzas(irA);   // v0.165.0
+// v1.0.0 (cubeta 2): Por cobrar y Por pagar ya no son pestañas de Finanzas sino páginas con ruta propia (#finanzas/cobrar|pagar/<r>): la
+// página la dice el sufijo (estado.sub) y cobranza.js solo repinta. Abrir una vista guardada navega con irA (guardados.js).
+alCambiarCobranza(repintar); fijarIrDesdeFinanzas(irA);   // v0.165.0
+fijarNavGuardados(irA);
 alCambiarVigencias(repintar);   // v0.166.0
 alCambiarServicios(repintar);   // v0.168.0
 alCambiarCompras(repintar);   // v0.169.0
